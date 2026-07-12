@@ -1,13 +1,15 @@
 from datetime import date as date_cls
 from datetime import datetime, timezone
 from typing import Any, get_args
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from app.config import Settings, get_settings
 from app.models.schemas import (
     AlbumDetailResponse,
+    AlbumPhotoUrlResponse,
+    AlbumPhotoUrlsResponse,
     AlbumUploadResponse,
     MeetingType,
     NarrativeUpdate,
@@ -22,16 +24,20 @@ from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.supabase import (
     create_album_id,
     delete_album_record,
+    delete_storage_paths,
     ensure_default_family,
     get_album_record,
+    get_album_photo_records,
     get_public_url,
+    get_signed_url,
     get_supabase_client,
     save_album_record,
+    save_album_photo_records,
     update_album_narrative,
-    upload_photo,
+    upload_album_photo_assets,
     upload_result_image,
-    validate_image,
 )
+from app.services.image_upload_service import process_upload
 from app.services.auth import require_authenticated_user
 
 router = APIRouter(prefix="/api", tags=["album"])
@@ -83,56 +89,88 @@ async def upload_album(
     family_id = ensure_default_family(client, authenticated_user_id)
     album_id = create_album_id()
 
+    processed_photos = [process_upload(photo, settings) for photo in photos]
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
-    photo_paths: list[str] = []
-    ordered_bytes: list[bytes] = []
+    uploaded_private_paths: list[str] = []
+    result_path = ""
+    album_saved = False
 
-    for index, photo in enumerate(photos):
-        content = validate_image(photo, settings)
-        content_type = photo.content_type or "image/jpeg"
-        path = upload_photo(client, album_id, index, content, content_type, settings)
-        photo_paths.append(path)
-        items_by_order[index]["_path"] = path
-        ordered_bytes.append(content)
+    try:
+        photo_records: list[dict[str, Any]] = []
+        photo_paths: list[str] = []
+        ordered_bytes: list[bytes] = []
+        for index, processed in enumerate(processed_photos):
+            photo_id = str(uuid4())
+            original_path, thumbnail_path = upload_album_photo_assets(
+                client, family_id, album_id, photo_id, processed, settings
+            )
+            uploaded_private_paths.extend([original_path, thumbnail_path])
+            photo_paths.append(original_path)
+            items_by_order[index]["_path"] = original_path
+            ordered_bytes.append(processed.display_bytes)
+            photo_records.append(
+                {
+                    "id": photo_id,
+                    "album_id": album_id,
+                    "storage_bucket": settings.supabase_private_storage_bucket,
+                    "storage_path": original_path,
+                    "thumbnail_bucket": settings.supabase_private_storage_bucket,
+                    "thumbnail_path": thumbnail_path,
+                    "original_filename": photos[index].filename,
+                    "mime_type": processed.original_mime_type,
+                    "byte_size": len(processed.original_bytes),
+                    "checksum_sha256": processed.checksum_sha256,
+                    "sort_order": index,
+                    "caption": items_by_order[index]["text"],
+                    "contributor_profile_id": authenticated_user_id,
+                    "legacy_author_label": items_by_order[index]["user"] or None,
+                    "status": "ready",
+                }
+            )
 
-    ordered_stories = [items_by_order[i] for i in range(len(photos))]
+        ordered_stories = [items_by_order[i] for i in range(len(photos))]
+        narrative = await generate_narrative(story_items, meeting_type, title, settings)
+        album_img = generate_album(
+            template,
+            photos=bytes_to_images(ordered_bytes),
+            stories=ordered_stories,
+            title=title,
+            date=event_date,
+            narrative=None,
+        )
+        result_path = upload_result_image(client, album_id, image_to_png_bytes(album_img), settings)
+        photo_meta = [
+            {"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"]}
+            for item in ordered_stories
+        ]
+        save_album_record(
+            client,
+            album_id=album_id,
+            owner_id=authenticated_user_id,
+            family_id=family_id,
+            meeting_type=meeting_type,
+            template=template,
+            title=title,
+            event_date=event_date,
+            narrative=narrative,
+            photo_paths=photo_paths,
+            photo_meta=photo_meta,
+            result_path=result_path,
+        )
+        album_saved = True
+        save_album_photo_records(client, photo_records)
+    except Exception:
+        if album_saved:
+            try:
+                delete_album_record(client, album_id)
+            except Exception:
+                pass
+        delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_private_paths)
+        if result_path:
+            delete_storage_paths(client, settings.supabase_storage_bucket, [result_path])
+        raise
 
-    narrative = await generate_narrative(story_items, meeting_type, title, settings)
-
-    images = bytes_to_images(ordered_bytes)
-    # 내러티브("우리의 이야기")는 그리드에 굽지 않고 별도 반환한다.
-    # 프론트에서 사용자가 편집 후 저장 시 이미지에 합성한다.
-    album_img = generate_album(
-        template,
-        photos=images,
-        stories=ordered_stories,
-        title=title,
-        date=event_date,
-        narrative=None,
-    )
-    result_bytes = image_to_png_bytes(album_img)
-    result_path = upload_result_image(client, album_id, result_bytes, settings)
     image_url = get_public_url(client, result_path, settings)
-
-    photo_meta = [
-        {"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"]}
-        for item in ordered_stories
-    ]
-
-    save_album_record(
-        client,
-        album_id=album_id,
-        owner_id=authenticated_user_id,
-        family_id=family_id,
-        meeting_type=meeting_type,
-        template=template,
-        title=title,
-        event_date=event_date,
-        narrative=narrative,
-        photo_paths=photo_paths,
-        photo_meta=photo_meta,
-        result_path=result_path,
-    )
 
     share_url = f"{settings.frontend_base_url.rstrip('/')}/album/{album_id}"
 
@@ -147,6 +185,36 @@ async def upload_album(
         share_url=share_url,
         created_at=datetime.now(timezone.utc),
     )
+
+
+@router.get("/albums/{album_id}/photos", response_model=AlbumPhotoUrlsResponse)
+async def get_album_photo_urls(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumPhotoUrlsResponse:
+    """Issue short-lived private asset URLs only to the album owner."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    if str(record.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to view original photos.")
+
+    photo_urls = [
+        AlbumPhotoUrlResponse(
+            id=UUID(str(photo["id"])),
+            sort_order=int(photo["sort_order"]),
+            original_url=get_signed_url(
+                client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
+            ),
+            thumbnail_url=get_signed_url(
+                client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
+            ),
+        )
+        for photo in get_album_photo_records(client, album_id)
+    ]
+    return AlbumPhotoUrlsResponse(photos=photo_urls)
 
 
 def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -> AlbumDetailResponse:

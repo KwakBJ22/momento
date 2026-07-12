@@ -10,7 +10,7 @@ import type {
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 10;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 
 const MEETING_TYPES: { value: MeetingType; label: string; emoji: string }[] = [
   { value: "family", label: "가족", emoji: "👨‍👩‍👧‍👦" },
@@ -59,7 +59,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
   const addFiles = useCallback((files: FileList | File[]) => {
     const incoming = Array.from(files).filter((f) => ALLOWED_TYPES.includes(f.type));
     if (incoming.length === 0) {
-      setError("JPEG, PNG, WEBP 형식의 사진만 올릴 수 있어요.");
+      setError("JPG, PNG, WEBP, GIF, HEIC 형식의 사진만 올릴 수 있어요.");
       return;
     }
     setPhotos((prev) => {
@@ -245,7 +245,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
           }}
         >
           <p className="drop-zone__title">여기로 사진을 끌어다 놓아도 돼요</p>
-          <p className="drop-zone__hint">최대 {MAX_PHOTOS}장 · JPEG, PNG, WEBP</p>
+          <p className="drop-zone__hint">최대 {MAX_PHOTOS}장 · JPG, PNG, WEBP, GIF, HEIC</p>
         </div>
 
         <input

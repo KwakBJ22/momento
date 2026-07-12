@@ -2,10 +2,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
 from supabase import Client, create_client
 
 from app.config import Settings, get_settings
+from app.services.image_upload_service import ProcessedPhoto
 
 
 def get_supabase_client(settings: Settings | None = None) -> Client:
@@ -13,45 +14,43 @@ def get_supabase_client(settings: Settings | None = None) -> Client:
     return create_client(settings.supabase_url, settings.supabase_service_role_key)
 
 
-def validate_image(file: UploadFile, settings: Settings) -> bytes:
-    if file.content_type not in settings.allowed_image_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"지원하지 않는 이미지 형식입니다: {file.content_type}. JPEG, PNG, WEBP만 가능합니다.",
-        )
-
-    content = file.file.read()
-    max_bytes = settings.max_file_size_mb * 1024 * 1024
-    if len(content) > max_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"이미지 크기는 {settings.max_file_size_mb}MB 이하여야 합니다.",
-        )
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="빈 이미지 파일입니다.")
-
-    return content
-
-
-def upload_photo(
+def upload_album_photo_assets(
     client: Client,
+    family_id: str,
     album_id: str,
-    order: int,
-    content: bytes,
-    content_type: str,
+    photo_id: str,
+    photo: ProcessedPhoto,
     settings: Settings,
-) -> str:
-    ext = content_type.split("/")[-1]
-    if ext == "jpeg":
-        ext = "jpg"
-    path = f"{album_id}/photos/{order:02d}.{ext}"
+) -> tuple[str, str]:
+    base_path = f"families/{family_id}/albums/{album_id}/photos/{photo_id}"
+    original_path = f"{base_path}/original.{photo.original_extension}"
+    thumbnail_path = f"{base_path}/derived/thumbnail.webp"
+    bucket = client.storage.from_(settings.supabase_private_storage_bucket)
+    try:
+        bucket.upload(
+            original_path,
+            photo.original_bytes,
+            file_options={"content-type": photo.original_mime_type, "upsert": "false"},
+        )
+        bucket.upload(
+            thumbnail_path,
+            photo.thumbnail_bytes,
+            file_options={"content-type": "image/webp", "upsert": "false"},
+        )
+    except Exception:
+        delete_storage_paths(client, settings.supabase_private_storage_bucket, [original_path, thumbnail_path])
+        raise
+    return original_path, thumbnail_path
 
-    client.storage.from_(settings.supabase_storage_bucket).upload(
-        path,
-        content,
-        file_options={"content-type": content_type, "upsert": "true"},
-    )
-    return path
+
+def delete_storage_paths(client: Client, bucket_name: str, paths: list[str]) -> None:
+    if not paths:
+        return
+    try:
+        client.storage.from_(bucket_name).remove(paths)
+    except Exception:
+        # Rollback is best-effort: preserve the original upload exception.
+        pass
 
 
 def upload_result_image(
@@ -108,6 +107,11 @@ def save_album_record(
     return record
 
 
+def save_album_photo_records(client: Client, records: list[dict[str, Any]]) -> None:
+    if records:
+        client.table("album_photos").insert(records).execute()
+
+
 def ensure_default_family(client: Client, user_id: str) -> str:
     """Return the user's provisioned default family through a server-only RPC."""
     result = client.rpc("ensure_default_family", {"target_profile_id": user_id}).execute()
@@ -135,6 +139,26 @@ def update_album_narrative(client: Client, album_id: str, narrative: str) -> dic
     )
     data = result.data or []
     return data[0] if data else None
+
+
+def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any]]:
+    result = (
+        client.table("album_photos")
+        .select("id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order")
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .eq("status", "ready")
+        .order("sort_order")
+        .execute()
+    )
+    return result.data or []
+
+
+def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int) -> str:
+    response = client.storage.from_(bucket_name).create_signed_url(path, expires_in)
+    if isinstance(response, dict):
+        return str(response.get("signedURL") or response.get("signedUrl") or "")
+    return str(response)
 
 
 def delete_album_record(client: Client, album_id: str) -> None:

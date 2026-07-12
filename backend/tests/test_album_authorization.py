@@ -92,6 +92,13 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_non_owner_cannot_get_private_photo_urls(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/photos")
+
+        self.assertEqual(response.status_code, 403)
+
     def test_unauthenticated_update_is_rejected(self) -> None:
         response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
 

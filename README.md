@@ -69,6 +69,12 @@ http://localhost:5173
 - Supabase Dashboard → Authentication → URL Configuration의 Redirect URLs에 로컬 주소와 배포 주소(예: `http://localhost:5173`, `https://momento-ashen-rho.vercel.app`)를 등록한다.
 - DB migration 적용 후 새 로그인 사용자는 `profiles`, 기본 `families`, `family_members(owner)`가 자동으로 생성된다.
 
+### Private Storage
+
+- `20260712180000_private_storage_album_photos.sql` 적용 후 새 원본과 썸네일은 private `momento-private` 버킷에 저장된다.
+- `momento-private`에는 브라우저 직접 접근 정책을 추가하지 않는다. 원본/썸네일은 인증된 소유자에게 백엔드가 짧은 만료 signed URL로만 제공한다.
+- 기존 public `albums` 버킷은 기존 공유 앨범 결과 이미지 호환을 위해 유지한다.
+
 ### Railway 백엔드 배포
 
 1. [Railway](https://railway.app)에서 New Project → Deploy from GitHub (또는 CLI)

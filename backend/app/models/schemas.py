@@ -58,3 +58,14 @@ class NarrativeUpdate(BaseModel):
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID
+
+
+class AlbumPhotoUrlResponse(BaseModel):
+    id: UUID
+    sort_order: int
+    original_url: str
+    thumbnail_url: str
+
+
+class AlbumPhotoUrlsResponse(BaseModel):
+    photos: list[AlbumPhotoUrlResponse]
