@@ -22,6 +22,7 @@ from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.supabase import (
     create_album_id,
     delete_album_record,
+    ensure_default_family,
     get_album_record,
     get_public_url,
     get_supabase_client,
@@ -79,6 +80,7 @@ async def upload_album(
             raise HTTPException(status_code=400, detail="모든 사진에 설명을 입력해주세요.")
 
     client = get_supabase_client(settings)
+    family_id = ensure_default_family(client, authenticated_user_id)
     album_id = create_album_id()
 
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
@@ -121,6 +123,7 @@ async def upload_album(
         client,
         album_id=album_id,
         owner_id=authenticated_user_id,
+        family_id=family_id,
         meeting_type=meeting_type,
         template=template,
         title=title,

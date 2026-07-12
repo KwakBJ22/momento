@@ -37,6 +37,31 @@ body {
   color: #8a7a6e;
 }
 
+.app__logout {
+  margin-top: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: #8a7a6e;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-panel {
+  padding: 1.5rem;
+  border: 1px solid #eadfd6;
+  border-radius: 16px;
+  background: #fffdfa;
+}
+
+.auth-panel h2 {
+  margin-top: 0;
+}
+
+.auth-panel__notice {
+  color: #8a7a6e;
+  text-align: center;
+}
+
 .app__main {
   width: 100%;
 }

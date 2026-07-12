@@ -1,4 +1,5 @@
 import type { AlbumResult } from "../types";
+import { getAccessToken } from "./supabase";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -15,6 +16,13 @@ export function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase();
 
+export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = await getAccessToken();
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
+
 async function parseError(response: Response): Promise<string> {
   const body = await response.json().catch(() => null);
   const detail = body?.detail;
@@ -30,7 +38,7 @@ export async function getAlbum(albumId: string): Promise<AlbumResult> {
 }
 
 export async function patchNarrative(albumId: string, narrative: string): Promise<AlbumResult> {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}`, {
+  const response = await authenticatedFetch(`/api/albums/${albumId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ narrative }),

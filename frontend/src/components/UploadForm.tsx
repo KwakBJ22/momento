@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { authenticatedFetch } from "../lib/api";
 import type {
   AlbumResult,
   MeetingType,
@@ -120,7 +120,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       formData.append("title", title.trim() || "우리의 모임");
       formData.append("date", date);
 
-      const response = await fetch(`${API_BASE}/api/upload-album`, {
+      const response = await authenticatedFetch("/api/upload-album", {
         method: "POST",
         body: formData,
       });

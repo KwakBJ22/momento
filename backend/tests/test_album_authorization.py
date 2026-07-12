@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.album import router
+from app.api.auth import router as auth_router
 from app.services.auth import require_authenticated_user
 
 
@@ -33,6 +34,7 @@ class AlbumAuthorizationTests(TestCase):
     def setUp(self) -> None:
         self.app = FastAPI()
         self.app.include_router(router)
+        self.app.include_router(auth_router)
         self.client = TestClient(self.app)
         self.settings = SimpleNamespace(frontend_base_url="https://momento.example")
 
@@ -95,6 +97,11 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_unauthenticated_album_creation_is_rejected(self) -> None:
+        response = self.client.post("/api/upload-album")
+
+        self.assertEqual(response.status_code, 401)
+
     def test_missing_album_cannot_be_updated_or_deleted(self) -> None:
         self.as_user(OWNER_ID)
         with patch("app.api.album.get_album_record", return_value=None):
@@ -113,3 +120,14 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
+
+    def test_bootstrap_provisions_the_verified_session_user(self) -> None:
+        self.as_user(OWNER_ID)
+        with patch("app.api.auth.get_supabase_client", return_value=object()) as get_client, patch(
+            "app.api.auth.ensure_default_family", return_value=ALBUM_ID
+        ) as ensure_family:
+            response = self.client.post("/api/auth/bootstrap")
+
+        self.assertEqual(response.status_code, 200)
+        ensure_family.assert_called_once_with(get_client.return_value, OWNER_ID)
+        self.assertEqual(response.json()["profile_id"], OWNER_ID)

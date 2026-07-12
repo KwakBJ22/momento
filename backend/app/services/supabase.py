@@ -77,6 +77,7 @@ def save_album_record(
     client: Client,
     album_id: str,
     owner_id: str,
+    family_id: str,
     meeting_type: str,
     template: str,
     title: str,
@@ -92,6 +93,7 @@ def save_album_record(
         # Phase-1 migration backfills profiles for Auth users. Keep owner_id as
         # the legacy authorization source while dual-writing the new creator FK.
         "created_by": owner_id,
+        "family_id": family_id,
         "meeting_type": meeting_type,
         "template": template,
         "title": title,
@@ -104,6 +106,14 @@ def save_album_record(
     }
     client.table("albums").insert(record).execute()
     return record
+
+
+def ensure_default_family(client: Client, user_id: str) -> str:
+    """Return the user's provisioned default family through a server-only RPC."""
+    result = client.rpc("ensure_default_family", {"target_profile_id": user_id}).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Could not provision a family for this user.")
+    return str(result.data)
 
 
 def create_album_id() -> str:

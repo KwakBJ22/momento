@@ -53,3 +53,8 @@ class AlbumDetailResponse(BaseModel):
 
 class NarrativeUpdate(BaseModel):
     narrative: str = Field(min_length=1, max_length=800)
+
+
+class AuthBootstrapResponse(BaseModel):
+    profile_id: UUID
+    family_id: UUID

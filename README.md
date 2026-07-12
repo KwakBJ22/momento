@@ -48,6 +48,8 @@ http://localhost:5173
 | 위치 | 변수 | 값 (예시) |
 |------|------|-----------|
 | **frontend `.env`** (로컬) | `VITE_API_BASE_URL` | `http://localhost:8000` |
+| **frontend `.env`** (로컬/배포) | `VITE_SUPABASE_URL` | Supabase Project URL |
+| **frontend `.env`** (로컬/배포) | `VITE_SUPABASE_ANON_KEY` | Supabase anon publishable key |
 | **frontend `.env`** (로컬) | `VITE_KAKAO_JS_KEY` | 카카오 JS 키 |
 | **Vercel** (프로덕션) | `MOMENTO_API_URL` | `https://xxx.up.railway.app` |
 | **Vercel** (프로덕션) | `VITE_KAKAO_JS_KEY` | 카카오 JS 키 |
@@ -60,6 +62,12 @@ http://localhost:5173
 - **Vercel 프로덕션**: `VITE_API_BASE_URL` 비움 → 같은 origin `/api/*` → Vercel 서버리스 프록시 → `MOMENTO_API_URL`
 
 공유 링크 `https://momento-ashen-rho.vercel.app/album/{id}` 가 동작하려면 **Vercel에 `MOMENTO_API_URL`이 Railway 백엔드 URL로 설정**되어 있어야 합니다.
+
+### Supabase Auth
+
+- 프런트는 이메일 매직링크 로그인에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`가 필요하다. 예시는 `frontend/.env.example`을 참고한다.
+- Supabase Dashboard → Authentication → URL Configuration의 Redirect URLs에 로컬 주소와 배포 주소(예: `http://localhost:5173`, `https://momento-ashen-rho.vercel.app`)를 등록한다.
+- DB migration 적용 후 새 로그인 사용자는 `profiles`, 기본 `families`, `family_members(owner)`가 자동으로 생성된다.
 
 ### Railway 백엔드 배포
 
