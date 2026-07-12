@@ -7,10 +7,11 @@ import AlbumView from "./components/AlbumView";
 import FamilyManagement from "./components/FamilyManagement";
 import InviteAccept from "./components/InviteAccept";
 import QuestionFlow from "./components/QuestionFlow";
+import PublicShareView from "./components/PublicShareView";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import type { AlbumResult } from "./types";
-import { authenticatedFetch } from "./lib/api";
+import { authenticatedFetch, claimGuestMemory } from "./lib/api";
 import { isSupabaseAuthConfigured, supabase } from "./lib/supabase";
 import "./App.css";
 
@@ -29,6 +30,11 @@ function getQuestionsAlbumIdFromPath(): string | null {
   return match ? match[1] : null;
 }
 
+function getShareTokenFromPath(): string | null {
+  const match = window.location.pathname.match(/^\/s\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function isFamilyPage(): boolean {
   return window.location.pathname === "/family";
 }
@@ -42,6 +48,7 @@ function App() {
   const sharedAlbumId = getAlbumIdFromPath();
   const questionsAlbumId = getQuestionsAlbumIdFromPath();
   const inviteToken = getInviteTokenFromPath();
+  const shareToken = getShareTokenFromPath();
   const familyPage = isFamilyPage();
 
   useEffect(() => {
@@ -70,6 +77,12 @@ function App() {
     };
   }, [session?.access_token]);
 
+  useEffect(() => {
+    const claimToken = localStorage.getItem("momento-guest-memory-claim");
+    if (!session || !claimToken) return;
+    void claimGuestMemory(claimToken).then(() => localStorage.removeItem("momento-guest-memory-claim")).catch(() => undefined);
+  }, [session?.access_token]);
+
   const logout = async () => {
     await supabase?.auth.signOut();
     setResult(null);
@@ -96,7 +109,9 @@ function App() {
       </header>
 
       <main className="app__main">
-        {sharedAlbumId ? (
+        {shareToken ? (
+          <PublicShareView token={shareToken} />
+        ) : sharedAlbumId ? (
           <AlbumView albumId={sharedAlbumId} />
         ) : questionsAlbumId ? (
           session === undefined ? (

@@ -69,6 +69,55 @@ class StoryRegenerateResponse(BaseModel):
     narrative: str
 
 
+class ShareLinkCreateRequest(BaseModel):
+    expires_at: datetime | None = None
+
+
+class ShareLinkResponse(BaseModel):
+    id: UUID
+    status: str
+    expires_at: datetime | None
+    view_count: int
+    created_at: datetime
+    deactivated_at: datetime | None = None
+    share_url: str | None = None
+
+
+class PublicMediaItem(BaseModel):
+    media_type: str
+    mime_type: str
+    processing_status: str
+    original_filename: str | None = None
+
+
+class PublicShareAlbumResponse(BaseModel):
+    title: str
+    narrative: str
+    image_url: str
+    media: list[PublicMediaItem]
+    og_title: str
+    og_description: str
+
+
+class GuestMemoryRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    memory: str = Field(min_length=1, max_length=300)
+    website: str = Field(default="", max_length=200)
+
+
+class GuestMemoryResponse(BaseModel):
+    claim_token: str
+
+
+class GuestMemoryClaimRequest(BaseModel):
+    claim_token: str = Field(min_length=20, max_length=200)
+
+
+class ShareReactionRequest(BaseModel):
+    reaction: Literal["remember", "warm", "smile"]
+    session_key: str = Field(min_length=16, max_length=200)
+
+
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID

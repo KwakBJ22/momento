@@ -53,6 +53,34 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
   return (await response.json()) as { narrative: string };
 }
 
+export async function getPublicShare(token: string): Promise<import("../types").PublicShareAlbum> {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}`);
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as import("../types").PublicShareAlbum;
+}
+
+export async function submitGuestMemory(token: string, body: { name: string; memory: string; website: string }): Promise<{ claim_token: string }> {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/guest-memories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { claim_token: string };
+}
+
+export async function submitShareReaction(token: string, reaction: string, sessionKey: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reaction, session_key: sessionKey }) });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function claimGuestMemory(claimToken: string): Promise<void> {
+  const response = await authenticatedFetch("/api/guest-memories/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ claim_token: claimToken }) });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function createAlbumShareLink(albumId: string, expiresAt?: string): Promise<{ share_url: string }> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null }) });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { share_url: string };
+}
+
 export async function getMyFamily(): Promise<import("../types").FamilySummary> {
   const response = await authenticatedFetch("/api/families/me");
   if (!response.ok) throw new Error(await parseError(response));

@@ -108,6 +108,24 @@
   color: #8a7a6e;
 }
 
+.public-share__memory {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.public-share__secondary-actions,
+.public-share__reactions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.public-share__honeypot { position: absolute; left: -10000px; }
+
 .album-result__notice {
   margin: 0;
   padding: 0.7rem 0.9rem;

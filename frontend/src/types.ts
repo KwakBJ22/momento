@@ -100,6 +100,15 @@ export interface AlbumMediaSummary {
   metadata: Record<string, unknown>;
 }
 
+export interface PublicShareAlbum {
+  title: string;
+  narrative: string;
+  image_url: string;
+  media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
+  og_title: string;
+  og_description: string;
+}
+
 /** Additive columns on public.albums; omitted by the current legacy API DTO. */
 export interface AlbumOwnershipFields {
   family_id: string | null;

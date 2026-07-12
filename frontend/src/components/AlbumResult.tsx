@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { patchNarrative } from "../lib/api";
+import { createAlbumShareLink, patchNarrative } from "../lib/api";
 import { composeAlbumWithStory, triggerDownload } from "../lib/composeAlbum";
 import type { AlbumResult } from "../types";
 import "./AlbumResult.css";
@@ -65,7 +65,8 @@ export default function AlbumResultView({ result, onShare, onReset, onEnrich }: 
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(result.share_url);
+      const share = await createAlbumShareLink(result.album_id);
+      await navigator.clipboard.writeText(share.share_url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
