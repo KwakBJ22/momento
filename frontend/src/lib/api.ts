@@ -46,3 +46,116 @@ export async function patchNarrative(albumId: string, narrative: string): Promis
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as AlbumResult;
 }
+
+export async function getMyFamily(): Promise<import("../types").FamilySummary> {
+  const response = await authenticatedFetch("/api/families/me");
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as import("../types").FamilySummary;
+}
+
+export async function getFamilyMembers(familyId: string): Promise<import("../types").FamilyMemberItem[]> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/members`);
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { members: import("../types").FamilyMemberItem[] };
+  return body.members;
+}
+
+export async function getFamilyInvitations(familyId: string): Promise<import("../types").FamilyInvitationItem[]> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/invitations`);
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { invitations: import("../types").FamilyInvitationItem[] };
+  return body.invitations;
+}
+
+export async function createFamilyInvitation(
+  familyId: string,
+  inviteeEmail: string,
+  role: import("../types").InvitableFamilyRole,
+): Promise<{ invite_url: string; invite_token: string }> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/invitations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invitee_email: inviteeEmail, role }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { invite_url: string; invite_token: string };
+  return body;
+}
+
+export async function cancelFamilyInvitation(familyId: string, invitationId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/invitations/${invitationId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function updateFamilyMemberRole(
+  familyId: string,
+  memberId: string,
+  role: import("../types").InvitableFamilyRole,
+): Promise<void> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/members/${memberId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function removeFamilyMember(familyId: string, memberId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/families/${familyId}/members/${memberId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function acceptFamilyInvitation(token: string): Promise<string> {
+  const response = await authenticatedFetch("/api/family-invitations/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { family_id: string };
+  return body.family_id;
+}
+
+export async function getAlbumMembers(albumId: string): Promise<import("../types").AlbumMemberItem[]> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/members`);
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { members: import("../types").AlbumMemberItem[] };
+  return body.members;
+}
+
+export async function addAlbumMember(
+  albumId: string,
+  profileId: string,
+  role: import("../types").AlbumMemberRole,
+): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile_id: profileId, role }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function updateAlbumMemberRole(
+  albumId: string,
+  memberId: string,
+  role: import("../types").AlbumMemberRole,
+): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/members/${memberId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function removeAlbumMember(albumId: string, memberId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/members/${memberId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}

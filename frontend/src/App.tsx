@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthPanel from "./components/AuthPanel";
+import AlbumMembersPanel from "./components/AlbumMembersPanel";
 import AlbumResultView from "./components/AlbumResult";
 import AlbumView from "./components/AlbumView";
+import FamilyManagement from "./components/FamilyManagement";
+import InviteAccept from "./components/InviteAccept";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import type { AlbumResult } from "./types";
@@ -15,12 +18,23 @@ function getAlbumIdFromPath(): string | null {
   return match ? match[1] : null;
 }
 
+function getInviteTokenFromPath(): string | null {
+  const match = window.location.pathname.match(/^\/invite\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function isFamilyPage(): boolean {
+  return window.location.pathname === "/family";
+}
+
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
+  const inviteToken = getInviteTokenFromPath();
+  const familyPage = isFamilyPage();
 
   useEffect(() => {
     if (!supabase) {
@@ -59,15 +73,34 @@ function App() {
         <h1>Momento</h1>
         <p>모임 사진과 이야기를 하나의 앨범으로</p>
         {session && (
-          <button type="button" className="app__logout" onClick={logout}>
-            로그아웃
-          </button>
+          <div className="app__header-actions">
+            {!sharedAlbumId && !inviteToken && (
+              <a className="app__nav-link" href="/family">
+                가족 관리
+              </a>
+            )}
+            <button type="button" className="app__logout" onClick={logout}>
+              로그아웃
+            </button>
+          </div>
         )}
       </header>
 
       <main className="app__main">
         {sharedAlbumId ? (
           <AlbumView albumId={sharedAlbumId} />
+        ) : inviteToken ? (
+          <InviteAccept token={inviteToken} isLoggedIn={Boolean(session)} />
+        ) : familyPage ? (
+          session === undefined ? (
+            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
+          ) : !isSupabaseAuthConfigured || !session ? (
+            <AuthPanel />
+          ) : bootstrapError ? (
+            <p className="auth-panel__notice">{bootstrapError}</p>
+          ) : (
+            <FamilyManagement />
+          )
         ) : session === undefined ? (
           <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
         ) : !isSupabaseAuthConfigured || !session ? (
@@ -75,18 +108,21 @@ function App() {
         ) : bootstrapError ? (
           <p className="auth-panel__notice">{bootstrapError}</p>
         ) : result ? (
-          <AlbumResultView
-            result={result}
-            onShare={(narrative) =>
-              shareAlbum({
-                imageUrl: result.image_url,
-                linkUrl: result.share_url,
-                description: narrative,
-                title: result.title,
-              })
-            }
-            onReset={() => setResult(null)}
-          />
+          <>
+            <AlbumResultView
+              result={result}
+              onShare={(narrative) =>
+                shareAlbum({
+                  imageUrl: result.image_url,
+                  linkUrl: result.share_url,
+                  description: narrative,
+                  title: result.title,
+                })
+              }
+              onReset={() => setResult(null)}
+            />
+            <AlbumMembersPanel albumId={result.album_id} />
+          </>
         ) : (
           <UploadForm onSuccess={setResult} />
         )}

@@ -101,4 +101,90 @@ class AlbumMediaUrlsResponse(BaseModel):
     media: list[AlbumMediaUrlResponse]
 
 
+FamilyRole = Literal["owner", "admin", "member", "viewer"]
+InvitableFamilyRole = Literal["admin", "member", "viewer"]
+AlbumMemberRole = Literal["owner", "editor", "contributor", "viewer"]
+InvitationStatus = Literal["pending", "accepted", "revoked", "expired"]
+
+
+class FamilySummaryResponse(BaseModel):
+    family_id: UUID
+    name: str
+    role: FamilyRole
+
+
+class FamilyMemberResponse(BaseModel):
+    id: UUID
+    profile_id: UUID
+    display_name: str
+    role: FamilyRole
+    joined_at: datetime | None
+    invited_by: UUID | None
+
+
+class FamilyMembersListResponse(BaseModel):
+    members: list[FamilyMemberResponse]
+
+
+class FamilyInvitationResponse(BaseModel):
+    id: UUID
+    invitee_email: str
+    role: InvitableFamilyRole
+    status: InvitationStatus
+    expires_at: datetime
+    accepted_at: datetime | None
+    revoked_at: datetime | None
+    created_at: datetime
+    invite_url: str | None = None
+
+
+class FamilyInvitationsListResponse(BaseModel):
+    invitations: list[FamilyInvitationResponse]
+
+
+class CreateFamilyInvitationRequest(BaseModel):
+    invitee_email: str = Field(min_length=3, max_length=320)
+    role: InvitableFamilyRole = "member"
+
+
+class CreateFamilyInvitationResponse(BaseModel):
+    invitation: FamilyInvitationResponse
+    invite_url: str
+    invite_token: str
+
+
+class AcceptFamilyInvitationRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=256)
+
+
+class AcceptFamilyInvitationResponse(BaseModel):
+    family_id: UUID
+
+
+class UpdateFamilyMemberRoleRequest(BaseModel):
+    role: InvitableFamilyRole
+
+
+class AlbumMemberResponse(BaseModel):
+    id: UUID
+    profile_id: UUID
+    display_name: str
+    role: AlbumMemberRole
+    invited_by: UUID | None
+    created_at: datetime
+
+
+class AlbumMembersListResponse(BaseModel):
+    members: list[AlbumMemberResponse]
+
+
+class UpsertAlbumMemberRequest(BaseModel):
+    profile_id: UUID
+    role: AlbumMemberRole = "viewer"
+
+
+class UpdateAlbumMemberRoleRequest(BaseModel):
+    role: AlbumMemberRole
+
+
 AlbumDetailResponse.model_rebuild()

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.album import router
+from app.services.authorization import resolve_album_access
 from app.api.auth import router as auth_router
 from app.services.auth import require_authenticated_user
 
@@ -42,14 +43,20 @@ class AlbumAuthorizationTests(TestCase):
         self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=object())
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
         self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
+        self.get_album_access = patch(
+            "app.api.album.get_album_access",
+            side_effect=lambda client, album, user_id: resolve_album_access(album, user_id, None, None),
+        )
         self.get_settings.start()
         self.get_supabase_client.start()
         self.get_public_url.start()
         self.get_album_media_records.start()
+        self.get_album_access.start()
         self.addCleanup(self.get_settings.stop)
         self.addCleanup(self.get_supabase_client.stop)
         self.addCleanup(self.get_public_url.stop)
         self.addCleanup(self.get_album_media_records.stop)
+        self.addCleanup(self.get_album_access.stop)
 
     def tearDown(self) -> None:
         self.app.dependency_overrides.clear()

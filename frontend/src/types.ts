@@ -2,7 +2,10 @@ export type MeetingType = "family" | "friend" | "work" | "university";
 export type TemplateType = "A" | "B" | "C";
 export type ProfileStatus = "active" | "suspended" | "deleted";
 export type FamilyStatus = "active" | "archived" | "deleted";
-export type FamilyRole = "owner" | "admin" | "member";
+export type FamilyRole = "owner" | "admin" | "member" | "viewer";
+export type InvitableFamilyRole = "admin" | "member" | "viewer";
+export type AlbumMemberRole = "owner" | "editor" | "contributor" | "viewer";
+export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
 export type FamilyMemberStatus = "invited" | "active" | "left" | "removed";
 export type AlbumStatus = "draft" | "processing" | "active" | "archived" | "deleted" | "failed";
 export type AlbumVisibility = "private" | "family";
@@ -33,17 +36,40 @@ export interface Family {
   deleted_at: string | null;
 }
 
-export interface FamilyMember {
-  id: string;
+export interface FamilySummary {
   family_id: string;
-  profile_id: string;
+  name: string;
   role: FamilyRole;
-  status: FamilyMemberStatus;
-  invited_by: string | null;
+}
+
+export interface FamilyMemberItem {
+  id: string;
+  profile_id: string;
+  display_name: string;
+  role: FamilyRole;
   joined_at: string | null;
-  left_at: string | null;
+  invited_by: string | null;
+}
+
+export interface FamilyInvitationItem {
+  id: string;
+  invitee_email: string;
+  role: InvitableFamilyRole;
+  status: InvitationStatus;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
   created_at: string;
-  updated_at: string;
+  invite_url?: string | null;
+}
+
+export interface AlbumMemberItem {
+  id: string;
+  profile_id: string;
+  display_name: string;
+  role: AlbumMemberRole;
+  invited_by: string | null;
+  created_at: string;
 }
 
 export interface AlbumResult {

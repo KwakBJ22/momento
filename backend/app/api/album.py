@@ -49,6 +49,18 @@ from app.services.supabase import (
 from app.services.image_upload_service import process_upload
 from app.services.media_upload_service import process_media_upload
 from app.services.auth import require_authenticated_user
+from app.services.authorization import (
+    require_album_contribute,
+    require_album_delete,
+    require_album_edit_settings,
+    require_album_read,
+)
+from app.services.membership import (
+    get_album_access,
+    get_family_membership,
+    require_family_write_role,
+    save_album_member,
+)
 
 router = APIRouter(prefix="/api", tags=["album"])
 
@@ -97,6 +109,8 @@ async def upload_album(
 
     client = get_supabase_client(settings)
     family_id = ensure_default_family(client, authenticated_user_id)
+    family_membership = get_family_membership(client, family_id, authenticated_user_id)
+    require_family_write_role(family_membership["role"] if family_membership else None)
     album_id = create_album_id()
 
     processed_photos = [process_upload(photo, settings) for photo in photos]
@@ -187,6 +201,13 @@ async def upload_album(
         album_saved = True
         save_album_photo_records(client, photo_records)
         save_album_media_records(client, media_records)
+        save_album_member(
+            client,
+            album_id=album_id,
+            profile_id=authenticated_user_id,
+            role="owner",
+            invited_by=authenticated_user_id,
+        )
     except Exception:
         if album_saved:
             try:
@@ -226,8 +247,8 @@ async def get_album_photo_urls(
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(record.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to view original photos.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_read(access)
 
     photo_urls = [
         AlbumPhotoUrlResponse(
@@ -275,8 +296,8 @@ async def upload_media(
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(album.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to add media.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_contribute(access)
     family_id = str(album.get("family_id") or "")
     if not family_id:
         raise HTTPException(status_code=409, detail="이전 앨범은 가족 공간으로 이관한 뒤 미디어를 추가할 수 있습니다.")
@@ -328,8 +349,8 @@ async def get_album_media_urls(
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(album.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to view private media.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_read(access)
 
     media_urls = []
     for record in get_album_media_records(client, album_id):
@@ -362,8 +383,8 @@ async def delete_media(
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(album.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to delete media.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_contribute(access)
     media = get_album_media_record(client, album_id, media_id)
     if not media:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
@@ -411,8 +432,8 @@ async def patch_album(
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(record.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to edit this album.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_edit_settings(access)
 
     updated = update_album_narrative(client, album_id, body.narrative.strip())
     return _record_to_detail(updated or {**record, "narrative": body.narrative.strip()}, settings, client)
@@ -428,8 +449,8 @@ async def delete_album(
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    if str(record.get("owner_id") or "") != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="You do not have permission to delete this album.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_delete(access)
 
     delete_album_record(client, album_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
