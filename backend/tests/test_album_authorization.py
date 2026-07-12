@@ -41,12 +41,15 @@ class AlbumAuthorizationTests(TestCase):
         self.get_settings = patch("app.api.album.get_settings", return_value=self.settings)
         self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=object())
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
+        self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
         self.get_settings.start()
         self.get_supabase_client.start()
         self.get_public_url.start()
+        self.get_album_media_records.start()
         self.addCleanup(self.get_settings.stop)
         self.addCleanup(self.get_supabase_client.stop)
         self.addCleanup(self.get_public_url.stop)
+        self.addCleanup(self.get_album_media_records.stop)
 
     def tearDown(self) -> None:
         self.app.dependency_overrides.clear()
@@ -96,6 +99,13 @@ class AlbumAuthorizationTests(TestCase):
         self.as_user(OTHER_USER_ID)
         with patch("app.api.album.get_album_record", return_value=album_record()):
             response = self.client.get(f"/api/albums/{ALBUM_ID}/photos")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_owner_cannot_get_private_media_urls(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/media")
 
         self.assertEqual(response.status_code, 403)
 

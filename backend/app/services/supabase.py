@@ -7,6 +7,7 @@ from supabase import Client, create_client
 
 from app.config import Settings, get_settings
 from app.services.image_upload_service import ProcessedPhoto
+from app.services.media_upload_service import ProcessedMedia
 
 
 def get_supabase_client(settings: Settings | None = None) -> Client:
@@ -41,6 +42,32 @@ def upload_album_photo_assets(
         delete_storage_paths(client, settings.supabase_private_storage_bucket, [original_path, thumbnail_path])
         raise
     return original_path, thumbnail_path
+
+
+def upload_album_media_assets(
+    client: Client,
+    family_id: str,
+    album_id: str,
+    media_id: str,
+    media: ProcessedMedia,
+    settings: Settings,
+) -> tuple[str, str | None, str | None]:
+    base_path = f"families/{family_id}/albums/{album_id}/media/{media_id}"
+    original_path = f"{base_path}/original"
+    preview_path = f"{base_path}/preview" if media.preview_bytes else None
+    thumbnail_path = f"{base_path}/thumbnail" if media.thumbnail_bytes else None
+    bucket = client.storage.from_(settings.supabase_private_storage_bucket)
+    paths = [original_path] + [path for path in (preview_path, thumbnail_path) if path]
+    try:
+        bucket.upload(original_path, media.original_bytes, file_options={"content-type": media.mime_type, "upsert": "false"})
+        if preview_path and media.preview_bytes and media.preview_mime_type:
+            bucket.upload(preview_path, media.preview_bytes, file_options={"content-type": media.preview_mime_type, "upsert": "false"})
+        if thumbnail_path and media.thumbnail_bytes:
+            bucket.upload(thumbnail_path, media.thumbnail_bytes, file_options={"content-type": "image/webp", "upsert": "false"})
+    except Exception:
+        delete_storage_paths(client, settings.supabase_private_storage_bucket, paths)
+        raise
+    return original_path, preview_path, thumbnail_path
 
 
 def delete_storage_paths(client: Client, bucket_name: str, paths: list[str]) -> None:
@@ -112,6 +139,11 @@ def save_album_photo_records(client: Client, records: list[dict[str, Any]]) -> N
         client.table("album_photos").insert(records).execute()
 
 
+def save_album_media_records(client: Client, records: list[dict[str, Any]]) -> None:
+    if records:
+        client.table("album_media").insert(records).execute()
+
+
 def ensure_default_family(client: Client, user_id: str) -> str:
     """Return the user's provisioned default family through a server-only RPC."""
     result = client.rpc("ensure_default_family", {"target_profile_id": user_id}).execute()
@@ -152,6 +184,39 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
         .execute()
     )
     return result.data or []
+
+
+def get_album_media_records(client: Client, album_id: str) -> list[dict[str, Any]]:
+    result = (
+        client.table("album_media")
+        .select(
+            "id, media_type, mime_type, original_filename, original_path, preview_path, thumbnail_path, "
+            "file_size, width, height, duration_seconds, page_count, sort_order, processing_status, metadata"
+        )
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .order("sort_order")
+        .execute()
+    )
+    return result.data or []
+
+
+def get_album_media_record(client: Client, album_id: str, media_id: str) -> dict[str, Any] | None:
+    result = (
+        client.table("album_media")
+        .select("*")
+        .eq("id", media_id)
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    data = result.data or []
+    return data[0] if data else None
+
+
+def delete_album_media_record(client: Client, media_id: str) -> None:
+    client.table("album_media").update({"deleted_at": datetime.now(timezone.utc).isoformat()}).eq("id", media_id).execute()
 
 
 def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int) -> str:

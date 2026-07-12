@@ -6,6 +6,8 @@ export type FamilyRole = "owner" | "admin" | "member";
 export type FamilyMemberStatus = "invited" | "active" | "left" | "removed";
 export type AlbumStatus = "draft" | "processing" | "active" | "archived" | "deleted" | "failed";
 export type AlbumVisibility = "private" | "family";
+export type MediaType = "image" | "gif" | "video" | "audio" | "document";
+export type MediaProcessingStatus = "pending" | "processing" | "ready" | "failed";
 
 /** Phase-1 database types. No family UI or API is connected yet. */
 export interface Profile {
@@ -54,6 +56,22 @@ export interface AlbumResult {
   image_url: string;
   share_url: string;
   created_at: string;
+  media: AlbumMediaSummary[];
+}
+
+export interface AlbumMediaSummary {
+  id: string;
+  media_type: MediaType;
+  mime_type: string;
+  original_filename: string | null;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  page_count: number | null;
+  sort_order: number;
+  processing_status: MediaProcessingStatus;
+  metadata: Record<string, unknown>;
 }
 
 /** Additive columns on public.albums; omitted by the current legacy API DTO. */

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -49,6 +49,7 @@ class AlbumDetailResponse(BaseModel):
     image_url: str
     share_url: str
     created_at: datetime
+    media: list["AlbumMediaSummary"] = Field(default_factory=list)
 
 
 class NarrativeUpdate(BaseModel):
@@ -69,3 +70,35 @@ class AlbumPhotoUrlResponse(BaseModel):
 
 class AlbumPhotoUrlsResponse(BaseModel):
     photos: list[AlbumPhotoUrlResponse]
+
+
+class AlbumMediaSummary(BaseModel):
+    id: UUID
+    media_type: Literal["image", "gif", "video", "audio", "document"]
+    mime_type: str
+    original_filename: str | None
+    file_size: int
+    width: int | None
+    height: int | None
+    duration_seconds: float | None
+    page_count: int | None
+    sort_order: int
+    processing_status: Literal["pending", "processing", "ready", "failed"]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AlbumMediaUploadResponse(AlbumMediaSummary):
+    pass
+
+
+class AlbumMediaUrlResponse(AlbumMediaSummary):
+    original_url: str
+    preview_url: str | None
+    thumbnail_url: str | None
+
+
+class AlbumMediaUrlsResponse(BaseModel):
+    media: list[AlbumMediaUrlResponse]
+
+
+AlbumDetailResponse.model_rebuild()

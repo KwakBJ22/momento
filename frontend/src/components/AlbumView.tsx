@@ -83,6 +83,25 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         <p>{album.narrative}</p>
       </section>
 
+      {album.media.some((media) => media.media_type !== "image" && media.media_type !== "gif") && (
+        <section className="album-result__narrative">
+          <div className="album-result__narrative-head">
+            <h3>함께 담긴 미디어</h3>
+          </div>
+          <ul className="media-placeholder-list">
+            {album.media
+              .filter((media) => media.media_type !== "image" && media.media_type !== "gif")
+              .map((media) => (
+                <li key={media.id} className="media-placeholder">
+                  <span aria-hidden="true">{media.media_type === "video" ? "🎬" : media.media_type === "audio" ? "🎵" : "📄"}</span>
+                  <span>{media.original_filename || media.mime_type}</span>
+                  <small>{media.processing_status === "pending" ? "미리보기 준비 중" : "미디어 준비됨"}</small>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
       <div className="album-result__actions">
         <button
           type="button"

@@ -87,6 +87,27 @@
   line-height: 1.5 !important;
 }
 
+.media-placeholder-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.media-placeholder {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f7f1ec;
+}
+
+.media-placeholder small {
+  color: #8a7a6e;
+}
+
 .album-result__notice {
   margin: 0;
   padding: 0.7rem 0.9rem;

@@ -8,6 +8,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from app.config import Settings, get_settings
 from app.models.schemas import (
     AlbumDetailResponse,
+    AlbumMediaSummary,
+    AlbumMediaUploadResponse,
+    AlbumMediaUrlResponse,
+    AlbumMediaUrlsResponse,
     AlbumPhotoUrlResponse,
     AlbumPhotoUrlsResponse,
     AlbumUploadResponse,
@@ -24,20 +28,26 @@ from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.supabase import (
     create_album_id,
     delete_album_record,
+    delete_album_media_record,
     delete_storage_paths,
     ensure_default_family,
     get_album_record,
     get_album_photo_records,
+    get_album_media_record,
+    get_album_media_records,
     get_public_url,
     get_signed_url,
     get_supabase_client,
     save_album_record,
     save_album_photo_records,
+    save_album_media_records,
     update_album_narrative,
     upload_album_photo_assets,
+    upload_album_media_assets,
     upload_result_image,
 )
 from app.services.image_upload_service import process_upload
+from app.services.media_upload_service import process_media_upload
 from app.services.auth import require_authenticated_user
 
 router = APIRouter(prefix="/api", tags=["album"])
@@ -97,6 +107,7 @@ async def upload_album(
 
     try:
         photo_records: list[dict[str, Any]] = []
+        media_records: list[dict[str, Any]] = []
         photo_paths: list[str] = []
         ordered_bytes: list[bytes] = []
         for index, processed in enumerate(processed_photos):
@@ -125,6 +136,22 @@ async def upload_album(
                     "contributor_profile_id": authenticated_user_id,
                     "legacy_author_label": items_by_order[index]["user"] or None,
                     "status": "ready",
+                }
+            )
+            media_records.append(
+                {
+                    "id": photo_id,
+                    "album_id": album_id,
+                    "uploader_id": authenticated_user_id,
+                    "media_type": "gif" if processed.original_mime_type == "image/gif" else "image",
+                    "mime_type": processed.original_mime_type,
+                    "original_filename": photos[index].filename,
+                    "original_path": original_path,
+                    "thumbnail_path": thumbnail_path,
+                    "file_size": len(processed.original_bytes),
+                    "sort_order": index,
+                    "processing_status": "ready",
+                    "metadata": {"source": "album_photos"},
                 }
             )
 
@@ -159,6 +186,7 @@ async def upload_album(
         )
         album_saved = True
         save_album_photo_records(client, photo_records)
+        save_album_media_records(client, media_records)
     except Exception:
         if album_saved:
             try:
@@ -217,6 +245,134 @@ async def get_album_photo_urls(
     return AlbumPhotoUrlsResponse(photos=photo_urls)
 
 
+def _media_summary(record: dict[str, Any]) -> AlbumMediaSummary:
+    return AlbumMediaSummary(
+        id=UUID(str(record["id"])),
+        media_type=record["media_type"],
+        mime_type=record["mime_type"],
+        original_filename=record.get("original_filename"),
+        file_size=int(record["file_size"]),
+        width=record.get("width"),
+        height=record.get("height"),
+        duration_seconds=record.get("duration_seconds"),
+        page_count=record.get("page_count"),
+        sort_order=int(record["sort_order"]),
+        processing_status=record["processing_status"],
+        metadata=record.get("metadata") or {},
+    )
+
+
+@router.post("/albums/{album_id}/media", response_model=AlbumMediaUploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_media(
+    album_id: str,
+    file: UploadFile = File(...),
+    sort_order: int = Form(..., ge=0),
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumMediaUploadResponse:
+    """Upload a future-facing media type without exposing private Storage."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    if str(album.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to add media.")
+    family_id = str(album.get("family_id") or "")
+    if not family_id:
+        raise HTTPException(status_code=409, detail="이전 앨범은 가족 공간으로 이관한 뒤 미디어를 추가할 수 있습니다.")
+
+    media = process_media_upload(file, settings)
+    media_id = str(uuid4())
+    original_path = preview_path = thumbnail_path = None
+    try:
+        original_path, preview_path, thumbnail_path = upload_album_media_assets(
+            client, family_id, album_id, media_id, media, settings
+        )
+        record = {
+            "id": media_id,
+            "album_id": album_id,
+            "uploader_id": authenticated_user_id,
+            "media_type": media.media_type,
+            "mime_type": media.mime_type,
+            "original_filename": file.filename,
+            "original_path": original_path,
+            "preview_path": preview_path,
+            "thumbnail_path": thumbnail_path,
+            "file_size": len(media.original_bytes),
+            "width": media.width,
+            "height": media.height,
+            "duration_seconds": media.duration_seconds,
+            "page_count": media.page_count,
+            "sort_order": sort_order,
+            "processing_status": "ready" if media.media_type in {"image", "gif"} else "pending",
+            "metadata": {},
+        }
+        save_album_media_records(client, [record])
+    except Exception:
+        delete_storage_paths(
+            client,
+            settings.supabase_private_storage_bucket,
+            [path for path in (original_path, preview_path, thumbnail_path) if path],
+        )
+        raise
+    return AlbumMediaUploadResponse(**_media_summary(record).model_dump())
+
+
+@router.get("/albums/{album_id}/media", response_model=AlbumMediaUrlsResponse)
+async def get_album_media_urls(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumMediaUrlsResponse:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    if str(album.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to view private media.")
+
+    media_urls = []
+    for record in get_album_media_records(client, album_id):
+        summary = _media_summary(record)
+        media_urls.append(
+            AlbumMediaUrlResponse(
+                **summary.model_dump(),
+                original_url=get_signed_url(client, settings.supabase_private_storage_bucket, record["original_path"], settings.signed_url_ttl_seconds),
+                preview_url=(
+                    get_signed_url(client, settings.supabase_private_storage_bucket, record["preview_path"], settings.signed_url_ttl_seconds)
+                    if record.get("preview_path") else None
+                ),
+                thumbnail_url=(
+                    get_signed_url(client, settings.supabase_private_storage_bucket, record["thumbnail_path"], settings.signed_url_ttl_seconds)
+                    if record.get("thumbnail_path") else None
+                ),
+            )
+        )
+    return AlbumMediaUrlsResponse(media=media_urls)
+
+
+@router.delete("/albums/{album_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_media(
+    album_id: str,
+    media_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    if str(album.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete media.")
+    media = get_album_media_record(client, album_id, media_id)
+    if not media:
+        raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
+    paths = [path for path in (media.get("original_path"), media.get("preview_path"), media.get("thumbnail_path")) if path]
+    client.storage.from_(settings.supabase_private_storage_bucket).remove(paths)
+    delete_album_media_record(client, media_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -> AlbumDetailResponse:
     album_id = str(record["id"])
     image_url = get_public_url(client, record["result_path"], settings) if record.get("result_path") else ""
@@ -230,6 +386,7 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
         image_url=image_url,
         share_url=f"{settings.frontend_base_url.rstrip('/')}/album/{album_id}",
         created_at=record["created_at"],
+        media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
     )
 
 
