@@ -79,10 +79,6 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
     if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
   };
 
-  const updatePhoto = (id: string, patch: Partial<PhotoItem>) => {
-    setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-  };
-
   const removePhoto = (id: string) => {
     setPhotos((prev) => {
       const target = prev.find((p) => p.id === id);
@@ -99,10 +95,6 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       setError("최소 1장의 사진을 올려주세요.");
       return;
     }
-    if (photos.some((p) => !p.story.trim())) {
-      setError("모든 사진에 설명을 적어주세요.");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -112,7 +104,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       const stories: StoryPayload[] = photos.map((p, index) => ({
         order: index,
         user: "",
-        text: p.story.trim(),
+        text: p.story.trim() || "",
       }));
       formData.append("stories", JSON.stringify(stories));
       formData.append("meeting_type", meetingType);
@@ -274,7 +266,9 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
 
       {photos.length > 0 && (
         <section>
-          <h2 className="section-title">각 사진의 이야기를 들려주세요</h2>
+          <p className="upload-form__hint">
+            사진을 올리면 AI가 기억 질문을 만들어요. 답변은 다음 단계에서 함께 적을 수 있어요.
+          </p>
           <ul className="photo-list">
             {photos.map((photo, index) => (
               <li key={photo.id} className="photo-card">
@@ -294,16 +288,6 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
                   </button>
                   <span className="photo-card__badge">사진 {index + 1}</span>
                 </div>
-                <div className="photo-card__fields">
-                  <textarea
-                    className="field__input field__textarea"
-                    placeholder="이 사진에 대한 한마디 (예: 하늘이 정말 맑았어)"
-                    value={photo.story}
-                    maxLength={300}
-                    rows={2}
-                    onChange={(e) => updatePhoto(photo.id, { story: e.target.value })}
-                  />
-                </div>
               </li>
             ))}
           </ul>
@@ -317,7 +301,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
         className="upload-form__submit"
         disabled={isSubmitting || photos.length === 0}
       >
-        {isSubmitting ? "앨범 만드는 중..." : "우리 앨범 만들기"}
+        {isSubmitting ? "앨범 만드는 중..." : "사진 올리고 질문 받기"}
       </button>
     </form>
   );

@@ -159,3 +159,44 @@ export async function removeAlbumMember(albumId: string, memberId: string): Prom
   });
   if (!response.ok) throw new Error(await parseError(response));
 }
+
+export async function getMemoryQuestions(
+  albumId: string,
+): Promise<{ questions: import("../types").MemoryQuestion[]; can_regenerate: boolean }> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/memory/questions`);
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { questions: import("../types").MemoryQuestion[]; can_regenerate: boolean };
+}
+
+export async function generateMemoryQuestions(
+  albumId: string,
+  options?: { mediaId?: string; force?: boolean },
+): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/memory/questions/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      media_id: options?.mediaId ?? null,
+      force: options?.force ?? false,
+    }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function regenerateMemoryQuestions(albumId: string, mediaId?: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/memory/questions/regenerate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: mediaId ?? null, force: true }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function saveMemoryAnswer(questionId: string, answer: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/memory/questions/${questionId}/answers`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answer, answer_type: "text" }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}

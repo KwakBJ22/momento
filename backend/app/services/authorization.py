@@ -82,6 +82,14 @@ class AlbumAccess:
             return True
         return self.album_role in ALBUM_MANAGE_MEMBER_ROLES
 
+    @property
+    def can_answer_questions(self) -> bool:
+        return self.can_read_private
+
+    @property
+    def can_regenerate_questions(self) -> bool:
+        return self.can_edit_settings
+
 
 def _family_role_rank(role: str | None) -> int:
     if role is None:
@@ -146,6 +154,22 @@ def require_album_member_manage(access: AlbumAccess) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to manage album participants.",
+        )
+
+
+def require_album_answer(access: AlbumAccess) -> None:
+    if not access.can_answer_questions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to answer questions for this album.",
+        )
+
+
+def require_album_regenerate_questions(access: AlbumAccess) -> None:
+    if not access.can_regenerate_questions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to regenerate questions.",
         )
 
 

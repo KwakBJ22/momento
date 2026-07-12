@@ -124,3 +124,29 @@ export interface StoryPayload {
   user: string;
   text: string;
 }
+
+export type AnswerType = "text" | "voice";
+
+export interface MemoryAnswer {
+  id: string;
+  question_id: string;
+  profile_id: string;
+  display_name: string;
+  answer: string;
+  answer_type: AnswerType;
+  voice_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemoryQuestion {
+  id: string;
+  album_id: string;
+  media_id: string;
+  question: string;
+  sort_order: number;
+  status: "active" | "archived";
+  created_at: string;
+  thumbnail_url: string | null;
+  answers: MemoryAnswer[];
+}

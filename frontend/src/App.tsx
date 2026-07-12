@@ -6,6 +6,7 @@ import AlbumResultView from "./components/AlbumResult";
 import AlbumView from "./components/AlbumView";
 import FamilyManagement from "./components/FamilyManagement";
 import InviteAccept from "./components/InviteAccept";
+import QuestionFlow from "./components/QuestionFlow";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import type { AlbumResult } from "./types";
@@ -23,6 +24,11 @@ function getInviteTokenFromPath(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function getQuestionsAlbumIdFromPath(): string | null {
+  const match = window.location.pathname.match(/^\/album\/([0-9a-fA-F-]{36})\/questions$/);
+  return match ? match[1] : null;
+}
+
 function isFamilyPage(): boolean {
   return window.location.pathname === "/family";
 }
@@ -31,8 +37,10 @@ function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [showAlbumResult, setShowAlbumResult] = useState(false);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
+  const questionsAlbumId = getQuestionsAlbumIdFromPath();
   const inviteToken = getInviteTokenFromPath();
   const familyPage = isFamilyPage();
 
@@ -65,6 +73,7 @@ function App() {
   const logout = async () => {
     await supabase?.auth.signOut();
     setResult(null);
+    setShowAlbumResult(false);
   };
 
   return (
@@ -89,6 +98,23 @@ function App() {
       <main className="app__main">
         {sharedAlbumId ? (
           <AlbumView albumId={sharedAlbumId} />
+        ) : questionsAlbumId ? (
+          session === undefined ? (
+            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
+          ) : !isSupabaseAuthConfigured || !session ? (
+            <AuthPanel />
+          ) : bootstrapError ? (
+            <p className="auth-panel__notice">{bootstrapError}</p>
+          ) : (
+            <QuestionFlow
+              albumId={questionsAlbumId}
+              albumTitle="우리 앨범"
+              profileId={session.user.id}
+              onComplete={() => {
+                window.location.href = `/album/${questionsAlbumId}`;
+              }}
+            />
+          )
         ) : inviteToken ? (
           <InviteAccept token={inviteToken} isLoggedIn={Boolean(session)} />
         ) : familyPage ? (
@@ -107,6 +133,13 @@ function App() {
           <AuthPanel />
         ) : bootstrapError ? (
           <p className="auth-panel__notice">{bootstrapError}</p>
+        ) : result && !showAlbumResult ? (
+          <QuestionFlow
+            albumId={result.album_id}
+            albumTitle={result.title}
+            profileId={session!.user.id}
+            onComplete={() => setShowAlbumResult(true)}
+          />
         ) : result ? (
           <>
             <AlbumResultView
@@ -119,7 +152,10 @@ function App() {
                   title: result.title,
                 })
               }
-              onReset={() => setResult(null)}
+              onReset={() => {
+              setResult(null);
+              setShowAlbumResult(false);
+            }}
             />
             <AlbumMembersPanel albumId={result.album_id} />
           </>

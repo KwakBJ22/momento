@@ -1,0 +1,7 @@
+앨범 제목: {album_title}
+모임 날짜: {event_date}
+모임 유형: {meeting_type_label}
+미디어 종류: {media_type}
+파일명: {original_filename}
+
+이 미디어를 보고 가족이 답하고 싶어질 기억 질문 3~5개를 만들어줘.

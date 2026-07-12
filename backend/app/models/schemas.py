@@ -187,4 +187,60 @@ class UpdateAlbumMemberRoleRequest(BaseModel):
     role: AlbumMemberRole
 
 
+AnswerType = Literal["text", "voice"]
+QuestionStatus = Literal["active", "archived"]
+
+
+class GenerateQuestionsRequest(BaseModel):
+    media_id: UUID | None = None
+    force: bool = False
+
+
+class GenerateQuestionsResponse(BaseModel):
+    generated_media_ids: list[UUID]
+    skipped_media_ids: list[UUID]
+    question_count: int
+
+
+class MemoryAnswerResponse(BaseModel):
+    id: UUID
+    question_id: UUID
+    profile_id: UUID
+    display_name: str
+    answer: str
+    answer_type: AnswerType
+    voice_url: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MemoryQuestionResponse(BaseModel):
+    id: UUID
+    album_id: UUID
+    media_id: UUID
+    question: str
+    sort_order: int
+    status: QuestionStatus
+    created_at: datetime
+    thumbnail_url: str | None = None
+    answers: list[MemoryAnswerResponse] = Field(default_factory=list)
+
+
+class MemoryQuestionsListResponse(BaseModel):
+    questions: list[MemoryQuestionResponse]
+    can_regenerate: bool
+
+
+class UpsertMemoryAnswerRequest(BaseModel):
+    answer: str = Field(max_length=2000)
+    answer_type: AnswerType = "text"
+    voice_url: str | None = None
+
+
+class UpdateMemoryAnswerRequest(BaseModel):
+    answer: str = Field(min_length=1, max_length=2000)
+    answer_type: AnswerType | None = None
+    voice_url: str | None = None
+
+
 AlbumDetailResponse.model_rebuild()

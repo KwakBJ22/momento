@@ -61,6 +61,7 @@ from app.services.membership import (
     require_family_write_role,
     save_album_member,
 )
+from app.services.question_service import generate_album_questions
 
 router = APIRouter(prefix="/api", tags=["album"])
 
@@ -104,8 +105,7 @@ async def upload_album(
     if sorted(orders) != list(range(len(photos))):
         raise HTTPException(status_code=400, detail="story order는 0부터 연속된 정수여야 합니다.")
     for item in story_items:
-        if not item["text"]:
-            raise HTTPException(status_code=400, detail="모든 사진에 설명을 입력해주세요.")
+        item["text"] = str(item.get("text", "")).strip()
 
     client = get_supabase_client(settings)
     family_id = ensure_default_family(client, authenticated_user_id)
@@ -170,7 +170,12 @@ async def upload_album(
             )
 
         ordered_stories = [items_by_order[i] for i in range(len(photos))]
-        narrative = await generate_narrative(story_items, meeting_type, title, settings)
+        has_story_text = any(item["text"] for item in ordered_stories)
+        narrative = ""
+        if has_story_text:
+            narrative = await generate_narrative(story_items, meeting_type, title, settings)
+        else:
+            narrative = "가족의 답변을 모아 이야기를 만들 예정이에요."
         album_img = generate_album(
             template,
             photos=bytes_to_images(ordered_bytes),
@@ -208,6 +213,23 @@ async def upload_album(
             role="owner",
             invited_by=authenticated_user_id,
         )
+        try:
+            await generate_album_questions(
+                client,
+                album_id=album_id,
+                album={
+                    "id": album_id,
+                    "title": title,
+                    "event_date": event_date,
+                    "meeting_type": meeting_type,
+                },
+                media_records=media_records,
+                force=False,
+                settings=settings,
+            )
+        except HTTPException:
+            # Album creation should still succeed; the client can retry question generation.
+            pass
     except Exception:
         if album_saved:
             try:
