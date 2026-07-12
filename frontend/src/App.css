@@ -1,0 +1,42 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  background: #faf7f4;
+  color: #3d3530;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.app__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.app__header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: #b48c6e;
+}
+
+.app__header p {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #8a7a6e;
+}
+
+.app__main {
+  width: 100%;
+}

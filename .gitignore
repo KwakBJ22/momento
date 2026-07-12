@@ -1,0 +1,30 @@
+# 1. OS & Editor 관련 파일
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 2. Vercel 관련 설정 및 빌드 결과물 (중요)
+.vercel
+/frontend/dist
+/frontend/build
+
+# 3. 프론트엔드 의존성 모듈 및 로컬 환경변수
+/frontend/node_modules/
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# 4. 백엔드 가상환경 및 Python 캐시 파일
+/backend/venv/
+/backend/.venv/
+/backend/__pycache__/
+/backend/*.pyc
+/backend/.env
+
+# 5. 기타 로그 및 빌드 아티팩트
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
