@@ -89,6 +89,9 @@ def save_album_record(
     record = {
         "id": album_id,
         "owner_id": owner_id,
+        # Phase-1 migration backfills profiles for Auth users. Keep owner_id as
+        # the legacy authorization source while dual-writing the new creator FK.
+        "created_by": owner_id,
         "meeting_type": meeting_type,
         "template": template,
         "title": title,
