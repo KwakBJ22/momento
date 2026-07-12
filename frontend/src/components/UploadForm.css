@@ -298,6 +298,19 @@
   cursor: not-allowed;
 }
 
+.upload-form__retry { width: 100%; min-height: 52px; border: 1px solid #b48c6e; border-radius: 14px; background: #fffdfa; color: #805f48; font-size: 1.08rem; font-weight: 700; cursor: pointer; }
+.upload-progress { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1.25rem; background: rgba(61, 53, 48, .52); }
+.upload-progress__card { width: min(100%, 420px); padding: 2rem 1.5rem; border-radius: 22px; background: #fffdfa; text-align: center; box-shadow: 0 18px 42px rgba(0, 0, 0, .2); }
+.upload-progress__spinner { width: 42px; height: 42px; margin: 0 auto 1.25rem; border: 4px solid #eadfd6; border-top-color: #b48c6e; border-radius: 50%; animation: upload-spin .8s linear infinite; }
+.upload-progress__card h2 { margin: 0; font-size: 1.35rem; color: #3d3530; }
+.upload-progress__card p { margin: .75rem 0 1.5rem; color: #75675c; font-size: 1.04rem; line-height: 1.5; }
+.upload-progress__steps { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; text-align: left; color: #a29489; }
+.upload-progress__steps li::before { content: "○"; display: inline-block; width: 1.7rem; color: inherit; }
+.upload-progress__steps li.is-active { color: #805f48; font-weight: 700; }
+.upload-progress__steps li.is-active::before { content: "●"; }
+.upload-progress__cancel { margin-top: 1.6rem; border: 0; background: transparent; color: #75675c; text-decoration: underline; font-size: .95rem; cursor: pointer; }
+@keyframes upload-spin { to { transform: rotate(360deg); } }
+
 .story-first-upload {
   display: grid;
   gap: 1rem;

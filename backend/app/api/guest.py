@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict, deque
 from datetime import date as date_cls, datetime, timezone
@@ -24,6 +25,7 @@ from app.services.supabase import (
 )
 
 router = APIRouter(prefix="/api", tags=["guest-onboarding"])
+logger = logging.getLogger(__name__)
 _GUEST_UPLOADS: dict[str, deque[float]] = defaultdict(deque)
 _WINDOW_SECONDS = 60
 _MAX_UPLOADS_PER_WINDOW = 3
@@ -92,11 +94,11 @@ async def upload_guest_album(
     album_id, guest_scope_id = create_album_id(), str(uuid4())
     title = title.strip() or "우리의 추억"
     event_date = date_cls.today().isoformat()
-    processed_photos = [process_upload(photo, settings) for photo in photos]
     uploaded_paths: list[str] = []
     result_path = ""
     album_saved = False
     try:
+        processed_photos = [process_upload(photo, settings) for photo in photos]
         photo_records: list[dict[str, Any]] = []
         media_records: list[dict[str, Any]] = []
         photo_paths: list[str] = []
@@ -119,6 +121,7 @@ async def upload_guest_album(
         save_album_media_records(client, media_records)
         token = create_guest_session(client, album_id)
     except Exception:
+        logger.exception("Guest album upload failed: album_id=%s photo_count=%s", album_id, len(photos))
         if album_saved:
             try:
                 delete_album_record(client, album_id)

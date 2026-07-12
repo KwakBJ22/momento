@@ -4,6 +4,7 @@ import type { AlbumResult, GuestAlbumResult, MeetingType, PhotoItem, StoryPayloa
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 10;
+const UPLOAD_TIMEOUT_MS = 120_000;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 
 const ENRICHMENT_QUESTIONS = [
@@ -30,8 +31,11 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progressStep, setProgressStep] = useState<number | null>(null);
+  const [isBackgroundProcessing, setIsBackgroundProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const incoming = Array.from(files).filter((file) => ALLOWED_TYPES.includes(file.type));
@@ -56,6 +60,13 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
     }
     setIsSubmitting(true);
     setError(null);
+    setProgressStep(0);
+    setIsBackgroundProcessing(false);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const progressTimers = [window.setTimeout(() => setProgressStep(1), 2500), window.setTimeout(() => setProgressStep(2), 6500), window.setTimeout(() => setProgressStep(3), 11_000)];
+    const backgroundTimer = window.setTimeout(() => setIsBackgroundProcessing(true), 30_000);
+    const timeoutTimer = window.setTimeout(() => controller.abort("timeout"), UPLOAD_TIMEOUT_MS);
     try {
       const formData = new FormData();
       photos.forEach((photo) => formData.append("photos", photo.file));
@@ -66,18 +77,34 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
       formData.append("title", "우리의 추억");
       formData.append("description", ENRICHMENT_QUESTIONS.map((question) => answers[question.key]?.trim()).filter(Boolean).join("\n"));
       const response = guestMode
-        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData })
-        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || "앨범을 만들지 못했어요.");
+        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal })
+        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(typeof body?.detail === "string" ? body.detail : `서버가 요청을 처리하지 못했어요. (오류 코드 ${response.status})`);
+      }
       const created = (await response.json()) as AlbumResult | GuestAlbumResult;
       if ("guest_token" in created) onGuestCreated?.(created.guest_token);
       onSuccess(created);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "앨범을 만들지 못했어요.");
+    } catch (cause: any) {
+      console.error("Album upload failed", { cause, guestMode, photoCount: photos.length });
+      const reason = cause instanceof DOMException && cause.name === "AbortError"
+        ? "요청 시간이 너무 오래 걸렸어요. 네트워크를 확인한 뒤 다시 시도해주세요."
+        : cause instanceof TypeError
+          ? "네트워크 연결을 확인해주세요. 연결이 복구되면 다시 시도할 수 있어요."
+          : cause instanceof Error ? cause.message : "알 수 없는 오류가 발생했어요.";
+      setError(`업로드에 실패했습니다. ${reason}`);
     } finally {
+      progressTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(backgroundTimer);
+      window.clearTimeout(timeoutTimer);
+      abortRef.current = null;
       setIsSubmitting(false);
+      setProgressStep(null);
     }
   };
+
+  const cancelUpload = () => abortRef.current?.abort();
 
   const currentQuestion = ENRICHMENT_QUESTIONS[step];
   const advance = () => {
@@ -117,6 +144,20 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
         </section>
       )}
       {error && <p className="upload-form__error">{error}</p>}
+      {error && <button type="button" className="upload-form__retry" onClick={() => void createAlbum()}>다시 시도</button>}
+      {progressStep !== null && (
+        <div className="upload-progress" role="dialog" aria-modal="true" aria-live="assertive" aria-label="앨범 생성 진행 상황">
+          <section className="upload-progress__card">
+            <div className="upload-progress__spinner" aria-hidden="true" />
+            <h2>{isBackgroundProcessing ? "조금 더 시간이 필요해요" : ["사진을 업로드하고 있어요...", "AI가 추억을 정리하고 있어요...", "이야기의 흐름을 만들고 있어요...", "곧 특별한 앨범이 완성돼요"][progressStep]}</h2>
+            <p>{isBackgroundProcessing ? "사진이 많아도 안전하게 계속 처리하고 있어요. 잠시만 기다려주세요." : "잠시만 기다려주세요."}</p>
+            <ol className="upload-progress__steps">
+              {["사진 업로드", "AI 분석", "스토리 생성", "완료"].map((label, index) => <li key={label} className={index <= progressStep ? "is-active" : ""}>{label}</li>)}
+            </ol>
+            <button type="button" className="upload-progress__cancel" onClick={cancelUpload}>업로드 취소</button>
+          </section>
+        </div>
+      )}
       <input ref={inputRef} type="file" accept={ALLOWED_TYPES.join(",")} multiple hidden onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
     </div>
