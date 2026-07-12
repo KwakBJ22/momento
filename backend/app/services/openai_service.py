@@ -6,8 +6,9 @@ from openai import OpenAI, OpenAIError
 
 from app.config import Settings, get_settings
 from app.models.schemas import MEETING_TYPE_LABELS
+from app.services.media_analysis_service import format_analysis_summary
+from app.services.prompt_loader import render_prompt
 
-# 모임 유형별 감성 톤앤매너
 MEETING_TONE: dict[str, str] = {
     "family": (
         "50대 부모님도 감동할 만큼 따뜻하고 정겨운 말투로 작성해줘. "
@@ -29,7 +30,6 @@ MEETING_TONE: dict[str, str] = {
 
 
 def parse_stories_json(stories_raw: str) -> list[dict[str, Any]]:
-    """프론트에서 전달된 사진별 스토리 JSON을 파싱. 형식: [{"order":0,"user":"","text":"..."}]"""
     try:
         parsed = json.loads(stories_raw)
     except json.JSONDecodeError as exc:
@@ -56,7 +56,6 @@ def parse_stories_json(stories_raw: str) -> list[dict[str, Any]]:
 
 
 def build_narrative_prompt(photo_stories: list[dict[str, Any]], meeting_type: str, title: str) -> str:
-    """업로드(타임라인) 순서의 사진 설명을 gpt-4o-mini 프롬프트로 변환."""
     ordered = sorted(photo_stories, key=lambda x: int(x.get("order", 0)))
     lines: list[str] = []
     for idx, item in enumerate(ordered, start=1):
@@ -82,15 +81,67 @@ def build_narrative_prompt(photo_stories: list[dict[str, Any]], meeting_type: st
 4. 제목, 따옴표, 머리말, 해시태그 없이 완성된 문단 텍스트만 출력할 것."""
 
 
+def _collect_media_analysis_summary(media_records: list[dict[str, Any]]) -> str:
+    chunks: list[str] = []
+    for media in media_records:
+        analysis = media.get("media_analysis")
+        if isinstance(analysis, dict):
+            summary = format_analysis_summary(analysis)
+            if summary:
+                chunks.append(f"[사진 {int(media.get('sort_order', 0)) + 1}] {summary}")
+    return "\n".join(chunks)
+
+
+def build_story_prompt(
+    *,
+    title: str,
+    meeting_type: str,
+    event_date: str,
+    description: str,
+    existing_answers: str,
+    media_records: list[dict[str, Any]] | None = None,
+) -> str:
+    meeting_type_label = MEETING_TYPE_LABELS.get(meeting_type, "모임")
+    analysis_summary = _collect_media_analysis_summary(media_records or [])
+    common = {
+        "album_title": title,
+        "album_description": description,
+        "event_date": event_date,
+        "meeting_type_label": meeting_type_label,
+        "existing_answers": existing_answers or "아직 답변이 없습니다.",
+    }
+    if analysis_summary:
+        return render_prompt("story_with_analysis.txt", media_analysis_summary=analysis_summary, **common)
+    return render_prompt("story_from_context.txt", **common)
+
+
 async def generate_narrative(
     photo_stories: list[dict[str, Any]],
     meeting_type: str,
     title: str = "우리의 모임",
     settings: Settings | None = None,
+    *,
+    event_date: str = "",
+    description: str = "",
+    existing_answers: str = "",
+    media_records: list[dict[str, Any]] | None = None,
 ) -> str:
     settings = settings or get_settings()
     client = OpenAI(api_key=settings.openai_api_key)
-    prompt = build_narrative_prompt(photo_stories, meeting_type, title)
+    has_story_text = any(str(item.get("text") or "").strip() for item in photo_stories)
+    if has_story_text:
+        prompt = build_narrative_prompt(photo_stories, meeting_type, title)
+        system_prompt = "너는 모임의 추억을 감성적인 한 편의 짧은 이야기로 엮어주는 한국어 카피라이터야."
+    else:
+        prompt = build_story_prompt(
+            title=title,
+            meeting_type=meeting_type,
+            event_date=event_date,
+            description=description,
+            existing_answers=existing_answers,
+            media_records=media_records,
+        )
+        system_prompt = "너는 가족 앨범의 추억을 따뜻한 한국어 이야기로 엮어주는 카피라이터야."
 
     try:
         completion = client.chat.completions.create(
@@ -98,10 +149,7 @@ async def generate_narrative(
             max_tokens=500,
             temperature=0.8,
             messages=[
-                {
-                    "role": "system",
-                    "content": "너는 모임의 추억을 감성적인 한 편의 짧은 이야기로 엮어주는 한국어 카피라이터야.",
-                },
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
         )
@@ -111,5 +159,4 @@ async def generate_narrative(
     narrative = (completion.choices[0].message.content or "").strip()
     if not narrative:
         raise HTTPException(status_code=502, detail="OpenAI API가 빈 응답을 반환했습니다.")
-
     return narrative

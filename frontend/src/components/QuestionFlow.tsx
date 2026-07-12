@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  analyzeAlbumMedia,
   generateMemoryQuestions,
   getMemoryQuestions,
   regenerateMemoryQuestions,
@@ -24,6 +25,8 @@ function getMyAnswer(question: MemoryQuestion, profileId: string | null): string
 export default function QuestionFlow({ albumId, albumTitle, profileId, onComplete }: QuestionFlowProps) {
   const [questions, setQuestions] = useState<MemoryQuestion[]>([]);
   const [canRegenerate, setCanRegenerate] = useState(false);
+  const [canAnalyzeMedia, setCanAnalyzeMedia] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -43,6 +46,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       }
       setQuestions(payload.questions);
       setCanRegenerate(payload.can_regenerate);
+      setCanAnalyzeMedia(payload.can_analyze_media);
       setCurrentIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "질문을 불러오지 못했어요.");
@@ -106,6 +110,20 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
     onComplete?.();
   };
 
+  const handleAnalyze = async () => {
+    if (!canAnalyzeMedia) return;
+    setAnalyzing(true);
+    setError(null);
+    try {
+      await analyzeAlbumMedia(albumId, current?.media_id);
+      setNotice("고급 AI 분석을 완료했어요. 질문을 다시 만들면 더 풍부해져요.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "고급 AI 분석에 실패했어요.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleRegenerate = async () => {
     if (!canRegenerate) return;
     setLoading(true);
@@ -143,11 +161,18 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       <header className="question-flow__header">
         <p className="question-flow__album">{albumTitle}</p>
         <h2>기억 질문 {currentIndex + 1} / {questions.length}</h2>
-        {canRegenerate && (
-          <button type="button" className="link-btn" onClick={() => void handleRegenerate()}>
-            질문 다시 만들기
-          </button>
-        )}
+        <div className="question-flow__toolbar">
+          {canAnalyzeMedia && (
+            <button type="button" className="btn btn--secondary" onClick={() => void handleAnalyze()} disabled={analyzing}>
+              {analyzing ? "분석 중..." : "고급 AI 분석"}
+            </button>
+          )}
+          {canRegenerate && (
+            <button type="button" className="link-btn" onClick={() => void handleRegenerate()}>
+              질문 다시 만들기
+            </button>
+          )}
+        </div>
       </header>
 
       <article className="question-card">

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import base64
 import json
 import re
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -12,15 +10,12 @@ from supabase import Client
 
 from app.config import Settings, get_settings
 from app.models.schemas import MEETING_TYPE_LABELS
+from app.services.media_analysis_service import format_analysis_summary
 from app.services.prompt_loader import load_prompt, render_prompt
 
 
 MIN_QUESTIONS = 3
 MAX_QUESTIONS = 5
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def media_has_active_questions(client: Client, media_id: str) -> bool:
@@ -156,6 +151,52 @@ def save_generated_questions(
     return result.data or rows
 
 
+def format_existing_answers(client: Client, album_id: str) -> str:
+    question_rows = list_album_questions(client, album_id)
+    if not question_rows:
+        return "아직 답변이 없습니다."
+    answers = list_question_answers(client, [str(row["id"]) for row in question_rows])
+    if not answers:
+        return "아직 답변이 없습니다."
+    lines: list[str] = []
+    question_map = {str(row["id"]): row["question"] for row in question_rows}
+    for answer in answers:
+        if not str(answer.get("answer") or "").strip():
+            continue
+        profile = answer.get("profiles") or {}
+        name = profile.get("display_name") or "가족"
+        question = question_map.get(str(answer["question_id"]), "질문")
+        lines.append(f'- {name} ({question}): "{answer["answer"]}"')
+    return "\n".join(lines) if lines else "아직 답변이 없습니다."
+
+
+def build_question_prompt(
+    album: dict[str, Any],
+    *,
+    photo_index: int,
+    photo_count: int,
+    existing_answers: str,
+    media_analysis: dict[str, Any] | None = None,
+) -> str:
+    meeting_type = str(album.get("meeting_type") or "family")
+    common = {
+        "album_title": str(album.get("title") or "우리의 모임"),
+        "album_description": str(album.get("narrative") or album.get("description") or ""),
+        "event_date": str(album.get("event_date") or ""),
+        "meeting_type_label": MEETING_TYPE_LABELS.get(meeting_type, "모임"),
+        "photo_count": str(photo_count),
+        "photo_index": str(photo_index),
+        "existing_answers": existing_answers,
+    }
+    if media_analysis:
+        return render_prompt(
+            "memory_questions_user_with_analysis.txt",
+            media_analysis_summary=format_analysis_summary(media_analysis),
+            **common,
+        )
+    return render_prompt("memory_questions_user.txt", **common)
+
+
 def _parse_questions_json(raw: str) -> list[str]:
     text = raw.strip()
     match = re.search(r"\[[\s\S]*\]", text)
@@ -173,74 +214,41 @@ def _parse_questions_json(raw: str) -> list[str]:
     return questions[:MAX_QUESTIONS]
 
 
-def _download_media_bytes(client: Client, settings: Settings, media: dict[str, Any]) -> tuple[bytes, str]:
-    bucket = settings.supabase_private_storage_bucket
-    path = media.get("thumbnail_path") or media.get("original_path")
-    if not path:
-        raise HTTPException(status_code=404, detail="미디어 파일을 찾을 수 없습니다.")
-    try:
-        payload = client.storage.from_(bucket).download(path)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="미디어를 불러오지 못했습니다.") from exc
-    mime_type = media.get("mime_type") or "image/jpeg"
-    return payload, mime_type
-
-
-def _image_data_url(image_bytes: bytes, mime_type: str) -> str:
-    encoded = base64.b64encode(image_bytes).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
-
-
 async def generate_questions_for_media(
     client: Client,
     *,
     album: dict[str, Any],
     media: dict[str, Any],
+    photo_index: int,
+    photo_count: int,
+    existing_answers: str,
     settings: Settings | None = None,
-) -> list[str]:
+) -> tuple[list[str], str]:
     settings = settings or get_settings()
     openai_client = OpenAI(api_key=settings.openai_api_key)
-    meeting_type = str(album.get("meeting_type") or "family")
-    user_prompt = render_prompt(
-        "memory_questions_user.txt",
-        album_title=str(album.get("title") or "우리의 모임"),
-        event_date=str(album.get("event_date") or ""),
-        meeting_type_label=MEETING_TYPE_LABELS.get(meeting_type, "모임"),
-        media_type=str(media.get("media_type") or "image"),
-        original_filename=str(media.get("original_filename") or ""),
+    media_analysis = media.get("media_analysis") if isinstance(media.get("media_analysis"), dict) else None
+    user_prompt = build_question_prompt(
+        album,
+        photo_index=photo_index,
+        photo_count=photo_count,
+        existing_answers=existing_answers,
+        media_analysis=media_analysis,
     )
-    system_prompt = load_prompt("memory_questions_system.txt")
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt},
-    ]
-
-    media_type = str(media.get("media_type") or "image")
-    if media_type in {"image", "gif"}:
-        image_bytes, mime_type = _download_media_bytes(client, settings, media)
-        messages.append(
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_prompt},
-                    {"type": "image_url", "image_url": {"url": _image_data_url(image_bytes, mime_type)}},
-                ],
-            }
-        )
-    else:
-        messages.append({"role": "user", "content": user_prompt})
-
     try:
         completion = openai_client.chat.completions.create(
             model=settings.openai_model,
             max_tokens=400,
             temperature=0.7,
-            messages=messages,
+            messages=[
+                {"role": "system", "content": load_prompt("memory_questions_system.txt")},
+                {"role": "user", "content": user_prompt},
+            ],
         )
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=f"OpenAI API 호출 실패: {exc}") from exc
 
     content = (completion.choices[0].message.content or "").strip()
-    return _parse_questions_json(content)
+    return _parse_questions_json(content), user_prompt
 
 
 async def generate_album_questions(
@@ -257,6 +265,8 @@ async def generate_album_questions(
     generated_for: list[str] = []
     skipped: list[str] = []
     created_count = 0
+    photo_count = len(media_records)
+    existing_answers = format_existing_answers(client, album_id)
 
     targets = media_records
     if media_id:
@@ -272,15 +282,16 @@ async def generate_album_questions(
         if force and media_has_active_questions(client, current_media_id):
             archive_media_questions(client, album_id, current_media_id)
 
-        user_prompt = render_prompt(
-            "memory_questions_user.txt",
-            album_title=str(album.get("title") or "우리의 모임"),
-            event_date=str(album.get("event_date") or ""),
-            meeting_type_label=MEETING_TYPE_LABELS.get(str(album.get("meeting_type") or "family"), "모임"),
-            media_type=str(media.get("media_type") or "image"),
-            original_filename=str(media.get("original_filename") or ""),
+        photo_index = int(media.get("sort_order", 0)) + 1
+        questions, user_prompt = await generate_questions_for_media(
+            client,
+            album=album,
+            media=media,
+            photo_index=photo_index,
+            photo_count=photo_count,
+            existing_answers=existing_answers,
+            settings=settings,
         )
-        questions = await generate_questions_for_media(client, album=album, media=media, settings=settings)
         save_generated_questions(
             client,
             album_id=album_id,

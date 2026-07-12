@@ -74,6 +74,13 @@
   color: #5c524c;
 }
 
+.question-flow__toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .question-flow__actions {
   display: flex;
   gap: 0.75rem;

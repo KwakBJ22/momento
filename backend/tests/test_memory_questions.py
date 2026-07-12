@@ -169,3 +169,103 @@ class QuestionServiceTests(TestCase):
             )
         self.assertEqual(result["skipped_media_ids"], [MEDIA_ID])
         generate_one.assert_not_called()
+
+
+class MediaAnalysisTests(TestCase):
+    def test_question_generation_uses_text_only(self) -> None:
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        from app.services.question_service import generate_questions_for_media
+
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content='["질문1","질문2","질문3"]'))]
+        mock_openai = MagicMock()
+        mock_openai.chat.completions.create.return_value = mock_completion
+
+        with patch("app.services.question_service.OpenAI", return_value=mock_openai):
+            questions, _prompt = asyncio.run(
+                generate_questions_for_media(
+                    mock_client,
+                    album={"title": "제주", "event_date": "2026-07-12", "meeting_type": "family", "narrative": "바다 여행"},
+                    media={"id": MEDIA_ID, "sort_order": 0},
+                    photo_index=1,
+                    photo_count=3,
+                    existing_answers="아직 답변이 없습니다.",
+                )
+            )
+
+        self.assertEqual(len(questions), 3)
+        messages = mock_openai.chat.completions.create.call_args.kwargs["messages"]
+        user_content = messages[1]["content"]
+        self.assertIsInstance(user_content, str)
+        self.assertIn("제주", user_content)
+
+    def test_question_generation_uses_media_analysis_when_present(self) -> None:
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        from app.services.question_service import build_question_prompt
+
+        prompt = build_question_prompt(
+            {"title": "제주", "event_date": "2026-07-12", "meeting_type": "family", "narrative": "바다"},
+            photo_index=1,
+            photo_count=2,
+            existing_answers="엄마: 좋았어요",
+            media_analysis={"summary": "맑은 바다와 가족 사진"},
+        )
+        self.assertIn("맑은 바다", prompt)
+        self.assertIn("AI 사진 분석", prompt)
+
+    def test_analyze_skips_already_analyzed_media(self) -> None:
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+
+        from app.services.media_analysis_service import analyze_album_media
+
+        client = MagicMock()
+        media = {
+            "id": MEDIA_ID,
+            "media_type": "image",
+            "media_analysis": {"summary": "이미 분석됨"},
+            "sort_order": 0,
+        }
+        with patch(
+            "app.services.media_analysis_service.analyze_media_with_vision", new_callable=AsyncMock
+        ) as analyze_one:
+            result = asyncio.run(
+                analyze_album_media(
+                    client,
+                    album_id=ALBUM_ID,
+                    album=album_record(),
+                    media_records=[media],
+                )
+            )
+        self.assertEqual(result["skipped_media_ids"], [MEDIA_ID])
+        analyze_one.assert_not_called()
+
+    def test_analyze_media_api(self) -> None:
+        app = FastAPI()
+        app.include_router(memory_router)
+        client = TestClient(app)
+        app.dependency_overrides[require_authenticated_user] = lambda: OWNER_ID
+        settings = SimpleNamespace(
+            openai_model="gpt-4o-mini",
+            supabase_private_storage_bucket="momento-private",
+        )
+        with patch("app.api.memory.get_settings", return_value=settings), patch(
+            "app.api.memory.get_supabase_client", return_value=MagicMock()
+        ), patch("app.api.memory.get_album_record", return_value=album_record()), patch(
+            "app.api.memory.get_album_access", return_value=AlbumAccess("owner", "owner", False)
+        ), patch(
+            "app.api.memory.get_album_media_records",
+            return_value=[{"id": MEDIA_ID, "media_type": "image", "sort_order": 0}],
+        ), patch(
+            "app.api.memory.analyze_album_media",
+            new_callable=AsyncMock,
+            return_value={"analyzed_media_ids": [MEDIA_ID], "skipped_media_ids": []},
+        ):
+            response = client.post(f"/api/albums/{ALBUM_ID}/media/analyze", json={})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["analyzed_media_ids"], [MEDIA_ID])

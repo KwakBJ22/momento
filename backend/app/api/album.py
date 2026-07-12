@@ -171,11 +171,19 @@ async def upload_album(
 
         ordered_stories = [items_by_order[i] for i in range(len(photos))]
         has_story_text = any(item["text"] for item in ordered_stories)
-        narrative = ""
         if has_story_text:
             narrative = await generate_narrative(story_items, meeting_type, title, settings)
         else:
-            narrative = "가족의 답변을 모아 이야기를 만들 예정이에요."
+            narrative = await generate_narrative(
+                [],
+                meeting_type,
+                title,
+                settings,
+                event_date=event_date,
+                description="",
+                existing_answers="",
+                media_records=[],
+            )
         album_img = generate_album(
             template,
             photos=bytes_to_images(ordered_bytes),
@@ -222,6 +230,7 @@ async def upload_album(
                     "title": title,
                     "event_date": event_date,
                     "meeting_type": meeting_type,
+                    "narrative": narrative,
                 },
                 media_records=media_records,
                 force=False,

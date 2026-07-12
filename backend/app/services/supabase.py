@@ -191,7 +191,7 @@ def get_album_media_records(client: Client, album_id: str) -> list[dict[str, Any
         client.table("album_media")
         .select(
             "id, media_type, mime_type, original_filename, original_path, preview_path, thumbnail_path, "
-            "file_size, width, height, duration_seconds, page_count, sort_order, processing_status, metadata"
+            "file_size, width, height, duration_seconds, page_count, sort_order, processing_status, metadata, media_analysis"
         )
         .eq("album_id", album_id)
         .is_("deleted_at", "null")

@@ -229,6 +229,16 @@ class MemoryQuestionResponse(BaseModel):
 class MemoryQuestionsListResponse(BaseModel):
     questions: list[MemoryQuestionResponse]
     can_regenerate: bool
+    can_analyze_media: bool
+
+
+class AnalyzeMediaRequest(BaseModel):
+    media_id: UUID | None = None
+
+
+class AnalyzeMediaResponse(BaseModel):
+    analyzed_media_ids: list[UUID]
+    skipped_media_ids: list[UUID]
 
 
 class UpsertMemoryAnswerRequest(BaseModel):

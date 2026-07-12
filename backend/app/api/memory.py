@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import get_settings
 from app.models.schemas import (
+    AnalyzeMediaRequest,
+    AnalyzeMediaResponse,
     GenerateQuestionsRequest,
     GenerateQuestionsResponse,
     MemoryAnswerResponse,
@@ -19,6 +21,7 @@ from app.services.authorization import (
     require_album_regenerate_questions,
 )
 from app.services.membership import get_album_access
+from app.services.media_analysis_service import analyze_album_media
 from app.services.question_service import (
     delete_answer_record,
     generate_album_questions,
@@ -96,7 +99,11 @@ async def get_memory_questions(
         )
         for row in question_rows
     ]
-    return MemoryQuestionsListResponse(questions=questions, can_regenerate=access.can_regenerate_questions)
+    return MemoryQuestionsListResponse(
+        questions=questions,
+        can_regenerate=access.can_regenerate_questions,
+        can_analyze_media=access.can_regenerate_questions,
+    )
 
 
 @router.post("/albums/{album_id}/memory/questions/generate", response_model=GenerateQuestionsResponse)
@@ -166,6 +173,39 @@ async def regenerate_memory_questions(
         generated_media_ids=[UUID(value) for value in result["generated_media_ids"]],
         skipped_media_ids=[UUID(value) for value in result["skipped_media_ids"]],
         question_count=int(result["question_count"]),
+    )
+
+
+@router.post("/albums/{album_id}/media/analyze", response_model=AnalyzeMediaResponse)
+async def analyze_media(
+    album_id: str,
+    body: AnalyzeMediaRequest | None = None,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AnalyzeMediaResponse:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_regenerate_questions(access)
+
+    payload = body or AnalyzeMediaRequest()
+    media_records = get_album_media_records(client, album_id)
+    if not media_records:
+        raise HTTPException(status_code=400, detail="분석할 미디어가 없습니다.")
+
+    result = await analyze_album_media(
+        client,
+        album_id=album_id,
+        album=album,
+        media_records=media_records,
+        media_id=str(payload.media_id) if payload.media_id else None,
+        settings=settings,
+    )
+    return AnalyzeMediaResponse(
+        analyzed_media_ids=[UUID(value) for value in result["analyzed_media_ids"]],
+        skipped_media_ids=[UUID(value) for value in result["skipped_media_ids"]],
     )
 
 
