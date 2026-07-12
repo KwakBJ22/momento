@@ -79,3 +79,11 @@ body {
 .app__main {
   width: 100%;
 }
+
+.landing { min-height: 72vh; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 1rem .5rem 3rem; }
+.landing__brand { color: #b48c6e; font-size: 1.25rem; font-weight: 700; margin: 0 0 1.4rem; }
+.landing h1 { font-size: clamp(1.75rem, 7vw, 2.35rem); line-height: 1.42; letter-spacing: -.045em; margin: 0; color: #3d3530; }
+.landing__copy { color: #75675c; font-size: 1.05rem; line-height: 1.65; margin: 1.5rem 0 2.3rem; }
+.landing__cta { min-height: 58px; border: 0; border-radius: 15px; background: #b48c6e; color: white; font-weight: 700; font-size: 1.15rem; box-shadow: 0 6px 16px #b48c6e55; cursor: pointer; }
+.landing__hint { margin: .9rem 0 1.6rem; color: #8a7a6e; font-size: .95rem; }
+.landing__login { background: transparent; border: 0; color: #75675c; text-decoration: underline; font-size: .88rem; cursor: pointer; }

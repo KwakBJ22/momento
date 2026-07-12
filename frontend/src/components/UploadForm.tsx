@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { authenticatedFetch } from "../lib/api";
-import type { AlbumResult, MeetingType, PhotoItem, StoryPayload } from "../types";
+import { API_BASE, authenticatedFetch } from "../lib/api";
+import type { AlbumResult, GuestAlbumResult, MeetingType, PhotoItem, StoryPayload } from "../types";
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 10;
@@ -14,13 +14,16 @@ const ENRICHMENT_QUESTIONS = [
 
 interface UploadFormProps {
   onSuccess: (result: AlbumResult) => void;
+  guestMode?: boolean;
+  onGuestCreated?: (token: string) => void;
+  onCancel?: () => void;
 }
 
 function createPhotoItem(file: File): PhotoItem {
   return { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file), story: "" };
 }
 
-export default function UploadForm({ onSuccess }: UploadFormProps) {
+export default function UploadForm({ onSuccess, guestMode = false, onGuestCreated, onCancel: _onCancel }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [mode, setMode] = useState<"quick" | "special">("quick");
   const [step, setStep] = useState(0);
@@ -62,9 +65,13 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       formData.append("template", "B");
       formData.append("title", "우리의 추억");
       formData.append("description", ENRICHMENT_QUESTIONS.map((question) => answers[question.key]?.trim()).filter(Boolean).join("\n"));
-      const response = await authenticatedFetch("/api/upload-album", { method: "POST", body: formData });
+      const response = guestMode
+        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData })
+        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData });
       if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || "앨범을 만들지 못했어요.");
-      onSuccess((await response.json()) as AlbumResult);
+      const created = (await response.json()) as AlbumResult | GuestAlbumResult;
+      if ("guest_token" in created) onGuestCreated?.(created.guest_token);
+      onSuccess(created);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "앨범을 만들지 못했어요.");
     } finally {

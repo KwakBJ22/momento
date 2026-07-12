@@ -118,6 +118,18 @@ class ShareReactionRequest(BaseModel):
     session_key: str = Field(min_length=16, max_length=200)
 
 
+class GuestAlbumUploadResponse(AlbumUploadResponse):
+    guest_token: str
+
+
+class GuestAlbumClaimRequest(BaseModel):
+    guest_token: str = Field(min_length=20, max_length=200)
+
+
+class GuestAnalyticsEventRequest(BaseModel):
+    event_name: Literal["landing_viewed", "primary_cta_clicked", "preview_viewed", "save_cta_clicked", "login_started", "enrichment_started"]
+
+
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID

@@ -6,12 +6,13 @@ import AlbumResultView from "./components/AlbumResult";
 import AlbumView from "./components/AlbumView";
 import FamilyManagement from "./components/FamilyManagement";
 import InviteAccept from "./components/InviteAccept";
+import Landing from "./components/Landing";
 import QuestionFlow from "./components/QuestionFlow";
 import PublicShareView from "./components/PublicShareView";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import type { AlbumResult } from "./types";
-import { authenticatedFetch, claimGuestMemory } from "./lib/api";
+import { authenticatedFetch, claimGuestAlbum, claimGuestMemory, trackGuestEvent } from "./lib/api";
 import { isSupabaseAuthConfigured, supabase } from "./lib/supabase";
 import "./App.css";
 
@@ -44,6 +45,9 @@ function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [guestClaimed, setGuestClaimed] = useState(false);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const questionsAlbumId = getQuestionsAlbumIdFromPath();
@@ -76,6 +80,18 @@ function App() {
       active = false;
     };
   }, [session?.access_token]);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("momento-guest-album-token");
+    if (!session || !token || guestClaimed) return;
+    void claimGuestAlbum(token)
+      .then(() => { sessionStorage.removeItem("momento-guest-album-token"); setGuestClaimed(true); setGuestMode(false); setShowLogin(false); })
+      .catch(() => undefined);
+  }, [session?.access_token, guestClaimed]);
+
+  useEffect(() => {
+    if (!session) trackGuestEvent("landing_viewed");
+  }, [session]);
 
   useEffect(() => {
     const claimToken = localStorage.getItem("momento-guest-memory-claim");
@@ -142,6 +158,22 @@ function App() {
           ) : (
             <FamilyManagement />
           )
+        ) : !session && result ? (
+          <>
+            <AlbumResultView
+              result={result}
+              guestMode
+              onSave={() => { trackGuestEvent("save_cta_clicked"); trackGuestEvent("login_started"); setShowLogin(true); }}
+              onShare={() => undefined}
+              onReset={() => { setResult(null); setGuestMode(false); setShowLogin(false); }}
+              onEnrich={() => undefined}
+            />
+            {showLogin && <AuthPanel />}
+          </>
+        ) : !session && !showLogin && !guestMode ? (
+          <Landing onStart={() => { trackGuestEvent("primary_cta_clicked"); setGuestMode(true); }} onLogin={() => { trackGuestEvent("login_started"); setShowLogin(true); }} />
+        ) : !session && guestMode ? (
+          <UploadForm guestMode onSuccess={(album) => { trackGuestEvent("preview_viewed"); setResult(album); }} onGuestCreated={(token) => sessionStorage.setItem("momento-guest-album-token", token)} onCancel={() => setGuestMode(false)} />
         ) : session === undefined ? (
           <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
         ) : !isSupabaseAuthConfigured || !session ? (

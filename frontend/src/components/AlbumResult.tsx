@@ -9,9 +9,11 @@ interface AlbumResultProps {
   onShare: (narrative: string) => void;
   onReset: () => void;
   onEnrich: () => void;
+  guestMode?: boolean;
+  onSave?: () => void;
 }
 
-export default function AlbumResultView({ result, onShare, onReset, onEnrich }: AlbumResultProps) {
+export default function AlbumResultView({ result, onShare, onReset, onEnrich, guestMode = false, onSave }: AlbumResultProps) {
   const [narrative, setNarrative] = useState(result.narrative);
   const [savedNarrative, setSavedNarrative] = useState(result.narrative);
   const [isEditing, setIsEditing] = useState(false);
@@ -113,6 +115,10 @@ export default function AlbumResultView({ result, onShare, onReset, onEnrich }: 
       {notice && <p className="album-result__notice">{notice}</p>}
 
       <div className="album-result__actions">
+        {guestMode && <>
+          <p className="album-result__notice">이 앨범을 저장하고 가족과 공유하려면 로그인해주세요.</p>
+          <button type="button" className="btn btn--kakao" onClick={onSave}>이 앨범 저장하기</button>
+        </>}
         <button type="button" className="btn btn--kakao" onClick={() => onShare(narrative)}>
           <span className="btn__icon">💬</span>
           우리 모임방에 앨범 전달하기

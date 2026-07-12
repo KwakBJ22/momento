@@ -100,6 +100,10 @@ export interface AlbumMediaSummary {
   metadata: Record<string, unknown>;
 }
 
+export interface GuestAlbumResult extends AlbumResult {
+  guest_token: string;
+}
+
 export interface PublicShareAlbum {
   title: string;
   narrative: string;

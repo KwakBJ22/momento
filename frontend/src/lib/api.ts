@@ -75,6 +75,16 @@ export async function claimGuestMemory(claimToken: string): Promise<void> {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+export async function claimGuestAlbum(guestToken: string): Promise<{ album_id: string }> {
+  const response = await authenticatedFetch("/api/guest-albums/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guest_token: guestToken }) });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { album_id: string };
+}
+
+export function trackGuestEvent(eventName: "landing_viewed" | "primary_cta_clicked" | "preview_viewed" | "save_cta_clicked" | "login_started" | "enrichment_started"): void {
+  void fetch(`${API_BASE}/api/guest-analytics`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event_name: eventName }) }).catch(() => undefined);
+}
+
 export async function createAlbumShareLink(albumId: string, expiresAt?: string): Promise<{ share_url: string }> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null }) });
   if (!response.ok) throw new Error(await parseError(response));

@@ -102,8 +102,8 @@ def get_public_url(client: Client, path: str, settings: Settings) -> str:
 def save_album_record(
     client: Client,
     album_id: str,
-    owner_id: str,
-    family_id: str,
+    owner_id: str | None,
+    family_id: str | None,
     meeting_type: str,
     template: str,
     title: str,
