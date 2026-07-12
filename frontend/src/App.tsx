@@ -133,12 +133,15 @@ function App() {
           <AuthPanel />
         ) : bootstrapError ? (
           <p className="auth-panel__notice">{bootstrapError}</p>
-        ) : result && !showAlbumResult ? (
+        ) : result && showAlbumResult ? (
           <QuestionFlow
             albumId={result.album_id}
             albumTitle={result.title}
             profileId={session!.user.id}
-            onComplete={() => setShowAlbumResult(true)}
+            onComplete={(narrative) => {
+              if (narrative) setResult((current) => (current ? { ...current, narrative } : current));
+              setShowAlbumResult(false);
+            }}
           />
         ) : result ? (
           <>
@@ -156,6 +159,7 @@ function App() {
               setResult(null);
               setShowAlbumResult(false);
             }}
+              onEnrich={() => setShowAlbumResult(true)}
             />
             <AlbumMembersPanel albumId={result.album_id} />
           </>

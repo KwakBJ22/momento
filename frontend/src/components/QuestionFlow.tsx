@@ -4,6 +4,7 @@ import {
   generateMemoryQuestions,
   getMemoryQuestions,
   regenerateMemoryQuestions,
+  regenerateStory,
   saveMemoryAnswer,
 } from "../lib/api";
 import type { MemoryQuestion } from "../types";
@@ -13,7 +14,7 @@ interface QuestionFlowProps {
   albumId: string;
   albumTitle: string;
   profileId: string;
-  onComplete?: () => void;
+  onComplete?: (narrative?: string) => void;
 }
 
 function getMyAnswer(question: MemoryQuestion, profileId: string | null): string {
@@ -107,7 +108,14 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       setCurrentIndex((value) => value + 1);
       return;
     }
-    onComplete?.();
+    try {
+      const updated = await regenerateStory(albumId);
+      setNotice("조금 더 풍부해졌어요. 이야기에 반영했어요.");
+      onComplete?.(updated.narrative);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "이야기를 새로 만들지 못했어요.");
+      onComplete?.();
+    }
   };
 
   const handleAnalyze = async () => {

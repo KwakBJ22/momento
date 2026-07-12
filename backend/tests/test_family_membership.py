@@ -101,6 +101,28 @@ class MembershipApiTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_contributor_can_autosave_optional_story_input(self) -> None:
+        self.as_user(CONTRIBUTOR_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.get_album_access", return_value=access(album_role="contributor")
+        ), patch("app.api.album.upsert_album_story_input", return_value={"value": "할머니와 함께"}):
+            response = self.client.put(
+                f"/api/albums/{ALBUM_ID}/story-inputs/people",
+                json={"value": "할머니와 함께"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["value"], "할머니와 함께")
+
+    def test_contributor_cannot_regenerate_album_story(self) -> None:
+        self.as_user(CONTRIBUTOR_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.get_album_access", return_value=access(album_role="contributor")
+        ):
+            response = self.client.post(f"/api/albums/{ALBUM_ID}/story/regenerate")
+
+        self.assertEqual(response.status_code, 403)
+
     def test_contributor_can_add_media(self) -> None:
         self.as_user(CONTRIBUTOR_ID)
         with patch("app.api.album.get_album_record", return_value=album_record()), patch(

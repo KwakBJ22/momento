@@ -56,6 +56,19 @@ class NarrativeUpdate(BaseModel):
     narrative: str = Field(min_length=1, max_length=800)
 
 
+class StoryInputUpdate(BaseModel):
+    value: str = Field(default="", max_length=300)
+
+
+class StoryInputResponse(BaseModel):
+    key: Literal["memory_hint", "people", "highlight"]
+    value: str
+
+
+class StoryRegenerateResponse(BaseModel):
+    narrative: str
+
+
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID

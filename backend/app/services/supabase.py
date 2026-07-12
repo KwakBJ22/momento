@@ -144,6 +144,33 @@ def save_album_media_records(client: Client, records: list[dict[str, Any]]) -> N
         client.table("album_media").insert(records).execute()
 
 
+def upsert_album_story_input(
+    client: Client, *, album_id: str, author_profile_id: str, input_key: str, value: str
+) -> dict[str, Any]:
+    result = client.table("album_story_inputs").upsert(
+        {
+            "album_id": album_id,
+            "author_profile_id": author_profile_id,
+            "input_key": input_key,
+            "value": value.strip(),
+        },
+        on_conflict="album_id,author_profile_id,input_key",
+    ).execute()
+    data = result.data or []
+    return data[0] if data else {"input_key": input_key, "value": value.strip()}
+
+
+def get_album_story_inputs(client: Client, album_id: str) -> list[dict[str, Any]]:
+    result = (
+        client.table("album_story_inputs")
+        .select("input_key, value, author_profile_id, updated_at")
+        .eq("album_id", album_id)
+        .order("updated_at")
+        .execute()
+    )
+    return result.data or []
+
+
 def ensure_default_family(client: Client, user_id: str) -> str:
     """Return the user's provisioned default family through a server-only RPC."""
     result = client.rpc("ensure_default_family", {"target_profile_id": user_id}).execute()

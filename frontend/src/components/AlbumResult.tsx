@@ -8,9 +8,10 @@ interface AlbumResultProps {
   result: AlbumResult;
   onShare: (narrative: string) => void;
   onReset: () => void;
+  onEnrich: () => void;
 }
 
-export default function AlbumResultView({ result, onShare, onReset }: AlbumResultProps) {
+export default function AlbumResultView({ result, onShare, onReset, onEnrich }: AlbumResultProps) {
   const [narrative, setNarrative] = useState(result.narrative);
   const [savedNarrative, setSavedNarrative] = useState(result.narrative);
   const [isEditing, setIsEditing] = useState(false);
@@ -125,6 +126,9 @@ export default function AlbumResultView({ result, onShare, onReset }: AlbumResul
         </button>
         <button type="button" className="btn btn--ghost" onClick={handleCopyLink}>
           {copied ? "링크가 복사됐어요 ✓" : "공유 링크 복사"}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={onEnrich}>
+          더 특별하게 만들기
         </button>
         <button type="button" className="btn btn--ghost" onClick={onReset}>
           새 앨범 만들기

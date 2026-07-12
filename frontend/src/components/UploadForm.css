@@ -297,3 +297,44 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.story-first-upload {
+  display: grid;
+  gap: 1rem;
+}
+
+.story-first-upload__hero,
+.story-first-upload__question {
+  padding: 1.25rem;
+  border: 1px solid #eadfd6;
+  border-radius: 16px;
+  background: #fffdfa;
+}
+
+.story-first-upload__hero h2,
+.story-first-upload__question h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+
+.story-first-upload__hero p,
+.story-first-upload__question p {
+  color: #8a7a6e;
+}
+
+.story-first-upload__secondary {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #8a7a6e;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.story-first-upload__eyebrow {
+  margin: 0 0 0.5rem;
+  color: #b48c6e !important;
+  font-size: 0.8rem;
+  font-weight: 700;
+}

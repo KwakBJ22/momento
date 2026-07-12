@@ -47,6 +47,12 @@ export async function patchNarrative(albumId: string, narrative: string): Promis
   return (await response.json()) as AlbumResult;
 }
 
+export async function regenerateStory(albumId: string): Promise<{ narrative: string }> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/story/regenerate`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { narrative: string };
+}
+
 export async function getMyFamily(): Promise<import("../types").FamilySummary> {
   const response = await authenticatedFetch("/api/families/me");
   if (!response.ok) throw new Error(await parseError(response));

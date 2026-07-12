@@ -17,6 +17,9 @@ from app.models.schemas import (
     AlbumUploadResponse,
     MeetingType,
     NarrativeUpdate,
+    StoryInputResponse,
+    StoryInputUpdate,
+    StoryRegenerateResponse,
     TemplateType,
 )
 from app.services.image_service import (
@@ -32,6 +35,7 @@ from app.services.supabase import (
     delete_storage_paths,
     ensure_default_family,
     get_album_record,
+    get_album_story_inputs,
     get_album_photo_records,
     get_album_media_record,
     get_album_media_records,
@@ -42,6 +46,7 @@ from app.services.supabase import (
     save_album_photo_records,
     save_album_media_records,
     update_album_narrative,
+    upsert_album_story_input,
     upload_album_photo_assets,
     upload_album_media_assets,
     upload_result_image,
@@ -61,7 +66,7 @@ from app.services.membership import (
     require_family_write_role,
     save_album_member,
 )
-from app.services.question_service import generate_album_questions
+from app.services.question_service import format_existing_answers, generate_album_questions
 
 router = APIRouter(prefix="/api", tags=["album"])
 
@@ -77,6 +82,7 @@ async def upload_album(
     template: str = Form("B", description="앨범 템플릿 A(타임라인)/B(콜라주)/C(스토리북)"),
     title: str = Form("우리의 모임", description="모임 제목"),
     date: str = Form("", description="모임 날짜 (YYYY-MM-DD)"),
+    description: str = Form("", description="선택형 앨범 보강 정보"),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumUploadResponse:
     settings = get_settings()
@@ -170,20 +176,20 @@ async def upload_album(
             )
 
         ordered_stories = [items_by_order[i] for i in range(len(photos))]
-        has_story_text = any(item["text"] for item in ordered_stories)
-        if has_story_text:
-            narrative = await generate_narrative(story_items, meeting_type, title, settings)
-        else:
-            narrative = await generate_narrative(
-                [],
-                meeting_type,
-                title,
-                settings,
-                event_date=event_date,
-                description="",
-                existing_answers="",
-                media_records=[],
-            )
+        narrative = await generate_narrative(
+            ordered_stories,
+            meeting_type,
+            title,
+            settings,
+            event_date=event_date,
+            description=description.strip(),
+            existing_answers="",
+            media_records=media_records,
+            client=client,
+            album_id=album_id,
+            family_id=family_id,
+            actor_profile_id=authenticated_user_id,
+        )
         album_img = generate_album(
             template,
             photos=bytes_to_images(ordered_bytes),
@@ -295,6 +301,80 @@ async def get_album_photo_urls(
         for photo in get_album_photo_records(client, album_id)
     ]
     return AlbumPhotoUrlsResponse(photos=photo_urls)
+
+
+_STORY_INPUT_KEYS = {"memory_hint", "people", "highlight"}
+
+
+@router.put("/albums/{album_id}/story-inputs/{input_key}", response_model=StoryInputResponse)
+async def save_story_input(
+    album_id: str,
+    input_key: str,
+    body: StoryInputUpdate,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> StoryInputResponse:
+    if input_key not in _STORY_INPUT_KEYS:
+        raise HTTPException(status_code=404, detail="알 수 없는 보강 입력입니다.")
+    client = get_supabase_client()
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_contribute(access)
+    saved = upsert_album_story_input(
+        client,
+        album_id=album_id,
+        author_profile_id=authenticated_user_id,
+        input_key=input_key,
+        value=body.value,
+    )
+    return StoryInputResponse(key=input_key, value=str(saved.get("value") or ""))
+
+
+@router.post("/albums/{album_id}/story/regenerate", response_model=StoryRegenerateResponse)
+async def regenerate_story(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> StoryRegenerateResponse:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_edit_settings(access)
+
+    inputs = get_album_story_inputs(client, album_id)
+    context = "\n".join(
+        f"{row.get('input_key')}: {str(row.get('value') or '').strip()}"
+        for row in inputs
+        if str(row.get("value") or "").strip()
+    )
+    photo_stories = [
+        {
+            "order": item.get("order", index),
+            "user": item.get("user", ""),
+            "text": item.get("text", ""),
+        }
+        for index, item in enumerate(album.get("photo_meta") or [])
+        if isinstance(item, dict)
+    ]
+    narrative = await generate_narrative(
+        photo_stories,
+        str(album.get("meeting_type") or "family"),
+        str(album.get("title") or "우리의 모임"),
+        settings,
+        event_date=str(album.get("event_date") or ""),
+        description=context,
+        existing_answers=format_existing_answers(client, album_id),
+        media_records=get_album_media_records(client, album_id),
+        client=client,
+        album_id=album_id,
+        family_id=str(album.get("family_id") or "") or None,
+        actor_profile_id=authenticated_user_id,
+    )
+    update_album_narrative(client, album_id, narrative)
+    return StoryRegenerateResponse(narrative=narrative)
 
 
 def _media_summary(record: dict[str, Any]) -> AlbumMediaSummary:

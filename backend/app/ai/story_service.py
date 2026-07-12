@@ -87,6 +87,7 @@ class StoryAIService:
         photo_stories: list[dict[str, Any]],
         meeting_type: str,
         title: str,
+        optional_context: str = "",
     ) -> tuple[str, str, str]:
         ordered = sorted(photo_stories, key=lambda x: int(x.get("order", 0)))
         lines: list[str] = []
@@ -101,6 +102,7 @@ class StoryAIService:
             album_title=title,
             meeting_type_label=meeting_type_label,
             photo_stories_block="\n".join(lines),
+            optional_context=optional_context or "없음",
             meeting_tone=MEETING_TONE.get(meeting_type, MEETING_TONE["friend"]),
         )
         return prompt, version, "story_from_stories"
@@ -120,9 +122,12 @@ class StoryAIService:
         actor_profile_id: str | None = None,
     ) -> str:
         has_story_text = any(str(item.get("text") or "").strip() for item in photo_stories)
+        optional_context = "\n".join(
+            value for value in (description.strip(), existing_answers.strip()) if value
+        )
         if has_story_text:
             user_prompt, user_version, prompt_name = self.build_story_from_photo_stories_prompt(
-                photo_stories, meeting_type, title
+                photo_stories, meeting_type, title, optional_context
             )
             system_prompt, system_version = self._prompts.render_prompt("story_system")
         else:
