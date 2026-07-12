@@ -1,3 +1,6 @@
+---
+version: "1.0.0"
+---
 앨범 제목: {album_title}
 앨범 설명: {album_description}
 날짜: {event_date}

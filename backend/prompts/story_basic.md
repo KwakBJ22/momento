@@ -1,10 +1,10 @@
+---
+version: "1.0.0"
+---
 앨범 제목: {album_title}
 앨범 설명: {album_description}
 모임 날짜: {event_date}
 모임 유형: {meeting_type_label}
-
-AI 사진 분석 요약:
-{media_analysis_summary}
 
 가족 답변:
 {existing_answers}

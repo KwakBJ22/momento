@@ -13,6 +13,16 @@ class Settings(BaseSettings):
 
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
+    vision_model: str = ""
+    question_model: str = ""
+    story_model: str = ""
+    title_model: str = ""
+    emotion_model: str = ""
+    timeline_model: str = ""
+    album_summary_model: str = ""
+
+    environment: str = "development"
+    prompt_hot_reload: bool | None = None
 
     max_photos: int = 10
     max_file_size_mb: int = 10
@@ -37,6 +47,16 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.strip().lower() == "production"
+
+    @property
+    def should_hot_reload_prompts(self) -> bool:
+        if self.prompt_hot_reload is not None:
+            return self.prompt_hot_reload
+        return not self.is_production
 
 
 @lru_cache

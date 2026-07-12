@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
 
 from fastapi import HTTPException
-from openai import OpenAI, OpenAIError
 from supabase import Client
 
+from app.ai.parsers import parse_questions_json
+from app.ai.question_service import QuestionAIService
 from app.config import Settings, get_settings
-from app.models.schemas import MEETING_TYPE_LABELS
-from app.services.media_analysis_service import format_analysis_summary
-from app.services.prompt_loader import load_prompt, render_prompt
-
-
-MIN_QUESTIONS = 3
-MAX_QUESTIONS = 5
 
 
 def media_has_active_questions(client: Client, media_id: str) -> bool:
@@ -177,41 +169,17 @@ def build_question_prompt(
     photo_count: int,
     existing_answers: str,
     media_analysis: dict[str, Any] | None = None,
+    settings: Settings | None = None,
 ) -> str:
-    meeting_type = str(album.get("meeting_type") or "family")
-    common = {
-        "album_title": str(album.get("title") or "우리의 모임"),
-        "album_description": str(album.get("narrative") or album.get("description") or ""),
-        "event_date": str(album.get("event_date") or ""),
-        "meeting_type_label": MEETING_TYPE_LABELS.get(meeting_type, "모임"),
-        "photo_count": str(photo_count),
-        "photo_index": str(photo_index),
-        "existing_answers": existing_answers,
-    }
-    if media_analysis:
-        return render_prompt(
-            "memory_questions_user_with_analysis.txt",
-            media_analysis_summary=format_analysis_summary(media_analysis),
-            **common,
-        )
-    return render_prompt("memory_questions_user.txt", **common)
-
-
-def _parse_questions_json(raw: str) -> list[str]:
-    text = raw.strip()
-    match = re.search(r"\[[\s\S]*\]", text)
-    if not match:
-        raise HTTPException(status_code=502, detail="AI가 유효한 질문 목록을 반환하지 않았습니다.")
-    try:
-        parsed = json.loads(match.group(0))
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail="AI 질문 JSON 파싱에 실패했습니다.") from exc
-    if not isinstance(parsed, list):
-        raise HTTPException(status_code=502, detail="AI 질문 응답 형식이 올바르지 않습니다.")
-    questions = [str(item).strip() for item in parsed if str(item).strip()]
-    if len(questions) < MIN_QUESTIONS:
-        raise HTTPException(status_code=502, detail="AI가 충분한 질문을 생성하지 못했습니다.")
-    return questions[:MAX_QUESTIONS]
+    service = QuestionAIService(settings)
+    prompt, _, _ = service.build_user_prompt(
+        album,
+        photo_index=photo_index,
+        photo_count=photo_count,
+        existing_answers=existing_answers,
+        media_analysis=media_analysis,
+    )
+    return prompt
 
 
 async def generate_questions_for_media(
@@ -223,32 +191,21 @@ async def generate_questions_for_media(
     photo_count: int,
     existing_answers: str,
     settings: Settings | None = None,
+    actor_profile_id: str | None = None,
 ) -> tuple[list[str], str]:
     settings = settings or get_settings()
-    openai_client = OpenAI(api_key=settings.openai_api_key)
-    media_analysis = media.get("media_analysis") if isinstance(media.get("media_analysis"), dict) else None
-    user_prompt = build_question_prompt(
-        album,
+    service = QuestionAIService(settings, supabase_client=client)
+    questions, user_prompt, _, _ = await service.generate_for_media(
+        album=album,
+        media=media,
         photo_index=photo_index,
         photo_count=photo_count,
         existing_answers=existing_answers,
-        media_analysis=media_analysis,
+        album_id=str(album.get("id") or ""),
+        family_id=str(album.get("family_id") or "") or None,
+        actor_profile_id=actor_profile_id,
     )
-    try:
-        completion = openai_client.chat.completions.create(
-            model=settings.openai_model,
-            max_tokens=400,
-            temperature=0.7,
-            messages=[
-                {"role": "system", "content": load_prompt("memory_questions_system.txt")},
-                {"role": "user", "content": user_prompt},
-            ],
-        )
-    except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=f"OpenAI API 호출 실패: {exc}") from exc
-
-    content = (completion.choices[0].message.content or "").strip()
-    return _parse_questions_json(content), user_prompt
+    return questions, user_prompt
 
 
 async def generate_album_questions(
@@ -260,6 +217,7 @@ async def generate_album_questions(
     force: bool = False,
     media_id: str | None = None,
     settings: Settings | None = None,
+    actor_profile_id: str | None = None,
 ) -> dict[str, Any]:
     settings = settings or get_settings()
     generated_for: list[str] = []
@@ -291,6 +249,7 @@ async def generate_album_questions(
             photo_count=photo_count,
             existing_answers=existing_answers,
             settings=settings,
+            actor_profile_id=actor_profile_id,
         )
         save_generated_questions(
             client,
@@ -307,3 +266,7 @@ async def generate_album_questions(
         "skipped_media_ids": skipped,
         "question_count": created_count,
     }
+
+
+# Backward-compatible test alias
+_parse_questions_json = parse_questions_json
