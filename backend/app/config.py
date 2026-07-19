@@ -3,6 +3,13 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://momento-ashen-rho.vercel.app",
+)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -41,12 +48,13 @@ class Settings(BaseSettings):
         "image/heif",
     )
 
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = ",".join(DEFAULT_CORS_ORIGINS)
     frontend_base_url: str = "https://momento-ashen-rho.vercel.app"
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        configured = [origin.strip().rstrip("/") for origin in self.cors_origins.split(",") if origin.strip()]
+        return list(dict.fromkeys([*DEFAULT_CORS_ORIGINS, *configured]))
 
     @property
     def is_production(self) -> bool:
