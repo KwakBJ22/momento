@@ -68,6 +68,7 @@ async def upload_guest_album(
     description: str = Form(""),
     website: str = Form(""),
 ) -> GuestAlbumUploadResponse:
+    started_at = time.perf_counter()
     if website.strip():
         raise HTTPException(status_code=400, detail="요청을 처리할 수 없어요.")
     _allow_guest_upload(request)
@@ -131,6 +132,7 @@ async def upload_guest_album(
         if result_path:
             delete_storage_paths(client, settings.supabase_storage_bucket, [result_path])
         raise
+    logger.info("Guest album upload completed: album_id=%s duration_seconds=%.2f", album_id, time.perf_counter() - started_at)
     _safe_event(client, "upload_completed", album_id)
     _safe_event(client, "guest_album_generated", album_id)
     return GuestAlbumUploadResponse(album_id=UUID(album_id), meeting_type=meeting_type, template=template.upper(), title=title, date=event_date, narrative=narrative, image_url=get_public_url(client, result_path, settings), share_url="", created_at=datetime.now(timezone.utc), guest_token=token)

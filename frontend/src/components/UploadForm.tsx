@@ -4,7 +4,8 @@ import type { AlbumResult, GuestAlbumResult, MeetingType, PhotoItem, StoryPayloa
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 10;
-const UPLOAD_TIMEOUT_MS = 120_000;
+// Album composition includes Storage and AI calls. Do not abort a healthy long-running request at two minutes.
+const UPLOAD_TIMEOUT_MS = 600_000;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 
 const ENRICHMENT_QUESTIONS = [
@@ -64,7 +65,7 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
     setIsBackgroundProcessing(false);
     const controller = new AbortController();
     abortRef.current = controller;
-    const progressTimers = [window.setTimeout(() => setProgressStep(1), 2500), window.setTimeout(() => setProgressStep(2), 6500), window.setTimeout(() => setProgressStep(3), 11_000)];
+    const progressTimers = [window.setTimeout(() => setProgressStep(1), 2500), window.setTimeout(() => setProgressStep(2), 6500)];
     const backgroundTimer = window.setTimeout(() => setIsBackgroundProcessing(true), 30_000);
     const timeoutTimer = window.setTimeout(() => controller.abort("timeout"), UPLOAD_TIMEOUT_MS);
     try {
@@ -149,8 +150,8 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
         <div className="upload-progress" role="dialog" aria-modal="true" aria-live="assertive" aria-label="앨범 생성 진행 상황">
           <section className="upload-progress__card">
             <div className="upload-progress__spinner" aria-hidden="true" />
-            <h2>{isBackgroundProcessing ? "조금 더 시간이 필요해요" : ["사진을 업로드하고 있어요...", "AI가 추억을 정리하고 있어요...", "이야기의 흐름을 만들고 있어요...", "곧 특별한 앨범이 완성돼요"][progressStep]}</h2>
-            <p>{isBackgroundProcessing ? "사진이 많아도 안전하게 계속 처리하고 있어요. 잠시만 기다려주세요." : "잠시만 기다려주세요."}</p>
+            <h2>{isBackgroundProcessing ? "백그라운드에서 앨범을 마무리하고 있어요" : ["사진을 업로드하고 있어요...", "AI가 추억을 정리하고 있어요...", "이야기의 흐름을 만들고 있어요..."][progressStep]}</h2>
+            <p>{isBackgroundProcessing ? "처리가 길어지고 있지만 계속 진행 중이에요. 완료되면 바로 앨범을 보여드릴게요." : "잠시만 기다려주세요."}</p>
             <ol className="upload-progress__steps">
               {["사진 업로드", "AI 분석", "스토리 생성", "완료"].map((label, index) => <li key={label} className={index <= progressStep ? "is-active" : ""}>{label}</li>)}
             </ol>
