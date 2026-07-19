@@ -10,9 +10,6 @@ from app.api.family import album_members_router, invitations_router, router as f
 from app.api.guest import router as guest_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
-from app.config import get_settings
-
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -23,7 +20,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    # Keep local development origins on the actual `app.main:app` object.
+    # Environment variables must not be able to remove these origins.
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://momento-ashen-rho.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
