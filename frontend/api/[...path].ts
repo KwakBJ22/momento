@@ -9,6 +9,10 @@ export const config = {
   },
 };
 
+// Album generation can include image processing and several AI calls. The
+// hosting plan must permit this duration for the proxy to return a real error.
+export const maxDuration = 300;
+
 /**
  * Vercel 서버리스 프록시: /api/* → MOMENTO_API_URL/api/*
  * 프로덕션에서 VITE_API_BASE_URL 없이도 공유 링크·업로드가 동작하도록 한다.
@@ -49,7 +53,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     },
   );
 
-  proxyReq.on("error", () => {
+  proxyReq.setTimeout(290_000, () => {
+    proxyReq.destroy(new Error("Backend request timed out"));
+  });
+
+  proxyReq.on("error", (error) => {
+    console.error("Momento API proxy request failed", { message: error.message, target: target.origin });
+    if (res.headersSent) return;
     res.status(502).json({ detail: "백엔드 서버에 연결하지 못했습니다." });
   });
 
