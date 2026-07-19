@@ -203,7 +203,7 @@ def update_album_narrative(client: Client, album_id: str, narrative: str) -> dic
 def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any]]:
     result = (
         client.table("album_photos")
-        .select("id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order")
+        .select("id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, comment, caption")
         .eq("album_id", album_id)
         .is_("deleted_at", "null")
         .eq("status", "ready")
@@ -211,6 +211,21 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
         .execute()
     )
     return result.data or []
+
+
+def update_album_photo_comment(
+    client: Client, *, album_id: str, photo_id: str, comment: str | None
+) -> dict[str, Any] | None:
+    result = (
+        client.table("album_photos")
+        .update({"comment": comment, "caption": comment})
+        .eq("album_id", album_id)
+        .eq("id", photo_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    data = result.data or []
+    return data[0] if data else None
 
 
 def get_album_media_records(client: Client, album_id: str) -> list[dict[str, Any]]:

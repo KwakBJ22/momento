@@ -88,6 +88,7 @@ class StoryAIService:
         meeting_type: str,
         title: str,
         optional_context: str = "",
+        event_date: str = "",
     ) -> tuple[str, str, str]:
         ordered = sorted(photo_stories, key=lambda x: int(x.get("order", 0)))
         lines: list[str] = []
@@ -104,6 +105,12 @@ class StoryAIService:
             photo_stories_block="\n".join(lines),
             optional_context=optional_context or "없음",
             meeting_tone=MEETING_TONE.get(meeting_type, MEETING_TONE["friend"]),
+        )
+        prompt += (
+            "\n\nFactual requirements for photo comments:\n"
+            f"- Album date: {event_date or 'not provided'}. Do not treat this as a capture date for every photo.\n"
+            "- Follow the supplied photo order. Use relationships, emotions, people, places, and situations only when explicitly stated in a photo comment.\n"
+            "- Never invent or infer unconfirmed facts when a comment is blank or uncertain."
         )
         return prompt, version, "story_from_stories"
 
@@ -127,7 +134,7 @@ class StoryAIService:
         )
         if has_story_text:
             user_prompt, user_version, prompt_name = self.build_story_from_photo_stories_prompt(
-                photo_stories, meeting_type, title, optional_context
+                photo_stories, meeting_type, title, optional_context, event_date
             )
             system_prompt, system_version = self._prompts.render_prompt("story_system")
         else:

@@ -138,12 +138,22 @@ class AuthBootstrapResponse(BaseModel):
 class AlbumPhotoUrlResponse(BaseModel):
     id: UUID
     sort_order: int
+    comment: str | None = None
     original_url: str
     thumbnail_url: str
 
 
 class AlbumPhotoUrlsResponse(BaseModel):
     photos: list[AlbumPhotoUrlResponse]
+
+
+class PhotoCommentUpdate(BaseModel):
+    comment: str | None = Field(default=None, max_length=300)
+
+
+class PhotoCommentResponse(BaseModel):
+    id: UUID
+    comment: str | None = None
 
 
 class AlbumMediaSummary(BaseModel):

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { API_BASE, authenticatedFetch } from "../lib/api";
 import type { AlbumResult, GuestAlbumResult, MeetingType, PhotoItem, StoryPayload } from "../types";
+import PhotoCommentList from "./PhotoCommentList";
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 10;
@@ -54,6 +55,21 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
     return previous.filter((item) => item.id !== id);
   });
 
+  const updatePhotoComment = (id: string, story: string) => {
+    setPhotos((previous) => previous.map((photo) => (photo.id === id ? { ...photo, story } : photo)));
+  };
+
+  const movePhoto = (id: string, direction: -1 | 1) => {
+    setPhotos((previous) => {
+      const currentIndex = previous.findIndex((photo) => photo.id === id);
+      const nextIndex = currentIndex + direction;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= previous.length) return previous;
+      const next = [...previous];
+      [next[currentIndex], next[nextIndex]] = [next[nextIndex], next[currentIndex]];
+      return next;
+    });
+  };
+
   const createAlbum = async () => {
     if (!photos.length) {
       setError("사진을 한 장 이상 골라주세요.");
@@ -71,7 +87,7 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
     try {
       const formData = new FormData();
       photos.forEach((photo) => formData.append("photos", photo.file));
-      const stories: StoryPayload[] = photos.map((_, order) => ({ order, user: "", text: "" }));
+      const stories: StoryPayload[] = photos.map((photo, order) => ({ order, user: "", text: photo.story.trim() }));
       formData.append("stories", JSON.stringify(stories));
       formData.append("meeting_type", "family" satisfies MeetingType);
       formData.append("template", "B");
@@ -121,6 +137,7 @@ export default function UploadForm({ onSuccess, guestMode = false, onGuestCreate
             <h2>사진만 올리면 앨범이 완성돼요</h2>
             <p>제목과 이야기는 Momento가 자연스럽게 준비할게요.</p>
           </section>
+          <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onMove={movePhoto} onRemove={removePhoto} />
           <section>
             <button type="button" className="gallery-btn" onClick={() => inputRef.current?.click()}>🖼️ 사진 고르기</button>
             <button type="button" className="gallery-btn gallery-btn--camera" onClick={() => cameraRef.current?.click()}>📷 바로 촬영하기</button>

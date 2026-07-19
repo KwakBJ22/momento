@@ -1,0 +1,10 @@
+.album-photo-comments { margin-top: 1rem; }
+.album-photo-comments > p { color: #75675c; line-height: 1.5; }
+.album-photo-comments ul { display: grid; gap: 1rem; padding: 0; list-style: none; }
+.album-photo-comments li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: .65rem .85rem; align-items: start; padding: .85rem; border: 1px solid #eadfd6; border-radius: 14px; background: #fffdfa; }
+.album-photo-comments img { grid-row: span 3; width: 76px; height: 76px; border-radius: 10px; object-fit: cover; }
+.album-photo-comments label { color: #3d3530; font-size: .98rem; font-weight: 700; line-height: 1.35; }
+.album-photo-comments textarea { width: 100%; min-height: 72px; box-sizing: border-box; padding: .65rem; border: 1px solid #d9c9bd; border-radius: 10px; font: inherit; font-size: 1rem; resize: vertical; }
+.album-photo-comments textarea:focus { outline: 3px solid rgba(180, 140, 110, .28); border-color: #b48c6e; }
+.album-photo-comments small { color: #8a7a6e; }
+.album-photo-comments__error { color: #a33b2e !important; font-weight: 700; }

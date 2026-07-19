@@ -100,6 +100,14 @@ export interface AlbumMediaSummary {
   metadata: Record<string, unknown>;
 }
 
+export interface AlbumPhoto {
+  id: string;
+  sort_order: number;
+  comment: string | null;
+  original_url: string;
+  thumbnail_url: string;
+}
+
 export interface GuestAlbumResult extends AlbumResult {
   guest_token: string;
 }

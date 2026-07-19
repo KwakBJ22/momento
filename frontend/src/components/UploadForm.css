@@ -316,6 +316,9 @@
   gap: 1rem;
 }
 
+/* The comment editor replaces the legacy preview-only list in the quick flow. */
+.story-first-upload > .photo-list { display: none; }
+
 .story-first-upload__hero,
 .story-first-upload__question {
   padding: 1.25rem;

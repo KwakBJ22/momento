@@ -14,6 +14,8 @@ from app.models.schemas import (
     AlbumMediaUrlsResponse,
     AlbumPhotoUrlResponse,
     AlbumPhotoUrlsResponse,
+    PhotoCommentResponse,
+    PhotoCommentUpdate,
     AlbumUploadResponse,
     MeetingType,
     NarrativeUpdate,
@@ -46,6 +48,7 @@ from app.services.supabase import (
     save_album_photo_records,
     save_album_media_records,
     update_album_narrative,
+    update_album_photo_comment,
     upsert_album_story_input,
     upload_album_photo_assets,
     upload_album_media_assets,
@@ -153,6 +156,7 @@ async def upload_album(
                     "checksum_sha256": processed.checksum_sha256,
                     "sort_order": index,
                     "caption": items_by_order[index]["text"],
+                    "comment": items_by_order[index]["text"].strip() or None,
                     "contributor_profile_id": authenticated_user_id,
                     "legacy_author_label": items_by_order[index]["user"] or None,
                     "status": "ready",
@@ -291,6 +295,7 @@ async def get_album_photo_urls(
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
             sort_order=int(photo["sort_order"]),
+            comment=photo.get("comment") or photo.get("caption") or None,
             original_url=get_signed_url(
                 client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),
@@ -301,6 +306,26 @@ async def get_album_photo_urls(
         for photo in get_album_photo_records(client, album_id)
     ]
     return AlbumPhotoUrlsResponse(photos=photo_urls)
+
+
+@router.patch("/albums/{album_id}/photos/{photo_id}/comment", response_model=PhotoCommentResponse)
+async def save_photo_comment(
+    album_id: str,
+    photo_id: str,
+    body: PhotoCommentUpdate,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> PhotoCommentResponse:
+    client = get_supabase_client()
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_contribute(access)
+    comment = body.comment.strip() if body.comment else None
+    saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=comment)
+    if not saved:
+        raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
+    return PhotoCommentResponse(id=UUID(str(saved["id"])), comment=saved.get("comment"))
 
 
 _STORY_INPUT_KEYS = {"memory_hint", "people", "highlight"}
@@ -352,12 +377,11 @@ async def regenerate_story(
     )
     photo_stories = [
         {
-            "order": item.get("order", index),
-            "user": item.get("user", ""),
-            "text": item.get("text", ""),
+            "order": int(item.get("sort_order") or index),
+            "user": "",
+            "text": str(item.get("comment") or item.get("caption") or ""),
         }
-        for index, item in enumerate(album.get("photo_meta") or [])
-        if isinstance(item, dict)
+        for index, item in enumerate(get_album_photo_records(client, album_id))
     ]
     narrative = await generate_narrative(
         photo_stories,

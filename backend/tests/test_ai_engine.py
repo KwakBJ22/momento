@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.ai.model_router import ModelRouter
 from app.ai.prompt_service import PromptManager
+from app.ai.story_service import StoryAIService
 from app.ai.types import AICompletionResult
 from app.ai.vision_service import format_analysis_summary
 from app.services.media_analysis_service import media_has_analysis
@@ -110,6 +111,25 @@ class QuestionPromptSelectionTests(TestCase):
 
 
 class StoryPromptSelectionTests(TestCase):
+    def test_photo_comments_keep_current_order_and_album_date(self) -> None:
+        settings = SimpleNamespace(should_hot_reload_prompts=False)
+        service = StoryAIService(settings=settings, prompts=PromptManager(settings), ai=MagicMock())
+
+        prompt, _, _ = service.build_story_from_photo_stories_prompt(
+            [
+                {"order": 1, "text": "second comment"},
+                {"order": 0, "text": "first comment"},
+                {"order": 2, "text": ""},
+            ],
+            "family",
+            "album",
+            event_date="2026-07-19",
+        )
+
+        self.assertLess(prompt.index("first comment"), prompt.index("second comment"))
+        self.assertIn("2026-07-19", prompt)
+        self.assertIn("Never invent or infer unconfirmed facts", prompt)
+
     def test_story_basic_without_analysis(self) -> None:
         prompt = build_story_prompt(
             title="제주 여행",

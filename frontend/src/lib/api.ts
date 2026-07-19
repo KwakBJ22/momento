@@ -53,6 +53,18 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
   return (await response.json()) as { narrative: string };
 }
 
+export async function getAlbumPhotos(albumId: string): Promise<import("../types").AlbumPhoto[]> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/photos`);
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
+  return body.photos;
+}
+
+export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
 export async function getPublicShare(token: string): Promise<import("../types").PublicShareAlbum> {
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}`);
   if (!response.ok) throw new Error(await parseError(response));

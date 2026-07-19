@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { getAlbum } from "../lib/api";
+import { getAlbum, getAlbumPhotos, saveAlbumPhotoComment } from "../lib/api";
+import AlbumPhotoComments from "./AlbumPhotoComments";
 import { composeAlbumWithStory, triggerDownload } from "../lib/composeAlbum";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
-import type { AlbumResult } from "../types";
+import type { AlbumPhoto, AlbumResult } from "../types";
 import "./AlbumResult.css";
 
 interface AlbumViewProps {
@@ -11,6 +12,7 @@ interface AlbumViewProps {
 
 export default function AlbumView({ albumId }: AlbumViewProps) {
   const [album, setAlbum] = useState<AlbumResult | null>(null);
+  const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -21,6 +23,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     getAlbum(albumId)
       .then((data) => active && setAlbum(data))
       .catch((err) => active && setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요."));
+    getAlbumPhotos(albumId).then((data) => active && setPhotos(data)).catch(() => undefined);
     return () => {
       active = false;
     };
@@ -82,6 +85,11 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         </div>
         <p>{album.narrative}</p>
       </section>
+
+      {photos.length > 0 && <AlbumPhotoComments photos={photos} onSave={async (photoId, comment) => {
+        await saveAlbumPhotoComment(albumId, photoId, comment);
+        setPhotos((previous) => previous.map((photo) => (photo.id === photoId ? { ...photo, comment: comment.trim() || null } : photo)));
+      }} />}
 
       {album.media.some((media) => media.media_type !== "image" && media.media_type !== "gif") && (
         <section className="album-result__narrative">
