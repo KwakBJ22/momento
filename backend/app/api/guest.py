@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from postgrest.exceptions import APIError
 
 from app.config import get_settings
 from app.models.schemas import GuestAlbumClaimRequest, GuestAlbumUploadResponse, GuestAnalyticsEventRequest
@@ -46,7 +47,7 @@ def _allow_guest_upload(request: Request) -> None:
 def _safe_event(client: Any, event_name: str, album_id: str | None = None) -> None:
     try:
         log_event(client, event_name, album_id=album_id, metadata={"source": "guest_onboarding"})
-    except Exception:
+    except Exception as exc:
         # Analytics must never block creation or recovery of a guest album.
         pass
 
@@ -69,6 +70,7 @@ async def upload_guest_album(
     website: str = Form(""),
 ) -> GuestAlbumUploadResponse:
     started_at = time.perf_counter()
+    logger.info("Guest album upload started: photo_count=%s", len(photos))
     if website.strip():
         raise HTTPException(status_code=400, detail="요청을 처리할 수 없어요.")
     _allow_guest_upload(request)
@@ -121,7 +123,7 @@ async def upload_guest_album(
         save_album_photo_records(client, photo_records)
         save_album_media_records(client, media_records)
         token = create_guest_session(client, album_id)
-    except Exception:
+    except Exception as exc:
         logger.exception("Guest album upload failed: album_id=%s photo_count=%s", album_id, len(photos))
         if album_saved:
             try:
@@ -131,6 +133,13 @@ async def upload_guest_album(
         delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_paths)
         if result_path:
             delete_storage_paths(client, settings.supabase_storage_bucket, [result_path])
+        if isinstance(exc, HTTPException):
+            raise
+        if isinstance(exc, APIError) and getattr(exc, "code", None) == "PGRST205":
+            raise HTTPException(
+                status_code=503,
+                detail="게스트 앨범 저장 준비가 아직 완료되지 않았어요. 데이터베이스 마이그레이션을 적용한 뒤 다시 시도해주세요.",
+            ) from exc
         raise
     logger.info("Guest album upload completed: album_id=%s duration_seconds=%.2f", album_id, time.perf_counter() - started_at)
     _safe_event(client, "upload_completed", album_id)
