@@ -8,7 +8,7 @@ version: "1.0.0"
 사진 개수: {photo_count}
 현재 사진: {photo_index}번째
 
-AI 사진 분석:
+사진 분석:
 {media_analysis_summary}
 
 이미 나온 가족 답변:

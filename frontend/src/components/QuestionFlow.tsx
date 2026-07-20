@@ -124,9 +124,9 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
     setError(null);
     try {
       await analyzeAlbumMedia(albumId, current?.media_id);
-      setNotice("고급 AI 분석을 완료했어요. 질문을 다시 만들면 더 풍부해져요.");
+      setNotice("사진 분석을 완료했어요. 질문을 다시 만들면 더 풍부해져요.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "고급 AI 분석에 실패했어요.");
+      setError(err instanceof Error ? err.message : "사진 분석에 실패했어요.");
     } finally {
       setAnalyzing(false);
     }
@@ -146,7 +146,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
   };
 
   if (loading) {
-    return <p className="question-flow__notice">AI가 기억 질문을 준비하고 있어요...</p>;
+    return <p className="question-flow__notice">기억 질문을 준비하고 있어요...</p>;
   }
 
   if (error && questions.length === 0) {
@@ -172,7 +172,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
         <div className="question-flow__toolbar">
           {canAnalyzeMedia && (
             <button type="button" className="btn btn--secondary" onClick={() => void handleAnalyze()} disabled={analyzing}>
-              {analyzing ? "분석 중..." : "고급 AI 분석"}
+              {analyzing ? "분석 중..." : "사진 자세히 보기"}
             </button>
           )}
           {canRegenerate && (

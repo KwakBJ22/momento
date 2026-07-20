@@ -1,44 +1,117 @@
-import { useState } from "react";
-import { createAlbumShareLink, patchNarrative } from "../lib/api";
-import { composeAlbumWithStory, triggerDownload } from "../lib/composeAlbum";
-import type { AlbumResult } from "../types";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlbumRenderer } from "../album-engine";
+import {
+  createAlbumShareLink,
+  getAlbum,
+  getAlbumPhotos,
+  patchEpilogue,
+} from "../lib/api";
+import { downloadAlbumPdf } from "../lib/exportPdf";
+import {
+  coverLineForCategory,
+  normalizeTemplateType,
+  type AlbumPhoto,
+  type AlbumResult,
+} from "../types";
 import "./AlbumResult.css";
 
 interface AlbumResultProps {
   result: AlbumResult;
-  onShare: (narrative: string) => void;
+  onShareKakao: (narrative: string, shareUrl: string) => void;
   onReset: () => void;
-  onEnrich: () => void;
   guestMode?: boolean;
-  onSave?: () => void;
+  onSaveAccount?: () => void;
+  manageSlot?: ReactNode;
+  /** owner만 에필로그 수정/AI 생성 */
+  canEditStories?: boolean;
 }
 
-export default function AlbumResultView({ result, onShare, onReset, onEnrich, guestMode = false, onSave }: AlbumResultProps) {
-  const [narrative, setNarrative] = useState(result.narrative);
-  const [savedNarrative, setSavedNarrative] = useState(result.narrative);
+const EDIT_HINT = "AI가 우리의 이야기를 만들어보세요.";
+
+export default function AlbumResultView({
+  result,
+  onShareKakao,
+  onReset,
+  guestMode = false,
+  onSaveAccount,
+  manageSlot,
+  canEditStories = true,
+}: AlbumResultProps) {
+  const initialEpilogue = (result.epilogue ?? result.narrative ?? "").trim();
+  const [epilogue, setEpilogue] = useState(initialEpilogue);
+  const [savedEpilogue, setSavedEpilogue] = useState(initialEpilogue);
+  const [shareUrl, setShareUrl] = useState(result.share_url || "");
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isPersisting, setIsPersisting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [isSavingAlbum, setIsSavingAlbum] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(
+    result.saved || !guestMode ? "앨범이 저장되어 있어요" : "미리보기 앨범이에요. 로그인하면 내 앨범으로 보관돼요.",
+  );
   const [notice, setNotice] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [stagePhotos, setStagePhotos] = useState<AlbumPhoto[]>(result.photos ?? []);
+  const [chapterStories, setChapterStories] = useState<Record<string, string>>(result.chapter_stories ?? {});
+
+  const hasEpilogue = Boolean(epilogue.trim());
+  const templateType = normalizeTemplateType(result.template_type);
+
+  useEffect(() => {
+    setStagePhotos(result.photos ?? []);
+    const next = (result.epilogue ?? result.narrative ?? "").trim();
+    setEpilogue(next);
+    setSavedEpilogue(next);
+    setChapterStories(result.chapter_stories ?? {});
+  }, [result.album_id, result.photos, result.epilogue, result.narrative]);
+
+  useEffect(() => {
+    if (guestMode) return;
+    if ((result.photos?.length ?? 0) > 0) return;
+    let active = true;
+    void getAlbumPhotos(result.album_id)
+      .then((photos) => {
+        if (active && photos.length) setStagePhotos(photos);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [guestMode, result.album_id, result.photos]);
+
+  const resolveShareUrl = async (): Promise<string> => {
+    if (shareUrl) return shareUrl;
+    if (guestMode) {
+      throw new Error("공유 링크를 아직 준비하지 못했어요. 잠시 후 다시 시도해주세요.");
+    }
+    const share = await createAlbumShareLink(result.album_id);
+    setShareUrl(share.share_url);
+    return share.share_url;
+  };
 
   const handleToggleEdit = async () => {
+    if (!canEditStories) return;
     if (!isEditing) {
       setIsEditing(true);
       return;
     }
-    // 편집 완료 → 서버에 저장(PATCH)
-    const trimmed = narrative.trim();
+    const trimmed = epilogue.trim();
     setIsEditing(false);
-    if (!trimmed || trimmed === savedNarrative) return;
-
+    if (trimmed === savedEpilogue) return;
+    if (guestMode) {
+      setSavedEpilogue(trimmed);
+      setNotice("이야기를 미리보기에 반영했어요. 로그인 후 영구 저장할 수 있어요.");
+      return;
+    }
     setIsPersisting(true);
     setNotice(null);
     try {
-      const updated = await patchNarrative(result.album_id, trimmed);
-      setSavedNarrative(updated.narrative);
-      setNarrative(updated.narrative);
-      setNotice("이야기를 저장했어요. 공유 링크에도 반영됩니다.");
+      const updated = await patchEpilogue(result.album_id, trimmed);
+      const next = (updated.epilogue ?? updated.narrative ?? "").trim();
+      setSavedEpilogue(next);
+      setEpilogue(next);
+      setSaveStatus("이야기가 저장되었어요");
+      setNotice("우리의 이야기를 저장했어요.");
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "이야기 저장에 실패했어요.");
     } finally {
@@ -46,101 +119,205 @@ export default function AlbumResultView({ result, onShare, onReset, onEnrich, gu
     }
   };
 
-  const handleDownload = async () => {
-    setIsSaving(true);
+  const handleSaveAlbum = async () => {
+    if (guestMode) {
+      onSaveAccount?.();
+      return;
+    }
+    setIsSavingAlbum(true);
     setNotice(null);
     try {
-      const blob = await composeAlbumWithStory(result.image_url, narrative, result.title);
-      triggerDownload(blob, `momento-${result.album_id}.png`);
-    } catch {
-      // 합성 실패 시 원본 이미지라도 저장
-      setNotice("이야기 합성에 실패해 원본 앨범만 저장했어요.");
-      const link = document.createElement("a");
-      link.href = result.image_url;
-      link.download = `momento-${result.album_id}.png`;
-      link.target = "_blank";
-      link.click();
+      await getAlbum(result.album_id);
+      if (epilogue.trim() !== savedEpilogue) {
+        const updated = await patchEpilogue(result.album_id, epilogue.trim());
+        const next = (updated.epilogue ?? updated.narrative ?? "").trim();
+        setSavedEpilogue(next);
+        setEpilogue(next);
+      }
+      setSaveStatus("앨범이 저장되어 있어요");
+      setNotice("앨범 저장을 확인했어요.");
+    } catch (err) {
+      setSaveStatus("저장 확인에 실패했어요");
+      setNotice(err instanceof Error ? err.message : "앨범 저장 상태를 확인하지 못했어요.");
     } finally {
-      setIsSaving(false);
+      setIsSavingAlbum(false);
     }
   };
 
   const handleCopyLink = async () => {
     try {
-      const share = await createAlbumShareLink(result.album_id);
-      await navigator.clipboard.writeText(share.share_url);
+      const url = await resolveShareUrl();
+      await navigator.clipboard.writeText(url);
       setCopied(true);
+      setNotice("공유 링크를 복사했어요.");
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      window.open(result.share_url, "_blank");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "링크 복사에 실패했어요.");
+    }
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      const url = await resolveShareUrl();
+      if (navigator.share) {
+        await navigator.share({
+          title: result.title || "Momento 앨범",
+          text: epilogue.slice(0, 120) || "우리의 추억 앨범을 확인해보세요.",
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setNotice("이 기기에서는 링크 복사를 사용해요.");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setNotice(err instanceof Error ? err.message : "공유에 실패했어요.");
+    }
+  };
+
+  const handleKakaoShare = async () => {
+    try {
+      const url = await resolveShareUrl();
+      onShareKakao(epilogue || result.title, url);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "카카오 공유를 시작하지 못했어요.");
+    }
+  };
+
+  const handlePdf = async () => {
+    setIsExportingPdf(true);
+    setNotice(null);
+    try {
+      await downloadAlbumPdf({
+        albumId: result.album_id,
+        albumVersion: result.album_version ?? 0,
+        title: result.title,
+        photos: stagePhotos,
+        epilogue,
+        coverDateLabel: result.date,
+        category: result.category,
+        templateType: result.template_type,
+        chapterStories,
+      });
+      setNotice("PDF 파일을 저장했어요.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "PDF 저장에 실패했어요.");
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
   return (
-    <div className="album-result">
-      <h2 className="album-result__title">앨범이 완성됐어요!</h2>
-      <p className="album-result__subtitle">모임방에 전달해 다 같이 추억을 나눠보세요.</p>
+    <div className={`album-page album-result--${templateType}`}>
+      <div className="album-page__layout">
+        <article className="album-page__book album-result">
+          <header className="album-result__intro">
+            <p className="album-result__cover">{coverLineForCategory(result.category)}</p>
+            <h2 className="album-result__title">앨범이 완성됐어요!</h2>
+            <p className="album-result__subtitle">추억을 저장하고 가족과 나눠보세요.</p>
+          </header>
 
-      <img src={result.image_url} alt="완성된 Momento 앨범" className="album-result__image" />
+          <div className="album-result__stage album-result__stage--web">
+            <AlbumRenderer
+              photos={stagePhotos}
+              title={result.title}
+              epilogue={isEditing ? "" : epilogue}
+              fallbackImageUrl={result.image_url}
+              coverDateLabel={result.date}
+              chapterStories={chapterStories}
+              category={result.category}
+              templateType={result.template_type}
+              albumId={result.album_id}
+              mode="screen"
+            />
+          </div>
 
-      <section className="album-result__narrative">
-        <div className="album-result__narrative-head">
-          <h3>우리의 이야기</h3>
-          <button
-            type="button"
-            className="link-btn"
-            onClick={handleToggleEdit}
-            disabled={isPersisting}
-          >
-            {isPersisting ? "저장 중..." : isEditing ? "완료 (저장)" : "직접 수정"}
-          </button>
-        </div>
+          {isEditing ? (
+            <section className="album-result__narrative album-result__epilogue">
+              <div className="album-result__narrative-head">
+                <h3>우리의 이야기</h3>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => void handleToggleEdit()}
+                  disabled={isPersisting}
+                >
+                  {isPersisting ? "저장 중..." : "완료"}
+                </button>
+              </div>
+              <p className="album-result__placeholder">{EDIT_HINT}</p>
+              <textarea
+                className="album-result__editor"
+                value={epilogue}
+                onChange={(event) => setEpilogue(event.target.value)}
+                rows={6}
+                maxLength={800}
+                placeholder={EDIT_HINT}
+                autoFocus
+              />
+            </section>
+          ) : null}
 
-        {isEditing ? (
-          <textarea
-            className="album-result__editor"
-            value={narrative}
-            onChange={(e) => setNarrative(e.target.value)}
-            rows={6}
-            maxLength={800}
-            placeholder="우리의 이야기를 자유롭게 다듬어 보세요."
-            autoFocus
-          />
-        ) : (
-          <p>{narrative || "아직 이야기가 없어요. '직접 수정'을 눌러 추가해보세요."}</p>
-        )}
-        <p className="album-result__hint">이 이야기는 이미지 저장 시 앨범과 함께 담겨요.</p>
-      </section>
+          {!isEditing && canEditStories && !hasEpilogue ? (
+            <div className="album-result__epilogue-actions album-result__epilogue-actions--alone">
+              <button type="button" className="link-btn" onClick={() => setIsEditing(true)}>
+                우리의 이야기 쓰기
+              </button>
+            </div>
+          ) : null}
 
-      {notice && <p className="album-result__notice">{notice}</p>}
+          {!isEditing && canEditStories && hasEpilogue ? (
+            <div className="album-result__epilogue-actions">
+              <button type="button" className="link-btn" onClick={() => setIsEditing(true)}>
+                수정
+              </button>
+            </div>
+          ) : null}
 
-      <div className="album-result__actions">
-        {guestMode && <>
-          <p className="album-result__notice">이 앨범을 저장하고 가족과 공유하려면 로그인해주세요.</p>
-          <button type="button" className="btn btn--kakao" onClick={onSave}>이 앨범 저장하기</button>
-        </>}
-        <button type="button" className="btn btn--kakao" onClick={() => onShare(narrative)}>
-          <span className="btn__icon">💬</span>
-          우리 모임방에 앨범 전달하기
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          onClick={handleDownload}
-          disabled={isSaving}
-        >
-          {isSaving ? "이미지 만드는 중..." : "이미지 저장하기 (이야기 포함)"}
-        </button>
-        <button type="button" className="btn btn--ghost" onClick={handleCopyLink}>
-          {copied ? "링크가 복사됐어요 ✓" : "공유 링크 복사"}
-        </button>
-        <button type="button" className="btn btn--secondary" onClick={onEnrich}>
-          더 특별하게 만들기
-        </button>
-        <button type="button" className="btn btn--ghost" onClick={onReset}>
-          새 앨범 만들기
-        </button>
+          {saveStatus && <p className="album-result__save-status">{saveStatus}</p>}
+          {notice && <p className="album-result__notice">{notice}</p>}
+        </article>
+
+        <aside className="album-page__manage" aria-label="앨범 관리">
+          <div className="album-result__actions">
+            <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>
+              {guestMode ? "앨범 저장 (로그인)" : isSavingAlbum ? "확인 중..." : "앨범 저장"}
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>
+              공유하기
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>
+              {isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={onReset}>
+              새 앨범 만들기
+            </button>
+          </div>
+          {manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}
+        </aside>
       </div>
+
+      {showShareModal && (
+        <div className="share-modal" role="dialog" aria-modal="true" aria-label="공유하기">
+          <section className="share-modal__card">
+            <h3>공유하기</h3>
+            <button type="button" className="btn btn--secondary" onClick={() => void handleCopyLink()}>
+              {copied ? "링크 복사됨" : "링크 복사"}
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => void handleNativeShare()}>
+              다른 앱으로 공유
+            </button>
+            <button type="button" className="btn btn--kakao" onClick={() => void handleKakaoShare()}>
+              카카오톡 공유
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={() => setShowShareModal(false)}>
+              닫기
+            </button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,9 @@
+/* MemoryCaption / PolaroidCaption → PhotoMemoryLines 로 통합 */
+
+.memory-caption-list {
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+  width: 100%;
+  padding: 0;
+}

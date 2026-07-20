@@ -49,6 +49,14 @@ class AlbumAccess:
         return False
 
     @property
+    def is_album_owner(self) -> bool:
+        if self.is_legacy_owner:
+            return True
+        if self.family_role == "owner":
+            return True
+        return self.album_role == "owner"
+
+    @property
     def can_edit_settings(self) -> bool:
         if self.is_legacy_owner:
             return True
@@ -130,6 +138,15 @@ def require_album_edit_settings(access: AlbumAccess) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to edit this album.",
+        )
+
+
+def require_album_owner_story(access: AlbumAccess) -> None:
+    """에필로그(우리의 이야기)는 owner만 수정."""
+    if not access.is_album_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="앨범 주인의 이야기만 수정할 수 있어요.",
         )
 
 

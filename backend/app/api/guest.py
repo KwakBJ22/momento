@@ -3,27 +3,46 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict, deque
-from datetime import date as date_cls, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
+import json
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from postgrest.exceptions import APIError
 
 from app.config import get_settings
-from app.models.schemas import GuestAlbumClaimRequest, GuestAlbumUploadResponse, GuestAnalyticsEventRequest
+from app.models.album_styles import layout_for_template_type, normalize_template_type
+from app.models.categories import ALBUM_CATEGORIES, meeting_type_for_category, normalize_category
+from app.models.schemas import (
+    AlbumPhotoUrlResponse,
+    GuestAlbumClaimRequest,
+    GuestAlbumUploadResponse,
+    GuestAnalyticsEventRequest,
+)
 from app.services.auth import require_authenticated_user
 from app.services.guest_service import claim_guest_album, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
-from app.services.image_upload_service import process_upload
+from app.services.image_upload_service import parse_file_created_at, process_upload
 from app.services.membership import save_album_member
 from app.services.openai_service import generate_narrative, parse_stories_json
-from app.services.share_service import log_event
+from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
+from app.services.share_service import create_share_link, log_event
 from app.services.supabase import (
-    create_album_id, delete_album_record, delete_storage_paths, ensure_default_family,
-    get_supabase_client, get_public_url, save_album_media_records, save_album_photo_records,
-    save_album_record, upload_album_photo_assets, upload_result_image,
+    create_album_id,
+    delete_album_record,
+    delete_storage_paths,
+    ensure_default_family,
+    get_public_url,
+    get_signed_url,
+    get_supabase_client,
+    save_album_media_records,
+    save_album_photo_records,
+    save_album_record,
+    upload_album_photo_assets,
+    upload_result_image,
 )
+import json
 
 router = APIRouter(prefix="/api", tags=["guest-onboarding"])
 logger = logging.getLogger(__name__)
@@ -64,9 +83,12 @@ async def upload_guest_album(
     photos: list[UploadFile] = File(...),
     stories: str = Form("[]"),
     meeting_type: str = Form("family"),
-    template: str = Form("B"),
+    category: str = Form(""),
+    template: str = Form(""),
+    template_type: str = Form(""),
     title: str = Form("우리의 추억"),
     description: str = Form(""),
+    file_meta: str = Form("[]"),
     website: str = Form(""),
 ) -> GuestAlbumUploadResponse:
     started_at = time.perf_counter()
@@ -77,8 +99,25 @@ async def upload_guest_album(
     settings = get_settings()
     if not photos or len(photos) > settings.max_photos:
         raise HTTPException(status_code=400, detail=f"사진은 1~{settings.max_photos}장까지 올릴 수 있어요.")
-    if meeting_type not in {"family", "friend", "work", "university"} or template.upper() not in {"A", "B", "C"}:
+    album_category = normalize_category(category) if category.strip() else normalize_category(meeting_type)
+    if album_category not in ALBUM_CATEGORIES and meeting_type not in {"family", "friend", "work", "university"}:
         raise HTTPException(status_code=400, detail="앨범 설정을 확인해주세요.")
+    if category.strip():
+        meeting_type = meeting_type_for_category(album_category)
+    elif meeting_type not in {"family", "friend", "work", "university"}:
+        raise HTTPException(status_code=400, detail="앨범 설정을 확인해주세요.")
+    album_template_type = normalize_template_type(template_type) if template_type.strip() else None
+    if template.strip():
+        layout = template.strip().upper()
+        if layout not in {"A", "B", "C"}:
+            raise HTTPException(status_code=400, detail="앨범 설정을 확인해주세요.")
+        if album_template_type is None:
+            album_template_type = normalize_template_type(
+                {"A": "warm", "B": "joyful", "C": "special"}.get(layout, "warm")
+            )
+    else:
+        album_template_type = album_template_type or normalize_template_type(None)
+        layout = layout_for_template_type(album_template_type)
 
     try:
         story_items = parse_stories_json(stories)
@@ -96,33 +135,165 @@ async def upload_guest_album(
     _safe_event(client, "upload_started")
     album_id, guest_scope_id = create_album_id(), str(uuid4())
     title = title.strip() or "우리의 추억"
-    event_date = date_cls.today().isoformat()
+    try:
+        meta_list = json.loads(file_meta) if file_meta.strip() else []
+        if not isinstance(meta_list, list):
+            meta_list = []
+    except json.JSONDecodeError:
+        meta_list = []
+
+    entries: list[dict[str, Any]] = []
+    for upload_order, photo in enumerate(photos):
+        raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
+        file_created = parse_file_created_at(raw_meta.get("last_modified"))
+        processed = process_upload(photo, settings, file_created_at=file_created)
+        entries.append(
+            {
+                "processed": processed,
+                "upload": photo,
+                "story": dict(story_items[upload_order]),
+                "upload_order": upload_order,
+            }
+        )
+    entries = sort_photo_entries(entries)
+    _day_groups = group_photos_by_taken_date(entries)
+    event_date = cover_date_from_processed([entry["processed"] for entry in entries])
     uploaded_paths: list[str] = []
     result_path = ""
     album_saved = False
+    share_url = ""
     try:
-        processed_photos = [process_upload(photo, settings) for photo in photos]
         photo_records: list[dict[str, Any]] = []
         media_records: list[dict[str, Any]] = []
         photo_paths: list[str] = []
         ordered_bytes: list[bytes] = []
-        for index, processed in enumerate(processed_photos):
+        ordered_stories: list[dict[str, Any]] = []
+        for entry in entries:
+            processed = entry["processed"]
+            sort_order = int(entry["sort_order"])
+            story = entry["story"]
+            upload = entry["upload"]
             photo_id = str(uuid4())
             original_path, thumbnail_path = upload_album_photo_assets(client, guest_scope_id, album_id, photo_id, processed, settings)
             uploaded_paths.extend([original_path, thumbnail_path])
             photo_paths.append(original_path)
-            story_items[index]["_path"] = original_path
+            story["_path"] = original_path
+            story["order"] = sort_order
             ordered_bytes.append(processed.display_bytes)
-            photo_records.append({"id": photo_id, "album_id": album_id, "storage_bucket": settings.supabase_private_storage_bucket, "storage_path": original_path, "thumbnail_bucket": settings.supabase_private_storage_bucket, "thumbnail_path": thumbnail_path, "original_filename": photos[index].filename, "mime_type": processed.original_mime_type, "byte_size": len(processed.original_bytes), "checksum_sha256": processed.checksum_sha256, "sort_order": index, "caption": story_items[index]["text"], "comment": story_items[index]["text"].strip() or None, "legacy_author_label": story_items[index]["user"] or None, "status": "ready"})
-            media_records.append({"id": photo_id, "album_id": album_id, "media_type": "gif" if processed.original_mime_type == "image/gif" else "image", "mime_type": processed.original_mime_type, "original_filename": photos[index].filename, "original_path": original_path, "thumbnail_path": thumbnail_path, "file_size": len(processed.original_bytes), "sort_order": index, "processing_status": "ready", "metadata": {"source": "guest_onboarding"}})
-        narrative = await generate_narrative(story_items, meeting_type, title, settings, event_date=event_date, description=description.strip(), existing_answers="", media_records=media_records)
-        image = generate_album(template.upper(), photos=bytes_to_images(ordered_bytes), stories=story_items, title=title, date=event_date, narrative=None)
+            ordered_stories.append(story)
+            taken_at_iso = processed.taken_at.isoformat() if processed.taken_at else None
+            photo_records.append(
+                {
+                    "id": photo_id,
+                    "album_id": album_id,
+                    "storage_bucket": settings.supabase_private_storage_bucket,
+                    "storage_path": original_path,
+                    "thumbnail_bucket": settings.supabase_private_storage_bucket,
+                    "thumbnail_path": thumbnail_path,
+                    "original_filename": upload.filename,
+                    "mime_type": processed.original_mime_type,
+                    "byte_size": len(processed.original_bytes),
+                    "checksum_sha256": processed.checksum_sha256,
+                    "sort_order": sort_order,
+                    "caption": story["text"],
+                    "comment": story["text"].strip() or None,
+                    "legacy_author_label": story["user"] or None,
+                    "status": "ready",
+                    "taken_at": taken_at_iso,
+                    "latitude": processed.latitude,
+                    "longitude": processed.longitude,
+                    "location_name": None,
+                    "location_source": (
+                        "exif"
+                        if processed.latitude is not None and processed.longitude is not None
+                        else "unknown"
+                    ),
+                    "orientation": processed.orientation,
+                    "width": processed.width or None,
+                    "height": processed.height or None,
+                }
+            )
+            media_records.append(
+                {
+                    "id": photo_id,
+                    "album_id": album_id,
+                    "media_type": "gif" if processed.original_mime_type == "image/gif" else "image",
+                    "mime_type": processed.original_mime_type,
+                    "original_filename": upload.filename,
+                    "original_path": original_path,
+                    "thumbnail_path": thumbnail_path,
+                    "file_size": len(processed.original_bytes),
+                    "width": processed.width or None,
+                    "height": processed.height or None,
+                    "sort_order": sort_order,
+                    "processing_status": "ready",
+                    "taken_at": taken_at_iso,
+                    "latitude": processed.latitude,
+                    "longitude": processed.longitude,
+                    "orientation": processed.orientation,
+                    "metadata": {
+                        "source": "guest_onboarding",
+                        "datetime_original": processed.datetime_original,
+                        "create_date": processed.create_date,
+                        "upload_order": entry["upload_order"],
+                        "day_group_count": len(_day_groups),
+                        "location_source": (
+                            "exif"
+                            if processed.latitude is not None and processed.longitude is not None
+                            else "unknown"
+                        ),
+                    },
+                }
+            )
+        # 에필로그는 비워 두고 owner가 AI/직접 작성
+        narrative = await generate_narrative(
+            ordered_stories, meeting_type, title, settings,
+            event_date=event_date,
+            description="Create the album's closing story from the uploaded photos and captions.",
+            existing_answers="", media_records=media_records, category=album_category,
+            template_type=album_template_type, client=client, album_id=album_id,
+        )
+        chapter_inputs: dict[str, list[dict[str, Any]]] = {}
+        for index, story in enumerate(ordered_stories):
+            taken_at = str(photo_records[index].get("taken_at") or "")
+            chapter_inputs.setdefault(taken_at[:10] if len(taken_at) >= 10 else "0", []).append(story)
+        chapter_stories: dict[str, str] = {}
+        for key, stories_for_date in chapter_inputs.items():
+            if len(stories_for_date) < 5:
+                continue
+            chapter_stories[key] = await generate_narrative(
+                stories_for_date, meeting_type, title, settings,
+                event_date=key if key != "0" else event_date,
+                description="Create one factual date episode in 3 to 6 short Korean lines. No heading.",
+                existing_answers="", media_records=[], category=album_category,
+                template_type=album_template_type, client=client, album_id=album_id,
+            )
+        image = generate_album(layout, photos=bytes_to_images(ordered_bytes), stories=ordered_stories, title=title, date=event_date, narrative=None)
         result_path = upload_result_image(client, album_id, image_to_png_bytes(image), settings)
-        save_album_record(client, album_id, None, None, meeting_type, template.upper(), title, event_date, narrative, photo_paths, [{"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"]} for item in story_items], result_path)
+        save_album_record(
+            client,
+            album_id,
+            None,
+            None,
+            meeting_type,
+            layout,
+            title,
+            event_date,
+            "",
+            photo_paths,
+            [{"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"], "taken_at": photo_records[index].get("taken_at")} for index, item in enumerate(ordered_stories)],
+            result_path,
+            category=album_category,
+            template_type=album_template_type,
+            epilogue=narrative,
+            chapter_stories=chapter_stories,
+        )
         album_saved = True
         save_album_photo_records(client, photo_records)
         save_album_media_records(client, media_records)
         token = create_guest_session(client, album_id)
+        _, share_token = create_share_link(client, album_id, None, None)
+        share_url = f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}"
     except Exception as exc:
         logger.exception("Guest album upload failed: album_id=%s photo_count=%s", album_id, len(photos))
         if album_saved:
@@ -144,7 +315,46 @@ async def upload_guest_album(
     logger.info("Guest album upload completed: album_id=%s duration_seconds=%.2f", album_id, time.perf_counter() - started_at)
     _safe_event(client, "upload_completed", album_id)
     _safe_event(client, "guest_album_generated", album_id)
-    return GuestAlbumUploadResponse(album_id=UUID(album_id), meeting_type=meeting_type, template=template.upper(), title=title, date=event_date, narrative=narrative, image_url=get_public_url(client, result_path, settings), share_url="", created_at=datetime.now(timezone.utc), guest_token=token)
+    photo_urls = [
+        AlbumPhotoUrlResponse(
+            id=UUID(str(photo["id"])),
+            sort_order=int(photo["sort_order"]),
+            comment=photo.get("comment") or photo.get("caption") or None,
+            original_url=get_signed_url(
+                client, settings.supabase_private_storage_bucket, str(photo["storage_path"]), settings.signed_url_ttl_seconds
+            ),
+            thumbnail_url=get_signed_url(
+                client, settings.supabase_private_storage_bucket, str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
+            ),
+            width=next((m.get("width") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+            height=next((m.get("height") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+            taken_at=next((m.get("taken_at") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+            latitude=next((m.get("latitude") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+            longitude=next((m.get("longitude") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+            location_name=photo.get("location_name"),
+            location_source=photo.get("location_source"),
+            orientation=next((m.get("orientation") for m in media_records if str(m["id"]) == str(photo["id"])), None),
+        )
+        for photo in photo_records
+    ]
+    return GuestAlbumUploadResponse(
+        album_id=UUID(album_id),
+        meeting_type=meeting_type,  # type: ignore[arg-type]
+        category=album_category,
+        template=layout,  # type: ignore[arg-type]
+        template_type=album_template_type,
+        title=title,
+        date=event_date,
+        narrative=narrative,
+        epilogue=narrative,
+        chapter_stories=chapter_stories,
+        image_url=get_public_url(client, result_path, settings),
+        share_url=share_url,
+        created_at=datetime.now(timezone.utc),
+        guest_token=token,
+        saved=True,
+        photos=photo_urls,
+    )
 
 
 @router.post("/guest-albums/claim")

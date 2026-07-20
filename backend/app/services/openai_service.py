@@ -42,6 +42,8 @@ def build_story_prompt(
     description: str,
     existing_answers: str,
     media_records: list[dict[str, Any]] | None = None,
+    category: str | None = None,
+    template_type: str | None = None,
     settings: Settings | None = None,
 ) -> str:
     service = StoryAIService(settings)
@@ -52,6 +54,8 @@ def build_story_prompt(
         description=description,
         existing_answers=existing_answers,
         media_records=media_records,
+        category=category,
+        template_type=template_type,
     )
     return prompt
 
@@ -66,6 +70,8 @@ async def generate_narrative(
     description: str = "",
     existing_answers: str = "",
     media_records: list[dict[str, Any]] | None = None,
+    category: str | None = None,
+    template_type: str | None = None,
     client: Client | None = None,
     album_id: str | None = None,
     family_id: str | None = None,
@@ -81,6 +87,8 @@ async def generate_narrative(
         description=description,
         existing_answers=existing_answers,
         media_records=media_records,
+        category=category,
+        template_type=template_type,
         album_id=album_id,
         family_id=family_id,
         actor_profile_id=actor_profile_id,

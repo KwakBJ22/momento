@@ -96,7 +96,7 @@ class QuestionPromptSelectionTests(TestCase):
             existing_answers="없음",
         )
         self.assertIn("제주", prompt)
-        self.assertNotIn("AI 사진 분석", prompt)
+        self.assertNotIn("사진 분석", prompt)
 
     def test_enriched_with_analysis(self) -> None:
         prompt = build_question_prompt(
@@ -107,7 +107,7 @@ class QuestionPromptSelectionTests(TestCase):
             media_analysis={"summary": "맑은 바다와 가족 사진"},
         )
         self.assertIn("맑은 바다", prompt)
-        self.assertIn("AI 사진 분석", prompt)
+        self.assertIn("사진 분석", prompt)
 
 
 class StoryPromptSelectionTests(TestCase):
@@ -129,6 +129,73 @@ class StoryPromptSelectionTests(TestCase):
         self.assertLess(prompt.index("first comment"), prompt.index("second comment"))
         self.assertIn("2026-07-19", prompt)
         self.assertIn("Never invent or infer unconfirmed facts", prompt)
+        self.assertIn("가족과의 추억", prompt)
+
+    def test_category_context_with_and_without_category(self) -> None:
+        settings = SimpleNamespace(should_hot_reload_prompts=True)
+        service = StoryAIService(settings=settings, prompts=PromptManager(settings), ai=MagicMock())
+
+        with_category, _, _ = service.build_story_from_photo_stories_prompt(
+            [{"order": 0, "text": "바다"}],
+            "family",
+            "album",
+            category="couple",
+        )
+        without_category, _, _ = service.build_story_from_photo_stories_prompt(
+            [{"order": 0, "text": ""}],
+            "family",
+            "album",
+            category=None,
+        )
+        basic, _, _ = service.build_story_prompt(
+            title="album",
+            meeting_type="friend",
+            event_date="",
+            description="",
+            existing_answers="",
+            category=None,
+        )
+
+        self.assertIn("연인과의 추억", with_category)
+        self.assertIn("가족과의 추억", without_category)
+        self.assertIn("친구들과의 추억", basic)
+        self.assertNotIn("{category_context}", with_category)
+        self.assertNotIn("{category_context}", without_category)
+        self.assertNotIn("{style_context}", with_category)
+        self.assertIn("차분하고 따뜻한 문체", with_category)
+
+    def test_style_context_in_story_prompts(self) -> None:
+        settings = SimpleNamespace(should_hot_reload_prompts=True)
+        service = StoryAIService(settings=settings, prompts=PromptManager(settings), ai=MagicMock())
+
+        joyful, _, _ = service.build_story_from_photo_stories_prompt(
+            [{"order": 0, "text": "웃음"}],
+            "friend",
+            "album",
+            category="friend",
+            template_type="joyful",
+        )
+        special, _, _ = service.build_story_prompt(
+            title="album",
+            meeting_type="couple",
+            event_date="",
+            description="",
+            existing_answers="",
+            category="couple",
+            template_type="special",
+        )
+
+        self.assertIn("경쾌하고 생동감", joyful)
+        self.assertIn("감성적이고 시적인", special)
+        self.assertNotIn("{style_context}", joyful)
+        self.assertNotIn("{style_context}", special)
+
+    def test_render_prompt_logs_missing_key(self) -> None:
+        settings = SimpleNamespace(should_hot_reload_prompts=True)
+        manager = PromptManager(settings)
+        with self.assertRaises(KeyError), self.assertLogs("app.ai.prompt_service", level="ERROR") as logs:
+            manager.render_prompt("story_from_stories", album_title="t")
+        self.assertTrue(any("Prompt variable missing" in message for message in logs.output))
 
     def test_story_basic_without_analysis(self) -> None:
         prompt = build_story_prompt(
@@ -140,7 +207,7 @@ class StoryPromptSelectionTests(TestCase):
             media_records=[],
         )
         self.assertIn("제주 여행", prompt)
-        self.assertNotIn("AI 사진 분석", prompt)
+        self.assertNotIn("사진 분석", prompt)
 
     def test_story_enriched_with_analysis(self) -> None:
         prompt = build_story_prompt(
@@ -156,7 +223,7 @@ class StoryPromptSelectionTests(TestCase):
                 }
             ],
         )
-        self.assertIn("AI 사진 분석", prompt)
+        self.assertIn("사진 분석", prompt)
         self.assertIn("맑은 바다", prompt)
 
 

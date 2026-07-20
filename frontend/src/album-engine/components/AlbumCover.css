@@ -1,0 +1,54 @@
+.album-cover {
+  display: grid;
+  gap: 1.25rem;
+  justify-items: center;
+  text-align: center;
+  padding: 2.5rem 1.25rem 2rem;
+  break-after: page;
+  page-break-after: always;
+}
+
+.album-cover__eyebrow {
+  margin: 0;
+  color: #b48c6e;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.album-cover__title {
+  margin: 0;
+  color: #2f2a26;
+  font-size: clamp(1.85rem, 4.5vw, 2.35rem);
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+}
+
+.album-cover__period {
+  margin: 0;
+  color: #8a7a6e;
+  font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  font-weight: 600;
+}
+
+.album-cover__hero {
+  margin: 0.5rem 0 0;
+  width: min(100%, 520px);
+}
+
+.album-cover__hero-img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.album-cover__people {
+  margin: 0;
+  color: #9a9086;
+  font-size: 0.82rem;
+  font-weight: 500;
+}

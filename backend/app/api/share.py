@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.models.schemas import (
     GuestMemoryClaimRequest, GuestMemoryRequest, GuestMemoryResponse, PublicMediaItem,
     PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
+    AlbumPhotoUrlResponse,
 )
 from app.services.auth import require_authenticated_user
 from app.services.authorization import require_album_edit_settings
@@ -19,7 +20,15 @@ from app.services.share_service import (
     add_reaction, claim_guest_memory, create_guest_memory, create_share_link, deactivate_share_link,
     get_active_share, increment_view, list_share_links, log_event,
 )
-from app.services.supabase import get_album_media_records, get_album_record, get_public_url, get_supabase_client
+from app.services.supabase import (
+    get_album_media_records,
+    get_album_photo_records,
+    get_album_record,
+    get_public_url,
+    get_signed_url,
+    get_supabase_client,
+)
+from app.services.collaboration_service import list_photo_memories
 
 
 router = APIRouter(prefix="/api", tags=["share"])
@@ -94,11 +103,72 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
     log_event(client, "public_album_viewed", album_id=str(album["id"]), share_link_id=str(share["id"]), metadata={"source": "share"})
     settings = get_settings()
     media = [PublicMediaItem(media_type=row["media_type"], mime_type=row["mime_type"], processing_status=row["processing_status"], original_filename=row.get("original_filename")) for row in get_album_media_records(client, str(album["id"]))]
-    narrative = str(album.get("narrative") or "")
+    narrative = str(album.get("epilogue") or album.get("narrative") or "").strip()
+    raw_chapter_stories = album.get("chapter_stories") or {}
+    chapter_stories = {
+        str(key): str(value).strip()
+        for key, value in raw_chapter_stories.items()
+        if str(value).strip()
+    } if isinstance(raw_chapter_stories, dict) else {}
+    album_id = str(album["id"])
+    photo_records = get_album_photo_records(client, album_id)
+    memories = list_photo_memories(client, album_id)
+    memories_by_photo: dict[str, list[dict]] = {}
+    for mem in memories:
+        pid = str(mem.get("photo_id") or "")
+        memories_by_photo.setdefault(pid, []).append(mem)
+
+    photos = []
+    for photo in photo_records:
+        pid = str(photo["id"])
+        mems = memories_by_photo.get(pid, [])
+        photos.append(
+            AlbumPhotoUrlResponse(
+                id=UUID(pid),
+                sort_order=int(photo.get("sort_order") or 0),
+                comment=photo.get("comment") or photo.get("caption") or None,
+                comments=[
+                    {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
+                    for m in mems
+                    if str(m.get("comment") or "").strip()
+                ]
+                or None,
+                original_url=get_signed_url(
+                    client,
+                    str(photo["storage_bucket"]),
+                    str(photo["storage_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                thumbnail_url=get_signed_url(
+                    client,
+                    str(photo["thumbnail_bucket"]),
+                    str(photo["thumbnail_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                width=photo.get("width"),
+                height=photo.get("height"),
+                taken_at=photo.get("taken_at"),
+                latitude=photo.get("latitude"),
+                longitude=photo.get("longitude"),
+                location_name=photo.get("location_name"),
+                location_source=photo.get("location_source"),
+                orientation=photo.get("orientation"),
+            )
+        )
+
     return PublicShareAlbumResponse(
-        title=str(album.get("title") or "우리의 추억"), narrative=narrative,
-        image_url=get_public_url(client, str(album.get("result_path") or ""), settings), media=media,
-        og_title=str(album.get("title") or "우리의 추억"), og_description=(narrative[:120] or "함께 만든 추억 앨범"),
+        title=str(album.get("title") or "우리의 추억"),
+        narrative=narrative,
+        epilogue=narrative or None,
+        chapter_stories=chapter_stories,
+        image_url=get_public_url(client, str(album.get("result_path") or ""), settings),
+        date=str(album.get("event_date") or ""),
+        category=album.get("category"),
+        template_type=album.get("template_type"),
+        media=media,
+        photos=photos,
+        og_title=str(album.get("title") or "우리의 추억"),
+        og_description=(narrative[:120] or "함께 만든 추억 앨범"),
     )
 
 

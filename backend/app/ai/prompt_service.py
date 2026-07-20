@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import re
-import time
 from pathlib import Path
 
 import yaml
@@ -9,8 +9,11 @@ import yaml
 from app.ai.types import PromptDocument
 from app.config import Settings, get_settings
 
+logger = logging.getLogger(__name__)
+
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_PLACEHOLDER_RE = re.compile(r"(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})")
 
 
 def _parse_frontmatter(raw: str) -> tuple[dict[str, str], str]:
@@ -66,7 +69,19 @@ class PromptManager:
 
     def render_prompt(self, name: str, **values: str) -> tuple[str, str]:
         document = self.load_prompt(name)
-        return document.content.format(**values), document.version
+        try:
+            content = document.content.format(**values)
+        except KeyError as exc:
+            required = sorted(set(_PLACEHOLDER_RE.findall(document.content)))
+            logger.exception(
+                "Prompt variable missing: %s, prompt=%s, required=%s, values=%s",
+                exc.args[0] if exc.args else exc,
+                document.name,
+                required,
+                sorted(values.keys()),
+            )
+            raise
+        return content, document.version
 
     def clear_cache(self) -> None:
         self._cache.clear()

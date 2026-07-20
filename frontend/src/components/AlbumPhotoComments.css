@@ -1,10 +1,96 @@
-.album-photo-comments { margin-top: 1rem; }
-.album-photo-comments > p { color: #75675c; line-height: 1.5; }
-.album-photo-comments ul { display: grid; gap: 1rem; padding: 0; list-style: none; }
-.album-photo-comments li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: .65rem .85rem; align-items: start; padding: .85rem; border: 1px solid #eadfd6; border-radius: 14px; background: #fffdfa; }
-.album-photo-comments img { grid-row: span 3; width: 76px; height: 76px; border-radius: 10px; object-fit: cover; }
-.album-photo-comments label { color: #3d3530; font-size: .98rem; font-weight: 700; line-height: 1.35; }
-.album-photo-comments textarea { width: 100%; min-height: 72px; box-sizing: border-box; padding: .65rem; border: 1px solid #d9c9bd; border-radius: 10px; font: inherit; font-size: 1rem; resize: vertical; }
-.album-photo-comments textarea:focus { outline: 3px solid rgba(180, 140, 110, .28); border-color: #b48c6e; }
-.album-photo-comments small { color: #8a7a6e; }
-.album-photo-comments__error { color: #a33b2e !important; font-weight: 700; }
+.album-photo-comments {
+  margin-top: 1rem;
+}
+
+.album-photo-comments__list {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album-photo-comments__item {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.album-photo-comments__item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f0ebe6;
+}
+
+.album-photo-comments__item textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 88px;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid #ddd4cc;
+  border-radius: 10px;
+  background: #fff;
+  color: #3d3530;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.album-photo-comments__place {
+  display: grid;
+  gap: 0.35rem;
+  color: #6b6258;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.album-photo-comments__place span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.album-photo-comments__place input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #ddd4cc;
+  border-radius: 10px;
+  background: #fff;
+  color: #3d3530;
+  font: inherit;
+  font-size: 16px;
+}
+
+.album-photo-comments__badge {
+  display: inline-flex;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: #efe6da;
+  color: #8a6f55;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.album-photo-comments__item textarea:focus {
+  outline: 2px solid rgba(140, 120, 100, 0.35);
+  border-color: #b5a498;
+}
+
+.album-photo-comments__item textarea::placeholder {
+  color: #9a9088;
+}
+
+.album-photo-comments__error {
+  color: #a33b2e;
+  font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .album-photo-comments__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

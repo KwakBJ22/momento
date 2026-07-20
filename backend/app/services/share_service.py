@@ -39,7 +39,12 @@ def get_active_share(client: Client, token: str) -> dict[str, Any]:
     return share
 
 
-def create_share_link(client: Client, album_id: str, profile_id: str, expires_at: datetime | None) -> tuple[dict[str, Any], str]:
+def create_share_link(
+    client: Client,
+    album_id: str,
+    profile_id: str | None,
+    expires_at: datetime | None,
+) -> tuple[dict[str, Any], str]:
     token = create_token()
     record = {
         "album_id": album_id,

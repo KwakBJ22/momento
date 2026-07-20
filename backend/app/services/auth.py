@@ -48,3 +48,24 @@ def require_authenticated_user(
         )
 
     return str(user.id)
+
+
+def optional_authenticated_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str | None:
+    """Return user id when Bearer token is valid; otherwise None (guest allowed)."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        response = get_supabase_client(get_settings()).auth.get_user(credentials.credentials)
+        user = response.user if response else None
+    except (
+        AuthApiError,
+        AuthInvalidCredentialsError,
+        AuthInvalidJwtError,
+        AuthSessionMissingError,
+    ):
+        return None
+    if user is None or not user.id:
+        return None
+    return str(user.id)

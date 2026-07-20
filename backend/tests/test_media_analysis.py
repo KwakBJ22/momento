@@ -17,7 +17,7 @@ class StoryGenerationTests(TestCase):
             media_records=[],
         )
         self.assertIn("제주 여행", prompt)
-        self.assertNotIn("AI 사진 분석", prompt)
+        self.assertNotIn("사진 분석 요약", prompt)
 
     def test_story_with_analysis_uses_analysis_prompt(self) -> None:
         prompt = build_story_prompt(
@@ -36,7 +36,7 @@ class StoryGenerationTests(TestCase):
                 }
             ],
         )
-        self.assertIn("AI 사진 분석", prompt)
+        self.assertIn("사진 분석", prompt)
         self.assertIn("맑은 바다", prompt)
 
     def test_format_analysis_summary(self) -> None:

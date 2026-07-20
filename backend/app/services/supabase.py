@@ -112,6 +112,10 @@ def save_album_record(
     photo_paths: list[str],
     photo_meta: list[dict[str, Any]],
     result_path: str,
+    category: str | None = None,
+    template_type: str | None = None,
+    epilogue: str | None = None,
+    chapter_stories: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     record = {
         "id": album_id,
@@ -121,10 +125,15 @@ def save_album_record(
         "created_by": owner_id,
         "family_id": family_id,
         "meeting_type": meeting_type,
+        "category": category,
         "template": template,
+        "template_type": template_type,
         "title": title,
         "event_date": event_date,
-        "narrative": narrative,
+        "narrative": narrative or "",
+        "epilogue": epilogue if epilogue is not None else "",
+        # chapter_stories kept for DB compat but unused by app
+        "chapter_stories": chapter_stories if chapter_stories is not None else {},
         "photo_paths": photo_paths,
         "photo_meta": photo_meta,
         "result_path": result_path,
@@ -190,9 +199,10 @@ def get_album_record(client: Client, album_id: str) -> dict[str, Any] | None:
 
 
 def update_album_narrative(client: Client, album_id: str, narrative: str) -> dict[str, Any] | None:
+    """Legacy: writes epilogue (우리의 이야기). Does not touch chapter_stories."""
     result = (
         client.table("albums")
-        .update({"narrative": narrative})
+        .update({"epilogue": narrative, "narrative": narrative})
         .eq("id", album_id)
         .execute()
     )
@@ -200,17 +210,68 @@ def update_album_narrative(client: Client, album_id: str, narrative: str) -> dic
     return data[0] if data else None
 
 
+def update_album_epilogue(client: Client, album_id: str, epilogue: str) -> dict[str, Any] | None:
+    result = (
+        client.table("albums")
+        .update({"epilogue": epilogue, "narrative": epilogue})
+        .eq("id", album_id)
+        .execute()
+    )
+    data = result.data or []
+    row = data[0] if data else None
+    if row:
+        bump_album_version(client, album_id)
+    return get_album_record(client, album_id)
+
+
+def update_album_chapter_stories(
+    client: Client, album_id: str, chapter_stories: dict[str, str]
+) -> dict[str, Any] | None:
+    result = (
+        client.table("albums")
+        .update({"chapter_stories": chapter_stories})
+        .eq("id", album_id)
+        .execute()
+    )
+    data = result.data or []
+    if data:
+        bump_album_version(client, album_id)
+    return get_album_record(client, album_id)
+
+
+def bump_album_version(client: Client, album_id: str) -> int:
+    record = get_album_record(client, album_id)
+    if not record:
+        return 0
+    next_version = int(record.get("album_version") or 0) + 1
+    client.table("albums").update(
+        {"album_version": next_version, "updated_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", album_id).execute()
+    return next_version
+
 def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any]]:
     result = (
         client.table("album_photos")
-        .select("id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, comment, caption")
+        .select(
+            "id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, "
+            "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height"
+        )
         .eq("album_id", album_id)
         .is_("deleted_at", "null")
         .eq("status", "ready")
         .order("sort_order")
         .execute()
     )
-    return result.data or []
+    rows = result.data or []
+    # taken_at ASC, missing last, then upload/sort_order
+    rows.sort(
+        key=lambda row: (
+            row.get("taken_at") is None,
+            str(row.get("taken_at") or ""),
+            int(row.get("sort_order") or 0),
+        )
+    )
+    return rows
 
 
 def update_album_photo_comment(
@@ -225,7 +286,10 @@ def update_album_photo_comment(
         .execute()
     )
     data = result.data or []
-    return data[0] if data else None
+    row = data[0] if data else None
+    if row:
+        bump_album_version(client, album_id)
+    return row
 
 
 def get_album_media_records(client: Client, album_id: str) -> list[dict[str, Any]]:

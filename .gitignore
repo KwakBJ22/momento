@@ -8,6 +8,7 @@ Thumbs.db
 .vercel
 /frontend/dist
 /frontend/build
+/frontend/tsconfig.tsbuildinfo
 
 # 3. 프론트엔드 의존성 모듈 및 로컬 환경변수
 /frontend/node_modules/
@@ -16,11 +17,30 @@ Thumbs.db
 /frontend/.env.test.local
 /frontend/.env.production.local
 
+# 3-1. Any local environment or service credentials (examples are safe)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*service-account*.json
+*service_account*.json
+
 # 4. 백엔드 가상환경 및 Python 캐시 파일
 /backend/venv/
 /backend/.venv/
 /backend/__pycache__/
 /backend/*.pyc
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
 /backend/.env
 
 # 5. 기타 로그 및 빌드 아티팩트
@@ -28,3 +48,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .eslintcache
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.tmp
+*.bak

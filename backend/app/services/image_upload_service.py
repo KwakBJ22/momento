@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 import io
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.config import Settings
+from app.services.exif_service import extract_image_exif_meta
 
 try:
     from pillow_heif import register_heif_opener
@@ -25,6 +28,7 @@ _EXTENSION_TO_FORMAT = {
     ".webp": "WEBP",
     ".gif": "GIF",
     ".heic": "HEIF",
+    ".heif": "HEIF",
 }
 _FORMAT_TO_MIME = {
     "JPEG": "image/jpeg",
@@ -33,6 +37,27 @@ _FORMAT_TO_MIME = {
     "GIF": "image/gif",
     "HEIF": "image/heic",
 }
+
+# Mobile browsers often send aliases / empty / octet-stream instead of the real MIME.
+_MOBILE_MIME_ALIASES = frozenset(
+    {
+        "image/jpg",
+        "image/pjpeg",
+        "image/x-png",
+        "application/octet-stream",
+    }
+)
+
+
+def _is_allowed_upload_mime(content_type: str | None, settings: Settings) -> bool:
+    mime = (content_type or "").lower().strip()
+    if not mime:
+        return True
+    if mime in settings.allowed_image_types:
+        return True
+    if mime in _MOBILE_MIME_ALIASES:
+        return True
+    return mime.startswith("image/")
 
 
 @dataclass(frozen=True)
@@ -43,6 +68,14 @@ class ProcessedPhoto:
     thumbnail_bytes: bytes
     display_bytes: bytes
     checksum_sha256: str
+    width: int = 0
+    height: int = 0
+    orientation: str = "square"
+    taken_at: datetime | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    datetime_original: str | None = None
+    create_date: str | None = None
 
 
 def _http_unsupported(detail: str) -> HTTPException:
@@ -76,13 +109,31 @@ def _thumbnail_bytes(image: Image.Image, max_side: int) -> bytes:
     return output.getvalue()
 
 
-def process_upload(file: UploadFile, settings: Settings) -> ProcessedPhoto:
+def parse_file_created_at(raw: Any) -> datetime | None:
+    """Accept unix ms/seconds or ISO string from the client File.lastModified."""
+    if raw is None or raw == "":
+        return None
+    try:
+        if isinstance(raw, (int, float)) or (isinstance(raw, str) and str(raw).replace(".", "", 1).isdigit()):
+            value = float(raw)
+            if value > 1_000_000_000_000:  # ms
+                value = value / 1000.0
+            return datetime.fromtimestamp(value, tz=timezone.utc)
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def process_upload(
+    file: UploadFile,
+    settings: Settings,
+    *,
+    file_created_at: datetime | None = None,
+) -> ProcessedPhoto:
     """Decode, validate and sanitize a user upload before it reaches Storage."""
     filename_extension = Path(file.filename or "").suffix.lower()
     expected_format = _EXTENSION_TO_FORMAT.get(filename_extension)
-    if expected_format is None:
-        raise _http_unsupported("JPG, JPEG, PNG, WEBP, GIF, HEIC 파일만 업로드할 수 있습니다.")
-    if file.content_type and file.content_type.lower() not in settings.allowed_image_types:
+    if not _is_allowed_upload_mime(file.content_type, settings):
         raise _http_unsupported("지원하지 않는 이미지 MIME 타입입니다.")
 
     content = file.file.read()
@@ -103,18 +154,33 @@ def process_upload(file: UploadFile, settings: Settings) -> ProcessedPhoto:
     detected_format = (image.format or "").upper()
     if detected_format == "HEIC":
         detected_format = "HEIF"
-    if detected_format not in _FORMAT_TO_MIME or detected_format != expected_format:
+    if detected_format not in _FORMAT_TO_MIME:
+        raise _http_unsupported("JPG, JPEG, PNG, WEBP, GIF, HEIC 파일만 업로드할 수 있습니다.")
+    # Mobile may omit extension; trust decoded image format in that case.
+    if expected_format is None:
+        expected_format = detected_format
+    elif detected_format != expected_format:
         raise _http_unsupported("파일 확장자와 실제 이미지 형식이 일치하지 않습니다.")
     if image.width * image.height > settings.max_image_pixels:
         raise _http_unsupported("이미지 해상도가 허용 범위를 초과합니다.")
 
     try:
+        # Read EXIF before re-encode strips metadata. Orientation uses transposed size.
+        oriented = ImageOps.exif_transpose(image)
+        width, height = oriented.size
         if detected_format == "GIF":
             # Preserve the uploaded GIF (including animation) as the original;
             # GIF does not carry EXIF. Thumbnail uses its representative frame.
             original_bytes, extension, mime_type = content, "gif", "image/gif"
+            width, height = image.size
         else:
             original_bytes, extension, mime_type = _encode_without_exif(image, detected_format)
+        exif_meta = extract_image_exif_meta(
+            image,
+            width=int(width),
+            height=int(height),
+            file_created_at=file_created_at,
+        )
         thumbnail_bytes = _thumbnail_bytes(image, settings.thumbnail_max_side)
         display_bytes = original_bytes if mime_type != "image/gif" else content
     finally:
@@ -127,4 +193,12 @@ def process_upload(file: UploadFile, settings: Settings) -> ProcessedPhoto:
         thumbnail_bytes=thumbnail_bytes,
         display_bytes=display_bytes,
         checksum_sha256=hashlib.sha256(original_bytes).hexdigest(),
+        width=int(exif_meta["width"] or width or 0),
+        height=int(exif_meta["height"] or height or 0),
+        orientation=str(exif_meta["orientation"] or "square"),
+        taken_at=exif_meta.get("taken_at"),
+        latitude=exif_meta.get("latitude"),
+        longitude=exif_meta.get("longitude"),
+        datetime_original=exif_meta.get("datetime_original"),
+        create_date=exif_meta.get("create_date"),
     )

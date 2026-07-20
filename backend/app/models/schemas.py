@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.categories import CATEGORY_LABELS
+
 MeetingType = Literal["family", "friend", "work", "university"]
 
 MEETING_TYPE_LABELS: dict[str, str] = {
@@ -11,6 +13,7 @@ MEETING_TYPE_LABELS: dict[str, str] = {
     "friend": "친구",
     "work": "직장인",
     "university": "대학생",
+    **CATEGORY_LABELS,
 }
 
 
@@ -25,16 +28,51 @@ class PhotoStoryInput(BaseModel):
     text: str = Field(min_length=1, max_length=300, description="사진 설명 스토리")
 
 
+class AlbumPhotoCommentItem(BaseModel):
+    author: str | None = None
+    text: str
+
+
+class AlbumPhotoUrlResponse(BaseModel):
+    id: UUID
+    sort_order: int
+    comment: str | None = None
+    comments: list[AlbumPhotoCommentItem] | None = None
+    original_url: str
+    thumbnail_url: str
+    width: int | None = None
+    height: int | None = None
+    taken_at: datetime | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    location_name: str | None = None
+    location_source: Literal["exif", "user", "ai_estimated", "unknown"] | None = None
+    orientation: str | None = None
+
+
+class AlbumPhotoLocationUpdate(BaseModel):
+    location_name: str | None = Field(default=None, max_length=120)
+    latitude: float | None = None
+    longitude: float | None = None
+    location_source: Literal["exif", "user", "ai_estimated", "unknown"] = "user"
+
+
 class AlbumUploadResponse(BaseModel):
     album_id: UUID
     meeting_type: MeetingType
+    category: str | None = None
     template: TemplateType
+    template_type: str | None = None
     title: str
     date: str
     narrative: str
+    epilogue: str | None = None
+    chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
     share_url: str
     created_at: datetime
+    saved: bool = True
+    photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
 
 
 class AlbumDetailResponse(BaseModel):
@@ -42,18 +80,36 @@ class AlbumDetailResponse(BaseModel):
 
     album_id: UUID
     meeting_type: str
+    category: str | None = None
     template: str
+    template_type: str | None = None
     title: str
     date: str
     narrative: str
+    epilogue: str | None = None
+    chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
     share_url: str
     created_at: datetime
     media: list["AlbumMediaSummary"] = Field(default_factory=list)
+    saved: bool = True
+    album_version: int = 0
+
+
+class AlbumPdfUrlResponse(BaseModel):
+    url: str | None = None
+    album_version: int
+    cached: bool = False
 
 
 class NarrativeUpdate(BaseModel):
-    narrative: str = Field(min_length=1, max_length=800)
+    """Deprecated: updates epilogue (우리의 이야기). Prefer EpilogueUpdate."""
+
+    narrative: str = Field(default="", max_length=800)
+
+
+class EpilogueUpdate(BaseModel):
+    epilogue: str = Field(default="", max_length=800)
 
 
 class StoryInputUpdate(BaseModel):
@@ -67,6 +123,13 @@ class StoryInputResponse(BaseModel):
 
 class StoryRegenerateResponse(BaseModel):
     narrative: str
+
+
+class EpilogueGenerateResponse(BaseModel):
+    epilogue: str
+    chapter_stories: dict[str, str] = Field(default_factory=dict)
+    warning: str | None = None
+    rejected: bool = False
 
 
 class ShareLinkCreateRequest(BaseModel):
@@ -93,8 +156,14 @@ class PublicMediaItem(BaseModel):
 class PublicShareAlbumResponse(BaseModel):
     title: str
     narrative: str
+    epilogue: str | None = None
+    chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
+    date: str = ""
+    category: str | None = None
+    template_type: str | None = None
     media: list[PublicMediaItem]
+    photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
     og_title: str
     og_description: str
 
@@ -133,14 +202,6 @@ class GuestAnalyticsEventRequest(BaseModel):
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID
-
-
-class AlbumPhotoUrlResponse(BaseModel):
-    id: UUID
-    sort_order: int
-    comment: str | None = None
-    original_url: str
-    thumbnail_url: str
 
 
 class AlbumPhotoUrlsResponse(BaseModel):
@@ -335,6 +396,109 @@ class UpdateMemoryAnswerRequest(BaseModel):
     answer: str = Field(min_length=1, max_length=2000)
     answer_type: AnswerType | None = None
     voice_url: str | None = None
+
+
+# --- Collaborative album MVP ---
+
+CollaborationStatus = Literal["draft", "collecting", "ready", "published", "closed"]
+ContributorRelationship = Literal["아빠", "엄마", "딸", "아들", "친구", "동료", "기타"]
+
+
+class CollaborationInviteStartResponse(BaseModel):
+    invite_url: str
+    invite_token: str
+    expires_at: datetime | None = None
+    collaboration_status: CollaborationStatus
+
+
+class CollaborationJoinRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=40)
+    relationship: ContributorRelationship | None = None
+    guest_id: UUID | None = None
+
+
+class CollaborationJoinResponse(BaseModel):
+    album_id: UUID
+    contributor_id: UUID
+    guest_id: UUID | None = None
+    display_name: str
+    relationship: str | None = None
+    role: str
+
+
+class CollaborationContributorResponse(BaseModel):
+    id: UUID
+    display_name: str
+    relationship: str | None = None
+    role: str
+    joined_at: datetime | None = None
+
+
+class PhotoMemoryResponse(BaseModel):
+    id: UUID
+    photo_id: UUID
+    author_name: str
+    relationship: str | None = None
+    comment: str
+    contributor_id: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    mine: bool = False
+
+
+class PhotoMemoryCreateRequest(BaseModel):
+    comment: str = Field(min_length=1, max_length=500)
+    guest_id: UUID | None = None
+    contributor_id: UUID | None = None
+
+
+class PhotoMemoryUpdateRequest(BaseModel):
+    comment: str = Field(min_length=1, max_length=500)
+    guest_id: UUID | None = None
+    contributor_id: UUID | None = None
+
+
+class CollaborationRebuildRequest(BaseModel):
+    album_json: dict[str, Any] | None = None
+    regenerate_story: bool = False
+    force: bool = False
+
+
+class CollaborationRebuildResponse(BaseModel):
+    album_version: int
+    dirty: bool
+    last_built_at: datetime | None = None
+    album_json: dict[str, Any] | None = None
+
+
+class CollaborationStatusResponse(BaseModel):
+    album_id: UUID
+    collaboration_enabled: bool
+    collaboration_status: CollaborationStatus
+    dirty: bool
+    album_version: int
+    last_built_at: datetime | None = None
+    published_at: datetime | None = None
+    photo_count: int
+    photo_limit: int
+    contributor_count: int
+    contributor_limit: int
+    memory_count: int
+    invite_active: bool
+    invite_url: str | None = None
+    contributors: list[CollaborationContributorResponse] = Field(default_factory=list)
+    album_json: dict[str, Any] | None = None
+
+
+class JoinPreviewResponse(BaseModel):
+    album_id: UUID
+    title: str
+    owner_name: str | None = None
+    cover_image_url: str | None = None
+    contributor_count: int
+    photo_count: int
+    photo_limit: int
+    collaboration_status: CollaborationStatus
 
 
 AlbumDetailResponse.model_rebuild()

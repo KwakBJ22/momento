@@ -36,6 +36,8 @@ class ImageUploadServiceTests(TestCase):
 
         self.assertEqual(processed.original_mime_type, "image/jpeg")
         self.assertEqual(processed.original_extension, "jpg")
+        self.assertEqual(processed.width, 20)
+        self.assertEqual(processed.height, 10)
         self.assertNotIn(b"Exif", processed.original_bytes)
         self.assertTrue(processed.thumbnail_bytes.startswith(b"RIFF"))
 
@@ -57,6 +59,34 @@ class ImageUploadServiceTests(TestCase):
             process_upload(upload_file("pretend.jpg", "image/jpeg", raw.getvalue()), settings())
 
         self.assertEqual(raised.exception.status_code, 400)
+
+    def test_mobile_image_jpg_mime_alias_is_accepted(self) -> None:
+        raw = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(raw, format="JPEG")
+
+        processed = process_upload(upload_file("camera.jpg", "image/jpg", raw.getvalue()), settings())
+
+        self.assertEqual(processed.original_mime_type, "image/jpeg")
+
+    def test_mobile_empty_mime_and_missing_extension_uses_decoded_format(self) -> None:
+        raw = io.BytesIO()
+        Image.new("RGB", (8, 8), "navy").save(raw, format="JPEG")
+
+        processed = process_upload(upload_file("IMG_0001", "", raw.getvalue()), settings())
+
+        self.assertEqual(processed.original_mime_type, "image/jpeg")
+        self.assertEqual(processed.original_extension, "jpg")
+
+    def test_octet_stream_with_jpeg_extension_is_accepted(self) -> None:
+        raw = io.BytesIO()
+        Image.new("RGB", (6, 6), "yellow").save(raw, format="JPEG")
+
+        processed = process_upload(
+            upload_file("android.jpg", "application/octet-stream", raw.getvalue()),
+            settings(),
+        )
+
+        self.assertEqual(processed.original_mime_type, "image/jpeg")
 
     def test_heic_is_decoded_and_reencoded_as_browser_compatible_jpeg(self) -> None:
         raw = io.BytesIO()
