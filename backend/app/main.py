@@ -12,6 +12,12 @@ from app.api.guest import router as guest_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
 from app.config import get_settings
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
 logger = logging.getLogger(__name__)
 
 fastapi_app = FastAPI(
