@@ -5,6 +5,7 @@ import {
   getAlbum,
   getAlbumPhotos,
   patchEpilogue,
+  saveAlbumPhotoComment,
 } from "../lib/api";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import {
@@ -22,11 +23,12 @@ interface AlbumResultProps {
   guestMode?: boolean;
   onSaveAccount?: () => void;
   manageSlot?: ReactNode;
-  /** owner만 에필로그 수정/AI 생성 */
+  /** owner만 에필로그와 사진 코멘트 수정 */
   canEditStories?: boolean;
 }
 
-const EDIT_HINT = "AI가 우리의 이야기를 만들어보세요.";
+const EDIT_HINT = "우리의 이야기를 직접 적어보세요.";
+const SAVED_ALBUM_MESSAGE = "앨범이 저장되었습니다. 공유하거나 PDF로 저장해 보세요.";
 
 export default function AlbumResultView({
   result,
@@ -46,13 +48,14 @@ export default function AlbumResultView({
   const [isSavingAlbum, setIsSavingAlbum] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(
-    result.saved || !guestMode ? "앨범이 저장되어 있어요" : "미리보기 앨범이에요. 로그인하면 내 앨범으로 보관돼요.",
+    result.saved || !guestMode ? SAVED_ALBUM_MESSAGE : "미리보기 앨범이에요. 로그인하면 내 앨범으로 보관돼요.",
   );
   const [notice, setNotice] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [stagePhotos, setStagePhotos] = useState<AlbumPhoto[]>(result.photos ?? []);
   const [chapterStories, setChapterStories] = useState<Record<string, string>>(result.chapter_stories ?? {});
+  const [savingPhotoId, setSavingPhotoId] = useState<string | null>(null);
 
   const hasEpilogue = Boolean(epilogue.trim());
   const templateType = normalizeTemplateType(result.template_type);
@@ -110,7 +113,7 @@ export default function AlbumResultView({
       const next = (updated.epilogue ?? updated.narrative ?? "").trim();
       setSavedEpilogue(next);
       setEpilogue(next);
-      setSaveStatus("이야기가 저장되었어요");
+      setSaveStatus(SAVED_ALBUM_MESSAGE);
       setNotice("우리의 이야기를 저장했어요.");
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "이야기 저장에 실패했어요.");
@@ -134,13 +137,36 @@ export default function AlbumResultView({
         setSavedEpilogue(next);
         setEpilogue(next);
       }
-      setSaveStatus("앨범이 저장되어 있어요");
+      setSaveStatus(SAVED_ALBUM_MESSAGE);
       setNotice("앨범 저장을 확인했어요.");
     } catch (err) {
       setSaveStatus("저장 확인에 실패했어요");
       setNotice(err instanceof Error ? err.message : "앨범 저장 상태를 확인하지 못했어요.");
     } finally {
       setIsSavingAlbum(false);
+    }
+  };
+
+  const updatePhotoComment = (photoId: string, comment: string) => {
+    setStagePhotos((photos) => photos.map((photo) => (photo.id === photoId ? { ...photo, comment } : photo)));
+  };
+
+  const handleSavePhotoComment = async (photoId: string) => {
+    const photo = stagePhotos.find((item) => item.id === photoId);
+    if (!photo) return;
+    if (guestMode) {
+      setNotice("사진 코멘트를 미리보기에 반영했어요. 로그인 후 영구 저장할 수 있어요.");
+      return;
+    }
+    setSavingPhotoId(photoId);
+    setNotice(null);
+    try {
+      await saveAlbumPhotoComment(result.album_id, photoId, photo.comment ?? "");
+      setNotice("사진 코멘트를 저장했어요.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "사진 코멘트를 저장하지 못했어요.");
+    } finally {
+      setSavingPhotoId(null);
     }
   };
 
@@ -231,8 +257,39 @@ export default function AlbumResultView({
               templateType={result.template_type}
               albumId={result.album_id}
               mode="screen"
+              onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
             />
           </div>
+
+          {canEditStories && stagePhotos.length ? (
+            <section className="album-result__photo-comments" aria-label="사진별 코멘트 수정">
+              <h3>사진별 추억</h3>
+              <div className="album-result__photo-comment-list">
+                {stagePhotos.map((photo, index) => (
+                  <div key={photo.id} className="album-result__photo-comment">
+                    <img src={photo.thumbnail_url || photo.original_url} alt={`사진 ${index + 1}`} />
+                    <div>
+                      <textarea
+                        value={photo.comment ?? ""}
+                        onChange={(event) => updatePhotoComment(photo.id, event.target.value)}
+                        maxLength={300}
+                        rows={3}
+                        aria-label={`사진 ${index + 1} 코멘트`}
+                      />
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => void handleSavePhotoComment(photo.id)}
+                        disabled={savingPhotoId === photo.id}
+                      >
+                        {savingPhotoId === photo.id ? "저장 중..." : "코멘트 저장"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {isEditing ? (
             <section className="album-result__narrative album-result__epilogue">
@@ -264,14 +321,6 @@ export default function AlbumResultView({
             <div className="album-result__epilogue-actions album-result__epilogue-actions--alone">
               <button type="button" className="link-btn" onClick={() => setIsEditing(true)}>
                 우리의 이야기 쓰기
-              </button>
-            </div>
-          ) : null}
-
-          {!isEditing && canEditStories && hasEpilogue ? (
-            <div className="album-result__epilogue-actions">
-              <button type="button" className="link-btn" onClick={() => setIsEditing(true)}>
-                수정
               </button>
             </div>
           ) : null}

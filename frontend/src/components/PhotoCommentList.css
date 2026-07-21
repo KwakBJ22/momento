@@ -69,6 +69,13 @@
   color: #9a9088;
 }
 
+.photo-comments__guide {
+  margin: -0.1rem 0 0;
+  color: #8a7a6e;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 @media (min-width: 640px) {
   .photo-comments__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));

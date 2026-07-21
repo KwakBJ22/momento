@@ -5,6 +5,7 @@ interface AlbumEpilogueProps {
   epilogue: string;
   templateType?: AlbumTemplateType | string | null;
   className?: string;
+  onEdit?: () => void;
 }
 
 function splitSentences(text: string): string[] {
@@ -54,6 +55,7 @@ export default function AlbumEpilogue({
   epilogue,
   templateType,
   className = "",
+  onEdit,
 }: AlbumEpilogueProps) {
   const trimmed = epilogue.trim();
   if (!trimmed) return null;
@@ -62,7 +64,14 @@ export default function AlbumEpilogue({
 
   return (
     <section className={`album-epilogue epilogue ${className}`.trim()} aria-label="우리의 이야기">
-      <h2 className="album-epilogue__title">우리의 이야기</h2>
+      <div className="album-epilogue__heading">
+        <h2 className="album-epilogue__title">우리의 이야기</h2>
+        {onEdit ? (
+          <button type="button" className="album-epilogue__edit" onClick={onEdit}>
+            수정
+          </button>
+        ) : null}
+      </div>
       <EpilogueBody text={trimmed} templateType={resolved} />
     </section>
   );

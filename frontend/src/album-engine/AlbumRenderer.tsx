@@ -21,6 +21,7 @@ export interface AlbumRendererProps {
   fallbackImageUrl?: string;
   participants?: string[];
   onReady?: () => void;
+  onEditEpilogue?: () => void;
   className?: string;
 }
 
@@ -106,6 +107,7 @@ export default function AlbumRenderer({
   fallbackImageUrl,
   participants = [],
   onReady,
+  onEditEpilogue,
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
@@ -185,7 +187,7 @@ export default function AlbumRenderer({
           ))}
         </div>
 
-        <AlbumEpilogue epilogue={epilogueText} templateType={templateType} />
+        <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
       </div>
     </div>
   );

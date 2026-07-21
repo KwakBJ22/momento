@@ -44,6 +44,9 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove }: 
           </li>
         ))}
       </ul>
+      <p className="photo-comments__guide">
+        사진마다 짧은 추억을 남기면 더욱 생생한 앨범이 완성됩니다.
+      </p>
     </section>
   );
 }
