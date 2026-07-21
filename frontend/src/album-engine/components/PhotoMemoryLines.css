@@ -135,6 +135,75 @@
   }
 }
 
+.photo-memory-lines__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.photo-memory-lines__row .photo-memory-lines__line {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.photo-memory-lines__edit-btn,
+.photo-memory-lines__action {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  background: transparent;
+  color: #b48c6e;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photo-memory-lines__editor-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.photo-memory-lines__input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #ddd4cc;
+  border-radius: 10px;
+  color: #3d3530;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.photo-memory-lines__input:focus {
+  outline: none;
+  border-color: #b48c6e;
+}
+
+.photo-memory-lines__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.photo-memory-lines--short .photo-memory-lines__row {
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+}
+
 /* 사진 블록 직후 메모 — stage 블록 간격 보정 */
 .album-stage__block:has(.photo-memory-lines--block) {
   margin-top: -2.15rem;

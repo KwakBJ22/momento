@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
-import { PhotoCommentEditorContext, type PhotoCommentEditor } from "./components/PhotoWithMemories";
+import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import "./AlbumRenderer.css";
@@ -23,7 +23,7 @@ export interface AlbumRendererProps {
   participants?: string[];
   onReady?: () => void;
   onEditEpilogue?: () => void;
-  photoCommentEditor?: PhotoCommentEditor | null;
+  photoCommentEdit?: PhotoCommentEditState | null;
   className?: string;
 }
 
@@ -110,7 +110,7 @@ export default function AlbumRenderer({
   participants = [],
   onReady,
   onEditEpilogue,
-  photoCommentEditor = null,
+  photoCommentEdit = null,
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
@@ -181,7 +181,7 @@ export default function AlbumRenderer({
         />
       ) : null}
 
-      <PhotoCommentEditorContext.Provider value={photoCommentEditor}>
+      <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
         <div className="album-renderer__body">
           <div className="album-renderer__blocks">
             {album.elements.map((element, index) => (
@@ -193,7 +193,7 @@ export default function AlbumRenderer({
 
           <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
         </div>
-      </PhotoCommentEditorContext.Provider>
+      </PhotoCommentEditProvider>
     </div>
   );
 }

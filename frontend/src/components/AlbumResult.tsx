@@ -270,15 +270,20 @@ export default function AlbumResultView({
               albumId={result.album_id}
               mode="screen"
               onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
-              photoCommentEditor={canEditStories ? {
-                editingPhotoId,
-                draft: photoCommentDraft,
-                isSaving: isSavingPhotoComment,
-                onStart: handleStartPhotoCommentEdit,
-                onChange: setPhotoCommentDraft,
-                onSave: () => void handleSavePhotoComment(),
-                onCancel: handleCancelPhotoCommentEdit,
-              } : null}
+              photoCommentEdit={
+                canEditStories
+                  ? {
+                      canEdit: true,
+                      editingPhotoId,
+                      savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
+                      draft: photoCommentDraft,
+                      startEdit: handleStartPhotoCommentEdit,
+                      cancelEdit: handleCancelPhotoCommentEdit,
+                      setDraft: setPhotoCommentDraft,
+                      saveEdit: () => void handleSavePhotoComment(),
+                    }
+                  : null
+              }
             />
           </div>
 
