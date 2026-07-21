@@ -1,73 +1,209 @@
-.album-result {
+/* =========================================================
+   Album result page shell — responsive web layout
+   Root cause of narrow desktop: .app { max-width: 480px }
+   Fixed via .app--album + .album-page container below.
+   ========================================================= */
+
+.album-page {
+  width: 100%;
+  min-height: 60vh;
+  background:
+    radial-gradient(ellipse at top, rgba(255, 252, 247, 0.95), transparent 55%),
+    linear-gradient(180deg, #f3eee7 0%, #faf7f4 40%, #f7f3ee 100%);
+  padding: 1.25rem 0 3rem;
+}
+
+.album-page__layout {
+  max-width: 900px;
+  width: calc(100% - 48px);
+  min-width: min(320px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .album-page__layout {
+    width: calc(100% - 32px);
+  }
+}
+
+@media (max-width: 768px) {
+  .album-page {
+    padding: 0.5rem 0 2.5rem;
+  }
+
+  .album-page__layout {
+    width: 100%;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1100px) {
+  .album-page__layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: start;
+    gap: 2rem;
+    max-width: 1180px;
+  }
+
+  .album-page__book {
+    max-width: 900px;
+  }
+
+  .album-page__manage {
+    position: sticky;
+    top: 1.25rem;
+  }
+}
+
+.album-page__book {
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 3rem;
+  padding: 2rem 1.75rem 2.5rem;
+  background: #fffdf9;
+  border: 1px solid #ebe4d8;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(61, 53, 48, 0.06);
+}
+
+@media (max-width: 768px) {
+  .album-page__book {
+    padding: 1.35rem 1rem 1.75rem;
+    border-radius: 14px;
+    gap: 2.5rem;
+  }
+}
+
+.album-page__manage {
+  display: grid;
   gap: 1.25rem;
+  padding: 1.35rem 1.2rem;
+  background: #f7f2ea;
+  border: 1px solid #e6ddd1;
+  border-radius: 16px;
+}
+
+.album-page__manage-slot {
+  display: grid;
+  gap: 1rem;
+}
+
+.album-result__intro {
+  display: grid;
+  gap: 0.55rem;
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+
+.album-result__cover {
+  margin: 0;
+  font-size: clamp(0.78rem, 1.6vw, 0.88rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a7f6a;
 }
 
 .album-result__title {
   margin: 0;
-  font-size: 1.5rem;
-  color: #3d3530;
-  text-align: center;
+  font-size: clamp(1.75rem, 4vw, 2.25rem); /* 28~36px */
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+  color: #2f2a26;
 }
 
 .album-result__subtitle {
   margin: 0;
-  text-align: center;
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 2vw, 1.05rem);
+  line-height: 1.6;
   color: #8a7a6e;
 }
 
-.album-result__image {
+.album-result__stage {
   width: 100%;
-  border-radius: 16px;
-  box-shadow: 0 4px 18px rgba(61, 53, 48, 0.14);
+}
+
+.album-result__pdf-source {
+  display: none;
 }
 
 .album-result__narrative {
   background: #fff;
-  border-radius: 16px;
-  padding: 1.25rem;
-  box-shadow: 0 2px 10px rgba(61, 53, 48, 0.06);
+  border-radius: 14px;
+  padding: 1.6rem 1.5rem;
+  border: 1px solid #ebe4d8;
 }
 
 .album-result__narrative-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.85rem;
 }
 
 .album-result__narrative h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
   color: #b48c6e;
+}
+
+.album-result__narrative p {
+  margin: 0;
+  font-size: clamp(0.95rem, 1.8vw, 1.06rem); /* ~15–17px */
+  line-height: 1.75;
+  color: #4a423c;
+  white-space: pre-wrap;
+}
+
+.album-result__narrative-hint {
+  margin: 0;
+  color: #8a7a6e;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.album-result__placeholder {
+  margin: 0;
+  color: #9a9086;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.album-result__epilogue-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.album-result__epilogue-actions--alone {
+  margin: 1.25rem 0 0;
+  padding: 1rem 0 0;
 }
 
 .link-btn {
   border: none;
   background: transparent;
   color: #b48c6e;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  padding: 0.2rem 0.4rem;
-}
-
-.album-result__narrative p {
-  margin: 0;
-  font-size: 1.1rem;
-  line-height: 1.75;
-  color: #4a423c;
-  white-space: pre-wrap;
+  padding: 0.35rem 0.45rem;
+  min-height: 44px;
 }
 
 .album-result__editor {
   width: 100%;
-  padding: 0.85rem;
+  padding: 0.95rem;
   border: 1px solid #e2d6cb;
   border-radius: 12px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   line-height: 1.7;
   font-family: inherit;
   color: #3d3530;
@@ -87,19 +223,126 @@
   line-height: 1.5 !important;
 }
 
+/* Template accents — keep readable sizes */
+.album-result--warm .album-page__book {
+  gap: 3.25rem;
+}
+
+.album-result--joyful .album-result__story-joyful {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.album-result--joyful .album-result__story-joyful p {
+  margin: 0;
+  font-size: clamp(0.98rem, 1.9vw, 1.08rem);
+  line-height: 1.7;
+}
+
+.album-result--special .album-result__pullquote {
+  margin: 0 0 0.9rem;
+  padding-left: 0.9rem;
+  border-left: 3px solid #b48c6e;
+  font-size: clamp(1.15rem, 2.4vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.6;
+  color: #3d3530;
+}
+
+.album-result--special .album-result__emphasis {
+  font-size: clamp(1.08rem, 2.2vw, 1.2rem);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.media-placeholder-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.media-placeholder {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f7f1ec;
+}
+
+.media-placeholder small {
+  color: #8a7a6e;
+}
+
+.public-share__memory {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.public-share__secondary-actions,
+.public-share__reactions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.public-share__honeypot {
+  position: absolute;
+  left: -10000px;
+}
+
 .album-result__notice {
   margin: 0;
-  padding: 0.7rem 0.9rem;
+  padding: 0.8rem 1rem;
   background: #fdf3e6;
   border-radius: 10px;
   color: #9a7559;
   font-size: 0.95rem;
 }
 
+.album-result__save-status {
+  margin: 0;
+  text-align: center;
+  color: #805f48;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.share-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(61, 53, 48, 0.45);
+}
+
+.share-modal__card {
+  display: grid;
+  gap: 0.7rem;
+  width: min(100%, 380px);
+  padding: 1.4rem 1.2rem;
+  border-radius: 18px;
+  background: #fffdfa;
+}
+
+.share-modal__card h3 {
+  margin: 0 0 0.4rem;
+  text-align: center;
+  color: #3d3530;
+}
+
 .album-result__actions {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.65rem;
 }
 
 .btn {
@@ -108,17 +351,19 @@
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 1.15rem;
+  min-height: 44px;
+  padding: 0.85rem 1rem;
   border: none;
-  border-radius: 16px;
-  font-size: 1.2rem;
+  border-radius: 12px;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.1s, background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
 
-.btn:active {
-  transform: scale(0.98);
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 a.btn {
@@ -127,7 +372,7 @@ a.btn {
 }
 
 .btn__icon {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
 }
 
 .btn--kakao {
@@ -144,7 +389,94 @@ a.btn {
   background: transparent;
   color: #8a7a6e;
   border: 1px solid #e8ddd4;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 0.95rem;
+}
+
+/* Legacy .album-result without album-page (AlbumView error states) */
+.album-result:not(.album-page__book) {
+  max-width: 900px;
+  width: calc(100% - 48px);
+  min-width: min(320px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .album-result:not(.album-page__book) {
+    width: calc(100% - 32px);
+  }
+}
+
+@media (max-width: 768px) {
+  .album-result:not(.album-page__book) {
+    width: 100%;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+}
+
+/* =========================================================
+   Print / PDF — A4 rules only in print, never scale the web UI
+   ========================================================= */
+@media print {
+  .app__header,
+  .album-page__manage,
+  .share-modal,
+  .album-result__actions,
+  .album-result__stage--web,
+  .link-btn {
+    display: none !important;
+  }
+
+  .album-page {
+    background: #fff;
+    padding: 0;
+  }
+
+  .album-page__layout {
+    display: block;
+    width: 210mm;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 12mm;
+  }
+
+  .album-page__book {
+    box-shadow: none;
+    border: 0;
+    padding: 0;
+    gap: 12mm;
+  }
+
+  .album-result__pdf-source {
+    display: grid !important;
+    gap: 8mm;
+    page-break-inside: avoid;
+  }
+
+  .album-result__pdf-image {
+    width: 100%;
+    max-height: 160mm;
+    object-fit: contain;
+  }
+
+  .album-result__pdf-title {
+    margin: 0;
+    font-size: 18pt;
+    font-weight: 700;
+  }
+
+  .album-result__pdf-body {
+    margin: 0;
+    font-size: 11pt;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .album-result__narrative {
+    page-break-inside: avoid;
+  }
 }

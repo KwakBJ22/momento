@@ -101,22 +101,26 @@
   text-align: center;
 }
 
-/* 큰 갤러리/카메라 버튼 */
+/* 큰 갤러리/카메라 버튼 (label로 사용) */
 .gallery-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
   width: 100%;
-  padding: 1.2rem;
+  min-height: 52px;
+  padding: 1.05rem 1.2rem;
   margin-bottom: 0.75rem;
   border: none;
   border-radius: 16px;
   background: #b48c6e;
   color: #fff;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, transform 0.1s;
 }
 
@@ -140,6 +144,8 @@
   text-align: center;
   background: #fffaf5;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: border-color 0.2s, background 0.2s;
 }
 
@@ -147,6 +153,57 @@
 .drop-zone:hover {
   border-color: #b48c6e;
   background: #fff5ec;
+}
+
+@media (max-width: 768px) {
+  .drop-zone {
+    display: none; /* 모바일은 버튼만 — 드래그앤드롭 불필요 */
+  }
+}
+
+.upload-form__count {
+  margin: 0.35rem 0 0;
+  text-align: center;
+  color: #805f48;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.upload-form__submit {
+  width: 100%;
+  min-height: 52px;
+  padding: 1.15rem;
+  border: none;
+  border-radius: 16px;
+  background: #b48c6e;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.2s;
+}
+
+.upload-form__submit:hover:not(:disabled) {
+  background: #9a7559;
+}
+
+.upload-form__submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.upload-form__retry {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #b48c6e;
+  border-radius: 14px;
+  background: #fffdfa;
+  color: #805f48;
+  font-size: 1.08rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .drop-zone__title {
@@ -276,24 +333,233 @@
   font-weight: 600;
 }
 
-.upload-form__submit {
-  width: 100%;
+.upload-progress {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
   padding: 1.25rem;
-  border: none;
-  border-radius: 16px;
+  background: #faf7f4;
+}
+
+.upload-progress__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 360px);
+  max-height: calc(100dvh - 2.5rem);
+  padding: 2rem 1.25rem 1.5rem;
+  text-align: center;
+}
+
+.upload-progress__character {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 1.5rem;
+  animation: upload-float 3.6s ease-in-out infinite;
+}
+
+.upload-progress__glow {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(180, 140, 110, 0.28) 0%, rgba(180, 140, 110, 0.08) 45%, transparent 72%);
+  animation: upload-breathe 3.2s ease-in-out infinite;
+}
+
+.upload-progress__star {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
   background: #b48c6e;
-  color: #fff;
-  font-size: 1.35rem;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  opacity: 0.92;
+  filter: drop-shadow(0 0 12px rgba(180, 140, 110, 0.45));
+}
+
+.upload-progress__spark {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d4b59a;
+  opacity: 0;
+  animation: upload-twinkle 2.8s ease-in-out infinite;
+}
+
+.upload-progress__spark--a {
+  top: 18px;
+  right: 28px;
+  animation-delay: 0.2s;
+}
+
+.upload-progress__spark--b {
+  bottom: 24px;
+  left: 22px;
+  width: 5px;
+  height: 5px;
+  animation-delay: 1s;
+}
+
+.upload-progress__spark--c {
+  top: 36px;
+  left: 26px;
+  width: 4px;
+  height: 4px;
+  animation-delay: 1.8s;
+}
+
+.upload-progress__card h2 {
+  margin: 0;
+  max-width: 14em;
+  color: #3d3530;
+  font-size: clamp(1.25rem, 5vw, 1.45rem);
   font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+  word-break: keep-all;
+}
+
+.upload-progress__card p {
+  margin: 0.85rem 0 1.75rem;
+  max-width: 18em;
+  color: #8a7a6e;
+  font-size: 1rem;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+
+.upload-progress__bar {
+  overflow: hidden;
+  width: min(100%, 220px);
+  height: 3px;
+  border-radius: 999px;
+  background: #eadfd6;
+}
+
+.upload-progress__bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: #b48c6e;
+  animation: upload-progress-indeterminate 1.6s ease-in-out infinite;
+}
+
+.upload-progress__cancel {
+  margin-top: 1.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  background: transparent;
+  color: #a29489;
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
-.upload-form__submit:hover:not(:disabled) {
-  background: #9a7559;
+@keyframes upload-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
-.upload-form__submit:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+@keyframes upload-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes upload-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40%,
+  55% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+@keyframes upload-progress-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (min-width: 768px) {
+  .upload-progress__card {
+    padding-top: 2.5rem;
+  }
+
+  .upload-progress__character {
+    width: 132px;
+    height: 132px;
+    margin-bottom: 1.75rem;
+  }
+}
+
+.story-first-upload {
+  display: grid;
+  gap: 1rem;
+}
+
+/* The comment editor replaces the legacy preview-only list in the quick flow. */
+.story-first-upload > .photo-list { display: none; }
+
+.story-first-upload__hero,
+.story-first-upload__question {
+  padding: 1.25rem;
+  border: 1px solid #eadfd6;
+  border-radius: 16px;
+  background: #fffdfa;
+}
+
+.story-first-upload__hero h2,
+.story-first-upload__question h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+
+.story-first-upload__hero p,
+.story-first-upload__question p {
+  color: #8a7a6e;
+}
+
+.story-first-upload__secondary {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #8a7a6e;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.story-first-upload__eyebrow {
+  margin: 0 0 0.5rem;
+  color: #b48c6e !important;
+  font-size: 0.8rem;
+  font-weight: 700;
 }

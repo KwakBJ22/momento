@@ -1,0 +1,92 @@
+.join-page {
+  max-width: 420px;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.5rem 0 2rem;
+}
+
+.join-page__eyebrow {
+  margin: 0;
+  color: #9a9086;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.join-page__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 1.85rem);
+  letter-spacing: -0.03em;
+  color: #2f2f2f;
+}
+
+.join-page__cover {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f3efe8;
+}
+
+.join-page__cover--empty {
+  background: linear-gradient(160deg, #f6f1ea, #ebe4d8);
+}
+
+.join-page__album {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.join-page__owner,
+.join-page__meta {
+  margin: 0;
+  color: #7a7168;
+  font-size: 0.92rem;
+}
+
+.join-page__label {
+  display: grid;
+  gap: 0.35rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.join-page__input {
+  border: 1px solid #e4ddd2;
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-size: 16px; /* iOS zoom-on-focus 방지 */
+  background: #fffdf8;
+}
+
+.join-page__cta {
+  margin-top: 0.4rem;
+  border: 0;
+  border-radius: 14px;
+  min-height: 52px;
+  padding: 0.85rem 1rem;
+  background: #2f2f2f;
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.join-page__cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.join-page__error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.join-page__loading {
+  margin: 2rem 0;
+  color: #7a7168;
+  text-align: center;
+}

@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/albumresult.tsx","./src/components/albumview.tsx","./src/components/uploadform.tsx","./src/hooks/usekakaosdk.ts","./src/lib/api.ts","./src/lib/composealbum.ts"],"version":"5.7.3"}

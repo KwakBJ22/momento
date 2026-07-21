@@ -1,0 +1,74 @@
+.polaroid3-block-wrap {
+  display: grid;
+  gap: 0.85rem;
+}
+
+/* Default: balanced grid (2~4 photos) — replaces irregular absolute collage on web */
+.polaroid3-block {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.85rem;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  min-height: 0;
+}
+
+.polaroid3-block--n2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.polaroid3-block--n3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.polaroid3-block--n3 .polaroid3-block__item:first-child {
+  grid-column: 1 / -1;
+}
+
+.polaroid3-block--n4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.polaroid3-block__captions {
+  justify-items: stretch;
+  width: 100%;
+}
+
+.polaroid3-block__item {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  transform: none !important;
+  z-index: auto !important;
+}
+
+.polaroid3-block__item .album-photo-frame {
+  height: 100%;
+}
+
+.polaroid3-block__item .album-photo-frame__img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+}
+
+@media (max-width: 520px) {
+  .polaroid3-block--n2,
+  .polaroid3-block--n3,
+  .polaroid3-block--n4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .polaroid3-block--n3 .polaroid3-block__item:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .polaroid3-block__item .album-photo-frame__img {
+    max-height: 280px;
+  }
+}

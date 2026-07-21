@@ -1,0 +1,68 @@
+.grid6-block-wrap {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.grid6-block {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.grid6-block__captions {
+  justify-items: stretch;
+  width: 100%;
+}
+
+.grid6-block__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  max-height: 280px;
+  background: #faf7f2;
+  border-radius: 10px;
+  border: 1px solid #e5dfd6;
+  padding: 0.35rem;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.grid6-block__frame {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.grid6-block__frame .album-photo-frame__img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* 2 photos in a polaroid block — handled in Polaroid3; grid 4 photos uses 2 cols on tablet */
+@media (max-width: 768px) {
+  .grid6-block {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid6-block__cell {
+    max-height: 240px;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid6-block {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+}

@@ -1,0 +1,52 @@
+.album-epilogue {
+  margin-top: 2.5rem;
+  padding: 0 0.15rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.album-epilogue__title {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+  color: #b48c6e;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
+.album-epilogue__body,
+.album-epilogue__joyful p,
+.album-epilogue__special p,
+.album-epilogue__emphasis {
+  margin: 0;
+  font-size: clamp(0.95rem, 1.8vw, 1.06rem);
+  line-height: 1.75;
+  color: #4a423c;
+  white-space: pre-wrap;
+}
+
+.album-epilogue__joyful {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.album-epilogue__pullquote {
+  margin: 0 0 0.9rem !important;
+  padding-left: 0.9rem;
+  border-left: 3px solid #b48c6e;
+  font-size: clamp(1.15rem, 2.4vw, 1.35rem) !important;
+  font-weight: 700;
+  line-height: 1.6;
+  color: #3d3530;
+}
+
+.album-epilogue__emphasis {
+  font-size: clamp(1.08rem, 2.2vw, 1.2rem) !important;
+  font-weight: 700;
+}
+
+.album-renderer--print .album-epilogue__body,
+.album-renderer--print .album-epilogue__joyful p,
+.album-renderer--print .album-epilogue__special p {
+  font-size: 11pt;
+  line-height: 1.7;
+}

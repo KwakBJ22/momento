@@ -1,0 +1,145 @@
+.photo-memory-lines {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 14px 0 28px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  animation: photo-memory-lines-in 220ms ease-out both;
+}
+
+.photo-memory-lines--caption {
+  margin: 10px 0 0;
+  max-width: 100%;
+  text-align: left;
+}
+
+.photo-memory-lines--block {
+  margin-top: 14px;
+  margin-bottom: 28px;
+}
+
+.photo-memory-lines__line {
+  display: grid;
+  grid-template-columns: minmax(2.75rem, max-content) 1fr;
+  column-gap: 0.65rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: clamp(0.9375rem, 1.7vw, 1rem);
+  line-height: 1.65;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.photo-memory-lines:not(.photo-memory-lines--multi) .photo-memory-lines__line {
+  display: block;
+}
+
+.photo-memory-lines__line + .photo-memory-lines__line {
+  margin-top: 10px;
+}
+
+.photo-memory-lines__author {
+  color: #9a9086;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.photo-memory-lines__author--spacer {
+  visibility: hidden;
+  user-select: none;
+}
+
+.photo-memory-lines__text {
+  color: #3d3530;
+  font-weight: 500;
+  white-space: pre-wrap;
+}
+
+/* A caption supports at most two compact lines: one per contributor when needed. */
+.photo-memory-lines--caption .photo-memory-lines__line {
+  font-size: clamp(0.78rem, 1.55vw, 0.9rem);
+  line-height: 1.45;
+}
+
+.photo-memory-lines--caption .photo-memory-lines__text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.photo-memory-lines--caption.photo-memory-lines--multi .photo-memory-lines__text {
+  -webkit-line-clamp: 1;
+}
+
+/* 길이별 위치 — 사진 폭 안에서 자연스럽게 */
+.photo-memory-lines--short {
+  max-width: min(88%, 26rem);
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.photo-memory-lines--short .photo-memory-lines__line {
+  justify-items: center;
+  text-align: center;
+}
+
+.photo-memory-lines--short.photo-memory-lines--multi .photo-memory-lines__line {
+  justify-items: start;
+  text-align: left;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: fit-content;
+}
+
+.photo-memory-lines--medium {
+  max-width: min(82%, 32rem);
+  margin-left: clamp(10%, 16vw, 22%);
+  margin-right: auto;
+}
+
+.photo-memory-lines--long {
+  max-width: min(94%, 40rem);
+  margin-left: 0;
+  margin-right: auto;
+}
+
+@media (max-width: 640px) {
+  .photo-memory-lines--short {
+    max-width: 100%;
+  }
+
+  .photo-memory-lines--medium {
+    margin-left: clamp(6%, 10vw, 14%);
+    max-width: 92%;
+  }
+
+  .photo-memory-lines--long {
+    max-width: 100%;
+  }
+}
+
+@keyframes photo-memory-lines-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 사진 블록 직후 메모 — stage 블록 간격 보정 */
+.album-stage__block:has(.photo-memory-lines--block) {
+  margin-top: -2.15rem;
+}
+
+.album-stage__block:has(.photo-memory-lines--block) + .album-stage__block {
+  margin-top: -0.75rem;
+}

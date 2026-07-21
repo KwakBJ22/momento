@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.album import router
+from app.services.authorization import resolve_album_access
+from app.api.auth import router as auth_router
 from app.services.auth import require_authenticated_user
 
 
@@ -33,18 +35,28 @@ class AlbumAuthorizationTests(TestCase):
     def setUp(self) -> None:
         self.app = FastAPI()
         self.app.include_router(router)
+        self.app.include_router(auth_router)
         self.client = TestClient(self.app)
         self.settings = SimpleNamespace(frontend_base_url="https://momento.example")
 
         self.get_settings = patch("app.api.album.get_settings", return_value=self.settings)
         self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=object())
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
+        self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
+        self.get_album_access = patch(
+            "app.api.album.get_album_access",
+            side_effect=lambda client, album, user_id: resolve_album_access(album, user_id, None, None),
+        )
         self.get_settings.start()
         self.get_supabase_client.start()
         self.get_public_url.start()
+        self.get_album_media_records.start()
+        self.get_album_access.start()
         self.addCleanup(self.get_settings.stop)
         self.addCleanup(self.get_supabase_client.stop)
         self.addCleanup(self.get_public_url.stop)
+        self.addCleanup(self.get_album_media_records.stop)
+        self.addCleanup(self.get_album_access.stop)
 
     def tearDown(self) -> None:
         self.app.dependency_overrides.clear()
@@ -90,8 +102,27 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_non_owner_cannot_get_private_photo_urls(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/photos")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_owner_cannot_get_private_media_urls(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/media")
+
+        self.assertEqual(response.status_code, 403)
+
     def test_unauthenticated_update_is_rejected(self) -> None:
         response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_unauthenticated_album_creation_is_rejected(self) -> None:
+        response = self.client.post("/api/upload-album")
 
         self.assertEqual(response.status_code, 401)
 
@@ -113,3 +144,14 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
+
+    def test_bootstrap_provisions_the_verified_session_user(self) -> None:
+        self.as_user(OWNER_ID)
+        with patch("app.api.auth.get_supabase_client", return_value=object()) as get_client, patch(
+            "app.api.auth.ensure_default_family", return_value=ALBUM_ID
+        ) as ensure_family:
+            response = self.client.post("/api/auth/bootstrap")
+
+        self.assertEqual(response.status_code, 200)
+        ensure_family.assert_called_once_with(get_client.return_value, OWNER_ID)
+        self.assertEqual(response.json()["profile_id"], OWNER_ID)
