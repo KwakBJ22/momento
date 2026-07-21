@@ -248,7 +248,7 @@ export default function AlbumResultView({
   };
 
   return (
-    <div className={`album-page album-result--${templateType}`}>
+    <div className={`album-page album-result--${templateType}${guestMode ? " album-page--guest" : ""}`}>
       <div className="album-page__layout">
         <article className="album-page__book album-result">
           <header className="album-result__intro">
@@ -327,6 +327,11 @@ export default function AlbumResultView({
 
         <aside className="album-page__manage" aria-label="앨범 관리">
           <div className="album-result__actions">
+            {guestMode && onSaveAccount ? (
+              <button type="button" className="btn btn--secondary" onClick={onSaveAccount}>
+                내 앨범 보관하기
+              </button>
+            ) : null}
             <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>
               {guestMode ? "앨범 저장 (로그인)" : isSavingAlbum ? "확인 중..." : "앨범 저장"}
             </button>

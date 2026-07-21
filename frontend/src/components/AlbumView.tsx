@@ -192,6 +192,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         <article className="album-page__book album-result">
 
           <header className="album-result__intro">
+            <p className="album-result__memory-placeholder">새로운 추억 0개</p>
 
             <p className="album-result__cover">{coverLineForCategory(album.category)}</p>
 

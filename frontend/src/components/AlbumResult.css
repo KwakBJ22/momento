@@ -314,6 +314,21 @@
   font-weight: 700;
 }
 
+.album-page--guest .album-result__actions .btn--kakao {
+  display: none;
+}
+
+.album-result__memory-placeholder {
+  display: inline-flex;
+  margin: 0 0 0.7rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: #f3e8dd;
+  color: #8d6a4f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .share-modal {
   position: fixed;
   inset: 0;

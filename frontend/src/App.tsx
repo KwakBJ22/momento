@@ -112,6 +112,7 @@ function App() {
         setGuestClaimed(true);
         setGuestMode(false);
         setShowLogin(false);
+        window.location.replace("/my-albums");
       })
       .catch(() => undefined);
   }, [session?.access_token, guestClaimed]);
@@ -234,7 +235,7 @@ function App() {
               }
               onReset={resetToStart}
             />
-            {showLogin && <AuthPanel />}
+            {showLogin && <AuthPanel purpose="album-storage" />}
           </>
         ) : !session && !showLogin && !guestMode ? (
           <Landing
