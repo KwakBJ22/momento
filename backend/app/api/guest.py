@@ -51,6 +51,21 @@ _WINDOW_SECONDS = 60
 _MAX_UPLOADS_PER_WINDOW = 3
 
 
+def _upload_file_metadata(files: list[UploadFile]) -> list[dict[str, str | int | None]]:
+    """Return safe diagnostics only; never read or log binary upload content."""
+    metadata: list[dict[str, str | int | None]] = []
+    for upload in files:
+        try:
+            position = upload.file.tell()
+            upload.file.seek(0, 2)
+            size = upload.file.tell()
+            upload.file.seek(position)
+        except (AttributeError, OSError):
+            size = None
+        metadata.append({"filename": upload.filename, "mime_type": upload.content_type, "size_bytes": size})
+    return metadata
+
+
 def _allow_guest_upload(request: Request) -> None:
     """Small in-process backstop; production should also enforce this at the edge."""
     key = request.client.host if request.client else "unknown"
@@ -98,11 +113,23 @@ async def upload_guest_album(
     website: str = Form(""),
 ) -> GuestAlbumUploadResponse:
     started_at = time.perf_counter()
-    logger.info("Guest album upload started: photo_count=%s", len(photos))
+    request_id = str(uuid4())
+    file_metadata = _upload_file_metadata(photos)
+    logger.info(
+        "guest_upload_request_received request_id=%s photo_count=%s content_length=%s",
+        request_id,
+        len(photos),
+        request.headers.get("content-length"),
+    )
+    logger.info("guest_upload_files_parsed request_id=%s files=%s", request_id, file_metadata)
     if website.strip():
         raise HTTPException(status_code=400, detail="요청을 처리할 수 없어요.")
     _allow_guest_upload(request)
     settings = get_settings()
+    total_upload_bytes = sum(int(item["size_bytes"] or 0) for item in file_metadata)
+    max_total_upload_size_mb = getattr(settings, "max_total_upload_size_mb", 25)
+    if total_upload_bytes > max_total_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Total upload size exceeds the allowed limit.")
     if not photos or len(photos) > settings.max_photos:
         raise HTTPException(status_code=400, detail=f"사진은 1~{settings.max_photos}장까지 올릴 수 있어요.")
     album_category = normalize_category(category) if category.strip() else normalize_category(meeting_type)
@@ -137,6 +164,12 @@ async def upload_guest_album(
         item["text"] = str(item.get("text", "")).strip()
         item["user"] = str(item.get("user", "")).strip()
 
+    logger.info(
+        "guest_upload_validation_completed request_id=%s photo_count=%s total_upload_bytes=%s",
+        request_id,
+        len(photos),
+        total_upload_bytes,
+    )
     client = get_supabase_client(settings)
     _safe_event(client, "upload_started")
     album_id, guest_scope_id = create_album_id(), str(uuid4())
@@ -152,7 +185,15 @@ async def upload_guest_album(
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
         file_created = parse_file_created_at(raw_meta.get("last_modified"))
-        processed = process_upload(photo, settings, file_created_at=file_created)
+        try:
+            processed = process_upload(photo, settings, file_created_at=file_created)
+        except Exception:
+            logger.exception(
+                "guest_upload_failed request_id=%s stage=image_processing files=%s",
+                request_id,
+                file_metadata,
+            )
+            raise
         entries.append(
             {
                 "processed": processed,
@@ -174,6 +215,7 @@ async def upload_guest_album(
         photo_paths: list[str] = []
         ordered_bytes: list[bytes] = []
         ordered_stories: list[dict[str, Any]] = []
+        logger.info("guest_upload_storage_upload_started request_id=%s album_id=%s", request_id, album_id)
         for entry in entries:
             processed = entry["processed"]
             sort_order = int(entry["sort_order"])
@@ -252,6 +294,7 @@ async def upload_guest_album(
                 }
             )
         # 에필로그는 비워 두고 owner가 AI/직접 작성
+        logger.info("guest_upload_storage_upload_completed request_id=%s album_id=%s", request_id, album_id)
         narrative = await generate_narrative(
             ordered_stories, meeting_type, title, settings,
             event_date=event_date,
@@ -274,8 +317,24 @@ async def upload_guest_album(
                 existing_answers="", media_records=[], category=album_category,
                 template_type=album_template_type, client=client, album_id=album_id,
             )
-        image = generate_album(layout, photos=bytes_to_images(ordered_bytes), stories=ordered_stories, title=title, date=event_date, narrative=None)
-        result_path = upload_result_image(client, album_id, image_to_png_bytes(image), settings)
+        album_photos = bytes_to_images(ordered_bytes)
+        try:
+            image = generate_album(
+                layout,
+                photos=album_photos,
+                stories=ordered_stories,
+                title=title,
+                date=event_date,
+                narrative=None,
+            )
+        finally:
+            for album_photo in album_photos:
+                album_photo.close()
+        try:
+            result_bytes = image_to_png_bytes(image)
+        finally:
+            image.close()
+        result_path = upload_result_image(client, album_id, result_bytes, settings)
         save_album_record(
             client,
             album_id,
@@ -297,11 +356,18 @@ async def upload_guest_album(
         album_saved = True
         save_album_photo_records(client, photo_records)
         save_album_media_records(client, media_records)
+        logger.info("guest_upload_database_insert_completed request_id=%s album_id=%s", request_id, album_id)
         token = create_guest_session(client, album_id)
         _, share_token = create_share_link(client, album_id, None, None)
         share_url = f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}"
     except Exception as exc:
-        logger.exception("Guest album upload failed: album_id=%s photo_count=%s", album_id, len(photos))
+        logger.exception(
+            "guest_upload_failed request_id=%s stage=album_creation album_id=%s photo_count=%s files=%s",
+            request_id,
+            album_id,
+            len(photos),
+            file_metadata,
+        )
         if album_saved:
             try:
                 delete_album_record(client, album_id)
@@ -343,7 +409,7 @@ async def upload_guest_album(
         )
         for photo in photo_records
     ]
-    return GuestAlbumUploadResponse(
+    response = GuestAlbumUploadResponse(
         album_id=UUID(album_id),
         meeting_type=meeting_type,  # type: ignore[arg-type]
         category=album_category,
@@ -361,6 +427,8 @@ async def upload_guest_album(
         saved=True,
         photos=photo_urls,
     )
+    logger.info("guest_upload_response_returned request_id=%s album_id=%s", request_id, album_id)
+    return response
 
 
 @router.post("/guest-albums/claim")

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     max_photos: int = 10
     max_file_size_mb: int = 10
+    max_total_upload_size_mb: int = 25
     max_video_file_size_mb: int = 500
     max_audio_file_size_mb: int = 100
     max_document_file_size_mb: int = 50

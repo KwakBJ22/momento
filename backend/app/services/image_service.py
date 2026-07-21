@@ -458,7 +458,12 @@ def bytes_to_images(image_bytes_list: Sequence[bytes]) -> list[Image.Image]:
     images: list[Image.Image] = []
     for raw in image_bytes_list:
         try:
-            images.append(Image.open(io.BytesIO(raw)))
+            # Album layouts render at roughly 1080px. Keeping full-resolution
+            # camera frames alive for every photo can exhaust a Railway worker.
+            with Image.open(io.BytesIO(raw)) as source:
+                image = ImageOps.exif_transpose(source).convert("RGB")
+                image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                images.append(image.copy())
         except Exception:  # noqa: BLE001 - 손상 파일은 건너뜀
             continue
     return images
