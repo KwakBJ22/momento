@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.guest import _GUEST_UPLOADS, router
@@ -47,6 +47,23 @@ class GuestOnboardingTests(TestCase):
         claimed_album_id = claim_guest_album(self.mock_db, "x" * 32, profile_id, "33333333-3333-3333-3333-333333333333")
 
         self.assertEqual(claimed_album_id, album_id)
+        self.assertEqual(self.mock_db.table.call_count, 1)
+
+    def test_repeated_claim_by_different_user_is_rejected(self) -> None:
+        album_id = "11111111-1111-1111-1111-111111111111"
+        original_owner_id = "22222222-2222-2222-2222-222222222222"
+        other_profile_id = "44444444-4444-4444-4444-444444444444"
+        query = self.mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+        query.execute.return_value = SimpleNamespace(data=[{
+            "album_id": album_id,
+            "status": "claimed",
+            "claimed_profile_id": original_owner_id,
+        }])
+
+        with self.assertRaises(HTTPException) as raised:
+            claim_guest_album(self.mock_db, "x" * 32, other_profile_id, "33333333-3333-3333-3333-333333333333")
+
+        self.assertEqual(raised.exception.status_code, 403)
         self.assertEqual(self.mock_db.table.call_count, 1)
 
     def test_guest_upload_rate_limit(self) -> None:
