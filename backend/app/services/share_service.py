@@ -8,6 +8,8 @@ from typing import Any
 from fastapi import HTTPException
 from supabase import Client
 
+from app.services.analytics_service import insert_analytics_event
+
 
 def hash_token(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
@@ -69,9 +71,14 @@ def increment_view(client: Client, share_id: str) -> None:
     client.rpc("increment_share_link_view", {"target_share_id": share_id}).execute()
 
 
-def log_event(client: Client, event_name: str, *, album_id: str | None = None, share_link_id: str | None = None, metadata: dict[str, Any] | None = None) -> None:
-    safe_metadata = {key: value for key, value in (metadata or {}).items() if key in {"source", "reaction"}}
-    client.table("analytics_events").insert({"event_name": event_name, "album_id": album_id, "share_link_id": share_link_id, "metadata": safe_metadata}).execute()
+def log_event(client: Client, event_name: str, *, album_id: str | None = None, share_link_id: str | None = None, metadata: dict[str, Any] | None = None) -> bool:
+    return insert_analytics_event(
+        client,
+        event_name,
+        album_id=album_id,
+        share_link_id=share_link_id,
+        metadata=metadata,
+    )
 
 
 def create_guest_memory(client: Client, share: dict[str, Any], name: str, memory: str) -> tuple[dict[str, Any], str]:
