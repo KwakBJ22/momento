@@ -51,14 +51,6 @@ export default function Landing({
 
   return (
     <section className="landing" aria-labelledby="landing-title">
-      <div className="landing__glow" aria-hidden="true">
-        <span className="landing__orb landing__orb--a" />
-        <span className="landing__orb landing__orb--b" />
-        <span className="landing__spark landing__spark--a" />
-        <span className="landing__spark landing__spark--b" />
-        <span className="landing__spark landing__spark--c" />
-      </div>
-
       <div className="landing__body">
         <h1 id="landing-title" className="landing__title">
           사진을 올리면

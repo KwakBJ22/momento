@@ -138,68 +138,6 @@ body {
   overflow: hidden;
 }
 
-.landing__glow {
-  display: none;
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.landing__orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(42px);
-  opacity: 0.45;
-}
-
-.landing__orb--a {
-  top: 8%;
-  left: -12%;
-  width: 180px;
-  height: 180px;
-  background: #e8d5c4;
-}
-
-.landing__orb--b {
-  right: -16%;
-  bottom: 18%;
-  width: 200px;
-  height: 200px;
-  background: #f0e2d4;
-}
-
-.landing__spark {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #c4a488;
-  opacity: 0.35;
-}
-
-.landing__spark--a {
-  top: 18%;
-  right: 18%;
-  box-shadow: 0 0 10px rgba(180, 140, 110, 0.35);
-}
-
-.landing__spark--b {
-  top: 42%;
-  left: 12%;
-  width: 4px;
-  height: 4px;
-  opacity: 0.28;
-}
-
-.landing__spark--c {
-  bottom: 28%;
-  right: 22%;
-  width: 5px;
-  height: 5px;
-  opacity: 0.3;
-}
-
 .landing__body {
   position: relative;
   z-index: 1;
