@@ -6,6 +6,7 @@ Thumbs.db
 
 # 2. Vercel 관련 설정 및 빌드 결과물 (중요)
 .vercel
+/frontend/.vite/
 /frontend/dist
 /frontend/build
 /frontend/tsconfig.tsbuildinfo
@@ -54,3 +55,8 @@ yarn-error.log*
 *.db
 *.tmp
 *.bak
+coverage/
+.coverage
+htmlcov/
+.turbo/
+.cache/
