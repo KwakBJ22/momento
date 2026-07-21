@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     )
 
     cors_origins: str = ",".join(DEFAULT_CORS_ORIGINS)
+    cors_origin_regex: str = ""
     frontend_base_url: str = "https://momento-ashen-rho.vercel.app"
 
     @property

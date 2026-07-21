@@ -11,6 +11,7 @@ from app.api.family import album_members_router, invitations_router, router as f
 from app.api.guest import router as guest_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
+from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 fastapi_app = FastAPI(
@@ -43,13 +44,12 @@ async def health_check() -> dict[str, str]:
 
 # Wrap the fully configured FastAPI application. This makes CORS headers apply
 # even when an unhandled exception is converted to a 500 by Starlette.
+settings = get_settings()
+
 app = CORSMiddleware(
     app=fastapi_app,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://momento-ashen-rho.vercel.app",
-    ],
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=settings.cors_origin_regex or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
