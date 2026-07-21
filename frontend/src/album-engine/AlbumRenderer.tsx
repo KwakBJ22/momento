@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
+import { PhotoCommentEditorContext, type PhotoCommentEditor } from "./components/PhotoWithMemories";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import "./AlbumRenderer.css";
@@ -22,6 +23,7 @@ export interface AlbumRendererProps {
   participants?: string[];
   onReady?: () => void;
   onEditEpilogue?: () => void;
+  photoCommentEditor?: PhotoCommentEditor | null;
   className?: string;
 }
 
@@ -108,6 +110,7 @@ export default function AlbumRenderer({
   participants = [],
   onReady,
   onEditEpilogue,
+  photoCommentEditor = null,
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
@@ -178,17 +181,19 @@ export default function AlbumRenderer({
         />
       ) : null}
 
-      <div className="album-renderer__body">
-        <div className="album-renderer__blocks">
-          {album.elements.map((element, index) => (
-            <div key={`album-block-${index}`} className="album-renderer__block">
-              {element}
-            </div>
-          ))}
-        </div>
+      <PhotoCommentEditorContext.Provider value={photoCommentEditor}>
+        <div className="album-renderer__body">
+          <div className="album-renderer__blocks">
+            {album.elements.map((element, index) => (
+              <div key={`album-block-${index}`} className="album-renderer__block">
+                {element}
+              </div>
+            ))}
+          </div>
 
-        <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
-      </div>
+          <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+        </div>
+      </PhotoCommentEditorContext.Provider>
     </div>
   );
 }

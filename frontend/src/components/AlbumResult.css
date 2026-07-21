@@ -187,58 +187,6 @@
   padding: 1rem 0 0;
 }
 
-.album-result__photo-comments {
-  display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  border: 1px solid #ebe4d8;
-  border-radius: 14px;
-  background: #fff;
-}
-
-.album-result__photo-comments h3 {
-  margin: 0;
-  color: #b48c6e;
-  font-size: 1.1rem;
-}
-
-.album-result__photo-comment-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.album-result__photo-comment {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: start;
-}
-
-.album-result__photo-comment img {
-  width: 88px;
-  height: 88px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: #f0ebe6;
-}
-
-.album-result__photo-comment textarea {
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid #ddd4cc;
-  border-radius: 10px;
-  color: #3d3530;
-  font: inherit;
-  font-size: 16px;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.album-result__photo-comment textarea:focus {
-  outline: none;
-  border-color: #b48c6e;
-}
-
 .link-btn {
   border: none;
   background: transparent;

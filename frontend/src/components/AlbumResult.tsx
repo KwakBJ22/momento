@@ -55,7 +55,9 @@ export default function AlbumResultView({
   const [copied, setCopied] = useState(false);
   const [stagePhotos, setStagePhotos] = useState<AlbumPhoto[]>(result.photos ?? []);
   const [chapterStories, setChapterStories] = useState<Record<string, string>>(result.chapter_stories ?? {});
-  const [savingPhotoId, setSavingPhotoId] = useState<string | null>(null);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [photoCommentDraft, setPhotoCommentDraft] = useState("");
+  const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
 
   const hasEpilogue = Boolean(epilogue.trim());
   const templateType = normalizeTemplateType(result.template_type);
@@ -147,26 +149,36 @@ export default function AlbumResultView({
     }
   };
 
-  const updatePhotoComment = (photoId: string, comment: string) => {
-    setStagePhotos((photos) => photos.map((photo) => (photo.id === photoId ? { ...photo, comment } : photo)));
+  const handleStartPhotoCommentEdit = (photoId: string, comment: string) => {
+    setEditingPhotoId(photoId);
+    setPhotoCommentDraft(comment);
   };
 
-  const handleSavePhotoComment = async (photoId: string) => {
-    const photo = stagePhotos.find((item) => item.id === photoId);
+  const handleCancelPhotoCommentEdit = () => {
+    setEditingPhotoId(null);
+    setPhotoCommentDraft("");
+  };
+
+  const handleSavePhotoComment = async () => {
+    const photo = stagePhotos.find((item) => item.id === editingPhotoId);
     if (!photo) return;
     if (guestMode) {
+      setStagePhotos((photos) => photos.map((item) => (item.id === photo.id ? { ...item, comment: photoCommentDraft } : item)));
+      handleCancelPhotoCommentEdit();
       setNotice("사진 코멘트를 미리보기에 반영했어요. 로그인 후 영구 저장할 수 있어요.");
       return;
     }
-    setSavingPhotoId(photoId);
+    setIsSavingPhotoComment(true);
     setNotice(null);
     try {
-      await saveAlbumPhotoComment(result.album_id, photoId, photo.comment ?? "");
+      await saveAlbumPhotoComment(result.album_id, photo.id, photoCommentDraft);
+      setStagePhotos((photos) => photos.map((item) => (item.id === photo.id ? { ...item, comment: photoCommentDraft } : item)));
+      handleCancelPhotoCommentEdit();
       setNotice("사진 코멘트를 저장했어요.");
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "사진 코멘트를 저장하지 못했어요.");
     } finally {
-      setSavingPhotoId(null);
+      setIsSavingPhotoComment(false);
     }
   };
 
@@ -258,38 +270,17 @@ export default function AlbumResultView({
               albumId={result.album_id}
               mode="screen"
               onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
+              photoCommentEditor={canEditStories ? {
+                editingPhotoId,
+                draft: photoCommentDraft,
+                isSaving: isSavingPhotoComment,
+                onStart: handleStartPhotoCommentEdit,
+                onChange: setPhotoCommentDraft,
+                onSave: () => void handleSavePhotoComment(),
+                onCancel: handleCancelPhotoCommentEdit,
+              } : null}
             />
           </div>
-
-          {canEditStories && stagePhotos.length ? (
-            <section className="album-result__photo-comments" aria-label="사진별 코멘트 수정">
-              <h3>사진별 추억</h3>
-              <div className="album-result__photo-comment-list">
-                {stagePhotos.map((photo, index) => (
-                  <div key={photo.id} className="album-result__photo-comment">
-                    <img src={photo.thumbnail_url || photo.original_url} alt={`사진 ${index + 1}`} />
-                    <div>
-                      <textarea
-                        value={photo.comment ?? ""}
-                        onChange={(event) => updatePhotoComment(photo.id, event.target.value)}
-                        maxLength={300}
-                        rows={3}
-                        aria-label={`사진 ${index + 1} 코멘트`}
-                      />
-                      <button
-                        type="button"
-                        className="link-btn"
-                        onClick={() => void handleSavePhotoComment(photo.id)}
-                        disabled={savingPhotoId === photo.id}
-                      >
-                        {savingPhotoId === photo.id ? "저장 중..." : "코멘트 저장"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
 
           {isEditing ? (
             <section className="album-result__narrative album-result__epilogue">
