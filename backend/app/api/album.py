@@ -10,6 +10,8 @@ from app.models.album_styles import layout_for_template_type, normalize_template
 from app.models.categories import ALBUM_CATEGORIES, meeting_type_for_category, normalize_category
 from app.models.schemas import (
     AlbumDetailResponse,
+    MyAlbumListItem,
+    MyAlbumsResponse,
     AlbumPdfUrlResponse,
     AlbumMediaSummary,
     AlbumMediaUploadResponse,
@@ -43,11 +45,13 @@ from app.services.supabase import (
     delete_storage_paths,
     ensure_default_family,
     get_album_record,
+    get_pending_guest_memory_counts,
     get_album_story_inputs,
     get_album_photo_records,
     get_album_media_record,
     get_album_media_records,
     get_public_url,
+    list_owned_album_records,
     get_signed_url,
     get_supabase_client,
     save_album_record,
@@ -726,6 +730,30 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
         media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
         album_version=int(record.get("album_version") or 0),
         saved=True,
+    )
+
+
+@router.get("/albums/mine", response_model=MyAlbumsResponse)
+async def get_my_albums(
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> MyAlbumsResponse:
+    """List the signed-in creator's albums without exposing family/member albums."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    records = list_owned_album_records(client, authenticated_user_id)
+    memory_counts = get_pending_guest_memory_counts(client, [str(record["id"]) for record in records])
+    return MyAlbumsResponse(
+        albums=[
+            MyAlbumListItem(
+                album_id=UUID(str(record["id"])),
+                title=str(record.get("title") or "우리의 추억"),
+                created_at=record["created_at"],
+                image_url=get_public_url(client, str(record["result_path"]), settings) if record.get("result_path") else "",
+                photo_count=len(record.get("photo_paths") or []),
+                new_memory_count=memory_counts.get(str(record["id"]), 0),
+            )
+            for record in records
+        ]
     )
 
 

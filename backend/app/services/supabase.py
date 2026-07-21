@@ -198,6 +198,42 @@ def get_album_record(client: Client, album_id: str) -> dict[str, Any] | None:
     return data[0] if data else None
 
 
+def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, Any]]:
+    """Return only albums created by this profile, including legacy owner rows."""
+    result = (
+        client.table("albums")
+        .select("id, title, created_at, result_path, photo_paths")
+        .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+def get_pending_guest_memory_counts(client: Client, album_ids: list[str]) -> dict[str, int]:
+    """Count submitted guest memories that have not yet been claimed."""
+    if not album_ids:
+        return {}
+    try:
+        result = (
+            client.table("guest_memory_submissions")
+            .select("album_id")
+            .in_("album_id", album_ids)
+            .eq("status", "pending")
+            .execute()
+        )
+    except Exception:
+        # Older deployments may not have guest submissions yet; the list still works.
+        return {}
+    counts: dict[str, int] = {}
+    for row in result.data or []:
+        album_id = str(row.get("album_id") or "")
+        if album_id:
+            counts[album_id] = counts.get(album_id, 0) + 1
+    return counts
+
+
 def update_album_narrative(client: Client, album_id: str, narrative: str) -> dict[str, Any] | None:
     """Legacy: writes epilogue (우리의 이야기). Does not touch chapter_stories."""
     result = (

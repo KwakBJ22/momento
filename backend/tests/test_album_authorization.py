@@ -75,6 +75,26 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["narrative"], "Updated narrative")
 
+    def test_my_albums_returns_only_the_authenticated_creators_albums(self) -> None:
+        self.as_user(OWNER_ID)
+        created_at = datetime.now(timezone.utc).isoformat()
+        with patch("app.api.album.list_owned_album_records", return_value=[{
+            "id": ALBUM_ID,
+            "title": "My album",
+            "created_at": created_at,
+            "result_path": "result.png",
+            "photo_paths": ["one.png", "two.png"],
+        }]) as list_owned, patch(
+            "app.api.album.get_pending_guest_memory_counts", return_value={ALBUM_ID: 2}
+        ) as memory_counts:
+            response = self.client.get("/api/albums/mine")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["albums"][0]["album_id"], ALBUM_ID)
+        self.assertEqual(response.json()["albums"][0]["new_memory_count"], 2)
+        list_owned.assert_called_once_with(self.get_supabase_client.return_value, OWNER_ID)
+        memory_counts.assert_called_once_with(self.get_supabase_client.return_value, [ALBUM_ID])
+
     def test_owner_can_delete_album(self) -> None:
         self.as_user(OWNER_ID)
         with patch("app.api.album.get_album_record", return_value=album_record()), patch(

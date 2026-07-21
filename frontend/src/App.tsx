@@ -10,6 +10,7 @@ import FamilyManagement from "./components/FamilyManagement";
 import InviteAccept from "./components/InviteAccept";
 import JoinPage from "./components/JoinPage";
 import Landing from "./components/Landing";
+import MyAlbums from "./components/MyAlbums";
 import QuestionFlow from "./components/QuestionFlow";
 import PublicShareView from "./components/PublicShareView";
 import UploadForm from "./components/UploadForm";
@@ -53,6 +54,10 @@ function isFamilyPage(): boolean {
   return window.location.pathname === "/family";
 }
 
+function isMyAlbumsPage(): boolean {
+  return window.location.pathname === "/my-albums";
+}
+
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -70,6 +75,7 @@ function App() {
   const inviteToken = getInviteTokenFromPath();
   const shareToken = getShareTokenFromPath();
   const familyPage = isFamilyPage();
+  const myAlbumsPage = isMyAlbumsPage();
 
   useEffect(() => {
     if (!supabase) {
@@ -146,9 +152,12 @@ function App() {
         {session && (
           <div className="app__header-actions">
             {!sharedAlbumId && !inviteToken && !contributeAlbumId && !joinToken && (
-              <a className="app__nav-link" href="/family">
+              <>
+                <a className="app__nav-link" href="/my-albums">내 앨범</a>
+                <a className="app__nav-link" href="/family">
                 가족 관리
-              </a>
+                </a>
+              </>
             )}
             <button type="button" className="app__logout" onClick={logout}>
               로그아웃
@@ -185,6 +194,16 @@ function App() {
           )
         ) : inviteToken ? (
           <InviteAccept token={inviteToken} isLoggedIn={Boolean(session)} />
+        ) : myAlbumsPage ? (
+          session === undefined ? (
+            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
+          ) : !isSupabaseAuthConfigured || !session ? (
+            <AuthPanel />
+          ) : bootstrapError ? (
+            <p className="auth-panel__notice">{bootstrapError}</p>
+          ) : (
+            <MyAlbums />
+          )
         ) : familyPage ? (
           session === undefined ? (
             <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>

@@ -96,6 +96,19 @@ class AlbumDetailResponse(BaseModel):
     album_version: int = 0
 
 
+class MyAlbumListItem(BaseModel):
+    album_id: UUID
+    title: str
+    created_at: datetime
+    image_url: str
+    photo_count: int = 0
+    new_memory_count: int = 0
+
+
+class MyAlbumsResponse(BaseModel):
+    albums: list[MyAlbumListItem] = Field(default_factory=list)
+
+
 class AlbumPdfUrlResponse(BaseModel):
     url: str | None = None
     album_version: int

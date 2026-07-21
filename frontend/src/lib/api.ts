@@ -45,6 +45,21 @@ export async function getAlbum(albumId: string): Promise<AlbumResult> {
   return (await response.json()) as AlbumResult;
 }
 
+export type MyAlbum = {
+  album_id: string;
+  title: string;
+  created_at: string;
+  image_url: string;
+  photo_count: number;
+  new_memory_count: number;
+};
+
+export async function getMyAlbums(): Promise<MyAlbum[]> {
+  const response = await authenticatedFetch("/api/albums/mine");
+  if (!response.ok) throw new Error(await parseError(response));
+  return ((await response.json()) as { albums: MyAlbum[] }).albums;
+}
+
 export async function patchNarrative(albumId: string, narrative: string): Promise<AlbumResult> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, {
     method: "PATCH",
