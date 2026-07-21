@@ -74,7 +74,13 @@ def _safe_event(client: Any, event_name: str, album_id: str | None = None) -> No
 @router.post("/guest-analytics", status_code=202)
 async def track_guest_event(payload: GuestAnalyticsEventRequest) -> None:
     """Accept only an allowlisted event name; no identifiers or form content are retained."""
-    _safe_event(get_supabase_client(get_settings()), payload.event_name)
+    # Analytics is best-effort.  Client construction can fail too (for example,
+    # during a local setup with incomplete Supabase credentials), so keep it in
+    # the same failure boundary as the write itself.
+    try:
+        _safe_event(get_supabase_client(get_settings()), payload.event_name)
+    except Exception:
+        logger.warning("Guest analytics event was skipped: event_name=%s", payload.event_name)
 
 
 @router.post("/guest/upload-album", response_model=GuestAlbumUploadResponse)
