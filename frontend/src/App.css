@@ -5,13 +5,16 @@
 body {
   margin: 0;
   font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  background: #faf7f4;
+  background: #fcf8f4;
+  background-image: none;
   color: #3d3530;
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
+  background: #fcf8f4;
+  background-image: none;
 }
 
 .app {
@@ -19,6 +22,12 @@ body {
   margin: 0 auto;
   padding: 1.5rem 1rem 2rem;
   padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+}
+
+.app:not(.app--album),
+.app:not(.app--album) .app__main {
+  background: #fcf8f4;
+  background-image: none;
 }
 
 /* Visually hide file inputs without display:none / hidden (iOS picker stability) */
@@ -128,7 +137,8 @@ body {
 
 .landing {
   position: relative;
-  background: #fcfaf7;
+  background: #fcf8f4;
+  background-image: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
