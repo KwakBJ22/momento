@@ -14,6 +14,9 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove }: 
 
   return (
     <section className="photo-comments" aria-label="선택한 사진">
+      <p className="photo-comments__guide">
+        사진마다 짧은 추억을 남기면 더욱 생생하고 풍성한 앨범이 완성됩니다. (선택)
+      </p>
       <ul className="photo-comments__list">
         {photos.map((photo, index) => (
           <li key={photo.id} className="photo-comments__item">
@@ -44,9 +47,6 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove }: 
           </li>
         ))}
       </ul>
-      <p className="photo-comments__guide">
-        사진마다 짧은 추억을 남기면 더욱 생생한 앨범이 완성됩니다.
-      </p>
     </section>
   );
 }
