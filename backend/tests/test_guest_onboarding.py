@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.api.guest import _GUEST_UPLOADS, router
 from app.services.auth import require_authenticated_user
+from app.services.guest_service import claim_guest_album
 
 
 class GuestOnboardingTests(TestCase):
@@ -32,6 +33,21 @@ class GuestOnboardingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(claim.call_args.args[2], "22222222-2222-2222-2222-222222222222")
+
+    def test_repeated_claim_by_same_user_returns_the_existing_album(self) -> None:
+        album_id = "11111111-1111-1111-1111-111111111111"
+        profile_id = "22222222-2222-2222-2222-222222222222"
+        query = self.mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+        query.execute.return_value = SimpleNamespace(data=[{
+            "album_id": album_id,
+            "status": "claimed",
+            "claimed_profile_id": profile_id,
+        }])
+
+        claimed_album_id = claim_guest_album(self.mock_db, "x" * 32, profile_id, "33333333-3333-3333-3333-333333333333")
+
+        self.assertEqual(claimed_album_id, album_id)
+        self.assertEqual(self.mock_db.table.call_count, 1)
 
     def test_guest_upload_rate_limit(self) -> None:
         with patch("app.api.guest.process_upload"):

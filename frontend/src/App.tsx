@@ -58,6 +58,9 @@ function isMyAlbumsPage(): boolean {
   return window.location.pathname === "/my-albums";
 }
 
+const GUEST_ALBUM_TOKEN_KEY = "momento-guest-album-token";
+const GUEST_ALBUM_CLAIM_PENDING_KEY = "momento-guest-album-claim-pending";
+
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -65,7 +68,8 @@ function App() {
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [guestMode, setGuestMode] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [guestClaimed, setGuestClaimed] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimRetry, setClaimRetry] = useState(0);
   const [category, setCategory] = useState<AlbumCategory | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
@@ -90,6 +94,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const legacyToken = sessionStorage.getItem(GUEST_ALBUM_TOKEN_KEY);
+    if (legacyToken && !localStorage.getItem(GUEST_ALBUM_TOKEN_KEY)) {
+      localStorage.setItem(GUEST_ALBUM_TOKEN_KEY, legacyToken);
+    }
+    if (legacyToken) sessionStorage.removeItem(GUEST_ALBUM_TOKEN_KEY);
+  }, []);
+
+  useEffect(() => {
     if (!session) return;
     let active = true;
     void authenticatedFetch("/api/auth/bootstrap", { method: "POST" })
@@ -104,18 +116,29 @@ function App() {
   }, [session?.access_token]);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("momento-guest-album-token");
-    if (!session || !token || guestClaimed) return;
+    if (!session || !localStorage.getItem(GUEST_ALBUM_CLAIM_PENDING_KEY)) return;
+    let active = true;
+    const token = localStorage.getItem(GUEST_ALBUM_TOKEN_KEY);
+    if (!token) {
+      localStorage.removeItem(GUEST_ALBUM_CLAIM_PENDING_KEY);
+      window.location.replace("/my-albums");
+      return undefined;
+    }
+    setClaimError(null);
     void claimGuestAlbum(token)
       .then(() => {
-        sessionStorage.removeItem("momento-guest-album-token");
-        setGuestClaimed(true);
+        if (!active) return;
+        localStorage.removeItem(GUEST_ALBUM_TOKEN_KEY);
+        localStorage.removeItem(GUEST_ALBUM_CLAIM_PENDING_KEY);
         setGuestMode(false);
         setShowLogin(false);
         window.location.replace("/my-albums");
       })
-      .catch(() => undefined);
-  }, [session?.access_token, guestClaimed]);
+      .catch((error) => {
+        if (active) setClaimError(error instanceof Error ? error.message : "앨범을 보관하지 못했어요. 다시 시도해 주세요.");
+      });
+    return () => { active = false; };
+  }, [session?.access_token, claimRetry]);
 
   useEffect(() => {
     if (!session) trackGuestEvent("landing_viewed");
@@ -223,6 +246,7 @@ function App() {
               onSaveAccount={() => {
                 trackGuestEvent("save_cta_clicked");
                 trackGuestEvent("login_started");
+                localStorage.setItem(GUEST_ALBUM_CLAIM_PENDING_KEY, "1");
                 setShowLogin(true);
               }}
               onShareKakao={(narrative, shareUrl) =>
@@ -259,7 +283,7 @@ function App() {
               trackGuestEvent("preview_viewed");
               setResult(album);
             }}
-            onGuestCreated={(token) => sessionStorage.setItem("momento-guest-album-token", token)}
+            onGuestCreated={(token) => localStorage.setItem(GUEST_ALBUM_TOKEN_KEY, token)}
             onCancel={() => setGuestMode(false)}
           />
         ) : session === undefined ? (
@@ -268,6 +292,12 @@ function App() {
           <AuthPanel />
         ) : bootstrapError ? (
           <p className="auth-panel__notice">{bootstrapError}</p>
+        ) : claimError ? (
+          <section className="auth-panel">
+            <h2>앨범 보관을 마무리하지 못했어요</h2>
+            <p className="auth-panel__notice">{claimError}</p>
+            <button type="button" className="upload-form__submit" onClick={() => setClaimRetry((value) => value + 1)}>다시 시도하기</button>
+          </section>
         ) : result && showAlbumResult ? (
           <QuestionFlow
             albumId={result.album_id}
