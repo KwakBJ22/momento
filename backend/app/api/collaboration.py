@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -42,6 +42,7 @@ from app.services.collaboration_service import (
     new_guest_id,
     publish_album,
     rebuild_album,
+    apply_selected_contributions,
     remove_contributor,
     require_contributor,
     rotate_invite,
@@ -91,6 +92,25 @@ def _resolve_expires(raw: Any) -> datetime | None:
     if not raw:
         return None
     return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+
+
+def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    album_id = str(album["id"])
+    baseline = str(album.get("created_at") or "")
+    applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
+    applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
+    owners = {str(row["id"]) for row in list_contributors(client, album_id) if row.get("role") == "owner"}
+    contributors = {str(row["id"]): str(row.get("display_name") or "참여자") for row in list_contributors(client, album_id)}
+    photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
+    memories = list_photo_memories(client, album_id)
+    pending_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_photo_ids]
+    pending_memories = [row for row in memories if str(row.get("contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_memory_ids]
+    items: list[dict[str, Any]] = []
+    for row in pending_photos:
+        items.append({"id": str(row["id"]), "type": "photo", "actor_name": contributors.get(str(row.get("uploaded_by_contributor_id") or ""), "참여자"), "created_at": row.get("created_at"), "thumbnail_url": get_signed_url(client, str(row["thumbnail_bucket"]), str(row["thumbnail_path"]), settings.signed_url_ttl_seconds), "comment": str(row.get("comment") or "").strip() or None})
+    for row in pending_memories:
+        items.append({"id": str(row["id"]), "type": "memory", "actor_name": str(row.get("author_name") or "참여자"), "created_at": row.get("created_at"), "content": str(row.get("comment") or "")})
+    return sorted(items, key=lambda item: str(item.get("created_at") or ""), reverse=True)[:30], pending_photos + pending_memories
 
 
 @router.get("/api/join/{token}", response_model=JoinPreviewResponse)
@@ -257,6 +277,7 @@ async def get_collaboration_status(
         .execute()
     )
 
+
     return CollaborationStatusResponse(
         album_id=UUID(album_id),
         collaboration_enabled=bool(album.get("collaboration_enabled")),
@@ -284,6 +305,108 @@ async def get_collaboration_status(
         ],
         album_json=album.get("album_json"),
     )
+
+
+@router.get("/api/albums/{album_id}/participation")
+async def get_album_participation(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> dict[str, Any]:
+    client = get_supabase_client(get_settings())
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found.")
+    require_album_read(get_album_access(client, album, authenticated_user_id))
+    contributors = list_contributors(client, album_id)
+    photos = client.table("album_photos").select("id, uploaded_by_contributor_id, created_at").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
+    memories = list_photo_memories(client, album_id)
+    participant_rows = []
+    for contributor in contributors:
+        contributor_id = str(contributor["id"])
+        participant_rows.append({
+            "id": contributor_id,
+            "name": str(contributor.get("display_name") or "참여자"),
+            "role": "host" if contributor.get("role") == "owner" else "participant",
+            "photo_count": sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") == contributor_id),
+            "memory_count": sum(1 for memory in memories if str(memory.get("contributor_id") or "") == contributor_id),
+        })
+    activities = [{"type": "album_created", "actor_name": str(next((row["name"] for row in participant_rows if row["role"] == "host"), "주최자")), "count": 1, "created_at": album.get("created_at")}]
+    for photo in photos:
+        actor = next((row["name"] for row in participant_rows if row["id"] == str(photo.get("uploaded_by_contributor_id") or "")), "참여자")
+        activities.append({"type": "photo_added", "actor_name": actor, "count": 1, "created_at": photo.get("created_at")})
+    for memory in memories:
+        activities.append({"type": "memory_added", "actor_name": str(memory.get("author_name") or "참여자"), "count": 1, "created_at": memory.get("created_at")})
+    activities = sorted((item for item in activities if item.get("created_at")), key=lambda item: str(item["created_at"]), reverse=True)[:10]
+    recent_cutoff = str(album.get("created_at") or "")
+    applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
+    applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
+    owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
+    new_memory_count = sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") not in owner_ids and str(photo.get("created_at") or "") > recent_cutoff and str(photo.get("id")) not in applied_photo_ids)
+    new_memory_count += sum(1 for memory in memories if str(memory.get("contributor_id") or "") not in owner_ids and str(memory.get("created_at") or "") > recent_cutoff and str(memory.get("id")) not in applied_memory_ids)
+    return {"participants": participant_rows, "recent_activities": activities, "new_memory_count": new_memory_count}
+
+    return CollaborationStatusResponse(
+        album_id=UUID(album_id),
+        collaboration_enabled=bool(album.get("collaboration_enabled")),
+        collaboration_status=album.get("collaboration_status") or "draft",
+        dirty=bool(album.get("dirty")),
+        album_version=int(album.get("album_version") or 0),
+        last_built_at=album.get("last_built_at"),
+        published_at=album.get("published_at"),
+        photo_count=count_ready_photos(client, album_id),
+        photo_limit=int(album.get("photo_limit") or 30),
+        contributor_count=count_active_contributors(client, album_id),
+        contributor_limit=int(album.get("contributor_limit") or 10),
+        memory_count=len(memories),
+        invite_active=bool(active.data),
+        invite_url=None,
+        contributors=[
+            CollaborationContributorResponse(
+                id=UUID(str(c["id"])),
+                display_name=str(c["display_name"]),
+                relationship=c.get("relationship"),
+                role=str(c.get("role") or "contributor"),
+                joined_at=c.get("joined_at"),
+            )
+            for c in contributors
+        ],
+        album_json=album.get("album_json"),
+    )
+
+
+@router.get("/api/albums/{album_id}/pending-contributions")
+async def get_pending_contributions(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> dict[str, Any]:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found.")
+    if str(album.get("created_by") or album.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="Only the album host can review new memories.")
+    items, _ = _pending_contributions(client, album, settings)
+    return {"count": len(items), "items": items, "last_applied_at": album.get("last_collaboration_applied_at")}
+
+
+@router.post("/api/albums/{album_id}/apply-contributions")
+async def apply_contributions(
+    album_id: str,
+    body: dict[str, list[str]],
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> dict[str, Any]:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found.")
+    if str(album.get("created_by") or album.get("owner_id") or "") != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="Only the album host can update this album.")
+    photo_ids = {str(item) for item in body.get("photo_ids", [])}
+    memory_ids = {str(item) for item in body.get("memory_ids", [])}
+    result = apply_selected_contributions(client, album, photo_ids=photo_ids, memory_ids=memory_ids)
+    return {"status": "completed", "album_id": album_id, "applied_count": result["applied_count"], "last_applied_at": result["last_applied_at"]}
 
 
 @router.get("/api/albums/{album_id}/contribute/workspace")

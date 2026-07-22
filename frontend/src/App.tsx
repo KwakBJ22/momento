@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthPanel from "./components/AuthPanel";
 import AlbumMembersPanel from "./components/AlbumMembersPanel";
+import AlbumParticipationPanel from "./components/AlbumParticipationPanel";
 import AlbumResultView from "./components/AlbumResult";
 import AlbumView from "./components/AlbumView";
 import CollaborationPanel from "./components/CollaborationPanel";
 import ContributeWorkspace from "./components/ContributeWorkspace";
-import FamilyManagement from "./components/FamilyManagement";
+import ParticipantsPage from "./components/ParticipantsPage";
 import InviteAccept from "./components/InviteAccept";
 import JoinPage from "./components/JoinPage";
 import Landing from "./components/Landing";
@@ -238,7 +239,7 @@ function App() {
           ) : bootstrapError ? (
             <p className="auth-panel__notice">{bootstrapError}</p>
           ) : (
-            <FamilyManagement />
+            <ParticipantsPage />
           )
         ) : !session && result ? (
           <>
@@ -334,6 +335,7 @@ function App() {
             onReset={resetToStart}
             manageSlot={
               <>
+                <AlbumParticipationPanel albumId={result.album_id} />
                 <AlbumMembersPanel albumId={result.album_id} />
                 <CollaborationPanel albumId={result.album_id} />
               </>

@@ -1,4 +1,5 @@
 import logging
+import logging
 from functools import wraps
 from uuid import UUID
 
@@ -118,6 +119,32 @@ async def get_my_family(
         name=str(family.get("name") or "우리 가족"),
         role=primary["role"],
     )
+
+
+@router.get("/me/participants")
+async def get_participant_stats(authenticated_user_id: str = Depends(require_authenticated_user)) -> dict:
+    client = get_supabase_client()
+    primary = get_user_primary_family(client, authenticated_user_id)
+    if not primary:
+        raise HTTPException(status_code=404, detail="Family not found.")
+    members = list_family_members(client, str(primary["family_id"]))
+    participants = []
+    for member in members:
+        profile_id = str(member["profile_id"])
+        contributors = client.table("album_contributors").select("id").eq("user_id", profile_id).eq("status", "active").execute().data or []
+        contributor_ids = [str(row["id"]) for row in contributors]
+        photo_count = 0
+        memory_count = 0
+        if contributor_ids:
+            photo_count = len(client.table("album_photos").select("id").in_("uploaded_by_contributor_id", contributor_ids).execute().data or [])
+            memory_count = len(client.table("photo_memories").select("id").in_("contributor_id", contributor_ids).execute().data or [])
+        participants.append({
+            "id": str(member["id"]),
+            "display_name": str((member.get("profiles") or {}).get("display_name") or "참여자"),
+            "photo_count": photo_count,
+            "memory_count": memory_count,
+        })
+    return {"participants": participants}
 
 
 @router.get("/{family_id}/members", response_model=FamilyMembersListResponse)

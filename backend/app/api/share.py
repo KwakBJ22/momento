@@ -29,6 +29,7 @@ from app.services.supabase import (
     get_supabase_client,
 )
 from app.services.collaboration_service import list_photo_memories
+from app.services.collaboration_service import join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
 
@@ -179,6 +180,37 @@ async def submit_guest_memory(token: str, body: GuestMemoryRequest) -> GuestMemo
     _, claim_token = create_guest_memory(client, share, body.name, body.memory)
     log_event(client, "guest_memory_completed", album_id=str(share["album_id"]), share_link_id=str(share["id"]))
     return GuestMemoryResponse(claim_token=claim_token)
+
+
+@router.post("/public/shares/{token}/contribute")
+async def start_public_contribution(token: str, body: dict[str, str] | None = None) -> dict[str, str | None]:
+    """Create or restore an anonymous contributor session from an active share link."""
+    _rate_limit(f"contribute:{token}", _GUEST_LIMIT)
+    client = get_supabase_client()
+    share = get_active_share(client, token)
+    album = get_album_record(client, str(share["album_id"]))
+    if not album:
+        raise HTTPException(status_code=404, detail="Album was not found.")
+    if album.get("collaboration_status") == "closed":
+        raise HTTPException(status_code=403, detail="This album is no longer accepting contributions.")
+    guest_id = (body or {}).get("guest_id") or new_guest_id()
+    display_name = ((body or {}).get("display_name") or "함께한 사람").strip()[:40] or "함께한 사람"
+    contributor = join_as_contributor(
+        client,
+        album,
+        None,
+        display_name=display_name,
+        relationship=None,
+        guest_id=guest_id,
+        user_id=None,
+    )
+    log_event(client, "public_contribution_started", album_id=str(album["id"]), share_link_id=str(share["id"]))
+    return {
+        "album_id": str(album["id"]),
+        "contributor_id": str(contributor["id"]),
+        "guest_id": str(contributor.get("guest_id") or guest_id),
+        "display_name": str(contributor.get("display_name") or display_name),
+    }
 
 
 @router.post("/public/shares/{token}/reactions", status_code=status.HTTP_204_NO_CONTENT)

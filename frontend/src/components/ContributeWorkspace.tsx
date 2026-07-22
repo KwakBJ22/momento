@@ -25,6 +25,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
   const [draftPhotoId, setDraftPhotoId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [updated, setUpdated] = useState(false);
 
   const reload = useCallback(async () => {
     const current = loadCollabSession(albumId);
@@ -76,6 +77,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
     try {
       await uploadContributePhotos(albumId, session, accepted.slice(0, 10));
       await reload();
+      setUpdated(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "업로드에 실패했어요.");
     } finally {
@@ -98,6 +100,12 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
     }
   };
 
+  const inviteWithKakao = async () => {
+    const url = window.location.origin + `/album/${albumId}`;
+    if (navigator.share) await navigator.share({ title: workspace.title, url });
+    else await navigator.clipboard.writeText(url);
+  };
+
   return (
     <section className="contribute">
       <header className="contribute__header">
@@ -111,6 +119,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
       </header>
 
       {workspace.notice ? <p className="contribute__notice">{workspace.notice}</p> : null}
+      {updated ? <p className="contribute__notice">사진과 이야기가 추가되었습니다. <button type="button" className="link-btn" onClick={() => void inviteWithKakao()}>카카오톡으로 초대</button></p> : null}
       {error ? <p className="contribute__error">{error}</p> : null}
 
       <div className="contribute__people">

@@ -55,6 +55,12 @@ yarn-error.log*
 *.db
 *.tmp
 *.bak
+*.md
+!docs/MVP_TEST_CHECKLIST.md
+!docs/BUG_LOG.md
+!docs/RELEASE_CHECKLIST.md
+!docs/QA_GUIDE.md
+!docs/KNOWN_ISSUES.md
 coverage/
 .coverage
 htmlcov/

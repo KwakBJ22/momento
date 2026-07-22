@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { getAlbum, getAlbumPhotos, saveAlbumPhotoComment, updateAlbumPhotoLocation } from "../lib/api";
-
-import AlbumPhotoComments from "./AlbumPhotoComments";
+import { getAlbum, getAlbumPhotos } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
@@ -230,70 +228,6 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
             />
 
           </div>
-
-
-
-          {photos.length > 0 && (
-
-            <AlbumPhotoComments
-
-              photos={photos}
-
-              onSave={async (photoId, comment) => {
-
-                await saveAlbumPhotoComment(albumId, photoId, comment);
-
-                setPhotos((previous) =>
-
-                  previous.map((photo) => (photo.id === photoId ? { ...photo, comment: comment.trim() || null } : photo)),
-
-                );
-
-              }}
-
-              onSaveLocation={async (photoId, locationName) => {
-
-                const updated = await updateAlbumPhotoLocation(albumId, photoId, {
-
-                  location_name: locationName.trim() || null,
-
-                  location_source: locationName.trim() ? "user" : "unknown",
-
-                });
-
-                setPhotos((previous) =>
-
-                  previous.map((photo) =>
-
-                    photo.id === photoId
-
-                      ? {
-
-                          ...photo,
-
-                          location_name: updated.location_name ?? null,
-
-                          location_source: updated.location_source ?? "unknown",
-
-                          latitude: updated.latitude ?? photo.latitude,
-
-                          longitude: updated.longitude ?? photo.longitude,
-
-                        }
-
-                      : photo,
-
-                  ),
-
-                );
-
-              }}
-
-            />
-
-          )}
-
-
 
           {album.media.some((media) => media.media_type !== "image" && media.media_type !== "gif") && (
 

@@ -1,261 +1,222 @@
 # AGENTS.md
-# Momento AI Development Rules
 
-> 이 문서는 Momento 프로젝트의 개발 원칙이다.
-> 새로운 기능보다 기존 사용자 경험을 유지하는 것이 우선이다.
-> 모든 작업은 이 문서를 기준으로 수행한다.
+# Momento Development Rules
 
----
+This repository is developed under an MVP-first philosophy.
 
-# 1. 개발 원칙
-
-- 요청한 내용만 수정한다.
-- 요청하지 않은 기능은 절대 변경하지 않는다.
-- 기존 UX와 사용자 플로우를 유지한다.
-- 최소 범위만 수정한다.
-- 완료 후 반드시 Build를 수행한다.
-
-금지사항
-
-- 임의 리팩토링
-- 컴포넌트 분리
-- 파일 구조 변경
-- 라우팅 변경
-- API 구조 변경
-- DB 구조 변경
-
-위 항목은 사용자가 명시적으로 요청한 경우에만 수행한다.
+Your highest priority is to complete working features quickly with the smallest possible changes.
 
 ---
 
-# 2. 사용자 플로우 (절대 변경 금지)
+# Core Principles
 
-현재 MVP의 기본 흐름은 다음과 같다.
-
-사진 업로드
-
-↓
-
-사진별 코멘트 입력
-
-↓
-
-앨범 생성 (AI 자동 생성)
-
-↓
-
-앨범 결과 확인
-
-↓
-
-사용자 자유 수정
-
-↓
-
-공유 / PDF
-
-위 순서를 변경하지 않는다.
+- MVP first.
+- Shipping is more important than perfection.
+- Prefer working software over ideal architecture.
+- Preserve existing code whenever possible.
+- Make the smallest change that solves the problem.
+- Do not introduce unnecessary abstractions.
+- Do not refactor unless it directly fixes the requested task.
+- Avoid large-scale restructuring.
 
 ---
 
-# 3. Album 구조
+# Autonomous Decision Making
 
-앨범은 반드시 아래 구조를 따른다.
+Do not ask the user for confirmation.
 
-월
+When multiple reasonable solutions exist:
 
-↓
+- choose the smallest implementation
+- choose the least risky implementation
+- choose the implementation that preserves existing code
+- continue working without waiting for approval
 
-날짜 (YYYY.MM.DD + 사진 수)
+Assume reasonable defaults.
 
-↓
-
-사진
-
-↓
-
-사진 캡션
-
-↓
-
-YYYY.MM.DD의 이야기
-
-↓
-
-다음 날짜
-
-↓
-
-우리의 이야기
-
-제거된 요소
-
-- Day 1
-- Day 2
-- 여행의 시작
-- 우리의 추억
-- 행복한 순간
-- 그룹 제목
-- 월별 AI 이야기
+The user prefers progress over discussion.
 
 ---
 
-# 4. 사진 캡션 규칙
+# When Questions Are Allowed
 
-사진이 가장 중요하다.
+Only interrupt the user when the task is impossible to complete.
 
-긴 텍스트보다 사진을 크게 보여준다.
+Examples:
 
-캡션은
+- repository access unavailable
+- required API key or secret missing
+- required external service unavailable
+- impossible to infer missing mandatory information
 
-- 사진 아래 배치
-- 최대 2줄
-- 긴 글은 ...
-- 카드 금지
-- 테두리 금지
-- 그림자 금지
-- 배경색 금지
+Do NOT ask questions for:
 
-작성자가 1명
+- implementation style
+- naming
+- folder organization
+- UI details
+- refactoring
+- optimization
+- architecture preference
 
-→ 이름 숨김
-
-작성자가 여러 명
-
-→ 이름 표시
-
----
-
-# 5. 날짜 이야기
-
-각 날짜 마지막에
-
-"YYYY.MM.DD의 이야기"
-
-를 배치한다.
-
-AI는
-
-- 사진
-- 사진 캡션
-- 촬영일
-
-기준으로만 작성한다.
-
-추측하지 않는다.
-
-사실 기반으로 작성한다.
-
-3~6줄 정도로 유지한다.
+Choose the most conservative option yourself.
 
 ---
 
-# 6. 앨범 생성
+# Code Changes
 
-사진 업로드 후
+Always:
 
-AI가 자동 생성한다.
+- modify the minimum number of files
+- preserve current architecture
+- reuse existing components
+- avoid duplicate code
+- avoid introducing new dependencies unless absolutely necessary
 
-"AI가 만들어주기"
-
-버튼은 사용하지 않는다.
-
-사용자는
-
-생성된 결과를 수정만 한다.
+Never rewrite working code.
 
 ---
 
-# 7. 디자인 철학
+# UI Rules
 
-Momento는 SNS가 아니다.
+The project values simplicity.
 
-포토북이다.
+Do not redesign screens unless explicitly requested.
 
-우선순위
+For UI work:
 
-사진
+- keep existing layout
+- improve spacing only when necessary
+- reuse current components
+- preserve mobile-first behavior
+- keep interactions simple
 
-↓
+No unnecessary animations.
 
-짧은 캡션
-
-↓
-
-날짜 이야기
-
-↓
-
-앨범 마무리
+No unnecessary visual effects.
 
 ---
 
-# 8. Album Renderer
+# Product Philosophy
 
-웹
+Momento is a memory-sharing service.
 
-공유
+Priorities:
 
-PDF
+1. usability
+2. speed
+3. emotional experience
+4. visual polish
 
-모두 동일한 AlbumRenderer를 사용한다.
-
-레이아웃만 다를 수 있다.
-
-내용은 동일해야 한다.
-
----
-
-# 9. Vision
-
-Vision 분석 결과가 있으면
-
-재분석하지 않는다.
-
-기존 결과를 재사용한다.
-
-비용을 최소화한다.
+Never sacrifice usability for aesthetics.
 
 ---
 
-# 10. Build
+# Copywriting
 
-모든 작업 후
+Avoid technical wording.
 
-반드시
+Avoid exposing AI to users.
 
-npm run build
+Write from the user's perspective.
 
-를 수행한다.
-
----
-
-# 11. 변경 보고
-
-작업이 끝나면
-
-다음을 보고한다.
-
-- 수정한 파일
-- 수정한 이유
-- 영향받은 기능
-- Build 결과
-- 기존 기능 유지 여부
+Use warm and natural language.
 
 ---
 
-# 12. 의심되는 변경
+# Validation
 
-다음이 필요하다고 판단되면
+After changes:
 
-멋대로 수정하지 않는다.
+- run only the necessary validation
+- avoid unnecessary test suites
+- verify only affected functionality
 
-먼저 사용자에게 제안한다.
+Preferred order:
 
-- 리팩토링
-- 구조 변경
-- UX 변경
-- 화면 이동 변경
-- 컴포넌트 분리
-- 성능 최적화
-- DB 변경
+1. TypeScript check
+2. Production build
+3. Targeted runtime verification
+
+---
+
+# Deployment Verification
+
+A successful git push does not mean production is updated.
+
+For production tasks, always verify:
+
+- origin/main commit hash
+- Vercel production deployment commit hash
+- production alias points to the latest deployment
+- actual production URL reflects the requested change
+
+Do not report deployment complete until all four are confirmed.
+
+---
+
+# Git Workflow
+
+For normal local fixes:
+
+- implement
+- validate locally
+- commit
+
+For features requiring mobile, external URL, or sharing tests:
+
+- create or reuse a short-lived feature branch
+- implement and validate locally
+- commit and push the feature branch
+- use the Vercel Preview deployment for external testing
+- do not merge into main until preview testing is complete
+
+For urgent production bug fixes:
+
+- fix on main
+- validate
+- commit
+- push immediately
+
+Do not deploy unfinished UI changes directly to production.
+
+---
+
+# Response Format
+
+After completing work, report only:
+
+- Root cause
+- Files modified
+- What changed
+- Validation performed
+- Commit hash
+- Push result
+
+Keep reports concise.
+
+---
+
+# Performance
+
+Always prefer:
+
+small changes
+low risk
+fast implementation
+
+over
+
+perfect architecture
+large refactoring
+future-proofing
+
+---
+
+# Project Context
+
+Momento is currently in MVP.
+
+The objective is to release quickly and improve based on real user feedback.
+
+Every decision should support rapid iteration.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlbumRenderer } from "../album-engine";
-import { getPublicShare, submitGuestMemory, submitShareReaction } from "../lib/api";
+import { getPublicShare, saveCollabSession, startPublicContribution, submitGuestMemory, submitShareReaction } from "../lib/api";
 import { createId } from "../lib/id";
 import type { AlbumPhoto, PublicShareAlbum } from "../types";
 import "./AlbumResult.css";
@@ -12,6 +12,15 @@ function guestSessionKey(): string {
   const existing = localStorage.getItem(key);
   if (existing) return existing;
   const created = `${createId()}${createId()}`;
+  localStorage.setItem(key, created);
+  return created;
+}
+
+function contributionGuestId(): string {
+  const key = "momento-public-contribution-guest-id";
+  const existing = localStorage.getItem(key);
+  if (existing) return existing;
+  const created = createId();
   localStorage.setItem(key, created);
   return created;
 }
@@ -61,6 +70,16 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     setNotice("가족에게 앨범 링크를 전했어요.");
   };
 
+  const startContribution = async () => {
+    try {
+      const result = await startPublicContribution(token, contributionGuestId());
+      saveCollabSession({ albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name });
+      window.location.assign(`/album/${result.album_id}/contribute`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "사진 추가를 시작하지 못했어요.");
+    }
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
@@ -86,6 +105,15 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
           <h2 className="album-result__title">{album.title}</h2>
           <p className="album-result__subtitle">함께 만든 추억 앨범</p>
         </header>
+
+        <section className="public-share__join" aria-label="앨범 참여">
+          <p><strong>님이 함께 추억을 만들고 있습니다.</strong></p>
+          <p>사진도 올리고 한 줄도 남겨보세요.</p>
+          <div className="public-share__join-actions">
+            <button type="button" className="upload-form__submit" onClick={() => void startContribution()}>사진 추가</button>
+            <a className="btn btn--secondary" href="#guest-memory">한 줄 남기기</a>
+          </div>
+        </section>
 
         <div className="album-result__stage">
           <AlbumRenderer
@@ -116,7 +144,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
           </section>
         )}
 
-        <form className="public-share__memory" onSubmit={submit}>
+        <form id="guest-memory" className="public-share__memory" onSubmit={submit}>
           <h3>이날의 기억을 한 줄 남겨주세요</h3>
           <input className="field__input" value={name} onChange={(event) => setName(event.target.value)} placeholder="이름" maxLength={50} required />
           <textarea className="field__input field__textarea" value={memory} onChange={(event) => setMemory(event.target.value)} placeholder="떠오르는 기억 한 줄" maxLength={300} rows={3} required />

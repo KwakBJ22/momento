@@ -495,3 +495,19 @@ a.btn {
     page-break-inside: avoid;
   }
 }
+.public-share__join {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid #eadfd6;
+  border-radius: 16px;
+  background: #fffdfa;
+}
+
+.public-share__join p { margin: 0.2rem 0; }
+
+.public-share__join-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  flex-wrap: wrap;
+}

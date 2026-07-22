@@ -227,7 +227,7 @@ def count_ready_photos(client: Client, album_id: str) -> int:
 def join_as_contributor(
     client: Client,
     album: dict[str, Any],
-    invite: dict[str, Any],
+    invite: dict[str, Any] | None,
     *,
     display_name: str,
     relationship: str | None,
@@ -294,9 +294,10 @@ def join_as_contributor(
     inserted = client.table("album_contributors").insert(row).execute()
     contributor = (inserted.data or [row])[0]
 
-    client.table("album_invites").update(
-        {"use_count": int(invite.get("use_count") or 0) + 1}
-    ).eq("id", invite["id"]).execute()
+    if invite and invite.get("id"):
+        client.table("album_invites").update(
+            {"use_count": int(invite.get("use_count") or 0) + 1}
+        ).eq("id", invite["id"]).execute()
 
     return contributor
 
@@ -726,36 +727,50 @@ def rebuild_album(
     client.table("albums").update({"last_rebuild_started_at": _iso()}).eq("id", album_id).execute()
 
     try:
-        photos = (
-            client.table("album_photos")
-            .select("*")
-            .eq("album_id", album_id)
-            .eq("status", "ready")
-            .is_("deleted_at", "null")
-            .order("sort_order")
-            .execute()
-        ).data or []
+        photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
         memories = list_photo_memories(client, album_id)
         document = album_json or build_album_document_from_records(album, photos, memories)
         next_version = int(album.get("album_version") or 0) + 1
-        client.table("albums").update(
-            {
-                "album_json": document,
-                "album_version": next_version,
-                "dirty": False,
-                "last_built_at": _iso(),
-                "collaboration_status": "ready"
-                if album.get("collaboration_status") == "collecting"
-                else album.get("collaboration_status"),
-                "updated_at": _iso(),
-            }
-        ).eq("id", album_id).execute()
-        return {
-            "album_version": next_version,
-            "dirty": False,
-            "last_built_at": _iso(),
-            "album_json": document,
-        }
+        built_at = _iso()
+        client.table("albums").update({"album_json": document, "album_version": next_version, "dirty": False, "last_built_at": built_at, "collaboration_status": "ready" if album.get("collaboration_status") == "collecting" else album.get("collaboration_status"), "updated_at": built_at}).eq("id", album_id).execute()
+        return {"album_version": next_version, "dirty": False, "last_built_at": built_at, "album_json": document}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Could not update the album.") from exc
+
+
+def apply_selected_contributions(
+    client: Client,
+    album: dict[str, Any],
+    *,
+    photo_ids: set[str],
+    memory_ids: set[str],
+) -> dict[str, Any]:
+    """Rebuild the current album document with selected post-apply guest additions only."""
+    album_id = str(album["id"])
+    baseline = album.get("created_at")
+    applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
+    applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
+    contributors = list_contributors(client, album_id)
+    owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
+    photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+    memories = list_photo_memories(client, album_id)
+    pending_photos = {str(row["id"]) for row in photos if str(row.get("uploaded_by_contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_photo_ids}
+    pending_memories = {str(row["id"]) for row in memories if str(row.get("contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_memory_ids}
+    if not photo_ids.issubset(pending_photos) or not memory_ids.issubset(pending_memories):
+        raise HTTPException(status_code=409, detail="Some selected memories are no longer waiting to be applied.")
+    visible_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") in owner_ids or str(row.get("created_at") or "") <= str(baseline or "") or str(row["id"]) in applied_photo_ids or str(row["id"]) in photo_ids]
+    visible_photo_ids = {str(row["id"]) for row in visible_photos}
+    visible_memories = [row for row in memories if str(row.get("contributor_id") or "") in owner_ids or str(row.get("created_at") or "") <= str(baseline or "") or str(row["id"]) in applied_memory_ids or str(row["id"]) in memory_ids]
+    visible_memories = [row for row in visible_memories if str(row.get("photo_id") or "") in visible_photo_ids]
+    document = build_album_document_from_records(album, visible_photos, visible_memories)
+    result = rebuild_album(client, album, album_json=document, force=True)
+    applied_at = _iso()
+    client.table("albums").update({"last_collaboration_applied_at": applied_at, "applied_contribution_photo_ids": sorted(applied_photo_ids | photo_ids), "applied_contribution_memory_ids": sorted(applied_memory_ids | memory_ids)}).eq("id", album_id).execute()
+    return {**result, "last_applied_at": applied_at, "applied_count": len(photo_ids) + len(memory_ids)}
+    try:
+        pass
     except HTTPException:
         raise
     except Exception as exc:

@@ -164,6 +164,16 @@ export async function getPublicShare(token: string): Promise<import("../types").
   return (await response.json()) as import("../types").PublicShareAlbum;
 }
 
+export async function startPublicContribution(token: string, guestId: string | null) {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_id: guestId, display_name: "함께한 사람" }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<{ album_id: string; contributor_id: string; guest_id: string | null; display_name: string }>;
+}
+
 export async function submitGuestMemory(token: string, body: { name: string; memory: string; website: string }): Promise<{ claim_token: string }> {
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/guest-memories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!response.ok) throw new Error(await parseError(response));
@@ -200,6 +210,12 @@ export async function getMyFamily(): Promise<import("../types").FamilySummary> {
   const response = await authenticatedFetch("/api/families/me");
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as import("../types").FamilySummary;
+}
+
+export async function getParticipantStats(): Promise<{ participants: Array<{ id: string; display_name: string; photo_count: number; memory_count: number }> }> {
+  const response = await authenticatedFetch("/api/families/me/participants");
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json();
 }
 
 export async function getFamilyMembers(familyId: string): Promise<import("../types").FamilyMemberItem[]> {
@@ -442,6 +458,24 @@ export async function getCollaborationStatus(albumId: string) {
   const response = await authenticatedFetch(`/api/albums/${albumId}/collaboration`);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
+}
+
+export async function getAlbumParticipation(albumId: string) {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/participation`);
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<{ participants: any[]; recent_activities: any[]; new_memory_count: number }>;
+}
+
+export async function getPendingContributions(albumId: string) {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/pending-contributions`);
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<{ count: number; items: Array<any>; last_applied_at: string | null }>;
+}
+
+export async function applyContributions(albumId: string, photoIds: string[], memoryIds: string[]) {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/apply-contributions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ photo_ids: photoIds, memory_ids: memoryIds }) });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<{ status: string; applied_count: number; last_applied_at: string }>;
 }
 
 export async function rebuildCollaborationAlbum(

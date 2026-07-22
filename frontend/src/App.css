@@ -131,6 +131,15 @@ body {
   text-align: center;
 }
 
+.app__nav-link[href="/family"] {
+  font-size: 0;
+}
+
+.app__nav-link[href="/family"]::after {
+  content: "참여자";
+  font-size: 0.9rem;
+}
+
 .my-albums { display: grid; gap: 1rem; }
 .my-albums__header, .my-albums__card, .my-albums__card-title-row { display: flex; align-items: center; }
 .my-albums__header, .my-albums__card-title-row { justify-content: space-between; }
