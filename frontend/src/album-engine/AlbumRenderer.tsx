@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
@@ -114,6 +114,7 @@ export default function AlbumRenderer({
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
+  const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
   const preferOriginal = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
 
@@ -143,6 +144,53 @@ export default function AlbumRenderer({
     if (!root) return;
     void waitForAlbumAssets(root).then(() => onReady()).catch(() => onReady());
   }, [album, onReady]);
+
+  useEffect(() => {
+    if (mode !== "screen" || !album?.elements.length) return;
+
+    const readPage = () => {
+      const value = Number(new URLSearchParams(window.location.search).get("page"));
+      return Number.isInteger(value) && value >= 1 && value <= album.elements.length ? value : 1;
+    };
+    const scrollToPage = (page: number) => {
+      const target = blockRefs.current[page - 1];
+      target?.scrollIntoView({ block: "start" });
+    };
+    const replacePage = (page: number) => {
+      const url = new URL(window.location.href);
+      if (page <= 1) url.searchParams.delete("page");
+      else url.searchParams.set("page", String(page));
+      window.history.replaceState(window.history.state, "", url);
+    };
+
+    const initialPage = readPage();
+    if (initialPage === 1 && new URLSearchParams(window.location.search).has("page")) replacePage(1);
+    requestAnimationFrame(() => scrollToPage(initialPage));
+
+    let currentPage = initialPage;
+    const onScroll = () => {
+      const page = blockRefs.current.reduce((closest, block, index) => {
+        if (!block) return closest;
+        const distance = Math.abs(block.getBoundingClientRect().top);
+        const closestDistance = Math.abs((blockRefs.current[closest - 1]?.getBoundingClientRect().top ?? 0));
+        return distance < closestDistance ? index + 1 : closest;
+      }, 1);
+      if (page !== currentPage) {
+        currentPage = page;
+        replacePage(page);
+      }
+    };
+    const onPopState = () => {
+      currentPage = readPage();
+      scrollToPage(currentPage);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [album, mode]);
 
   const heroSrc = useMemo(() => {
     if (!photos.length) return fallbackImageUrl ?? null;
@@ -185,7 +233,11 @@ export default function AlbumRenderer({
         <div className="album-renderer__body">
           <div className="album-renderer__blocks">
             {album.elements.map((element, index) => (
-              <div key={`album-block-${index}`} className="album-renderer__block">
+              <div
+                key={`album-block-${index}`}
+                className="album-renderer__block"
+                ref={(node) => { blockRefs.current[index] = node; }}
+              >
                 {element}
               </div>
             ))}
