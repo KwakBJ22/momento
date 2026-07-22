@@ -16,6 +16,7 @@ interface ContributeWorkspaceProps {
   albumId: string;
   embedded?: boolean;
   requestedAction?: "photo" | "memory";
+  initialWorkspace?: WorkspaceState;
   onContributionAdded?: (items: PublicContributionItem[]) => void;
   onContributionUpdated?: (item: PublicContributionItem) => void;
   onContributionRemoved?: (id: string) => void;
@@ -27,6 +28,7 @@ type PhotoMemory = {
   id: string;
   author_name?: string | null;
   comment: string;
+  created_at?: string | null;
   mine?: boolean;
 };
 
@@ -34,11 +36,13 @@ type WorkspacePhoto = {
   id: string;
   thumbnail_url?: string | null;
   original_url?: string | null;
+  author_name?: string | null;
+  created_at?: string | null;
   mine?: boolean;
   memories?: PhotoMemory[];
 };
 
-type WorkspaceState = {
+export type WorkspaceState = {
   title: string;
   photo_count: number;
   photo_limit: number;
@@ -86,7 +90,7 @@ function WorkspaceImage({ src, alt = "" }: { src: string; alt?: string }) {
       alt={alt}
       loading="lazy"
       decoding="async"
-      onLoad={() => debugTiming("contribution thumbnail loaded", startedAt.current)}
+      onLoad={() => debugTiming("contribution signed thumbnail loaded", startedAt.current)}
     />
   );
 }
@@ -95,12 +99,13 @@ export default function ContributeWorkspace({
   albumId,
   embedded = false,
   requestedAction,
+  initialWorkspace,
   onContributionAdded,
   onContributionUpdated,
   onContributionRemoved,
 }: ContributeWorkspaceProps) {
   const [session, setSession] = useState<CollabSession | null>(() => loadCollabSession(albumId));
-  const [workspace, setWorkspace] = useState<WorkspaceState | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceState | null>(() => initialWorkspace ?? null);
   const [tab, setTab] = useState<Tab>("photos");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -141,6 +146,7 @@ export default function ContributeWorkspace({
   }, []);
 
   const reload = useCallback(async () => {
+    if (initialWorkspace) return;
     const current = loadCollabSession(albumId);
     if (!current) {
       setError("참여 세션이 없어요. 초대 링크로 다시 들어와 주세요.");
@@ -152,11 +158,12 @@ export default function ContributeWorkspace({
     debugTiming("contribution workspace request", startedAt);
     setWorkspace(data);
     setWorkspaceRevision((revision) => revision + 1);
-  }, [albumId]);
+  }, [albumId, initialWorkspace]);
 
   useEffect(() => {
+    if (initialWorkspace) return;
     void reload().catch((err: Error) => setError(err.message));
-  }, [reload]);
+  }, [initialWorkspace, reload]);
 
   useEffect(() => {
     if (requestedAction) setTab("photos");
@@ -191,8 +198,9 @@ export default function ContributeWorkspace({
     onContributionAdded?.(photos.map((photo) => ({
       id: photo.id,
       type: "photo",
-      actor_name: session?.displayName || "참여자",
-      created_at: new Date().toISOString(),
+      actor_name: photo.author_name || session?.displayName || "익명",
+      author_name: photo.author_name || session?.displayName || "익명",
+      created_at: photo.created_at || new Date().toISOString(),
       thumbnail_url: photo.thumbnail_url || photo.original_url || null,
     })));
   }, [markFresh, onContributionAdded, session?.displayName, showToast]);
@@ -209,15 +217,17 @@ export default function ContributeWorkspace({
         photos?: WorkspacePhoto[];
         photo_count: number;
       };
-      debugTiming("contribution photo upload", startedAt);
+      debugTiming("contribution photo upload request", startedAt);
       items.forEach((item) => URL.revokeObjectURL(item.previewUrl));
       setPendingUploads((current) => current.filter((pending) => !items.some((item) => item.id === pending.id)));
       addUploadedPhotos(result.photos || [], result.photo_count);
+      window.requestAnimationFrame(() => debugTiming("contribution upload state applied", startedAt));
     } catch (err) {
       setPendingUploads((current) => current.map((pending) => (
         items.some((item) => item.id === pending.id) ? { ...pending, status: "failed" } : pending
       )));
-      setError(err instanceof Error ? err.message : "사진을 올리지 못했습니다.");
+      console.warn("[Momento] Contribution photo upload failed.", err);
+      setError("사진을 추가하지 못했습니다.");
     } finally {
       setIsUploading(false);
     }
@@ -263,12 +273,14 @@ export default function ContributeWorkspace({
       onContributionAdded?.([{
         id: memory.id,
         type: "memory",
-        actor_name: memory.author_name || session.displayName || "참여자",
-        created_at: new Date().toISOString(),
+        actor_name: memory.author_name || session.displayName || "익명",
+        author_name: memory.author_name || session.displayName || "익명",
+        created_at: memory.created_at || new Date().toISOString(),
         content: memory.comment,
       }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기억을 저장하지 못했습니다.");
+      console.warn("[Momento] Contribution memory save failed.", err);
+      setError("기억을 저장하지 못했습니다.");
     } finally {
       setSavingPhotoId(null);
     }
@@ -294,6 +306,7 @@ export default function ContributeWorkspace({
         id: updated.id,
         type: "memory",
         actor_name: updated.author_name || session.displayName || "참여자",
+        author_name: updated.author_name || session.displayName || "익명",
         content: updated.comment,
       });
     } catch (err) {
@@ -337,7 +350,7 @@ export default function ContributeWorkspace({
     return <section className="contribute"><p className="contribute__loading">앨범을 불러오는 중...</p></section>;
   }
 
-  const optimisticPhotoCount = workspace.photo_count + pendingUploads.filter((item) => item.status === "uploading").length;
+  const confirmedPhotoCount = workspace.photo_count;
   const standaloneMemories = workspace.memories || [];
 
   return (
@@ -346,7 +359,7 @@ export default function ContributeWorkspace({
         <div>
           <p className="contribute__badge">함께 만드는 중</p>
           <h2 className="contribute__title">{workspace.title}</h2>
-          <p className="contribute__meta">{session.displayName} · 사진 {optimisticPhotoCount}/{workspace.photo_limit}</p>
+          <p className="contribute__meta">{session.displayName} · 사진 {confirmedPhotoCount}/{workspace.photo_limit}</p>
         </div>
       </header> : null}
 

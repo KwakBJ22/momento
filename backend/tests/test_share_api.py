@@ -205,6 +205,33 @@ class ShareApiTests(TestCase):
             {(item["id"], item["type"], item["actor_name"]) for item in body["pending_items"]},
             {(pending_photo_id, "photo", "민수"), (pending_memory_id, "memory", "민수")},
         )
+        self.assertTrue(all(item["author_name"] == "민수" for item in body["pending_items"]))
+
+    def test_public_contribution_requires_and_persists_a_display_name(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album()
+        ), patch("app.api.share.join_as_contributor") as join, patch("app.api.share.log_event"):
+            missing_name = self.client.post("/api/public/shares/opaque-token/contribute", json={"guest_id": "guest-1"})
+
+        self.assertEqual(missing_name.status_code, 400)
+        join.assert_not_called()
+
+        contributor = {
+            "id": "99999999-9999-9999-9999-999999999999",
+            "guest_id": "guest-1",
+            "display_name": "민수",
+        }
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album()
+        ), patch("app.api.share.join_as_contributor", return_value=contributor) as join, patch("app.api.share.log_event"):
+            response = self.client.post(
+                "/api/public/shares/opaque-token/contribute",
+                json={"guest_id": "guest-1", "display_name": "민수"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["display_name"], "민수")
+        self.assertEqual(join.call_args.kwargs["display_name"], "민수")
 
     def test_inactive_or_expired_share_is_blocked(self) -> None:
         with patch("app.api.share.get_active_share", side_effect=__import__("fastapi").HTTPException(status_code=404, detail="expired")):

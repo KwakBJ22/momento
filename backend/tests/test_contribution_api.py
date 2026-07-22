@@ -30,7 +30,7 @@ class ContributionUploadApiTests(TestCase):
             return_value={"id": ALBUM_ID, "photo_limit": 30, "family_id": "family-1"},
         )
         self.contributor_patch = patch(
-            "app.api.collaboration.require_contributor", return_value={"id": CONTRIBUTOR_ID}
+            "app.api.collaboration.require_contributor", return_value={"id": CONTRIBUTOR_ID, "display_name": "민수"}
         )
         self.count_patch = patch("app.api.collaboration.count_ready_photos", return_value=2)
         self.process_patch = patch(
@@ -98,6 +98,8 @@ class ContributionUploadApiTests(TestCase):
         self.assertEqual(payload["photo_count"], 3)
         self.assertEqual(len(payload["photos"]), 1)
         self.assertEqual(payload["photos"][0]["thumbnail_url"], "https://cdn.example/thumbnails/new.jpg")
+        self.assertEqual(payload["photos"][0]["author_name"], "민수")
+        self.assertTrue(payload["photos"][0]["created_at"])
         self.assertEqual(payload["photos"][0]["memories"], [])
 
     def test_memory_creation_returns_the_saved_memory_for_inline_rendering(self) -> None:

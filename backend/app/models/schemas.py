@@ -170,6 +170,7 @@ class PublicContributionItem(BaseModel):
     id: str
     type: Literal["photo", "memory"]
     actor_name: str
+    author_name: str
     created_at: datetime | None = None
     thumbnail_url: str | None = None
     comment: str | None = None
@@ -177,6 +178,7 @@ class PublicContributionItem(BaseModel):
 
 
 class PublicShareAlbumResponse(BaseModel):
+    album_id: UUID
     title: str
     narrative: str
     epilogue: str | None = None
@@ -187,6 +189,8 @@ class PublicShareAlbumResponse(BaseModel):
     template_type: str | None = None
     media: list[PublicMediaItem]
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
+    photo_count: int = 0
+    photo_limit: int = 30
     pending_items: list[PublicContributionItem] = Field(default_factory=list)
     og_title: str
     og_description: str

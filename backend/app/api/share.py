@@ -38,6 +38,7 @@ _WINDOW_SECONDS = 60.0
 _PUBLIC_LIMIT = 60
 _GUEST_LIMIT = 5
 _rate_windows: dict[str, list[float]] = defaultdict(list)
+_LEGACY_ANONYMOUS_NAMES = {"", "함께한 사람", "함께 참여한 사람", "참여자"}
 
 
 def _rate_limit(key: str, limit: int) -> None:
@@ -47,6 +48,11 @@ def _rate_limit(key: str, limit: int) -> None:
         raise HTTPException(status_code=429, detail="잠시 후 다시 시도해주세요.")
     window.append(now)
     _rate_windows[key] = window
+
+
+def _public_author_name(value: object) -> str:
+    name = str(value or "").strip()
+    return "익명" if name in _LEGACY_ANONYMOUS_NAMES else name
 
 
 def _share_response(row: dict, share_url: str | None = None) -> ShareLinkResponse:
@@ -115,7 +121,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
     contributors = list_contributors(client, album_id)
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
     contributor_names = {
-        str(row["id"]): str(row.get("display_name") or "참여자")
+        str(row["id"]): _public_author_name(row.get("display_name"))
         for row in contributors
     }
 
@@ -194,11 +200,13 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
 
     pending_items: list[PublicContributionItem] = []
     for photo in pending_photo_records:
+        author_name = contributor_names.get(str(photo.get("uploaded_by_contributor_id") or ""), "익명")
         pending_items.append(
             PublicContributionItem(
                 id=str(photo["id"]),
                 type="photo",
-                actor_name=contributor_names.get(str(photo.get("uploaded_by_contributor_id") or ""), "참여자"),
+                actor_name=author_name,
+                author_name=author_name,
                 created_at=photo.get("created_at"),
                 thumbnail_url=get_signed_url(
                     client,
@@ -210,11 +218,15 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
             )
         )
     for memory in pending_memories:
+        author_name = _public_author_name(
+            memory.get("author_name") or contributor_names.get(str(memory.get("contributor_id") or ""))
+        )
         pending_items.append(
             PublicContributionItem(
                 id=str(memory["id"]),
                 type="memory",
-                actor_name=str(memory.get("author_name") or contributor_names.get(str(memory.get("contributor_id") or ""), "참여자")),
+                actor_name=author_name,
+                author_name=author_name,
                 created_at=memory.get("created_at"),
                 content=str(memory.get("comment") or "").strip() or None,
             )
@@ -222,6 +234,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
     pending_items.sort(key=lambda item: str(item.created_at or ""), reverse=True)
 
     return PublicShareAlbumResponse(
+        album_id=UUID(album_id),
         title=str(album.get("title") or "우리의 추억"),
         narrative=narrative,
         epilogue=narrative or None,
@@ -232,6 +245,8 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         template_type=album.get("template_type"),
         media=media,
         photos=photos,
+        photo_count=len(photo_records),
+        photo_limit=int(album.get("photo_limit") or 30),
         pending_items=pending_items[:30],
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
@@ -263,7 +278,9 @@ async def start_public_contribution(token: str, body: dict[str, str] | None = No
     if album.get("collaboration_status") == "closed":
         raise HTTPException(status_code=403, detail="This album is no longer accepting contributions.")
     guest_id = (body or {}).get("guest_id") or new_guest_id()
-    display_name = ((body or {}).get("display_name") or "함께한 사람").strip()[:40] or "함께한 사람"
+    display_name = str((body or {}).get("display_name") or "").strip()
+    if not display_name:
+        raise HTTPException(status_code=400, detail="추억을 남긴 분의 이름을 입력해 주세요.")
     contributor = join_as_contributor(
         client,
         album,

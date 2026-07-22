@@ -552,6 +552,7 @@ async def contribute_upload_photos(
         original_path, thumbnail_path = upload_album_photo_assets(
             client, family_id, album_id, photo_id, processed, settings
         )
+        created_at = datetime.now(timezone.utc).isoformat()
         record = {
             "id": photo_id,
             "album_id": album_id,
@@ -578,6 +579,7 @@ async def contribute_upload_photos(
                 if processed.latitude is not None and processed.longitude is not None
                 else "unknown"
             ),
+            "created_at": created_at,
         }
         save_album_photo_records(client, [record])
         next_order += 1
@@ -590,6 +592,8 @@ async def contribute_upload_photos(
                 "width": record["width"],
                 "height": record["height"],
                 "uploaded_by_contributor_id": contributor["id"],
+                "author_name": str(contributor.get("display_name") or "익명"),
+                "created_at": created_at,
                 "mine": True,
                 "original_url": get_signed_url(
                     client,

@@ -523,6 +523,12 @@ a.btn {
   font-size: 0.9rem;
 }
 
+.public-share__join-status {
+  margin: 0.75rem 0 0;
+  color: #2e6b39;
+  font-size: 0.9rem;
+}
+
 .public-share__pending {
   display: grid;
   gap: 0.75rem;
@@ -582,6 +588,41 @@ a.btn {
 
 .public-share__contribute {
   margin: 0 0 1.25rem;
+}
+
+.public-share__name {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid #eadfd6;
+  border-radius: 14px;
+  background: #fffdfa;
+}
+
+.public-share__name label {
+  color: #3d3530;
+  font-weight: 700;
+}
+
+.public-share__name input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d9cec2;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 16px;
+}
+
+.public-share__name-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.public-share__name-actions > * {
+  flex: 1 1 0;
 }
 
 @media (max-width: 520px) {

@@ -199,6 +199,7 @@ export interface GuestAlbumResult extends AlbumResult {
 }
 
 export interface PublicShareAlbum {
+  album_id: string;
   title: string;
   narrative: string;
   epilogue?: string | null;
@@ -208,6 +209,8 @@ export interface PublicShareAlbum {
   category?: string | null;
   template_type?: string | null;
   photos?: AlbumPhoto[];
+  photo_count?: number;
+  photo_limit?: number;
   pending_items?: PublicContributionItem[];
   media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
   og_title: string;
@@ -218,6 +221,7 @@ export interface PublicContributionItem {
   id: string;
   type: "photo" | "memory";
   actor_name: string;
+  author_name: string;
   created_at?: string | null;
   thumbnail_url?: string | null;
   comment?: string | null;

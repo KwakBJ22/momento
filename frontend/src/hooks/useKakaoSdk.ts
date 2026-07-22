@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 declare global {
   interface Window {
@@ -32,22 +32,40 @@ export function useKakaoSdk(): UseKakaoSdkResult {
     typeof navigator !== "undefined" && /KAKAOTALK/i.test(navigator.userAgent);
 
   useEffect(() => {
-    const key = import.meta.env.VITE_KAKAO_JS_KEY;
-    if (!key || !window.Kakao) return;
-    try {
-      if (!window.Kakao.isInitialized()) {
-        window.Kakao.init(key);
+    let active = true;
+    const initialize = () => {
+      const key = import.meta.env.VITE_KAKAO_JS_KEY;
+      if (!key) {
+        console.warn("[Momento] Kakao SDK initialization skipped: VITE_KAKAO_JS_KEY is missing.");
+        return;
       }
-      setIsSdkReady(window.Kakao.isInitialized());
-    } catch {
-      setIsSdkReady(false);
-    }
+      if (!window.Kakao) return;
+      try {
+        if (!window.Kakao.isInitialized()) window.Kakao.init(key);
+        const ready = window.Kakao.isInitialized();
+        if (active) setIsSdkReady(ready);
+        if (import.meta.env.DEV) console.debug("[Momento] Kakao SDK initialized", { ready });
+      } catch (cause) {
+        console.warn("[Momento] Kakao SDK initialization failed.", cause);
+        if (active) setIsSdkReady(false);
+      }
+    };
+
+    const script = document.querySelector<HTMLScriptElement>('script[src*="kakao_js_sdk"]');
+    const onScriptError = () => console.warn("[Momento] Kakao SDK script failed to load.");
+    initialize();
+    script?.addEventListener("load", initialize);
+    script?.addEventListener("error", onScriptError);
+    return () => {
+      active = false;
+      script?.removeEventListener("load", initialize);
+      script?.removeEventListener("error", onScriptError);
+    };
   }, []);
 
-  const shareAlbum = ({ imageUrl, linkUrl, description, title = "우리 모임 앨범이 완성됐어요" }: ShareAlbumOptions) => {
-    // Kakao SDK 미초기화(웹뷰 밖/키 누락) 시 링크 복사 폴백
-    if (!window.Kakao?.isInitialized()) {
-      throw new Error("카카오톡 공유를 사용할 수 없습니다. 링크 복사를 이용해주세요.");
+  const shareAlbum = useCallback(({ imageUrl, linkUrl, description, title = "우리 모임 앨범이 완성됐어요" }: ShareAlbumOptions) => {
+    if (!window.Kakao?.isInitialized() || !window.Kakao.Share?.sendDefault) {
+      throw new Error("Kakao SDK is not ready.");
     }
 
     try {
@@ -72,10 +90,11 @@ export function useKakaoSdk(): UseKakaoSdkResult {
         },
       ],
       });
-    } catch {
-      throw new Error("카카오톡 공유를 사용할 수 없습니다. 링크 복사를 이용해주세요.");
+    } catch (cause) {
+      console.warn("[Momento] Kakao share invocation failed.", cause);
+      throw new Error("Kakao share invocation failed.");
     }
-  };
+  }, []);
 
   return { isKakaoInApp, isSdkReady, shareAlbum };
 }

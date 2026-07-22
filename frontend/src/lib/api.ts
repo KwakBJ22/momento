@@ -164,11 +164,11 @@ export async function getPublicShare(token: string): Promise<import("../types").
   return (await response.json()) as import("../types").PublicShareAlbum;
 }
 
-export async function startPublicContribution(token: string, guestId: string | null) {
+export async function startPublicContribution(token: string, guestId: string | null, displayName: string) {
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guest_id: guestId, display_name: "함께한 사람" }),
+    body: JSON.stringify({ guest_id: guestId, display_name: displayName }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<{ album_id: string; contributor_id: string; guest_id: string | null; display_name: string }>;
