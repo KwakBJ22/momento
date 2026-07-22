@@ -581,12 +581,36 @@ async def contribute_upload_photos(
         }
         save_album_photo_records(client, [record])
         next_order += 1
-        uploaded.append({"id": photo_id, "sort_order": record["sort_order"]})
+        uploaded.append(
+            {
+                "id": photo_id,
+                "sort_order": record["sort_order"],
+                "taken_at": record["taken_at"],
+                "orientation": record["orientation"],
+                "width": record["width"],
+                "height": record["height"],
+                "uploaded_by_contributor_id": contributor["id"],
+                "mine": True,
+                "original_url": get_signed_url(
+                    client,
+                    str(record["storage_bucket"]),
+                    str(record["storage_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                "thumbnail_url": get_signed_url(
+                    client,
+                    str(record["thumbnail_bucket"]),
+                    str(record["thumbnail_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                "memories": [],
+            }
+        )
 
     if uploaded:
         mark_album_dirty(client, album_id)
 
-    return {"uploaded": uploaded, "photo_count": current + len(uploaded), "photo_limit": limit}
+    return {"photos": uploaded, "uploaded": uploaded, "photo_count": current + len(uploaded), "photo_limit": limit}
 
 
 @router.post("/api/albums/{album_id}/photos/{photo_id}/memories", response_model=PhotoMemoryResponse)
