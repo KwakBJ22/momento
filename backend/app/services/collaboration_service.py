@@ -756,8 +756,8 @@ def apply_selected_contributions(
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
     photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
     memories = list_photo_memories(client, album_id)
-    pending_photos = {str(row["id"]) for row in photos if str(row.get("uploaded_by_contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_photo_ids}
-    pending_memories = {str(row["id"]) for row in memories if str(row.get("contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_memory_ids}
+    pending_photos = {str(row["id"]) for row in photos if str(row.get("uploaded_by_contributor_id") or "") and str(row.get("uploaded_by_contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_photo_ids}
+    pending_memories = {str(row["id"]) for row in memories if str(row.get("contributor_id") or "") and str(row.get("contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_memory_ids}
     if not photo_ids.issubset(pending_photos) or not memory_ids.issubset(pending_memories):
         raise HTTPException(status_code=409, detail="Some selected memories are no longer waiting to be applied.")
     visible_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") in owner_ids or str(row.get("created_at") or "") <= str(baseline or "") or str(row["id"]) in applied_photo_ids or str(row["id"]) in photo_ids]

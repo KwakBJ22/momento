@@ -496,7 +496,7 @@ a.btn {
   }
 }
 .public-share__join {
-  margin: 0 0 1.25rem;
+  margin: 1.25rem 0;
   padding: 1rem;
   border: 1px solid #eadfd6;
   border-radius: 16px;
@@ -510,4 +510,87 @@ a.btn {
   gap: 0.6rem;
   margin-top: 0.9rem;
   flex-wrap: wrap;
+}
+
+.public-share__join-actions .btn,
+.public-share__join-actions .upload-form__submit {
+  flex: 1 1 0;
+}
+
+.public-share__join-error {
+  margin: 0.75rem 0 0;
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.public-share__pending {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-top: 1px solid #eadfd6;
+}
+
+.public-share__pending h3 {
+  margin: 0;
+  color: #3d3530;
+  font-size: 1.1rem;
+}
+
+.public-share__pending-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.public-share__pending-item {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.public-share__pending-item > div:only-child {
+  grid-column: 1 / -1;
+}
+
+.public-share__pending-item img {
+  width: 72px;
+  height: 72px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: #f3eee8;
+}
+
+.public-share__pending-meta,
+.public-share__pending-copy {
+  margin: 0;
+}
+
+.public-share__pending-meta {
+  color: #6f655d;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.public-share__pending-copy {
+  margin-top: 0.3rem;
+  color: #4e4741;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.public-share__contribute {
+  margin: 0 0 1.25rem;
+}
+
+@media (max-width: 520px) {
+  .public-share__join-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-share__join-actions .btn--ghost {
+    grid-column: 1 / -1;
+  }
 }

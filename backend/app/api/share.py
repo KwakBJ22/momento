@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
-    GuestMemoryClaimRequest, GuestMemoryRequest, GuestMemoryResponse, PublicMediaItem,
+    GuestMemoryClaimRequest, GuestMemoryRequest, GuestMemoryResponse, PublicContributionItem, PublicMediaItem,
     PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
     AlbumPhotoUrlResponse,
 )
@@ -28,7 +28,7 @@ from app.services.supabase import (
     get_signed_url,
     get_supabase_client,
 )
-from app.services.collaboration_service import list_photo_memories
+from app.services.collaboration_service import list_contributors, list_photo_memories
 from app.services.collaboration_service import join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
@@ -108,15 +108,54 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
     narrative = str(album.get("epilogue") or album.get("narrative") or "").strip()
     album_id = str(album["id"])
     photo_records = get_album_photo_records(client, album_id)
-    chapter_stories = visible_date_stories(album.get("chapter_stories"), photo_records)
     memories = list_photo_memories(client, album_id)
+    baseline = str(album.get("created_at") or "")
+    applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
+    applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
+    contributors = list_contributors(client, album_id)
+    owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
+    contributor_names = {
+        str(row["id"]): str(row.get("display_name") or "참여자")
+        for row in contributors
+    }
+
+    def is_pending_photo(photo: dict[str, object]) -> bool:
+        contributor_id = str(photo.get("uploaded_by_contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in owner_ids
+            and str(photo.get("created_at") or "") > baseline
+            and str(photo.get("id")) not in applied_photo_ids
+        )
+
+    def is_pending_memory(memory: dict[str, object]) -> bool:
+        contributor_id = str(memory.get("contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in owner_ids
+            and str(memory.get("created_at") or "") > baseline
+            and str(memory.get("id")) not in applied_memory_ids
+        )
+
+    pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)]
+    pending_memories = [memory for memory in memories if is_pending_memory(memory)]
+    visible_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
+    visible_photo_ids = {str(photo["id"]) for photo in visible_photo_records}
+    visible_memories = [
+        memory
+        for memory in memories
+        if not is_pending_memory(memory) and str(memory.get("photo_id") or "") in visible_photo_ids
+    ]
+    chapter_stories = visible_date_stories(album.get("chapter_stories"), visible_photo_records)
     memories_by_photo: dict[str, list[dict]] = {}
-    for mem in memories:
+    for mem in visible_memories:
         pid = str(mem.get("photo_id") or "")
         memories_by_photo.setdefault(pid, []).append(mem)
 
     photos = []
-    for photo in photo_records:
+    for photo in visible_photo_records:
         pid = str(photo["id"])
         mems = memories_by_photo.get(pid, [])
         photos.append(
@@ -153,6 +192,35 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
             )
         )
 
+    pending_items: list[PublicContributionItem] = []
+    for photo in pending_photo_records:
+        pending_items.append(
+            PublicContributionItem(
+                id=str(photo["id"]),
+                type="photo",
+                actor_name=contributor_names.get(str(photo.get("uploaded_by_contributor_id") or ""), "참여자"),
+                created_at=photo.get("created_at"),
+                thumbnail_url=get_signed_url(
+                    client,
+                    str(photo["thumbnail_bucket"]),
+                    str(photo["thumbnail_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                comment=str(photo.get("comment") or "").strip() or None,
+            )
+        )
+    for memory in pending_memories:
+        pending_items.append(
+            PublicContributionItem(
+                id=str(memory["id"]),
+                type="memory",
+                actor_name=str(memory.get("author_name") or contributor_names.get(str(memory.get("contributor_id") or ""), "참여자")),
+                created_at=memory.get("created_at"),
+                content=str(memory.get("comment") or "").strip() or None,
+            )
+        )
+    pending_items.sort(key=lambda item: str(item.created_at or ""), reverse=True)
+
     return PublicShareAlbumResponse(
         title=str(album.get("title") or "우리의 추억"),
         narrative=narrative,
@@ -164,6 +232,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         template_type=album.get("template_type"),
         media=media,
         photos=photos,
+        pending_items=pending_items[:30],
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
     )

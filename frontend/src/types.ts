@@ -208,9 +208,20 @@ export interface PublicShareAlbum {
   category?: string | null;
   template_type?: string | null;
   photos?: AlbumPhoto[];
+  pending_items?: PublicContributionItem[];
   media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
   og_title: string;
   og_description: string;
+}
+
+export interface PublicContributionItem {
+  id: string;
+  type: "photo" | "memory";
+  actor_name: string;
+  created_at?: string | null;
+  thumbnail_url?: string | null;
+  comment?: string | null;
+  content?: string | null;
 }
 
 /** Additive columns on public.albums; omitted by the current legacy API DTO. */

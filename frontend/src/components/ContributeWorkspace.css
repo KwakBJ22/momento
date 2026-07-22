@@ -3,6 +3,10 @@
   gap: 1rem;
 }
 
+.contribute--embedded {
+  margin-top: 0.25rem;
+}
+
 .contribute__badge {
   margin: 0;
   color: #b48c6e;

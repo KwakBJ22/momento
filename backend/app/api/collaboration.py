@@ -103,8 +103,8 @@ def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) ->
     contributors = {str(row["id"]): str(row.get("display_name") or "참여자") for row in list_contributors(client, album_id)}
     photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
     memories = list_photo_memories(client, album_id)
-    pending_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_photo_ids]
-    pending_memories = [row for row in memories if str(row.get("contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_memory_ids]
+    pending_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") and str(row.get("uploaded_by_contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_photo_ids]
+    pending_memories = [row for row in memories if str(row.get("contributor_id") or "") and str(row.get("contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_memory_ids]
     items: list[dict[str, Any]] = []
     for row in pending_photos:
         items.append({"id": str(row["id"]), "type": "photo", "actor_name": contributors.get(str(row.get("uploaded_by_contributor_id") or ""), "참여자"), "created_at": row.get("created_at"), "thumbnail_url": get_signed_url(client, str(row["thumbnail_bucket"]), str(row["thumbnail_path"]), settings.signed_url_ttl_seconds), "comment": str(row.get("comment") or "").strip() or None})

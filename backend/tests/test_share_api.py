@@ -130,6 +130,82 @@ class ShareApiTests(TestCase):
         self.assertEqual(body["photos"][1]["comment"], "사용자가 쓴 코멘트")
         self.assertEqual(body["chapter_stories"], {"2026-07-13": "5장 날짜 이야기만 표시합니다."})
 
+    def test_public_share_separates_unapplied_participant_contributions(self) -> None:
+        host_photo_id = "44444444-4444-4444-4444-444444444444"
+        applied_photo_id = "55555555-5555-5555-5555-555555555555"
+        pending_photo_id = "66666666-6666-6666-6666-666666666666"
+        legacy_photo_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        applied_memory_id = "77777777-7777-7777-7777-777777777777"
+        pending_memory_id = "88888888-8888-8888-8888-888888888888"
+        participant_id = "99999999-9999-9999-9999-999999999999"
+        album_with_contributions = {
+            **album(),
+            "created_at": "2026-07-01T00:00:00+00:00",
+            "applied_contribution_photo_ids": [applied_photo_id],
+            "applied_contribution_memory_ids": [applied_memory_id],
+        }
+
+        def photo(photo_id: str, contributor_id: str) -> dict[str, object]:
+            return {
+                "id": photo_id,
+                "sort_order": 0,
+                "created_at": "2026-07-02T10:00:00+00:00",
+                "uploaded_by_contributor_id": contributor_id,
+                "storage_bucket": "private",
+                "storage_path": f"photos/{photo_id}.jpg",
+                "thumbnail_bucket": "private",
+                "thumbnail_path": f"thumbs/{photo_id}.jpg",
+            }
+
+        memories = [
+            {
+                "id": applied_memory_id,
+                "photo_id": applied_photo_id,
+                "contributor_id": participant_id,
+                "author_name": "민수",
+                "comment": "반영된 기억",
+                "created_at": "2026-07-02T10:00:00+00:00",
+            },
+            {
+                "id": pending_memory_id,
+                "photo_id": pending_photo_id,
+                "contributor_id": participant_id,
+                "author_name": "민수",
+                "comment": "아직 반영되지 않은 기억",
+                "created_at": "2026-07-02T10:01:00+00:00",
+            },
+        ]
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album_with_contributions
+        ), patch("app.api.share.get_album_media_records", return_value=[]), patch(
+            "app.api.share.get_album_photo_records",
+            return_value=[
+                photo(host_photo_id, OWNER_ID),
+                photo(applied_photo_id, participant_id),
+                photo(pending_photo_id, participant_id),
+                photo(legacy_photo_id, ""),
+            ],
+        ), patch("app.api.share.list_photo_memories", return_value=memories), patch(
+            "app.api.share.list_contributors",
+            return_value=[
+                {"id": OWNER_ID, "role": "owner", "display_name": "주최자"},
+                {"id": participant_id, "role": "contributor", "display_name": "민수"},
+            ],
+        ), patch(
+            "app.api.share.get_signed_url", side_effect=lambda _client, _bucket, path, _ttl: f"https://cdn.example/{path}"
+        ), patch("app.api.share.get_public_url", return_value="https://cdn.example/result.png"), patch(
+            "app.api.share.increment_view"
+        ), patch("app.api.share.log_event"):
+            response = self.client.get("/api/public/shares/opaque-token")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual({photo["id"] for photo in body["photos"]}, {host_photo_id, applied_photo_id, legacy_photo_id})
+        self.assertEqual(
+            {(item["id"], item["type"], item["actor_name"]) for item in body["pending_items"]},
+            {(pending_photo_id, "photo", "민수"), (pending_memory_id, "memory", "민수")},
+        )
+
     def test_inactive_or_expired_share_is_blocked(self) -> None:
         with patch("app.api.share.get_active_share", side_effect=__import__("fastapi").HTTPException(status_code=404, detail="expired")):
             response = self.client.get("/api/public/shares/expired")

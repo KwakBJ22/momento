@@ -9,10 +9,16 @@ import {
   uploadContributePhotos,
 } from "../lib/api";
 import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT } from "../lib/imageFile";
+import type { PublicContributionItem } from "../types";
 import "./ContributeWorkspace.css";
 
 interface ContributeWorkspaceProps {
   albumId: string;
+  embedded?: boolean;
+  requestedAction?: "photo" | "memory";
+  onContributionAdded?: (items: PublicContributionItem[]) => void;
+  onContributionUpdated?: (item: PublicContributionItem) => void;
+  onContributionRemoved?: (id: string) => void;
 }
 
 type Tab = "photos" | "memories" | "preview";
@@ -85,7 +91,14 @@ function WorkspaceImage({ src, alt = "" }: { src: string; alt?: string }) {
   );
 }
 
-export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProps) {
+export default function ContributeWorkspace({
+  albumId,
+  embedded = false,
+  requestedAction,
+  onContributionAdded,
+  onContributionUpdated,
+  onContributionRemoved,
+}: ContributeWorkspaceProps) {
   const [session, setSession] = useState<CollabSession | null>(() => loadCollabSession(albumId));
   const [workspace, setWorkspace] = useState<WorkspaceState | null>(null);
   const [tab, setTab] = useState<Tab>("photos");
@@ -146,6 +159,10 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
   }, [reload]);
 
   useEffect(() => {
+    if (requestedAction) setTab("photos");
+  }, [requestedAction]);
+
+  useEffect(() => {
     if (!newItemIds.length || tab !== "photos") return;
     const frame = window.requestAnimationFrame(() => {
       latestPhotoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -171,7 +188,14 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
     setWorkspaceRevision((revision) => revision + 1);
     markFresh(photos.map((photo) => photo.id));
     showToast("사진이 추가되었습니다.");
-  }, [markFresh, showToast]);
+    onContributionAdded?.(photos.map((photo) => ({
+      id: photo.id,
+      type: "photo",
+      actor_name: session?.displayName || "참여자",
+      created_at: new Date().toISOString(),
+      thumbnail_url: photo.thumbnail_url || photo.original_url || null,
+    })));
+  }, [markFresh, onContributionAdded, session?.displayName, showToast]);
 
   const uploadPending = useCallback(async (items: PendingUpload[]) => {
     if (!session || !items.length) return;
@@ -236,6 +260,13 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
       setDraftText("");
       markFresh([memory.id]);
       showToast("기억이 저장되었습니다.");
+      onContributionAdded?.([{
+        id: memory.id,
+        type: "memory",
+        actor_name: memory.author_name || session.displayName || "참여자",
+        created_at: new Date().toISOString(),
+        content: memory.comment,
+      }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "기억을 저장하지 못했습니다.");
     } finally {
@@ -259,6 +290,12 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
           }
         : current);
       setWorkspaceRevision((revision) => revision + 1);
+      onContributionUpdated?.({
+        id: updated.id,
+        type: "memory",
+        actor_name: updated.author_name || session.displayName || "참여자",
+        content: updated.comment,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "기억을 수정하지 못했습니다.");
     }
@@ -278,6 +315,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
           }
         : current);
       setWorkspaceRevision((revision) => revision + 1);
+      onContributionRemoved?.(memory.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "기억을 삭제하지 못했습니다.");
     }
@@ -303,19 +341,19 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
   const standaloneMemories = workspace.memories || [];
 
   return (
-    <section className="contribute">
-      <header className="contribute__header">
+    <section className={`contribute${embedded ? " contribute--embedded" : ""}`}>
+      {!embedded ? <header className="contribute__header">
         <div>
           <p className="contribute__badge">함께 만드는 중</p>
           <h2 className="contribute__title">{workspace.title}</h2>
           <p className="contribute__meta">{session.displayName} · 사진 {optimisticPhotoCount}/{workspace.photo_limit}</p>
         </div>
-      </header>
+      </header> : null}
 
       {toast ? <p className="contribute__toast" role="status">{toast}</p> : null}
       {error ? <p className="contribute__error">{error}</p> : null}
 
-      <div className="contribute__people">
+      {!embedded ? <div className="contribute__people">
         <p className="contribute__people-label">함께 만드는 사람 {workspace.contributors?.length || 0}명</p>
         <div className="contribute__avatars">
           {(workspace.contributors || []).map((person) => (
@@ -324,19 +362,20 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
             </span>
           ))}
         </div>
-      </div>
+      </div> : null}
 
-      <nav className="contribute__tabs" aria-label="참여 내용">
+      {!embedded ? <nav className="contribute__tabs" aria-label="참여 내용">
         {(["photos", "memories", "preview"] as Tab[]).map((item) => (
           <button key={item} type="button" className={tab === item ? "is-active" : ""} onClick={() => openTab(item)}>
             {item === "photos" ? "사진" : item === "memories" ? "이야기" : "미리보기"}
           </button>
         ))}
-      </nav>
+      </nav> : null}
 
       {tab === "photos" ? (
         <div className="contribute__panel">
-          <label className="contribute__upload">
+          {requestedAction === "memory" ? <p className="contribute__notice">기억을 남길 사진을 골라 주세요.</p> : null}
+          {requestedAction !== "memory" ? <label className="contribute__upload">
             사진 추가
             <input
               className={FILE_INPUT_CLASS}
@@ -349,7 +388,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
                 event.target.value = "";
               }}
             />
-          </label>
+          </label> : null}
           <div className="contribute__grid">
             {pendingUploads.map((pending) => (
               <article key={pending.id} className="contribute__card contribute__card--pending">
@@ -383,7 +422,7 @@ export default function ContributeWorkspace({ albumId }: ContributeWorkspaceProp
                   ))}
                 </div>
                 <button type="button" className="contribute__memory-btn" onClick={() => { setDraftPhotoId(photo.id); setDraftText(""); }}>
-                  이 사진에 기억 남기기
+                  기억 남기기
                 </button>
                 {draftPhotoId === photo.id ? (
                   <div className="contribute__draft">
