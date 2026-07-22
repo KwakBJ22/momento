@@ -54,11 +54,6 @@ function toEnginePhoto(photo: AlbumPhoto, preferOriginal: boolean): EnginePhoto 
 
 async function resolveDimensions(photo: EnginePhoto): Promise<EnginePhoto> {
   if (photo.width && photo.height) {
-    try {
-      await loadImageDecode(photo.src);
-    } catch {
-      /* keep declared dimensions */
-    }
     return photo;
   }
   return new Promise((resolve) => {
@@ -76,20 +71,6 @@ async function resolveDimensions(photo: EnginePhoto): Promise<EnginePhoto> {
     };
     image.onerror = () => resolve(photo);
     image.src = photo.src;
-  });
-}
-
-function loadImageDecode(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      void (image.decode?.() ?? Promise.resolve())
-        .then(() => resolve())
-        .catch(() => resolve());
-    };
-    image.onerror = () => reject(new Error("image load failed"));
-    image.src = src;
   });
 }
 
@@ -120,6 +101,12 @@ export default function AlbumRenderer({
 
   useEffect(() => {
     let active = true;
+    setAlbum(null);
+    if (!photos.length) {
+      return () => {
+        active = false;
+      };
+    }
     const base = photos.map((photo) => toEnginePhoto(photo, preferOriginal));
     void Promise.all(base.map(resolveDimensions)).then((resolved) => {
       if (!active) return;

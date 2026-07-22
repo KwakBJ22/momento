@@ -54,16 +54,23 @@ export default function AlbumResultView({
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [stagePhotos, setStagePhotos] = useState<AlbumPhoto[]>(result.photos ?? []);
+  const [isStagePhotosLoading, setIsStagePhotosLoading] = useState(!guestMode && !(result.photos?.length));
+  const [stagePhotosError, setStagePhotosError] = useState<string | null>(null);
+  const [photoLoadAttempt, setPhotoLoadAttempt] = useState(0);
   const [chapterStories, setChapterStories] = useState<Record<string, string>>(result.chapter_stories ?? {});
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCommentDraft, setPhotoCommentDraft] = useState("");
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
+
+  void isSavingPhotoComment;
 
   const hasEpilogue = Boolean(epilogue.trim());
   const templateType = normalizeTemplateType(result.template_type);
 
   useEffect(() => {
     setStagePhotos(result.photos ?? []);
+    setIsStagePhotosLoading(!guestMode && !(result.photos?.length));
+    setStagePhotosError(null);
     const next = (result.epilogue ?? result.narrative ?? "").trim();
     setEpilogue(next);
     setSavedEpilogue(next);
@@ -74,15 +81,24 @@ export default function AlbumResultView({
     if (guestMode) return;
     if ((result.photos?.length ?? 0) > 0) return;
     let active = true;
+    setIsStagePhotosLoading(true);
+    setStagePhotosError(null);
     void getAlbumPhotos(result.album_id)
       .then((photos) => {
-        if (active && photos.length) setStagePhotos(photos);
+        if (!active) return;
+        if (!photos.length) throw new Error("앨범 사진을 불러오지 못했습니다.");
+        setStagePhotos(photos);
       })
-      .catch(() => undefined);
+      .catch((err) => {
+        if (active) setStagePhotosError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (active) setIsStagePhotosLoading(false);
+      });
     return () => {
       active = false;
     };
-  }, [guestMode, result.album_id, result.photos]);
+  }, [guestMode, result.album_id, result.photos, photoLoadAttempt]);
 
   const resolveShareUrl = async (): Promise<string> => {
     if (shareUrl) return shareUrl;
@@ -182,6 +198,9 @@ export default function AlbumResultView({
     }
   };
 
+  void handleStartPhotoCommentEdit;
+  void handleSavePhotoComment;
+
   const handleCopyLink = async () => {
     try {
       const url = await resolveShareUrl();
@@ -258,33 +277,29 @@ export default function AlbumResultView({
           </header>
 
           <div className="album-result__stage album-result__stage--web">
-            <AlbumRenderer
-              photos={stagePhotos}
-              title={result.title}
-              epilogue={isEditing ? "" : epilogue}
-              fallbackImageUrl={result.image_url}
-              coverDateLabel={result.date}
-              chapterStories={chapterStories}
-              category={result.category}
-              templateType={result.template_type}
-              albumId={result.album_id}
-              mode="screen"
-              onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
-              photoCommentEdit={
-                canEditStories
-                  ? {
-                      canEdit: true,
-                      editingPhotoId,
-                      savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
-                      draft: photoCommentDraft,
-                      startEdit: handleStartPhotoCommentEdit,
-                      cancelEdit: handleCancelPhotoCommentEdit,
-                      setDraft: setPhotoCommentDraft,
-                      saveEdit: () => void handleSavePhotoComment(),
-                    }
-                  : null
-              }
-            />
+            {isStagePhotosLoading ? (
+              <p className="album-result__subtitle">앨범을 준비하는 중...</p>
+            ) : stagePhotosError ? (
+              <div className="album-result__error">
+                <p>{stagePhotosError}</p>
+                <button type="button" className="btn btn--secondary" onClick={() => setPhotoLoadAttempt((value) => value + 1)}>
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <AlbumRenderer
+                photos={stagePhotos}
+                title={result.title}
+                epilogue={isEditing ? "" : epilogue}
+                coverDateLabel={result.date}
+                chapterStories={chapterStories}
+                category={result.category}
+                templateType={result.template_type}
+                albumId={result.album_id}
+                mode="screen"
+                onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
+              />
+            )}
           </div>
 
           {isEditing ? (

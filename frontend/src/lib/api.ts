@@ -41,7 +41,7 @@ async function parseError(response: Response): Promise<string> {
 }
 
 export async function getAlbum(albumId: string): Promise<AlbumResult> {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}`);
+  const response = await fetch(`${API_BASE}/api/albums/${albumId}`, { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as AlbumResult;
 }
@@ -100,7 +100,7 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
 }
 
 export async function getAlbumPhotos(albumId: string): Promise<import("../types").AlbumPhoto[]> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/photos`);
+  const response = await authenticatedFetch(`/api/albums/${albumId}/photos`, { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
   return body.photos;

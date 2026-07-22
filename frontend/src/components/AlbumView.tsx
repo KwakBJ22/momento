@@ -28,6 +28,9 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
 
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -40,13 +43,32 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     let active = true;
 
+    setIsLoading(true);
+    setError(null);
+    setLoadedAlbumId(null);
+
     getAlbum(albumId)
 
       .then((data) => active && setAlbum(data))
 
       .catch((err) => active && setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요."));
 
-    getAlbumPhotos(albumId).then((data) => active && setPhotos(data)).catch(() => undefined);
+    getAlbumPhotos(albumId)
+      .then((data) => {
+        if (!active) return;
+        if (!data.length) {
+          setError("앨범 사진을 불러오지 못했습니다.");
+          return;
+        }
+        setPhotos(data);
+        setLoadedAlbumId(albumId);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
 
     return () => {
 
@@ -54,7 +76,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     };
 
-  }, [albumId]);
+  }, [albumId, retryKey]);
 
 
 
@@ -135,6 +157,12 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
             <p className="album-result__subtitle">{error}</p>
 
+            <button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>
+
+              다시 시도
+
+            </button>
+
             <a className="btn btn--secondary" href="/">
 
               새 앨범 만들기
@@ -153,7 +181,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
 
-  if (!album) {
+  if (isLoading || loadedAlbumId !== albumId || !album) {
 
     return (
 
@@ -211,8 +239,6 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
               title={album.title}
 
               epilogue={epilogue}
-
-              fallbackImageUrl={album.image_url}
 
               coverDateLabel={album.date}
               chapterStories={album.chapter_stories}

@@ -51,10 +51,6 @@
 
 /* 2 photos in a polaroid block — handled in Polaroid3; grid 4 photos uses 2 cols on tablet */
 @media (max-width: 768px) {
-  .grid6-block {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .grid6-block__cell {
     max-height: 240px;
   }
@@ -62,7 +58,6 @@
 
 @media (max-width: 420px) {
   .grid6-block {
-    grid-template-columns: 1fr 1fr;
     gap: 0.6rem;
   }
 }
