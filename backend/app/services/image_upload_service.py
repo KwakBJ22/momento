@@ -124,6 +124,16 @@ def parse_file_created_at(raw: Any) -> datetime | None:
         return None
 
 
+def parse_captured_at(raw: Any) -> datetime | None:
+    """Accept only an explicit ISO capture date, never a file timestamp."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return datetime.fromisoformat(raw.strip())
+    except ValueError:
+        return None
+
+
 def validate_upload_limits(files: list[UploadFile], settings: Settings) -> None:
     """Reject oversized requests before decoding or storing any image bytes."""
     max_file_bytes = int(getattr(settings, "max_file_size_mb", 25)) * 1024 * 1024
@@ -149,6 +159,7 @@ def process_upload(
     settings: Settings,
     *,
     file_created_at: datetime | None = None,
+    captured_at: datetime | None = None,
 ) -> ProcessedPhoto:
     """Decode, validate and sanitize a user upload before it reaches Storage."""
     filename_extension = Path(file.filename or "").suffix.lower()
@@ -216,7 +227,7 @@ def process_upload(
         width=int(exif_meta["width"] or width or 0),
         height=int(exif_meta["height"] or height or 0),
         orientation=str(exif_meta["orientation"] or "square"),
-        taken_at=exif_meta.get("taken_at"),
+        taken_at=captured_at or exif_meta.get("taken_at"),
         latitude=exif_meta.get("latitude"),
         longitude=exif_meta.get("longitude"),
         datetime_original=exif_meta.get("datetime_original"),

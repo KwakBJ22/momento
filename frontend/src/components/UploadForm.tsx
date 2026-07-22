@@ -3,6 +3,7 @@ import { API_BASE, authenticatedFetch } from "../lib/api";
 import { createId } from "../lib/id";
 import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
+import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, AlbumResult, GuestAlbumResult, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
@@ -19,8 +20,8 @@ interface UploadFormProps {
   onCancel?: () => void;
 }
 
-function createPhotoItem(file: File): PhotoItem {
-  return { id: createId(), file, previewUrl: URL.createObjectURL(file), story: "" };
+function createPhotoItem(file: File, capturedAt: string | null): PhotoItem {
+  return { id: createId(), file, previewUrl: URL.createObjectURL(file), story: "", capturedAt };
 }
 
 export default function UploadForm({ category, onSuccess, guestMode = false, onGuestCreated }: UploadFormProps) {
@@ -59,12 +60,13 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
           continue;
         }
         try {
+          const capturedAt = await extractOriginalCaptureDate(file);
           const optimized = await optimizeImageFile(file);
           if (nextTotal + optimized.size > MAX_TOTAL_UPLOAD_BYTES) {
             failures.push("선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.");
             continue;
           }
-          added.push(createPhotoItem(optimized));
+          added.push(createPhotoItem(optimized, capturedAt));
           nextTotal += optimized.size;
         } catch (cause) {
           console.error("Photo preparation failed", { cause, fileName: file.name });
@@ -106,14 +108,14 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
     try {
       const formData = new FormData();
       photos.forEach((photo) => formData.append("photos", photo.file, photo.file.name || "photo.jpg"));
-      const stories: StoryPayload[] = photos.map((photo, order) => ({ order, user: "", text: photo.story.trim() || "그날의 순간" }));
+      const stories: StoryPayload[] = photos.map((photo, order) => ({ order, user: "", text: photo.story.trim() }));
       formData.append("stories", JSON.stringify(stories));
       formData.append("category", category);
       formData.append("template_type", templateType);
       formData.append("template", TEMPLATE_TYPE_TO_LAYOUT[templateType]);
       formData.append("title", "우리의 추억");
       formData.append("description", "");
-      formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ last_modified: photo.file.lastModified }))));
+      formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ captured_at: photo.capturedAt }))));
       const response = guestMode
         ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal })
         : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal });

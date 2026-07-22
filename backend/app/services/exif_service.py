@@ -118,12 +118,12 @@ def resolve_taken_at(
     create_date: Any = None,
     file_created_at: datetime | None = None,
 ) -> datetime | None:
-    """Priority: DateTimeOriginal → CreateDate → file created → None (upload order later)."""
+    """Priority: DateTimeOriginal → DateTimeDigitized → DateTime → None."""
     for candidate in (datetime_original, create_date):
         parsed = parse_exif_datetime(candidate)
         if parsed:
             return parsed
-    return file_created_at
+    return None
 
 
 def orientation_from_size(width: int, height: int) -> str:

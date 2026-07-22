@@ -9,6 +9,7 @@ const NEUTRAL_TITLES = ["함께한 순간", "우리의 추억", "기억 속의 �
 
 export function toDateKey(iso: string | null | undefined): string | null {
   if (!iso) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0, 10);
   const stamp = Date.parse(iso);
   if (Number.isNaN(stamp)) return null;
   return new Date(stamp).toISOString().slice(0, 10);

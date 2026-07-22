@@ -23,7 +23,7 @@ from app.models.schemas import (
 from app.services.auth import require_authenticated_user
 from app.services.guest_service import claim_guest_album, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
-from app.services.image_upload_service import parse_file_created_at, process_upload, validate_upload_limits
+from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
 from app.services.membership import save_album_member
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
@@ -180,9 +180,9 @@ async def upload_guest_album(
     entries: list[dict[str, Any]] = []
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
-        file_created = parse_file_created_at(raw_meta.get("last_modified"))
+        captured_at = parse_captured_at(raw_meta.get("captured_at"))
         try:
-            processed = process_upload(photo, settings, file_created_at=file_created)
+            processed = process_upload(photo, settings, captured_at=captured_at)
         except Exception:
             logger.exception(
                 "guest_upload_failed request_id=%s stage=image_processing files=%s",

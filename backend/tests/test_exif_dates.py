@@ -34,14 +34,13 @@ class ExifDateTests(unittest.TestCase):
         assert taken is not None
         self.assertEqual(taken.day, 10)
 
-    def test_fallback_to_file_created(self) -> None:
+    def test_file_timestamp_is_not_a_capture_date_fallback(self) -> None:
         taken = resolve_taken_at(
             datetime_original=None,
             create_date=None,
             file_created_at=datetime(2026, 7, 15, 8, 0, tzinfo=timezone.utc),
         )
-        assert taken is not None
-        self.assertEqual(taken.day, 15)
+        self.assertIsNone(taken)
 
     def test_missing_exif_returns_none(self) -> None:
         self.assertIsNone(resolve_taken_at())
@@ -89,6 +88,22 @@ class ExifDateTests(unittest.TestCase):
         self.assertEqual(processed.orientation, "landscape")
         self.assertEqual(processed.width, 20)
         self.assertEqual(processed.height, 10)
+
+    def test_explicit_capture_date_survives_exif_stripped_upload(self) -> None:
+        processed = process_upload(
+            upload_file("optimized.jpg", "image/jpeg", self._jpeg_bytes()),
+            settings(),
+            captured_at=datetime(2017, 5, 4, 12, 30),
+        )
+        self.assertEqual(processed.taken_at, datetime(2017, 5, 4, 12, 30))
+
+    def test_missing_exif_never_uses_browser_last_modified(self) -> None:
+        processed = process_upload(
+            upload_file("plain.jpg", "image/jpeg", self._jpeg_bytes()),
+            settings(),
+            file_created_at=parse_file_created_at(1_720_000_000_000),
+        )
+        self.assertIsNone(processed.taken_at)
 
     def _jpeg_bytes(self) -> bytes:
         buffer = io.BytesIO()

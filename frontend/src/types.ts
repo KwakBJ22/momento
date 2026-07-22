@@ -230,6 +230,7 @@ export interface PhotoItem {
   file: File;
   previewUrl: string;
   story: string;
+  capturedAt: string | null;
 }
 
 export interface StoryPayload {

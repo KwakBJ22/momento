@@ -49,7 +49,7 @@ from app.services.collaboration_service import (
     start_collaboration,
     update_photo_memory,
 )
-from app.services.image_upload_service import parse_file_created_at, process_upload
+from app.services.image_upload_service import process_upload
 from app.services.membership import get_album_access
 from app.services.supabase import (
     get_album_record,
@@ -420,11 +420,8 @@ async def contribute_upload_photos(
     next_order = max([int(r.get("sort_order") or 0) for r in existing] + [-1]) + 1
     known_hashes = {str(r.get("checksum_sha256")) for r in existing if r.get("checksum_sha256")}
     uploaded: list[dict[str, Any]] = []
-    created_ats = file_created_ats or []
-
     for index, photo in enumerate(photos):
-        file_created = parse_file_created_at(created_ats[index] if index < len(created_ats) else None)
-        processed = process_upload(photo, settings, file_created_at=file_created)
+        processed = process_upload(photo, settings)
         if processed.checksum_sha256 in known_hashes:
             continue
         known_hashes.add(processed.checksum_sha256)

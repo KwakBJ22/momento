@@ -67,7 +67,7 @@ from app.services.supabase import (
     upload_album_media_assets,
     upload_result_image,
 )
-from app.services.image_upload_service import parse_file_created_at, process_upload, validate_upload_limits
+from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.media_upload_service import process_media_upload
 from app.services.auth import require_authenticated_user
@@ -176,8 +176,8 @@ async def upload_album(
     entries: list[dict[str, Any]] = []
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
-        file_created = parse_file_created_at(raw_meta.get("last_modified"))
-        processed = process_upload(photo, settings, file_created_at=file_created)
+        captured_at = parse_captured_at(raw_meta.get("captured_at"))
+        processed = process_upload(photo, settings, captured_at=captured_at)
         entries.append(
             {
                 "processed": processed,
