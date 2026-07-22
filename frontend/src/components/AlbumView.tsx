@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { getAlbum, getAlbumPhotos } from "../lib/api";
+import { createAlbumShareLink, getAlbum, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
@@ -31,6 +31,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [publicShareUrl, setPublicShareUrl] = useState("");
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -46,6 +47,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     setIsLoading(true);
     setError(null);
     setLoadedAlbumId(null);
+    setPublicShareUrl("");
 
     getAlbum(albumId)
 
@@ -127,15 +129,63 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     try {
 
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(await resolvePublicShareUrl());
 
       setCopied(true);
 
       setTimeout(() => setCopied(false), 2000);
 
-    } catch {
+    } catch (cause) {
 
-      /* noop */
+      setError(cause instanceof Error ? cause.message : "공유 링크를 준비하지 못했습니다.");
+
+    }
+
+  };
+
+  const resolvePublicShareUrl = async (): Promise<string> => {
+
+    if (!album) throw new Error("앨범을 불러오는 중입니다.");
+
+    if (isPublicShareUrl(publicShareUrl)) return publicShareUrl;
+
+    if (isPublicShareUrl(album.share_url)) {
+
+      setPublicShareUrl(album.share_url);
+
+      return album.share_url;
+
+    }
+
+    const share = await createAlbumShareLink(album.album_id);
+
+    setPublicShareUrl(share.share_url);
+
+    return share.share_url;
+
+  };
+
+  const handleKakaoShare = async () => {
+
+    if (!album) return;
+
+    try {
+
+      shareAlbum({
+
+        imageUrl: album.image_url,
+
+        linkUrl: await resolvePublicShareUrl(),
+
+        description: (album.epilogue ?? album.narrative ?? "").trim(),
+
+        title: album.title,
+
+      });
+
+    } catch (cause) {
+
+      setError(cause instanceof Error ? cause.message : "카카오톡 공유를 시작하지 못했습니다.");
 
     }
 
@@ -309,21 +359,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               className="btn btn--kakao"
 
-              onClick={() =>
-
-                shareAlbum({
-
-                  imageUrl: album.image_url,
-
-                  linkUrl: album.share_url,
-
-                  description: epilogue,
-
-                  title: album.title,
-
-                })
-
-              }
+              onClick={() => void handleKakaoShare()}
 
             >
 

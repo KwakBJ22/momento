@@ -728,7 +728,10 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
         epilogue=epilogue,
         chapter_stories=chapter_stories,
         image_url=image_url,
-        share_url=f"{settings.frontend_base_url.rstrip('/')}/album/{album_id}",
+        # /album/{id} is the authenticated album-management route.  It must
+        # never be exposed as a public share URL because in-app browsers do
+        # not have the owner's authentication session.
+        share_url="",
         created_at=record["created_at"],
         media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
         album_version=int(record.get("album_version") or 0),

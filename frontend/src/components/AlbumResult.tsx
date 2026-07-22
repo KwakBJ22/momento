@@ -4,6 +4,7 @@ import {
   createAlbumShareLink,
   getAlbum,
   getAlbumPhotos,
+  isPublicShareUrl,
   patchEpilogue,
   saveAlbumPhotoComment,
 } from "../lib/api";
@@ -101,7 +102,7 @@ export default function AlbumResultView({
   }, [guestMode, result.album_id, result.photos, photoLoadAttempt]);
 
   const resolveShareUrl = async (): Promise<string> => {
-    if (shareUrl) return shareUrl;
+    if (isPublicShareUrl(shareUrl)) return shareUrl;
     if (guestMode) {
       throw new Error("공유 링크를 아직 준비하지 못했어요. 잠시 후 다시 시도해주세요.");
     }

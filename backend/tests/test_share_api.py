@@ -20,7 +20,13 @@ def album() -> dict[str, object]:
 
 
 def share() -> dict[str, object]:
-    return {"id": SHARE_ID, "album_id": ALBUM_ID, "status": "active", "view_count": 0}
+    return {
+        "id": SHARE_ID,
+        "album_id": ALBUM_ID,
+        "status": "active",
+        "view_count": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 class ShareApiTests(TestCase):
@@ -32,7 +38,11 @@ class ShareApiTests(TestCase):
         patch("app.api.share.get_supabase_client", return_value=self.mock_client).start()
         patch(
             "app.api.share.get_settings",
-            return_value=SimpleNamespace(supabase_storage_bucket="albums", signed_url_ttl_seconds=3600),
+            return_value=SimpleNamespace(
+                frontend_base_url="https://momento.example",
+                supabase_storage_bucket="albums",
+                signed_url_ttl_seconds=3600,
+            ),
         ).start()
         self.addCleanup(patch.stopall)
         _rate_windows.clear()
@@ -54,6 +64,31 @@ class ShareApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("original_path", response.text)
         self.assertNotIn("private/path", response.text)
+
+    def test_public_share_is_readable_without_an_authentication_header(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album()
+        ), patch("app.api.share.get_album_media_records", return_value=[]), patch(
+            "app.api.share.get_album_photo_records", return_value=[]
+        ), patch("app.api.share.list_photo_memories", return_value=[]), patch(
+            "app.api.share.get_public_url", return_value="https://cdn.example/result.png"
+        ), patch("app.api.share.increment_view"), patch("app.api.share.log_event"):
+            response = self.client.get("/api/public/shares/opaque-token")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["title"], album()["title"])
+
+    def test_share_link_creation_returns_a_tokenized_public_url(self) -> None:
+        self.app.dependency_overrides[require_authenticated_user] = lambda: OWNER_ID
+        with patch("app.api.share.get_album_record", return_value=album()), patch(
+            "app.api.share.get_album_access", return_value=object()
+        ), patch("app.api.share.require_album_edit_settings"), patch(
+            "app.api.share.create_share_link", return_value=(share(), "opaque-token")
+        ), patch("app.api.share.log_event"):
+            response = self.client.post(f"/api/albums/{ALBUM_ID}/share-links", json={})
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["share_url"], "https://momento.example/s/opaque-token")
 
     def test_public_share_hides_legacy_captions_and_ineligible_date_stories(self) -> None:
         dated_photos = [

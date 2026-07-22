@@ -206,6 +206,17 @@ export async function createAlbumShareLink(albumId: string, expiresAt?: string):
   return (await response.json()) as { share_url: string };
 }
 
+export function isPublicShareUrl(value: string | null | undefined): boolean {
+  const candidate = value?.trim();
+  if (!candidate) return false;
+  try {
+    const origin = typeof window === "undefined" ? "https://momento.invalid" : window.location.origin;
+    return /^\/s\/[^/]+\/?$/.test(new URL(candidate, origin).pathname);
+  } catch {
+    return false;
+  }
+}
+
 export async function getMyFamily(): Promise<import("../types").FamilySummary> {
   const response = await authenticatedFetch("/api/families/me");
   if (!response.ok) throw new Error(await parseError(response));

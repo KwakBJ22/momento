@@ -166,6 +166,7 @@ class AlbumAuthorizationTests(TestCase):
             delete_response = self.client.delete(f"/api/albums/{ALBUM_ID}")
 
         self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.json()["share_url"], "")
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
 
