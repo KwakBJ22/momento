@@ -28,11 +28,13 @@ class GuestOnboardingTests(TestCase):
     def test_claim_uses_verified_session_not_client_owner_id(self) -> None:
         with patch("app.api.guest.ensure_default_family", return_value="33333333-3333-3333-3333-333333333333"), patch(
             "app.api.guest.claim_guest_album", return_value="11111111-1111-1111-1111-111111111111"
-        ) as claim, patch("app.api.guest.save_album_member"), patch("app.api.guest.log_event"):
+        ) as claim, patch("app.api.guest.save_album_member") as save_member, patch("app.api.guest.log_event"):
             response = self.client.post("/api/guest-albums/claim", json={"guest_token": "x" * 32, "owner_id": "attacker"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(claim.call_args.args[2], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(save_member.call_args.kwargs["album_id"], "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(save_member.call_args.kwargs["profile_id"], "22222222-2222-2222-2222-222222222222")
 
     def test_repeated_claim_by_same_user_returns_the_existing_album(self) -> None:
         album_id = "11111111-1111-1111-1111-111111111111"

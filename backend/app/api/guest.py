@@ -4,6 +4,7 @@ import logging
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timezone
+from functools import wraps
 from typing import Any
 from uuid import UUID, uuid4
 import json
@@ -21,7 +22,7 @@ from app.models.schemas import (
     GuestAnalyticsEventRequest,
 )
 from app.services.auth import require_authenticated_user
-from app.services.guest_service import claim_guest_album, claim_guest_album_by_id, create_guest_session
+from app.services.guest_service import claim_guest_album, claim_guest_album_by_id, claim_guest_album_by_share_token, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
 from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
 from app.services.membership import save_album_member
@@ -50,6 +51,29 @@ logger = logging.getLogger(__name__)
 _GUEST_UPLOADS: dict[str, deque[float]] = defaultdict(deque)
 _WINDOW_SECONDS = 60
 _MAX_UPLOADS_PER_WINDOW = 3
+
+
+def _claim_error_details(handler):
+    @wraps(handler)
+    async def wrapped(*args, **kwargs):
+        try:
+            return await handler(*args, **kwargs)
+        except HTTPException as exc:
+            logger.warning("guest_album_claim_rejected status=%s detail=%s", exc.status_code, exc.detail)
+            raise
+        except APIError as exc:
+            detail = str(getattr(exc, "message", None) or exc)
+            logger.exception("guest_album_claim_supabase_failed detail=%s", detail)
+            raise HTTPException(status_code=502, detail=f"Guest album claim database error: {detail}") from exc
+        except (KeyError, TypeError, ValueError) as exc:
+            detail = str(exc)
+            logger.exception("guest_album_claim_data_failed detail=%s", detail)
+            raise HTTPException(status_code=409, detail=f"Guest album claim data error: {detail}") from exc
+        except Exception as exc:
+            detail = str(exc)
+            logger.exception("guest_album_claim_failed detail=%s", detail)
+            raise HTTPException(status_code=500, detail=f"Guest album claim failed: {detail}") from exc
+    return wrapped
 
 
 def _upload_file_metadata(files: list[UploadFile]) -> list[dict[str, str | int | None]]:
@@ -429,6 +453,7 @@ async def upload_guest_album(
 
 
 @router.post("/guest-albums/claim")
+@_claim_error_details
 async def claim_guest_album_after_login(
     payload: GuestAlbumClaimRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -440,8 +465,16 @@ async def claim_guest_album_after_login(
         album_id = claim_guest_album(client, payload.guest_token, authenticated_user_id, family_id)
     elif payload.album_id:
         album_id = claim_guest_album_by_id(client, str(payload.album_id), authenticated_user_id, family_id)
+    elif payload.share_token:
+        album_id = claim_guest_album_by_share_token(client, payload.share_token, authenticated_user_id, family_id)
     else:
         raise HTTPException(status_code=400, detail="보관할 임시 앨범 정보를 찾을 수 없어요.")
-    save_album_member(client, album_id, authenticated_user_id, "owner", authenticated_user_id)
+    save_album_member(
+        client,
+        album_id=album_id,
+        profile_id=authenticated_user_id,
+        role="owner",
+        invited_by=authenticated_user_id,
+    )
     _safe_event(client, "guest_album_claimed", album_id)
     return {"album_id": album_id, "family_id": family_id}

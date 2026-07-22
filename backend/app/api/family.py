@@ -1,6 +1,9 @@
+import logging
+from functools import wraps
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from postgrest.exceptions import APIError
 
 from app.config import get_settings
 from app.models.schemas import (
@@ -42,6 +45,25 @@ from app.services.supabase import get_album_record, get_supabase_client
 
 
 router = APIRouter(prefix="/api/families", tags=["families"])
+logger = logging.getLogger(__name__)
+
+
+def _member_error_details(handler):
+    @wraps(handler)
+    async def wrapped(*args, **kwargs):
+        try:
+            return await handler(*args, **kwargs)
+        except HTTPException:
+            raise
+        except APIError as exc:
+            detail = str(getattr(exc, "message", None) or exc)
+            logger.exception("album_members_supabase_failed detail=%s", detail)
+            raise HTTPException(status_code=502, detail=f"Album members database error: {detail}") from exc
+        except (KeyError, TypeError, ValueError) as exc:
+            detail = str(exc)
+            logger.exception("album_members_data_failed detail=%s", detail)
+            raise HTTPException(status_code=500, detail=f"Album members data error: {detail}") from exc
+    return wrapped
 
 
 def _member_response(row: dict) -> FamilyMemberResponse:
@@ -219,6 +241,7 @@ album_members_router = APIRouter(prefix="/api/albums", tags=["album-members"])
 
 
 @album_members_router.get("/{album_id}/members", response_model=AlbumMembersListResponse)
+@_member_error_details
 async def get_album_members(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
