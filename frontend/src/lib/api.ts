@@ -1,5 +1,6 @@
 import type { AlbumResult } from "../types";
 import { getAccessToken } from "./supabase";
+import type { GuestAlbumClaimInput } from "./guestAlbumClaim";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -179,8 +180,8 @@ export async function claimGuestMemory(claimToken: string): Promise<void> {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
-export async function claimGuestAlbum(guestToken: string): Promise<{ album_id: string }> {
-  const response = await authenticatedFetch("/api/guest-albums/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guest_token: guestToken }) });
+export async function claimGuestAlbum(input: GuestAlbumClaimInput): Promise<{ album_id: string }> {
+  const response = await authenticatedFetch("/api/guest-albums/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guest_token: input.guestToken || null, album_id: input.albumId || null, share_token: input.shareToken || null }) });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { album_id: string };
 }

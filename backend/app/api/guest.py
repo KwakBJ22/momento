@@ -21,7 +21,7 @@ from app.models.schemas import (
     GuestAnalyticsEventRequest,
 )
 from app.services.auth import require_authenticated_user
-from app.services.guest_service import claim_guest_album, create_guest_session
+from app.services.guest_service import claim_guest_album, claim_guest_album_by_id, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
 from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
 from app.services.membership import save_album_member
@@ -436,7 +436,12 @@ async def claim_guest_album_after_login(
     settings = get_settings()
     client = get_supabase_client(settings)
     family_id = ensure_default_family(client, authenticated_user_id)
-    album_id = claim_guest_album(client, payload.guest_token, authenticated_user_id, family_id)
+    if payload.guest_token:
+        album_id = claim_guest_album(client, payload.guest_token, authenticated_user_id, family_id)
+    elif payload.album_id:
+        album_id = claim_guest_album_by_id(client, str(payload.album_id), authenticated_user_id, family_id)
+    else:
+        raise HTTPException(status_code=400, detail="보관할 임시 앨범 정보를 찾을 수 없어요.")
     save_album_member(client, album_id, authenticated_user_id, "owner", authenticated_user_id)
     _safe_event(client, "guest_album_claimed", album_id)
     return {"album_id": album_id, "family_id": family_id}

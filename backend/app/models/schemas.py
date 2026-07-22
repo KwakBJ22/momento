@@ -205,7 +205,9 @@ class GuestAlbumUploadResponse(AlbumUploadResponse):
 
 
 class GuestAlbumClaimRequest(BaseModel):
-    guest_token: str = Field(min_length=20, max_length=200)
+    guest_token: str | None = Field(default=None, min_length=20, max_length=200)
+    album_id: UUID | None = None
+    share_token: str | None = Field(default=None, min_length=16, max_length=200)
 
 
 class GuestAnalyticsEventRequest(BaseModel):

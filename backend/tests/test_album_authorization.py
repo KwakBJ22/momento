@@ -40,9 +40,11 @@ class AlbumAuthorizationTests(TestCase):
         self.settings = SimpleNamespace(frontend_base_url="https://momento.example")
 
         self.get_settings = patch("app.api.album.get_settings", return_value=self.settings)
-        self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=object())
+        self.supabase_client = object()
+        self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=self.supabase_client)
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
         self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
+        self.get_album_photo_records = patch("app.api.album.get_album_photo_records", return_value=[])
         self.get_album_access = patch(
             "app.api.album.get_album_access",
             side_effect=lambda client, album, user_id: resolve_album_access(album, user_id, None, None),
@@ -51,11 +53,13 @@ class AlbumAuthorizationTests(TestCase):
         self.get_supabase_client.start()
         self.get_public_url.start()
         self.get_album_media_records.start()
+        self.get_album_photo_records.start()
         self.get_album_access.start()
         self.addCleanup(self.get_settings.stop)
         self.addCleanup(self.get_supabase_client.stop)
         self.addCleanup(self.get_public_url.stop)
         self.addCleanup(self.get_album_media_records.stop)
+        self.addCleanup(self.get_album_photo_records.stop)
         self.addCleanup(self.get_album_access.stop)
 
     def tearDown(self) -> None:
@@ -92,8 +96,8 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["albums"][0]["album_id"], ALBUM_ID)
         self.assertEqual(response.json()["albums"][0]["new_memory_count"], 2)
-        list_owned.assert_called_once_with(self.get_supabase_client.return_value, OWNER_ID)
-        memory_counts.assert_called_once_with(self.get_supabase_client.return_value, [ALBUM_ID])
+        list_owned.assert_called_once_with(self.supabase_client, OWNER_ID)
+        memory_counts.assert_called_once_with(self.supabase_client, [ALBUM_ID])
 
     def test_owner_can_delete_album(self) -> None:
         self.as_user(OWNER_ID)
