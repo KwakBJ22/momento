@@ -67,7 +67,7 @@ from app.services.supabase import (
     upload_album_media_assets,
     upload_result_image,
 )
-from app.services.image_upload_service import parse_file_created_at, process_upload
+from app.services.image_upload_service import parse_file_created_at, process_upload, validate_upload_limits
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.media_upload_service import process_media_upload
 from app.services.auth import require_authenticated_user
@@ -115,6 +115,8 @@ async def upload_album(
         raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")
     if len(photos) > settings.max_photos:
         raise HTTPException(status_code=400, detail=f"사진은 최대 {settings.max_photos}장까지 업로드할 수 있습니다.")
+
+    validate_upload_limits(photos, settings)
 
     album_category = normalize_category(category) if category.strip() else None
     if category.strip() and album_category not in _VALID_CATEGORIES:

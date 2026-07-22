@@ -124,6 +124,26 @@ def parse_file_created_at(raw: Any) -> datetime | None:
         return None
 
 
+def validate_upload_limits(files: list[UploadFile], settings: Settings) -> None:
+    """Reject oversized requests before decoding or storing any image bytes."""
+    max_file_bytes = int(getattr(settings, "max_file_size_mb", 25)) * 1024 * 1024
+    max_total_bytes = int(getattr(settings, "max_total_upload_size_mb", 100)) * 1024 * 1024
+    total_bytes = 0
+    for upload in files:
+        try:
+            position = upload.file.tell()
+            upload.file.seek(0, 2)
+            size = upload.file.tell()
+            upload.file.seek(position)
+        except (AttributeError, OSError) as exc:
+            raise HTTPException(status_code=400, detail="사진 파일을 확인하지 못했습니다.") from exc
+        if size > max_file_bytes:
+            raise HTTPException(status_code=413, detail="이 사진은 용량이 너무 큽니다. 25MB 이하의 사진을 선택해주세요.")
+        total_bytes += size
+    if total_bytes > max_total_bytes:
+        raise HTTPException(status_code=413, detail="선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.")
+
+
 def process_upload(
     file: UploadFile,
     settings: Settings,

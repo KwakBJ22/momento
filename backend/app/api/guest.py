@@ -23,7 +23,7 @@ from app.models.schemas import (
 from app.services.auth import require_authenticated_user
 from app.services.guest_service import claim_guest_album, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
-from app.services.image_upload_service import parse_file_created_at, process_upload
+from app.services.image_upload_service import parse_file_created_at, process_upload, validate_upload_limits
 from app.services.membership import save_album_member
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
@@ -124,11 +124,9 @@ async def upload_guest_album(
     _allow_guest_upload(request)
     settings = get_settings()
     total_upload_bytes = sum(int(item["size_bytes"] or 0) for item in file_metadata)
-    max_total_upload_size_mb = getattr(settings, "max_total_upload_size_mb", 25)
-    if total_upload_bytes > max_total_upload_size_mb * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Total upload size exceeds the allowed limit.")
     if not photos or len(photos) > settings.max_photos:
         raise HTTPException(status_code=400, detail=f"사진은 1~{settings.max_photos}장까지 올릴 수 있어요.")
+    validate_upload_limits(photos, settings)
     album_category = normalize_category(category) if category.strip() else normalize_category(meeting_type)
     if album_category not in ALBUM_CATEGORIES and meeting_type not in {"family", "friend", "work", "university"}:
         raise HTTPException(status_code=400, detail="앨범 설정을 확인해주세요.")
