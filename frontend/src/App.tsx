@@ -60,6 +60,8 @@ function isMyAlbumsPage(): boolean {
 
 const GUEST_ALBUM_TOKEN_KEY = "momento-guest-album-token";
 const GUEST_ALBUM_CLAIM_PENDING_KEY = "momento-guest-album-claim-pending";
+const GUEST_ALBUM_ID_KEY = "momento-guest-album-id";
+const GUEST_ALBUM_SHARE_TOKEN_KEY = "momento-guest-album-share-token";
 
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
@@ -119,16 +121,15 @@ function App() {
     if (!session || !localStorage.getItem(GUEST_ALBUM_CLAIM_PENDING_KEY)) return;
     let active = true;
     const token = localStorage.getItem(GUEST_ALBUM_TOKEN_KEY);
-    if (!token) {
-      localStorage.removeItem(GUEST_ALBUM_CLAIM_PENDING_KEY);
-      window.location.replace("/my-albums");
-      return undefined;
-    }
+    const albumId = localStorage.getItem(GUEST_ALBUM_ID_KEY) || sharedAlbumId;
+    const storedShareToken = localStorage.getItem(GUEST_ALBUM_SHARE_TOKEN_KEY);
     setClaimError(null);
-    void claimGuestAlbum(token)
+    void claimGuestAlbum({ guestToken: token, albumId, shareToken: storedShareToken || shareToken })
       .then(() => {
         if (!active) return;
         localStorage.removeItem(GUEST_ALBUM_TOKEN_KEY);
+        localStorage.removeItem(GUEST_ALBUM_ID_KEY);
+        localStorage.removeItem(GUEST_ALBUM_SHARE_TOKEN_KEY);
         localStorage.removeItem(GUEST_ALBUM_CLAIM_PENDING_KEY);
         setGuestMode(false);
         setShowLogin(false);
@@ -138,7 +139,7 @@ function App() {
         if (active) setClaimError(error instanceof Error ? error.message : "앨범을 보관하지 못했어요. 다시 시도해 주세요.");
       });
     return () => { active = false; };
-  }, [session?.access_token, claimRetry]);
+  }, [session?.access_token, claimRetry, sharedAlbumId, shareToken]);
 
   useEffect(() => {
     if (!session) trackGuestEvent("landing_viewed");
@@ -162,7 +163,11 @@ function App() {
 
   const logout = async () => {
     await supabase?.auth.signOut();
+    setSession(null);
+    setClaimError(null);
+    setClaimRetry(0);
     resetToStart();
+    window.location.replace("/");
   };
 
   const isAlbumSurface = Boolean(
@@ -188,6 +193,7 @@ function App() {
             </button>
           </div>
         )}
+        {!session && !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}
       </header>
 
       <main className="app__main">
@@ -247,6 +253,9 @@ function App() {
                 trackGuestEvent("save_cta_clicked");
                 trackGuestEvent("login_started");
                 localStorage.setItem(GUEST_ALBUM_CLAIM_PENDING_KEY, "1");
+                localStorage.setItem(GUEST_ALBUM_ID_KEY, result.album_id);
+                const token = result.share_url.match(/\/s\/([^/?#]+)/)?.[1];
+                if (token) localStorage.setItem(GUEST_ALBUM_SHARE_TOKEN_KEY, token);
                 setShowLogin(true);
               }}
               onShareKakao={(narrative, shareUrl) =>
@@ -259,7 +268,14 @@ function App() {
               }
               onReset={resetToStart}
             />
-            {showLogin && <AuthPanel purpose="album-storage" />}
+            {showLogin ? (
+              <div className="share-modal" role="dialog" aria-modal="true" aria-label="내 앨범에 보관하기">
+                <section className="share-modal__card">
+                  <AuthPanel purpose="album-storage" />
+                  <button type="button" className="btn btn--ghost" onClick={() => setShowLogin(false)}>닫기</button>
+                </section>
+              </div>
+            ) : null}
           </>
         ) : !session && !showLogin && !guestMode ? (
           <Landing
@@ -281,6 +297,9 @@ function App() {
             guestMode
             onSuccess={(album) => {
               trackGuestEvent("preview_viewed");
+              localStorage.setItem(GUEST_ALBUM_ID_KEY, album.album_id);
+              const token = album.share_url.match(/\/s\/([^/?#]+)/)?.[1];
+              if (token) localStorage.setItem(GUEST_ALBUM_SHARE_TOKEN_KEY, token);
               setResult(album);
             }}
             onGuestCreated={(token) => localStorage.setItem(GUEST_ALBUM_TOKEN_KEY, token)}
@@ -297,6 +316,7 @@ function App() {
             <h2>앨범 보관을 마무리하지 못했어요</h2>
             <p className="auth-panel__notice">{claimError}</p>
             <button type="button" className="upload-form__submit" onClick={() => setClaimRetry((value) => value + 1)}>다시 시도하기</button>
+            {localStorage.getItem(GUEST_ALBUM_ID_KEY) ? <a className="btn btn--secondary" href={`/album/${localStorage.getItem(GUEST_ALBUM_ID_KEY)}`}>원래 앨범으로 돌아가기</a> : null}
           </section>
         ) : result && showAlbumResult ? (
           <QuestionFlow

@@ -21,7 +21,7 @@ export default function AuthPanel({ purpose = "default" }: AuthPanelProps) {
       options: { emailRedirectTo: window.location.origin },
     });
     setIsSubmitting(false);
-    setMessage(error ? error.message : storingAlbum ? "보관 링크를 이메일로 보냈어요. 이메일을 확인해 주세요." : "이메일로 받은 링크를 확인해 주세요.");
+    setMessage(error ? error.message : storingAlbum ? "이메일을 보냈습니다. 메일의 링크를 누르면 내 앨범에 보관됩니다." : "이메일로 받은 링크를 확인해 주세요.");
   };
 
   if (!isSupabaseAuthConfigured) {
@@ -31,7 +31,7 @@ export default function AuthPanel({ purpose = "default" }: AuthPanelProps) {
   return (
     <form className="auth-panel" onSubmit={sendMagicLink}>
       <h2>{storingAlbum ? "내 앨범 보관하기" : "추억을 이어서 보관하세요"}</h2>
-      <p>{storingAlbum ? "이메일을 연결하면 지금 만든 앨범을 언제든 다시 볼 수 있어요." : "이메일로 받은 링크를 열어 내 앨범을 다시 볼 수 있어요."}</p>
+      <p>{storingAlbum ? "이메일로 연결하면 언제든 내 앨범에서 다시 볼 수 있어요." : "이메일로 받은 링크를 열어 내 앨범을 다시 볼 수 있어요."}</p>
       <label className="field">
         <span className="field__label">이메일</span>
         <input className="field__input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required />

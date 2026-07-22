@@ -28,7 +28,7 @@ interface AlbumResultProps {
 }
 
 const EDIT_HINT = "우리의 이야기를 직접 적어보세요.";
-const SAVED_ALBUM_MESSAGE = "앨범이 저장되었습니다. 공유하거나 PDF로 저장해 보세요.";
+const SAVED_ALBUM_MESSAGE = "앨범이 완성되었습니다. 함께 보고 간직해 보세요.";
 
 export default function AlbumResultView({
   result,
@@ -329,7 +329,7 @@ export default function AlbumResultView({
           <div className="album-result__actions">
             {guestMode && onSaveAccount ? (
               <button type="button" className="btn btn--secondary" onClick={onSaveAccount}>
-                내 앨범 보관하기
+                내 앨범에 보관하기
               </button>
             ) : null}
             <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>
