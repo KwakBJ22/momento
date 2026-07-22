@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import PhotoMemoryLines from "./PhotoMemoryLines";
 import { usePhotoCommentEdit } from "./PhotoCommentEditContext";
 import AlbumPhotoFrame from "./album/AlbumPhotoFrame";
-import { getCaptionAction, type MemoryFlowPlan } from "../engine/memoryFlow";
+import type { MemoryFlowPlan } from "../engine/memoryFlow";
 import { deterministicPhotoRotation } from "../engine/deterministicLayout";
 import type { EnginePhoto } from "../types";
 import "./PhotoWithMemories.css";
@@ -26,12 +26,12 @@ export default function PhotoWithMemories({
   frameClassName = "",
 }: PhotoWithMemoriesProps) {
   const edit = usePhotoCommentEdit();
-  const caption = flowPlan ? getCaptionAction(flowPlan, photo.id) : null;
+  void flowPlan;
   const captionSegments = photo.comments?.length
     ? photo.comments.map((entry) => ({ author: entry.author, text: entry.text, photoId: photo.id }))
     : photo.comment?.trim()
       ? [{ author: photo.authorLabel, text: photo.comment, photoId: photo.id }]
-      : caption?.segments;
+      : undefined;
 
   const rotation = deterministicPhotoRotation(albumKey, photo.id, index, { isHero });
   const frameStyle: CSSProperties | undefined =

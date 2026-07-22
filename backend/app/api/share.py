@@ -29,6 +29,7 @@ from app.services.supabase import (
     get_supabase_client,
 )
 from app.services.collaboration_service import list_photo_memories
+from app.services.story_rules import visible_date_stories
 
 
 router = APIRouter(prefix="/api", tags=["share"])
@@ -104,14 +105,9 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
     settings = get_settings()
     media = [PublicMediaItem(media_type=row["media_type"], mime_type=row["mime_type"], processing_status=row["processing_status"], original_filename=row.get("original_filename")) for row in get_album_media_records(client, str(album["id"]))]
     narrative = str(album.get("epilogue") or album.get("narrative") or "").strip()
-    raw_chapter_stories = album.get("chapter_stories") or {}
-    chapter_stories = {
-        str(key): str(value).strip()
-        for key, value in raw_chapter_stories.items()
-        if str(value).strip()
-    } if isinstance(raw_chapter_stories, dict) else {}
     album_id = str(album["id"])
     photo_records = get_album_photo_records(client, album_id)
+    chapter_stories = visible_date_stories(album.get("chapter_stories"), photo_records)
     memories = list_photo_memories(client, album_id)
     memories_by_photo: dict[str, list[dict]] = {}
     for mem in memories:
@@ -126,7 +122,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
             AlbumPhotoUrlResponse(
                 id=UUID(pid),
                 sort_order=int(photo.get("sort_order") or 0),
-                comment=photo.get("comment") or photo.get("caption") or None,
+                comment=str(photo.get("comment") or "").strip() or None,
                 comments=[
                     {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
                     for m in mems

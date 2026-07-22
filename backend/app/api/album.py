@@ -87,8 +87,10 @@ from app.services.membership import (
 from app.services.share_service import create_share_link
 from app.services.collaboration_service import get_cached_pdf_path, list_photo_memories, set_cached_pdf_path
 from app.services.question_service import format_existing_answers, generate_album_questions
+from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key, visible_date_stories
 
 router = APIRouter(prefix="/api", tags=["album"])
+PDF_RENDERER_VERSION = 2
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
@@ -291,11 +293,12 @@ async def upload_album(
         )
         chapter_inputs: dict[str, list[dict[str, Any]]] = {}
         for index, story in enumerate(ordered_stories):
-            taken_at = str(photo_records[index].get("taken_at") or "")
-            chapter_inputs.setdefault(taken_at[:10] if len(taken_at) >= 10 else "0", []).append(story)
+            key = photo_date_key(photo_records[index])
+            if key != "0":
+                chapter_inputs.setdefault(key, []).append(story)
         chapter_stories: dict[str, str] = {}
         for key, stories_for_date in chapter_inputs.items():
-            if len(stories_for_date) < 5:
+            if len(stories_for_date) < MIN_DATE_STORY_PHOTO_COUNT:
                 continue
             chapter_stories[key] = await generate_narrative(
                 stories_for_date, meeting_type, title, settings,
@@ -390,7 +393,7 @@ async def upload_album(
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
             sort_order=int(photo["sort_order"]),
-            comment=photo.get("comment") or photo.get("caption") or None,
+            comment=str(photo.get("comment") or "").strip() or None,
             original_url=get_signed_url(
                 client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),
@@ -448,7 +451,7 @@ async def get_album_photo_urls(
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
             sort_order=int(photo["sort_order"]),
-            comment=photo.get("comment") or photo.get("caption") or None,
+            comment=str(photo.get("comment") or "").strip() or None,
             original_url=get_signed_url(
                 client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),
@@ -511,7 +514,7 @@ async def update_photo_location(
     return AlbumPhotoUrlResponse(
         id=UUID(str(photo["id"])),
         sort_order=int(photo.get("sort_order") or 0),
-        comment=photo.get("comment") or photo.get("caption") or None,
+        comment=str(photo.get("comment") or "").strip() or None,
         original_url=get_signed_url(
             client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
         ),
@@ -709,12 +712,10 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
     album_id = str(record["id"])
     image_url = get_public_url(client, record["result_path"], settings) if record.get("result_path") else ""
     epilogue = str(record.get("epilogue") or record.get("narrative") or "").strip()
-    raw_chapter_stories = record.get("chapter_stories") or {}
-    chapter_stories = {
-        str(key): str(value).strip()
-        for key, value in raw_chapter_stories.items()
-        if str(value).strip()
-    } if isinstance(raw_chapter_stories, dict) else {}
+    chapter_stories = visible_date_stories(
+        record.get("chapter_stories"),
+        get_album_photo_records(client, album_id),
+    )
     return AlbumDetailResponse(
         album_id=UUID(album_id),
         meeting_type=record.get("meeting_type", "friend"),
@@ -828,7 +829,7 @@ async def generate_epilogue(
         {
             "order": int(item.get("sort_order") or index),
             "user": "",
-            "text": str(item.get("comment") or item.get("caption") or ""),
+            "text": str(item.get("comment") or ""),
         }
         for index, item in enumerate(photo_records)
     ]
@@ -879,17 +880,18 @@ async def generate_epilogue(
 
     chapter_inputs: dict[str, list[dict[str, Any]]] = {}
     for index, photo in enumerate(photo_records):
-        taken_at = str(photo.get("taken_at") or "")
-        key = taken_at[:10] if len(taken_at) >= 10 else "0"
+        key = photo_date_key(photo)
+        if key == "0":
+            continue
         chapter_inputs.setdefault(key, []).append({
             "order": int(photo.get("sort_order") or index),
             "user": "",
-            "text": str(photo.get("comment") or photo.get("caption") or "").strip(),
+            "text": str(photo.get("comment") or "").strip(),
         })
 
     chapter_stories: dict[str, str] = {}
     for key, date_photos in chapter_inputs.items():
-        if len(date_photos) < 5:
+        if len(date_photos) < MIN_DATE_STORY_PHOTO_COUNT:
             continue
         date_label = key if key != "0" else str(album.get("event_date") or "")
         date_description = (
@@ -945,6 +947,7 @@ async def regenerate_story(
 async def get_album_pdf(
     album_id: str,
     version: int | None = Query(default=None),
+    renderer_version: int = Query(default=PDF_RENDERER_VERSION),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
     settings = get_settings()
@@ -957,18 +960,19 @@ async def get_album_pdf(
 
     album_version = int(record.get("album_version") or 0)
     target_version = version if version is not None else album_version
-    cached_path = get_cached_pdf_path(record, target_version)
+    cached_path = get_cached_pdf_path(record, f"{target_version}:r{renderer_version}")
     if not cached_path:
         return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
 
     url = get_public_url(client, cached_path, settings)
-    return AlbumPdfUrlResponse(url=url, album_version=target_version, cached=True)
+    return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
 
 
 @router.put("/albums/{album_id}/pdf")
 async def upload_album_pdf(
     album_id: str,
     version: int = Query(...),
+    renderer_version: int = Query(default=PDF_RENDERER_VERSION),
     file: UploadFile = File(...),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
@@ -987,13 +991,13 @@ async def upload_album_pdf(
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="PDF 파일이 아닙니다.")
 
-    path = f"albums/{album_id}/pdf/v{version}.pdf"
+    path = f"albums/{album_id}/pdf/v{version}-r{renderer_version}.pdf"
     client.storage.from_(settings.supabase_storage_bucket).upload(
         path,
         content,
         {"content-type": "application/pdf", "upsert": "true"},
     )
-    set_cached_pdf_path(client, record, version, path)
+    set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path)
     url = get_public_url(client, path, settings)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
 

@@ -28,6 +28,7 @@ from app.services.membership import save_album_member
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.share_service import create_share_link, log_event
+from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key
 from app.services.supabase import (
     create_album_id,
     delete_album_record,
@@ -299,11 +300,12 @@ async def upload_guest_album(
         )
         chapter_inputs: dict[str, list[dict[str, Any]]] = {}
         for index, story in enumerate(ordered_stories):
-            taken_at = str(photo_records[index].get("taken_at") or "")
-            chapter_inputs.setdefault(taken_at[:10] if len(taken_at) >= 10 else "0", []).append(story)
+            key = photo_date_key(photo_records[index])
+            if key != "0":
+                chapter_inputs.setdefault(key, []).append(story)
         chapter_stories: dict[str, str] = {}
         for key, stories_for_date in chapter_inputs.items():
-            if len(stories_for_date) < 5:
+            if len(stories_for_date) < MIN_DATE_STORY_PHOTO_COUNT:
                 continue
             chapter_stories[key] = await generate_narrative(
                 stories_for_date, meeting_type, title, settings,
@@ -386,7 +388,7 @@ async def upload_guest_album(
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
             sort_order=int(photo["sort_order"]),
-            comment=photo.get("comment") or photo.get("caption") or None,
+            comment=str(photo.get("comment") or "").strip() or None,
             original_url=get_signed_url(
                 client, settings.supabase_private_storage_bucket, str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),

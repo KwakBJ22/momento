@@ -48,6 +48,9 @@ export interface BuiltAlbum {
   epilogue: string | null;
 }
 
+// Existing MVP agreement: a date story needs at least five photos from that date.
+export const MIN_DATE_STORY_PHOTO_COUNT = 5;
+
 export function formatCoverDateLabel(takenAts: Array<string | null | undefined>): string {
   const keys = [
     ...new Set(takenAts.map(toDateKey).filter((value): value is string => Boolean(value))),
@@ -188,7 +191,7 @@ export function buildAlbum(photos: EnginePhoto[], context: BuildAlbumContext): B
     );
     const storyKey = bucket.date ?? String(index);
     const storyBody = normalizeMemoryText(context.chapterStories?.[storyKey]) || null;
-    if (bucket.photos.length >= 5 && storyBody) {
+    if (bucket.photos.length >= MIN_DATE_STORY_PHOTO_COUNT && storyBody) {
       const endingIndex = blocks.findIndex((item) => item.kind === "Ending");
       const storyBlock: LayoutBlock = { kind: "Story", photos: [] };
       if (endingIndex >= 0) blocks.splice(endingIndex, 0, storyBlock);

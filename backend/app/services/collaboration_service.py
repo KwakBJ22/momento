@@ -767,7 +767,7 @@ def pdf_cache_key(album_id: str, version: int) -> str:
     return f"{album_id}/v{version}"
 
 
-def get_cached_pdf_path(album: dict[str, Any], version: int) -> str | None:
+def get_cached_pdf_path(album: dict[str, Any], version: int | str) -> str | None:
     cache = album.get("pdf_cache") or {}
     if isinstance(cache, str):
         return None
@@ -777,7 +777,7 @@ def get_cached_pdf_path(album: dict[str, Any], version: int) -> str | None:
     return None
 
 
-def set_cached_pdf_path(client: Client, album: dict[str, Any], version: int, path: str) -> None:
+def set_cached_pdf_path(client: Client, album: dict[str, Any], version: int | str, path: str) -> None:
     cache = dict(album.get("pdf_cache") or {})
     cache[str(version)] = {"path": path, "created_at": _iso()}
     client.table("albums").update({"pdf_cache": cache}).eq("id", album["id"]).execute()
