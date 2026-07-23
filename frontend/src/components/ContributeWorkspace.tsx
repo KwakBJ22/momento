@@ -30,6 +30,7 @@ type PhotoMemory = {
   comment: string;
   created_at?: string | null;
   mine?: boolean;
+  pending?: boolean;
 };
 
 type WorkspacePhoto = {
@@ -207,6 +208,7 @@ export default function ContributeWorkspace({
 
   const uploadPending = useCallback(async (items: PendingUpload[]) => {
     if (!session || !items.length) return;
+    setError(null);
     setIsUploading(true);
     setPendingUploads((current) => current.map((pending) => (
       items.some((item) => item.id === pending.id) ? { ...pending, status: "uploading" } : pending
@@ -252,16 +254,36 @@ export default function ContributeWorkspace({
 
   const saveMemory = async (photoId: string) => {
     if (!session || !draftText.trim() || savingPhotoId) return;
+    const comment = draftText.trim();
+    const optimisticId = `local-memory-${localUploadId()}`;
+    const optimisticMemory: PhotoMemory = {
+      id: optimisticId,
+      author_name: session.displayName || "익명",
+      comment,
+      created_at: new Date().toISOString(),
+      mine: true,
+      pending: true,
+    };
+    setError(null);
     setSavingPhotoId(photoId);
     const startedAt = performance.now();
+    setWorkspace((current) => current
+      ? {
+          ...current,
+          photos: (current.photos || []).map((photo) => (
+            photo.id === photoId ? { ...photo, memories: [...(photo.memories || []), optimisticMemory] } : photo
+          )),
+        }
+      : current);
+    setWorkspaceRevision((revision) => revision + 1);
     try {
-      const memory = await createPhotoMemory(albumId, photoId, session, draftText.trim()) as PhotoMemory;
-      debugTiming("contribution memory save", startedAt);
+      const memory = await createPhotoMemory(albumId, photoId, session, comment) as PhotoMemory;
+      debugTiming("contribution memory save request", startedAt);
       setWorkspace((current) => current
         ? {
             ...current,
             photos: (current.photos || []).map((photo) => (
-              photo.id === photoId ? { ...photo, memories: [...(photo.memories || []), memory] } : photo
+              photo.id === photoId ? { ...photo, memories: (photo.memories || []).map((item) => item.id === optimisticId ? memory : item) } : photo
             )),
           }
         : current);
@@ -280,7 +302,16 @@ export default function ContributeWorkspace({
       }]);
     } catch (err) {
       console.warn("[Momento] Contribution memory save failed.", err);
-      setError("기억을 저장하지 못했습니다.");
+      setWorkspace((current) => current
+        ? {
+            ...current,
+            photos: (current.photos || []).map((photo) => (
+              photo.id === photoId ? { ...photo, memories: (photo.memories || []).filter((item) => item.id !== optimisticId) } : photo
+            )),
+          }
+        : current);
+      setWorkspaceRevision((revision) => revision + 1);
+      setError("기억을 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
       setSavingPhotoId(null);
     }
@@ -405,11 +436,15 @@ export default function ContributeWorkspace({
           <div className="contribute__grid">
             {pendingUploads.map((pending) => (
               <article key={pending.id} className="contribute__card contribute__card--pending">
-                <WorkspaceImage src={pending.previewUrl} alt="선택한 사진" />
-                <p className="contribute__card-status">{pending.status === "uploading" ? "업로드 중..." : "업로드하지 못했습니다."}</p>
-                {pending.status === "failed" ? (
-                  <button type="button" className="contribute__retry" disabled={isUploading} onClick={() => void uploadPending([pending])}>다시 시도</button>
-                ) : null}
+                <div className="contribute__pending-media">
+                  <WorkspaceImage src={pending.previewUrl} alt="선택한 사진" />
+                  <div className={`contribute__upload-overlay${pending.status === "failed" ? " contribute__upload-overlay--failed" : ""}`}>
+                    <p className="contribute__card-status" role="status">{pending.status === "uploading" ? "업로드 중..." : "업로드하지 못했습니다."}</p>
+                    {pending.status === "failed" ? (
+                      <button type="button" className="contribute__retry" disabled={isUploading} onClick={() => void uploadPending([pending])}>다시 시도</button>
+                    ) : null}
+                  </div>
+                </div>
               </article>
             ))}
             {(workspace.photos || []).map((photo) => (
@@ -424,8 +459,9 @@ export default function ContributeWorkspace({
                   {(photo.memories || []).map((memory) => (
                     <div key={memory.id} className="contribute__photo-memory">
                       <p className="contribute__memory-text">{memory.comment}</p>
+                      {memory.pending ? <p className="contribute__memory-pending" role="status">저장 중...</p> : null}
                       {newItemIds.includes(memory.id) ? <span className="contribute__fresh">방금 추가됨</span> : null}
-                      {memory.mine ? (
+                      {memory.mine && !memory.pending ? (
                         <div className="contribute__memory-actions">
                           <button type="button" onClick={() => void editMemory(memory)}>수정</button>
                           <button type="button" onClick={() => void removeMemory(memory)}>삭제</button>
@@ -439,7 +475,7 @@ export default function ContributeWorkspace({
                 </button>
                 {draftPhotoId === photo.id ? (
                   <div className="contribute__draft">
-                    <textarea maxLength={500} value={draftText} onChange={(event) => setDraftText(event.target.value)} placeholder="이 사진을 보며 떠오르는 순간을 적어 주세요." />
+                    <textarea disabled={savingPhotoId === photo.id} maxLength={500} value={draftText} onChange={(event) => setDraftText(event.target.value)} placeholder="이 사진을 보며 떠오르는 순간을 적어 주세요." />
                     <p className="contribute__count">{draftText.length}/500</p>
                     <div className="contribute__draft-actions">
                       <button type="button" disabled={savingPhotoId === photo.id || !draftText.trim()} onClick={() => void saveMemory(photo.id)}>

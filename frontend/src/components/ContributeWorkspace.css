@@ -168,6 +168,64 @@
   border-style: dashed;
 }
 
+.contribute__pending-media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #eee6dd;
+}
+
+.contribute__pending-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+.contribute__upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem;
+  color: #fff;
+  text-align: center;
+  background: rgba(47, 42, 38, 0.55);
+}
+
+.contribute__upload-overlay::before {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  content: "";
+  animation: contribute-spin 0.8s linear infinite;
+}
+
+.contribute__upload-overlay--failed::before {
+  display: none;
+}
+
+.contribute__upload-overlay .contribute__card-status {
+  color: inherit;
+}
+
+.contribute__upload-overlay .contribute__retry {
+  min-height: 34px;
+  padding: 0.35rem 0.55rem;
+  color: #4e4339;
+  background: #fff;
+}
+
+@keyframes contribute-spin {
+  to { transform: rotate(360deg); }
+}
+
 .contribute__card--fresh {
   border-color: #b48c6e;
   box-shadow: 0 0 0 2px rgba(180, 140, 110, 0.16);
@@ -288,6 +346,13 @@
   color: #444;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.contribute__memory-pending {
+  margin: 0;
+  color: #8a5f43;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .contribute__json {

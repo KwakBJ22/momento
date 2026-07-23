@@ -4,7 +4,14 @@ import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace"
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 import { createId } from "../lib/id";
-import { appendPendingContributions, contributionPanelAction, sharePublicAlbum } from "../lib/publicShareFlow";
+import {
+  appendPendingContributions,
+  contributionPanelAction,
+  readPublicShareCache,
+  reconcilePublicShareAlbum,
+  savePublicShareCache,
+  sharePublicAlbum,
+} from "../lib/publicShareFlow";
 import type { AlbumPhoto, PublicContributionItem, PublicShareAlbum } from "../types";
 import "./AlbumResult.css";
 
@@ -70,12 +77,13 @@ async function copyPublicLink(value: string): Promise<void> {
 }
 
 export default function PublicShareView({ token }: PublicShareViewProps) {
-  const [album, setAlbum] = useState<PublicShareAlbum | null>(null);
-  const [albumLoading, setAlbumLoading] = useState(true);
+  const initialCache = readPublicShareCache(token);
+  const [album, setAlbum] = useState<PublicShareAlbum | null>(() => initialCache?.album ?? null);
+  const [albumLoading, setAlbumLoading] = useState(() => !initialCache);
   const [error, setError] = useState<string | null>(null);
-  const [loadedToken, setLoadedToken] = useState<string | null>(null);
+  const [loadedToken, setLoadedToken] = useState<string | null>(() => initialCache ? token : null);
   const [retryKey, setRetryKey] = useState(0);
-  const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(null);
+  const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
   const [nameAction, setNameAction] = useState<"photo" | "memory" | null>(null);
@@ -92,19 +100,28 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   useEffect(() => {
     const startedAt = performance.now();
     let active = true;
-    setAlbumLoading(true);
-    setLoadedToken(null);
+    const cached = readPublicShareCache(token);
+    const hasCachedAlbum = Boolean(cached);
+    setAlbumLoading(!hasCachedAlbum);
+    if (cached) {
+      setAlbum(cached.album);
+      setLoadedToken(token);
+    } else {
+      setLoadedToken(null);
+    }
     setError(null);
-    setContributionAction(null);
-    setContributionAlbumId(null);
-    setContributionSession(null);
-    setNameAction(null);
+    const cachedSession = cached ? loadCollabSession(cached.album.album_id) : null;
+    const canRestoreContribution = Boolean(cachedSession && hasParticipantName(cachedSession.displayName));
+    setContributionAction(canRestoreContribution ? cached?.contributionAction ?? null : null);
+    setContributionAlbumId(cached?.album.album_id ?? null);
+    setContributionSession(cachedSession && hasParticipantName(cachedSession.displayName) ? cachedSession : null);
+    setNameAction(canRestoreContribution ? null : cached?.nameAction ?? null);
     setContributionError(null);
     setShareMessage(null);
     void getPublicShare(token).then((data) => {
       if (!active) return;
       debugTiming("public album API response", startedAt);
-      setAlbum(data);
+      setAlbum((current) => reconcilePublicShareAlbum(current, data));
       setLoadedToken(token);
       setContributionAlbumId(data.album_id);
       const savedSession = loadCollabSession(data.album_id);
@@ -116,11 +133,16 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     }).catch((cause) => {
       if (!active) return;
       console.warn("[Momento] Public album request failed.", cause);
-      setError(cause instanceof Error ? cause.message : "공유 앨범을 불러오지 못했어요.");
+      if (!hasCachedAlbum) setError(cause instanceof Error ? cause.message : "공유 앨범을 불러오지 못했어요.");
       setAlbumLoading(false);
     });
     return () => { active = false; };
   }, [token, retryKey]);
+
+  useEffect(() => {
+    if (!album || loadedToken !== token) return;
+    savePublicShareCache(token, album, contributionAction, nameAction);
+  }, [album, contributionAction, loadedToken, nameAction, token]);
 
   useEffect(() => {
     if ((!contributionAction && !nameAction) || !contributionAlbumId) return;
@@ -133,6 +155,10 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     setContributionAction(next.contributionAction);
     setNameAction(next.nameAction);
   };
+
+  const scrollToAlbumStart = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   const startContribution = async () => {
     const displayName = participantName.trim();
@@ -285,5 +311,12 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
         />
       </div> : null}
     </article>
+    <nav className="public-share__bottom-nav" aria-label="공개 앨범 메뉴">
+      <button type="button" onClick={scrollToAlbumStart}>앨범 처음으로</button>
+      <button type="button" onClick={() => openContribution("photo")}>사진 추가</button>
+      <button type="button" onClick={() => openContribution("memory")}>기억 남기기</button>
+      <button type="button" disabled={shareLoading} onClick={() => void share()}>{shareLoading ? "공유 중..." : "공유하기"}</button>
+      <a href="/">새 앨범 만들기</a>
+    </nav>
   </div>;
 }

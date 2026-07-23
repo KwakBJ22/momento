@@ -113,3 +113,5 @@ class ContributionUploadApiTests(TestCase):
         self.assertEqual(response.json()["id"], MEMORY_ID)
         self.assertEqual(response.json()["comment"], "새로 남긴 기억")
         self.assertTrue(response.json()["mine"])
+        self.assertNotIn("photos", response.json())
+        self.assertNotIn("album_json", response.json())
