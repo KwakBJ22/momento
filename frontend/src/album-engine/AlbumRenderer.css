@@ -52,6 +52,108 @@
   background: #faf7f2;
 }
 
+.album-living-page {
+  margin-top: 2rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border-top: 1px solid #d9cec4;
+  background: #fffaf5;
+}
+
+.album-living-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.album-living-page__header p,
+.album-living-page__header h2,
+.album-living-page__memories p {
+  margin: 0;
+}
+
+.album-living-page__header p {
+  color: #927862;
+  font-size: 0.8rem;
+}
+
+.album-living-page__header h2 {
+  margin-top: 0.3rem;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+}
+
+.album-living-page__new {
+  border-radius: 999px;
+  background: #695242;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.55rem;
+}
+
+.album-living-page__photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.7rem;
+}
+
+.album-living-page__photos figure {
+  margin: 0;
+}
+
+.album-living-page__photos img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.album-living-page__photos figcaption {
+  margin-top: 0.4rem;
+  color: #5e5149;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.album-living-page__memories {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album-living-page__memories li {
+  padding: 0.8rem 0.9rem;
+  border-radius: 8px;
+  background: #f6eee7;
+}
+
+.album-living-page__memories small {
+  display: block;
+  margin-top: 0.35rem;
+  color: #89776b;
+}
+
+.album-renderer__brand-footer {
+  margin-top: 1.25rem;
+  padding: 1.2rem 0 0.5rem;
+  color: #76675c;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.album-renderer__brand-footer p {
+  margin: 0 0 0.35rem;
+}
+
+.album-renderer__brand-footer a {
+  color: inherit;
+}
+
 @keyframes album-renderer-shimmer {
   0% {
     background-position: 100% 0;
@@ -92,5 +194,12 @@
   .date-header {
     break-after: avoid;
     page-break-after: avoid;
+  }
+
+  .album-living-page {
+    break-before: page;
+    page-break-before: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

@@ -8,7 +8,7 @@ import {
   updatePhotoMemory,
   uploadContributePhotos,
 } from "../lib/api";
-import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT } from "../lib/imageFile";
+import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import type { PublicContributionItem } from "../types";
 import "./ContributeWorkspace.css";
 
@@ -235,14 +235,25 @@ export default function ContributeWorkspace({
     }
   }, [addUploadedPhotos, albumId, session]);
 
-  const onUpload = async (files: FileList | null) => {
+  const onUpload = async (files: File[] | FileList | null) => {
     const { accepted, rejected } = filterImageFiles(files);
     if (!accepted.length) {
       setError(rejected ? "선택한 파일을 사진으로 읽지 못했어요. JPG, PNG, WEBP, HEIC를 골라 주세요." : "사진을 선택해 주세요.");
       return;
     }
     setError(rejected > 0 ? `${rejected}개 파일은 지원하지 않아 제외했어요.` : null);
-    const items = accepted.slice(0, 10).map((file) => ({
+    const existingCount = workspace?.photo_count ?? 0;
+    const pendingCount = pendingUploadsRef.current.length;
+    const photoLimit = workspace?.photo_limit ?? 30;
+    const { accepted: limited, skipped } = limitSelectedPhotos(accepted, photoLimit, existingCount + pendingCount);
+    if (!limited.length) {
+      setError("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
+      return;
+    }
+    if (skipped > 0) {
+      setError(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
+    }
+    const items = limited.map((file) => ({
       id: `local-${localUploadId()}`,
       file,
       previewUrl: URL.createObjectURL(file),
@@ -428,11 +439,13 @@ export default function ContributeWorkspace({
               multiple
               disabled={isUploading}
               onChange={(event) => {
-                void onUpload(event.target.files);
+                const selected = snapshotSelectedFiles(event.currentTarget.files);
+                void onUpload(selected);
                 event.target.value = "";
               }}
             />
           </label> : null}
+          {requestedAction !== "memory" ? <p className="contribute__limit">사진을 최대 {workspace.photo_limit}장까지 선택할 수 있습니다.</p> : null}
           <div className="contribute__grid">
             {pendingUploads.map((pending) => (
               <article key={pending.id} className="contribute__card contribute__card--pending">

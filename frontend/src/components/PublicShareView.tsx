@@ -262,7 +262,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
         <p className="album-result__subtitle">함께 만든 추억 앨범</p>
       </header>
       <div className="album-result__stage">
-        <AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} mode="screen" onReady={onAlbumRendererReady} />
+        <AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} />
       </div>
       {(album.pending_items || []).length ? (
         <section className="public-share__pending" aria-label="새로 더해진 추억">
@@ -316,7 +316,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
       <button type="button" onClick={() => openContribution("photo")}>사진 추가</button>
       <button type="button" onClick={() => openContribution("memory")}>기억 남기기</button>
       <button type="button" disabled={shareLoading} onClick={() => void share()}>{shareLoading ? "공유 중..." : "공유하기"}</button>
-      <a href="/">새 앨범 만들기</a>
+      <a href="/">우리 가족 앨범도 만들어보기</a>
     </nav>
   </div>;
 }

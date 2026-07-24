@@ -115,6 +115,14 @@ class MemoryQuestionApiTests(TestCase):
             response = self.client.post(f"/api/albums/{ALBUM_ID}/memory/questions/regenerate", json={})
         self.assertEqual(response.status_code, 403)
 
+    def test_photo_analysis_is_disabled_by_default_without_calling_the_provider(self) -> None:
+        self.as_user(OWNER_ID)
+        with patch("app.api.memory.analyze_album_media", new_callable=AsyncMock) as analyze:
+            response = self.client.post(f"/api/albums/{ALBUM_ID}/media/analyze", json={})
+
+        self.assertEqual(response.status_code, 403)
+        analyze.assert_not_awaited()
+
     def test_generate_skips_cached_media(self) -> None:
         self.as_user(OWNER_ID)
         with patch("app.api.memory.get_album_record", return_value=album_record()), patch(
@@ -180,6 +188,7 @@ class MediaAnalysisTests(TestCase):
         settings = SimpleNamespace(
             openai_model="gpt-4o-mini",
             supabase_private_storage_bucket="momento-private",
+            enable_vision_analysis=True,
         )
         with patch("app.api.memory.get_settings", return_value=settings), patch(
             "app.api.memory.get_supabase_client", return_value=MagicMock()

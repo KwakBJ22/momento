@@ -40,8 +40,9 @@ async function parseError(response: Response): Promise<string> {
   return "요청을 처리하지 못했어요.";
 }
 
-export async function getAlbum(albumId: string): Promise<AlbumResult> {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}`, { cache: "no-store" });
+export async function getAlbum(albumId: string, edition?: number | null): Promise<AlbumResult> {
+  const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
+  const response = await fetch(`${API_BASE}/api/albums/${albumId}${suffix}`, { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as AlbumResult;
 }
@@ -51,12 +52,14 @@ export type MyAlbum = {
   title: string;
   created_at: string;
   image_url: string;
+  cover_photo_id?: string | null;
+  cover_image_url?: string | null;
   photo_count: number;
   new_memory_count: number;
 };
 
 export async function getMyAlbums(): Promise<MyAlbum[]> {
-  const response = await authenticatedFetch("/api/albums/mine");
+  const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   return ((await response.json()) as { albums: MyAlbum[] }).albums;
 }
@@ -99,8 +102,9 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
   return { narrative: generated.epilogue };
 }
 
-export async function getAlbumPhotos(albumId: string): Promise<import("../types").AlbumPhoto[]> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/photos`, { cache: "no-store" });
+export async function getAlbumPhotos(albumId: string, edition?: number | null): Promise<import("../types").AlbumPhoto[]> {
+  const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
+  const response = await authenticatedFetch(`/api/albums/${albumId}/photos${suffix}`, { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
   return body.photos;
@@ -164,6 +168,16 @@ export async function getPublicShare(token: string): Promise<import("../types").
   return (await response.json()) as import("../types").PublicShareAlbum;
 }
 
+export async function updateAlbumCoverPhoto(albumId: string, photoId: string): Promise<{ cover_photo_id: string | null; cover_image_url: string | null }> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/cover-photo`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photo_id: photoId }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<{ cover_photo_id: string | null; cover_image_url: string | null }>;
+}
+
 export async function startPublicContribution(token: string, guestId: string | null, displayName: string) {
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
     method: "POST",
@@ -204,6 +218,22 @@ export async function createAlbumShareLink(albumId: string, expiresAt?: string):
   const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null }) });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { share_url: string };
+}
+
+export type AlbumShareLink = {
+  id: string;
+  status: "active" | "inactive" | "expired";
+};
+
+export async function getAlbumShareLinks(albumId: string): Promise<AlbumShareLink[]> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumShareLink[];
+}
+
+export async function deactivateAlbumShareLink(albumId: string, shareId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/share-links/${shareId}/deactivate`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
 }
 
 export function isPublicShareUrl(value: string | null | undefined): boolean {
@@ -474,19 +504,55 @@ export async function getCollaborationStatus(albumId: string) {
 export async function getAlbumParticipation(albumId: string) {
   const response = await authenticatedFetch(`/api/albums/${albumId}/participation`);
   if (!response.ok) throw new Error(await parseError(response));
-  return response.json() as Promise<{ participants: any[]; recent_activities: any[]; new_memory_count: number }>;
+  return response.json() as Promise<{
+    participants: Array<{
+      id: string;
+      name: string;
+      role: "host" | "participant";
+      photo_count: number;
+      memory_count: number;
+      last_active_at?: string | null;
+    }>;
+    recent_activities: any[];
+    new_photo_count: number;
+    new_memory_count: number;
+    new_contribution_count: number;
+    recommended_mode?: "append_page" | "edition";
+  }>;
 }
+
+export type PendingContributionItem = {
+  id: string;
+  type: "photo" | "memory";
+  actor_name: string;
+  created_at: string;
+  thumbnail_url?: string | null;
+  comment?: string | null;
+  content?: string | null;
+};
 
 export async function getPendingContributions(albumId: string) {
   const response = await authenticatedFetch(`/api/albums/${albumId}/pending-contributions`);
   if (!response.ok) throw new Error(await parseError(response));
-  return response.json() as Promise<{ count: number; items: Array<any>; last_applied_at: string | null }>;
+  return response.json() as Promise<{
+    count: number; items: PendingContributionItem[]; last_applied_at: string | null;
+    recommended_mode: "append_page" | "edition";
+    append_photo_threshold: number; append_memory_threshold: number;
+  }>;
 }
 
-export async function applyContributions(albumId: string, photoIds: string[], memoryIds: string[]) {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/apply-contributions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ photo_ids: photoIds, memory_ids: memoryIds }) });
+export async function applyContributions(
+  albumId: string,
+  photoIds: string[],
+  memoryIds: string[],
+  mode: "auto" | "append_page" | "edition" = "auto",
+) {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/apply-contributions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ photo_ids: photoIds, memory_ids: memoryIds, mode }) });
   if (!response.ok) throw new Error(await parseError(response));
-  return response.json() as Promise<{ status: string; applied_count: number; last_applied_at: string }>;
+  return response.json() as Promise<{
+    status: string; applied_count: number; last_applied_at: string; album_version: number;
+    mode: "append_page" | "edition"; append_page_id?: string | null; previous_edition?: number | null;
+  }>;
 }
 
 export async function rebuildCollaborationAlbum(

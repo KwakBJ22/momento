@@ -8,6 +8,8 @@ import { downloadAlbumPdf } from "../lib/exportPdf";
 
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 
+import CollaborationPanel from "./CollaborationPanel";
+
 import type { AlbumPhoto, AlbumResult } from "../types";
 
 import { coverLineForCategory, normalizeTemplateType } from "../types";
@@ -22,6 +24,10 @@ interface AlbumViewProps {
 
 }
 export default function AlbumView({ albumId }: AlbumViewProps) {
+
+  const editionValue = new URLSearchParams(window.location.search).get("edition");
+  const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
+  const loadedKey = `${albumId}:${requestedEdition ?? "latest"}`;
 
   const [album, setAlbum] = useState<AlbumResult | null>(null);
 
@@ -49,13 +55,13 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     setLoadedAlbumId(null);
     setPublicShareUrl("");
 
-    getAlbum(albumId)
+    getAlbum(albumId, requestedEdition)
 
       .then((data) => active && setAlbum(data))
 
       .catch((err) => active && setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요."));
 
-    getAlbumPhotos(albumId)
+    getAlbumPhotos(albumId, requestedEdition)
       .then((data) => {
         if (!active) return;
         if (!data.length) {
@@ -63,7 +69,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
           return;
         }
         setPhotos(data);
-        setLoadedAlbumId(albumId);
+        setLoadedAlbumId(loadedKey);
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
@@ -78,7 +84,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     };
 
-  }, [albumId, retryKey]);
+  }, [albumId, loadedKey, requestedEdition, retryKey]);
 
 
 
@@ -108,6 +114,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
         templateType: album.template_type,
         chapterStories: album.chapter_stories,
+        coverPhotoId: album.cover_photo_id,
+        livingAppendPages: album.living_append_pages,
 
       });
 
@@ -231,7 +239,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
 
-  if (isLoading || loadedAlbumId !== albumId || !album) {
+  if (isLoading || loadedAlbumId !== loadedKey || !album) {
 
     return (
 
@@ -268,6 +276,10 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         <article className="album-page__book album-result">
 
           <header className="album-result__intro">
+            {requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최근 앨범 보기</a></p> : null}
+            {requestedEdition === null && album.edition_is_latest && album.edition_previous !== null && album.edition_previous !== undefined ? (
+              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${albumId}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p>
+            ) : null}
             <p className="album-result__memory-placeholder">새로운 추억 0개</p>
 
             <p className="album-result__cover">{coverLineForCategory(album.category)}</p>
@@ -298,6 +310,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
               templateType={album.template_type}
 
               albumId={album.album_id}
+              coverPhotoId={album.cover_photo_id}
+              livingAppendPages={album.living_append_pages}
 
               mode="screen"
 
@@ -359,6 +373,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               className="btn btn--kakao"
 
+              hidden
+
               onClick={() => void handleKakaoShare()}
 
             >
@@ -375,7 +391,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
             </button>
 
-            <button type="button" className="btn btn--ghost" onClick={handleCopyLink}>
+            <button type="button" className="btn btn--ghost" onClick={handleCopyLink} hidden>
 
               {copied ? "링크가 복사됐어요 ✓" : "이 페이지 링크 복사"}
 
@@ -388,6 +404,21 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
             </a>
 
           </div>
+
+          {requestedEdition === null ? <CollaborationPanel
+            albumId={album.album_id}
+            imageUrl={album.cover_image_url || album.image_url}
+            title={album.title}
+            photos={photos}
+            coverPhotoId={album.cover_photo_id}
+            onOpenParticipants={() => {
+              window.location.assign(`/album/${album.album_id}/participants`);
+            }}
+            onAlbumUpdated={() => setRetryKey((value) => value + 1)}
+            onCoverUpdated={(coverPhotoId, coverImageUrl) => {
+              setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current);
+            }}
+          /> : null}
 
         </aside>
 

@@ -3,9 +3,10 @@ import { isSupabaseAuthConfigured, supabase } from "../lib/supabase";
 
 interface AuthPanelProps {
   purpose?: "default" | "album-storage";
+  redirectTo?: string;
 }
 
-export default function AuthPanel({ purpose = "default" }: AuthPanelProps) {
+export default function AuthPanel({ purpose = "default", redirectTo }: AuthPanelProps) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,7 +19,7 @@ export default function AuthPanel({ purpose = "default" }: AuthPanelProps) {
     setIsSubmitting(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: redirectTo || window.location.origin },
     });
     setIsSubmitting(false);
     setMessage(error ? error.message : storingAlbum ? "이메일을 보냈습니다. 메일의 링크를 누르면 내 앨범에 보관됩니다." : "이메일로 받은 링크를 확인해 주세요.");

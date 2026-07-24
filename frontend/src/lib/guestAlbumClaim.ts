@@ -4,6 +4,11 @@ export type GuestAlbumClaimInput = {
   shareToken: string | null;
 };
 
+export type GuestAlbumClaimQuery = {
+  albumId: string | null;
+  shareToken: string | null;
+};
+
 const GUEST_ALBUM_TOKEN_KEY = "momento-guest-album-token";
 const GUEST_ALBUM_CLAIM_PENDING_KEY = "momento-guest-album-claim-pending";
 const GUEST_ALBUM_ID_KEY = "momento-guest-album-id";
@@ -21,6 +26,29 @@ export function saveGuestAlbumContext(albumId: string, shareUrl: string): void {
   localStorage.setItem(GUEST_ALBUM_ID_KEY, albumId);
   const shareToken = shareUrl.match(/\/s\/([^/?#]+)/)?.[1];
   if (shareToken) localStorage.setItem(GUEST_ALBUM_SHARE_TOKEN_KEY, shareToken);
+}
+
+function shareTokenFromUrl(shareUrl: string): string | null {
+  return shareUrl.match(/\/s\/([^/?#]+)/)?.[1] || null;
+}
+
+/** Keep recoverable guest album context through a Magic Link browser handoff. */
+export function buildGuestAlbumClaimRedirect(origin: string, albumId: string, shareUrl: string): string {
+  const redirect = new URL("/", origin);
+  redirect.searchParams.set("claim_album_id", albumId);
+  const shareToken = shareTokenFromUrl(shareUrl);
+  if (shareToken) redirect.searchParams.set("claim_share_token", shareToken);
+  return redirect.toString();
+}
+
+export function getGuestAlbumClaimQuery(search: string): GuestAlbumClaimQuery {
+  const params = new URLSearchParams(search);
+  const albumId = params.get("claim_album_id");
+  const shareToken = params.get("claim_share_token");
+  return {
+    albumId: albumId && /^[0-9a-fA-F-]{36}$/.test(albumId) ? albumId : null,
+    shareToken: shareToken?.trim() || null,
+  };
 }
 
 export function saveGuestAlbumToken(guestToken: string): void {

@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.admin import router as admin_router
 from app.api.album import router as album_router
 from app.api.auth import router as auth_router
 from app.api.collaboration import router as collaboration_router
@@ -41,6 +42,7 @@ fastapi_app.include_router(memory_router)
 fastapi_app.include_router(share_router)
 fastapi_app.include_router(guest_router)
 fastapi_app.include_router(collaboration_router)
+fastapi_app.include_router(admin_router)
 
 
 @fastapi_app.get("/health")

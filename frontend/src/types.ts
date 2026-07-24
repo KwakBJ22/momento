@@ -152,12 +152,17 @@ export interface AlbumResult {
   /** Date-keyed AI episode summaries, e.g. { "2017-08-13": "..." }. */
   chapter_stories?: Record<string, string> | null;
   image_url: string;
+  cover_photo_id?: string | null;
+  cover_image_url?: string | null;
   share_url: string;
   created_at: string;
   media: AlbumMediaSummary[];
   photos?: AlbumPhoto[];
   saved?: boolean;
   album_version?: number;
+  living_append_pages?: LivingAppendPage[];
+  edition_previous?: number | null;
+  edition_is_latest?: boolean;
 }
 
 export interface AlbumMediaSummary {
@@ -194,6 +199,21 @@ export interface AlbumPhoto {
   orientation?: string | null;
 }
 
+export interface LivingAppendMemory {
+  id: string;
+  author_name?: string | null;
+  content: string;
+  created_at?: string | null;
+}
+
+export interface LivingAppendPage {
+  id: string;
+  type?: "append_page";
+  created_at?: string | null;
+  photos: AlbumPhoto[];
+  memories: LivingAppendMemory[];
+}
+
 export interface GuestAlbumResult extends AlbumResult {
   guest_token: string;
 }
@@ -205,6 +225,8 @@ export interface PublicShareAlbum {
   epilogue?: string | null;
   chapter_stories?: Record<string, string> | null;
   image_url: string;
+  cover_photo_id?: string | null;
+  cover_image_url?: string | null;
   date?: string;
   category?: string | null;
   template_type?: string | null;
@@ -212,6 +234,7 @@ export interface PublicShareAlbum {
   photo_count?: number;
   photo_limit?: number;
   pending_items?: PublicContributionItem[];
+  living_append_pages?: LivingAppendPage[];
   media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
   og_title: string;
   og_description: string;

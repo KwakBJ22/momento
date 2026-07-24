@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
     vision_model: str = ""
+    enable_vision_analysis: bool = False
     question_model: str = ""
     story_model: str = ""
     title_model: str = ""
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     prompt_hot_reload: bool | None = None
 
-    max_photos: int = 10
+    max_photos: int = 30
     max_file_size_mb: int = 25
     max_total_upload_size_mb: int = 100
     max_video_file_size_mb: int = 500
@@ -52,6 +53,17 @@ class Settings(BaseSettings):
     cors_origins: str = ",".join(DEFAULT_CORS_ORIGINS)
     cors_origin_regex: str = ""
     frontend_base_url: str = "https://momento-ashen-rho.vercel.app"
+
+    # Comma-separated Supabase Auth emails allowed to use /api/admin (platform operators).
+    platform_admin_emails: str = ""
+
+    @property
+    def platform_admin_email_set(self) -> frozenset[str]:
+        return frozenset(
+            email.strip().lower()
+            for email in self.platform_admin_emails.split(",")
+            if email.strip()
+        )
 
     @property
     def cors_origin_list(self) -> list[str]:

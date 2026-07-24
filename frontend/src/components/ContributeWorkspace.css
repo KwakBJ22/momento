@@ -125,6 +125,13 @@
   pointer-events: none;
 }
 
+.contribute__limit {
+  margin: -0.25rem 0 0;
+  color: #766b61;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .contribute__tabs button,
 .contribute__memory-btn,
 .contribute__draft-actions button {

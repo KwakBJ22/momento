@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { API_BASE, authenticatedFetch } from "../lib/api";
 import { createId } from "../lib/id";
-import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT } from "../lib/imageFile";
+import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, AlbumResult, GuestAlbumResult, PhotoItem, StoryPayload } from "../types";
@@ -9,7 +9,7 @@ import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
 import "./UploadForm.css";
 
-const MAX_PHOTOS = 10;
+const MAX_PHOTOS = 30;
 const UPLOAD_TIMEOUT_MS = 600_000;
 
 interface UploadFormProps {
@@ -26,11 +26,20 @@ function createPhotoItem(file: File, capturedAt: string | null): PhotoItem {
 
 export default function UploadForm({ category, onSuccess, guestMode = false, onGuestCreated }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setCoverPhotoId((current) => (
+      current && photos.some((photo) => photo.id === current)
+        ? current
+        : photos[0]?.id || null
+    ));
+  }, [photos]);
   const uploadInFlightRef = useRef(false);
   const templateType = recommendedTemplateType(category);
   const totalUploadBytes = photos.reduce((total, photo) => total + photo.file.size, 0);
@@ -42,9 +51,9 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       setError(rejected ? "사진 파일을 선택해주세요." : "사진을 선택해주세요.");
       return;
     }
-    const room = Math.max(0, MAX_PHOTOS - photos.length);
-    if (!room) {
-      setError("사진은 최대 10장까지 올릴 수 있습니다.");
+    const { accepted: limited, skipped } = limitSelectedPhotos(accepted, MAX_PHOTOS, photos.length);
+    if (!limited.length) {
+      setError("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
       return;
     }
 
@@ -54,7 +63,7 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
     const failures: string[] = [];
     let nextTotal = totalUploadBytes;
     try {
-      for (const file of accepted.slice(0, room)) {
+      for (const file of limited) {
         if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
           failures.push(`${file.name}: 이 사진은 용량이 너무 큽니다. 25MB 이하의 사진을 선택해주세요.`);
           continue;
@@ -73,23 +82,34 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
           failures.push(`${file.name}: 이 사진을 준비하지 못했습니다. 다른 사진을 선택해주세요.`);
         }
       }
-      if (accepted.length > room) failures.push("사진은 최대 10장까지 올릴 수 있습니다.");
+      if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
       if (rejected > 0) failures.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
       setPhotos((previous) => [...previous, ...added]);
+      setCoverPhotoId((current) => current || added[0]?.id || null);
       setError(failures.length ? failures.join(" ") : null);
     } finally {
       setIsPreparing(false);
     }
   }, [isPreparing, photos.length, totalUploadBytes]);
 
-  const removePhoto = (id: string) => setPhotos((previous) => {
-    const photo = previous.find((item) => item.id === id);
-    if (photo) URL.revokeObjectURL(photo.previewUrl);
-    return previous.filter((item) => item.id !== id);
-  });
+  const removePhoto = (id: string) => {
+    setPhotos((previous) => {
+      const photo = previous.find((item) => item.id === id);
+      if (photo) URL.revokeObjectURL(photo.previewUrl);
+      return previous.filter((item) => item.id !== id);
+    });
+  };
 
   const updatePhotoComment = (id: string, story: string) => {
     setPhotos((previous) => previous.map((photo) => (photo.id === id ? { ...photo, story } : photo)));
+  };
+
+  const handlePickerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = snapshotSelectedFiles(event.currentTarget.files);
+    if (import.meta.env.DEV) console.debug("[Momento] Album picker files selected", { count: selected.length });
+    // Reset only after taking a stable copy so the same files can be selected again.
+    event.currentTarget.value = "";
+    void addFiles(selected);
   };
 
   const createAlbum = async () => {
@@ -116,6 +136,7 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       formData.append("title", "우리의 추억");
       formData.append("description", "");
       formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ captured_at: photo.capturedAt }))));
+      formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
       const response = guestMode
         ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal })
         : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal });
@@ -150,20 +171,20 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       <section className="upload-form__picker" aria-label="사진 선택">
         <label className="gallery-btn">
           사진 고르기
-          <input className={FILE_INPUT_CLASS} type="file" accept={IMAGE_ACCEPT} multiple onChange={(event) => { void addFiles(event.target.files); event.target.value = ""; }} />
+          <input className={FILE_INPUT_CLASS} type="file" accept={IMAGE_ACCEPT} multiple onChange={handlePickerChange} />
         </label>
         <label className="gallery-btn gallery-btn--camera">
           바로 촬영하기
-          <input className={FILE_INPUT_CLASS} type="file" accept="image/*" capture="environment" onChange={(event) => { void addFiles(event.target.files); event.target.value = ""; }} />
+          <input className={FILE_INPUT_CLASS} type="file" accept="image/*" capture="environment" multiple onChange={handlePickerChange} />
         </label>
         <div className="drop-zone" role="button" tabIndex={0} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("drop-zone--active"); }} onDragLeave={(event) => event.currentTarget.classList.remove("drop-zone--active")} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("drop-zone--active"); void addFiles(event.dataTransfer.files); }}>
           <p className="drop-zone__title">여기에 사진을 놓아도 좋아요</p>
-          <p className="drop-zone__hint">버튼으로 선택 · 최대 {MAX_PHOTOS}장</p>
+          <p className="drop-zone__hint">사진을 최대 {MAX_PHOTOS}장까지 선택할 수 있습니다.</p>
         </div>
-        {photos.length ? <p className="upload-form__count" aria-live="polite">{photos.length}장&nbsp;&nbsp;{formatUploadSize(totalUploadBytes)}</p> : null}
+        <p className="upload-form__count" aria-live="polite">30장 중 {photos.length}장을 선택했습니다.{photos.length ? ` ${formatUploadSize(totalUploadBytes)}` : ""}</p>
         {isPreparing ? <p className="upload-form__count" aria-live="polite">사진을 업로드하기 좋게 준비하고 있습니다.</p> : null}
       </section>
-      <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} />
+      <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>
         {isSubmitting ? "앨범 생성 중..." : "앨범 생성하기"}
       </button>

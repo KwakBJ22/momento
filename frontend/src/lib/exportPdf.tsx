@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import html2pdf from "html2pdf.js";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
-import type { AlbumPhoto, AlbumTemplateType } from "../types";
+import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
 
 export interface AlbumPdfInput {
@@ -14,6 +14,8 @@ export interface AlbumPdfInput {
   category?: string | null;
   templateType?: AlbumTemplateType | string | null;
   chapterStories?: Record<string, string> | null;
+  coverPhotoId?: string | null;
+  livingAppendPages?: LivingAppendPage[];
 }
 
 /**
@@ -56,6 +58,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
       templateType={input.templateType}
       chapterStories={input.chapterStories}
       albumId={input.albumId}
+      coverPhotoId={input.coverPhotoId}
+      livingAppendPages={input.livingAppendPages}
       mode="print"
     />,
   );

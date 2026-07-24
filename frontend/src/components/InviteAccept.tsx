@@ -49,8 +49,8 @@ export default function InviteAccept({ token, isLoggedIn }: InviteAcceptProps) {
       <h2>가족 초대</h2>
       {message && <p className="family-panel__notice">{message}</p>}
       {error && <p className="family-panel__error">{error}</p>}
-      <a className="btn btn--secondary" href="/family">
-        가족 관리로 이동
+      <a className="btn btn--secondary" href="/my-albums">
+        내 앨범으로 이동
       </a>
       <a className="btn btn--ghost" href="/">
         홈으로

@@ -132,6 +132,7 @@ async def upload_guest_album(
     title: str = Form("우리의 추억"),
     description: str = Form(""),
     file_meta: str = Form("[]"),
+    cover_photo_order: int = Form(-1),
     website: str = Form(""),
 ) -> GuestAlbumUploadResponse:
     started_at = time.perf_counter()
@@ -315,6 +316,10 @@ async def upload_guest_album(
             )
         # 에필로그는 비워 두고 owner가 AI/직접 작성
         logger.info("guest_upload_storage_upload_completed request_id=%s album_id=%s", request_id, album_id)
+        cover_photo_id = next(
+            (str(record["id"]) for entry, record in zip(entries, photo_records) if int(entry["upload_order"]) == cover_photo_order),
+            str(photo_records[0]["id"]),
+        )
         narrative = await generate_narrative(
             ordered_stories, meeting_type, title, settings,
             event_date=event_date,
@@ -373,6 +378,7 @@ async def upload_guest_album(
             template_type=album_template_type,
             epilogue=narrative,
             chapter_stories=chapter_stories,
+            cover_photo_id=cover_photo_id,
         )
         album_saved = True
         save_album_photo_records(client, photo_records)
@@ -430,6 +436,7 @@ async def upload_guest_album(
         )
         for photo in photo_records
     ]
+    cover_image_url = next((photo.thumbnail_url for photo in photo_urls if str(photo.id) == cover_photo_id), None)
     response = GuestAlbumUploadResponse(
         album_id=UUID(album_id),
         meeting_type=meeting_type,  # type: ignore[arg-type]
@@ -442,6 +449,8 @@ async def upload_guest_album(
         epilogue=narrative,
         chapter_stories=chapter_stories,
         image_url=get_public_url(client, result_path, settings),
+        cover_photo_id=UUID(cover_photo_id),
+        cover_image_url=cover_image_url,
         share_url=share_url,
         created_at=datetime.now(timezone.utc),
         guest_token=token,
@@ -476,5 +485,6 @@ async def claim_guest_album_after_login(
         role="owner",
         invited_by=authenticated_user_id,
     )
+    logger.info("guest_album_claim_completed album_id=%s profile_id=%s family_id=%s", album_id, authenticated_user_id, family_id)
     _safe_event(client, "guest_album_claimed", album_id)
     return {"album_id": album_id, "family_id": family_id}

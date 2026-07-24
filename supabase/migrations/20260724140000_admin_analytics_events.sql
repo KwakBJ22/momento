@@ -1,4 +1,4 @@
--- Ensure guest onboarding analytics event names are allowed (fixes insert 400 on CHECK violation).
+-- Admin console: optional product analytics event names (best-effort inserts).
 BEGIN;
 
 ALTER TABLE public.analytics_events DROP CONSTRAINT IF EXISTS analytics_events_event_name_check;
@@ -24,7 +24,18 @@ ALTER TABLE public.analytics_events ADD CONSTRAINT analytics_events_event_name_c
     'enrichment_started',
     'album_rebuild_started',
     'album_rebuild_completed',
-    'album_rebuild_failed'
+    'album_rebuild_failed',
+    'public_contribution_started',
+    'album_created',
+    'photo_added',
+    'memory_added',
+    'living_page_appended',
+    'edition_created',
+    'cover_photo_changed',
+    'pdf_generated',
+    'upload_failed',
+    'pdf_failed',
+    'share_failed'
   )
 );
 

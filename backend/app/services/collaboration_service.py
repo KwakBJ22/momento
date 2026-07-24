@@ -14,9 +14,13 @@ from supabase import Client
 from app.services.share_service import create_token, hash_token
 
 RELATIONSHIP_OPTIONS = frozenset({"아빠", "엄마", "딸", "아들", "친구", "동료", "기타"})
-MIN_REBUILD_INTERVAL_SECONDS = 60
 MAX_COMMENT_LEN = 500
-MAX_BATCH_UPLOAD = 10
+MAX_BATCH_UPLOAD = 30
+# Small collaboration updates keep the existing album intact and are attached
+# as one final Living Album page. Both thresholds must be exceeded before the
+# default becomes a newly composed edition.
+LIVING_APPEND_PHOTO_THRESHOLD = 5
+LIVING_APPEND_MEMORY_THRESHOLD = 5
 
 
 def _now() -> datetime:
@@ -365,7 +369,7 @@ def require_contributor(
 def list_contributors(client: Client, album_id: str) -> list[dict[str, Any]]:
     result = (
         client.table("album_contributors")
-        .select("id, display_name, relationship, role, joined_at, status")
+        .select("id, display_name, relationship, role, joined_at, last_active_at, status")
         .eq("album_id", album_id)
         .eq("status", "active")
         .order("joined_at")
@@ -493,6 +497,20 @@ def soft_delete_photo(client: Client, album_id: str, photo_id: str) -> None:
     client.table("album_photos").update(
         {"status": "deleted", "deleted_at": _iso()}
     ).eq("id", photo_id).eq("album_id", album_id).execute()
+    album_result = client.table("albums").select("cover_photo_id").eq("id", album_id).limit(1).execute()
+    album_rows = album_result.data or []
+    if album_rows and str(album_rows[0].get("cover_photo_id") or "") == photo_id:
+        replacement = (
+            client.table("album_photos")
+            .select("id")
+            .eq("album_id", album_id)
+            .eq("status", "ready")
+            .is_("deleted_at", "null")
+            .order("sort_order")
+            .limit(1)
+            .execute()
+        ).data or []
+        client.table("albums").update({"cover_photo_id": str(replacement[0]["id"]) if replacement else None}).eq("id", album_id).execute()
     mark_album_dirty(client, album_id)
 
 
@@ -707,24 +725,69 @@ def build_album_document_from_records(
     }
 
 
+def album_document_photo_ids(document: dict[str, Any] | None) -> set[str]:
+    """Return stable photo IDs included by a serialized album document."""
+    ids: set[str] = set()
+    for chapter in (document or {}).get("chapters") or []:
+        for photo in chapter.get("photos") or []:
+            if photo.get("id"):
+                ids.add(str(photo["id"]))
+    return ids
+
+
+def album_document_memory_ids(document: dict[str, Any] | None) -> set[str]:
+    """Return stable memory IDs included by a serialized album document."""
+    ids: set[str] = set()
+    for chapter in (document or {}).get("chapters") or []:
+        for photo in chapter.get("photos") or []:
+            for memory in photo.get("memories") or []:
+                if memory.get("id"):
+                    ids.add(str(memory["id"]))
+    return ids
+
+
+def living_recommended_mode(photo_count: int, memory_count: int) -> str:
+    """Choose the least disruptive default while allowing an explicit override."""
+    if photo_count <= LIVING_APPEND_PHOTO_THRESHOLD and memory_count <= LIVING_APPEND_MEMORY_THRESHOLD:
+        return "append_page"
+    return "edition"
+
+
+def unpack_edition_snapshot(snapshot: Any) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """Read both legacy raw documents and new Living Album history entries."""
+    if not isinstance(snapshot, dict):
+        return None, []
+    if isinstance(snapshot.get("document"), dict):
+        pages = snapshot.get("append_pages")
+        return snapshot["document"], list(pages) if isinstance(pages, list) else []
+    return snapshot, []
+
+
+def edition_snapshot(document: dict[str, Any] | None, append_pages: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Store an edition with its final Living Album pages together."""
+    return {
+        "document": document or {},
+        "append_pages": list(append_pages or []),
+    }
+
+
 def rebuild_album(
     client: Client,
     album: dict[str, Any],
     *,
     album_json: dict[str, Any] | None = None,
     force: bool = False,
+    history_append_pages: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     album_id = str(album["id"])
     if not album.get("dirty") and not force:
         raise HTTPException(status_code=400, detail="새롭게 반영할 내용이 없습니다.")
 
-    started = album.get("last_rebuild_started_at")
-    if started:
-        started_dt = datetime.fromisoformat(str(started).replace("Z", "+00:00"))
-        if (_now() - started_dt).total_seconds() < MIN_REBUILD_INTERVAL_SECONDS:
-            raise HTTPException(status_code=429, detail="앨범을 정리하고 있습니다… 잠시 후 다시 시도해 주세요.")
-
-    client.table("albums").update({"last_rebuild_started_at": _iso()}).eq("id", album_id).execute()
+    # This is a mutual-exclusion lock, not a quota: completed and failed rebuilds
+    # clear it so the album can be rebuilt again immediately.
+    lock = client.table("albums").update({"last_rebuild_started_at": _iso()}).eq("id", album_id).is_("last_rebuild_started_at", "null").execute()
+    if getattr(lock, "data", None) == []:
+        raise HTTPException(status_code=409, detail="앨범을 다시 만드는 작업이 이미 진행 중입니다.")
 
     try:
         photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
@@ -732,12 +795,26 @@ def rebuild_album(
         document = album_json or build_album_document_from_records(album, photos, memories)
         next_version = int(album.get("album_version") or 0) + 1
         built_at = _iso()
-        client.table("albums").update({"album_json": document, "album_version": next_version, "dirty": False, "last_built_at": built_at, "collaboration_status": "ready" if album.get("collaboration_status") == "collecting" else album.get("collaboration_status"), "updated_at": built_at}).eq("id", album_id).execute()
+        current_version = int(album.get("album_version") or 0)
+        history = dict(album.get("album_version_history") or {})
+        if album.get("album_json"):
+            # Keep old raw-history rows compatible until a Living Album page is
+            # actually involved; newer snapshots carry their appended pages.
+            if history_append_pages is None and "living_append_pages" not in album:
+                history[str(current_version)] = album.get("album_json")
+            else:
+                history[str(current_version)] = edition_snapshot(
+                    album.get("album_json"),
+                    history_append_pages if history_append_pages is not None else album.get("living_append_pages"),
+                )
+        client.table("albums").update({"album_json": document, "album_version": next_version, "album_version_history": history, "dirty": False, "last_built_at": built_at, "last_rebuild_started_at": None, "collaboration_status": "ready" if album.get("collaboration_status") == "collecting" else album.get("collaboration_status"), "updated_at": built_at}).eq("id", album_id).execute()
         return {"album_version": next_version, "dirty": False, "last_built_at": built_at, "album_json": document}
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not update the album.") from exc
+    finally:
+        client.table("albums").update({"last_rebuild_started_at": None}).eq("id", album_id).execute()
 
 
 def apply_selected_contributions(
@@ -746,9 +823,12 @@ def apply_selected_contributions(
     *,
     photo_ids: set[str],
     memory_ids: set[str],
+    mode: str = "auto",
 ) -> dict[str, Any]:
-    """Rebuild the current album document with selected post-apply guest additions only."""
+    """Apply selected contributions as an appended page or a newly composed edition."""
     album_id = str(album["id"])
+    if mode not in {"auto", "append_page", "edition"}:
+        raise HTTPException(status_code=400, detail="Unknown Living Album update mode.")
     baseline = album.get("created_at")
     applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
@@ -760,22 +840,123 @@ def apply_selected_contributions(
     pending_memories = {str(row["id"]) for row in memories if str(row.get("contributor_id") or "") and str(row.get("contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_memory_ids}
     if not photo_ids.issubset(pending_photos) or not memory_ids.issubset(pending_memories):
         raise HTTPException(status_code=409, detail="Some selected memories are no longer waiting to be applied.")
-    visible_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") in owner_ids or str(row.get("created_at") or "") <= str(baseline or "") or str(row["id"]) in applied_photo_ids or str(row["id"]) in photo_ids]
-    visible_photo_ids = {str(row["id"]) for row in visible_photos}
-    visible_memories = [row for row in memories if str(row.get("contributor_id") or "") in owner_ids or str(row.get("created_at") or "") <= str(baseline or "") or str(row["id"]) in applied_memory_ids or str(row["id"]) in memory_ids]
-    visible_memories = [row for row in visible_memories if str(row.get("photo_id") or "") in visible_photo_ids]
-    document = build_album_document_from_records(album, visible_photos, visible_memories)
-    result = rebuild_album(client, album, album_json=document, force=True)
+    pending_photo_count = len(photo_ids)
+    pending_memory_count = len(memory_ids)
+    selected_mode = living_recommended_mode(pending_photo_count, pending_memory_count) if mode == "auto" else mode
+
+    current_document = album.get("album_json") if isinstance(album.get("album_json"), dict) else None
+    append_pages = list(album.get("living_append_pages") or [])
+    append_photo_ids = {
+        str(photo_id)
+        for page in append_pages if isinstance(page, dict)
+        for photo_id in (page.get("photo_ids") or [])
+    }
+    append_memory_ids = {
+        str(memory_id)
+        for page in append_pages if isinstance(page, dict)
+        for memory_id in (page.get("memory_ids") or [])
+    }
+    base_photo_ids = album_document_photo_ids(current_document)
+    base_memory_ids = album_document_memory_ids(current_document)
+    if not base_photo_ids:
+        base_photo_ids = {
+            str(row["id"])
+            for row in photos
+            if str(row.get("uploaded_by_contributor_id") or "") in owner_ids
+            or str(row.get("created_at") or "") <= str(baseline or "")
+            or str(row["id"]) in applied_photo_ids
+        } - append_photo_ids
+    if not base_memory_ids:
+        base_memory_ids = {
+            str(row["id"])
+            for row in memories
+            if str(row.get("contributor_id") or "") in owner_ids
+            or str(row.get("created_at") or "") <= str(baseline or "")
+            or str(row["id"]) in applied_memory_ids
+        } - append_memory_ids
+
+    included_photo_ids = base_photo_ids | append_photo_ids | photo_ids
+    photo_limit = int(album.get("photo_limit") or 30)
+    if len(included_photo_ids) > photo_limit:
+        existing_count = len(included_photo_ids) - len(photo_ids)
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"현재 사진 {existing_count}장에 새 사진 {len(photo_ids)}장이 추가되었습니다. "
+                f"앨범에 넣을 사진 {photo_limit}장을 선택해 주세요."
+            ),
+        )
+    base_photos = [row for row in photos if str(row["id"]) in base_photo_ids]
+    base_memories = [
+        row for row in memories
+        if str(row["id"]) in base_memory_ids and str(row.get("photo_id") or "") in base_photo_ids
+    ]
+    base_document = current_document or build_album_document_from_records(album, base_photos, base_memories)
+
+    if selected_mode == "append_page":
+        page_id = str(uuid.uuid4())
+        next_append_pages = [
+            *append_pages,
+            {
+                "id": page_id,
+                "type": "append_page",
+                "created_at": _iso(),
+                "photo_ids": sorted(photo_ids),
+                "memory_ids": sorted(memory_ids),
+            },
+        ]
+        result = rebuild_album(
+            client,
+            album,
+            album_json=base_document,
+            force=True,
+            history_append_pages=append_pages,
+        )
+        next_living_pages = next_append_pages
+    else:
+        edition_photo_ids = base_photo_ids | append_photo_ids | photo_ids
+        edition_memory_ids = base_memory_ids | append_memory_ids | memory_ids
+        edition_photos = [row for row in photos if str(row["id"]) in edition_photo_ids]
+        edition_memories = [
+            row for row in memories
+            if str(row["id"]) in edition_memory_ids and str(row.get("photo_id") or "") in edition_photo_ids
+        ]
+        document = build_album_document_from_records(album, edition_photos, edition_memories)
+        result = rebuild_album(
+            client,
+            album,
+            album_json=document,
+            force=True,
+            history_append_pages=append_pages,
+        )
+        next_living_pages = []
+        page_id = None
+
     applied_at = _iso()
-    client.table("albums").update({"last_collaboration_applied_at": applied_at, "applied_contribution_photo_ids": sorted(applied_photo_ids | photo_ids), "applied_contribution_memory_ids": sorted(applied_memory_ids | memory_ids)}).eq("id", album_id).execute()
-    return {**result, "last_applied_at": applied_at, "applied_count": len(photo_ids) + len(memory_ids)}
-    try:
-        pass
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # Keep dirty + previous album_json
-        raise HTTPException(status_code=500, detail="앨범 업데이트에 실패했습니다. 기존 앨범을 유지합니다.") from exc
+    current_cover_id = str(album.get("cover_photo_id") or "")
+    visible_photos = [row for row in photos if str(row["id"]) in included_photo_ids]
+    next_cover_id = current_cover_id if current_cover_id in included_photo_ids else (str(visible_photos[0]["id"]) if visible_photos else None)
+    client.table("albums").update({
+        "last_collaboration_applied_at": applied_at,
+        "applied_contribution_photo_ids": sorted(applied_photo_ids | photo_ids),
+        "applied_contribution_memory_ids": sorted(applied_memory_ids | memory_ids),
+        "living_append_pages": next_living_pages,
+        "living_latest_edition_previous": (
+            int(album.get("album_version") or 0)
+            if selected_mode == "edition"
+            else album.get("living_latest_edition_previous")
+        ),
+        "cover_photo_id": next_cover_id,
+        "pdf_cache": {},
+    }).eq("id", album_id).execute()
+    return {
+        **result,
+        "last_applied_at": applied_at,
+        "applied_count": len(photo_ids) + len(memory_ids),
+        "mode": selected_mode,
+        "append_page_id": page_id,
+        "previous_edition": int(album.get("album_version") or 0) if selected_mode == "edition" else None,
+    }
 
 
 def pdf_cache_key(album_id: str, version: int) -> str:

@@ -370,3 +370,12 @@ body {
     font-size: 1.08rem;
   }
 }
+
+.admin-app {
+  background: #1e1a18;
+  min-height: 100vh;
+}
+
+.admin-app .app__main {
+  max-width: none;
+}

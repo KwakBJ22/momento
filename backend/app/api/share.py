@@ -28,7 +28,7 @@ from app.services.supabase import (
     get_signed_url,
     get_supabase_client,
 )
-from app.services.collaboration_service import list_contributors, list_photo_memories
+from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories
 from app.services.collaboration_service import join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
@@ -147,12 +147,19 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
 
     pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)]
     pending_memories = [memory for memory in memories if is_pending_memory(memory)]
-    visible_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
+    shared_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
+    current_document = album.get("album_json") if isinstance(album.get("album_json"), dict) else None
+    document_photo_ids = album_document_photo_ids(current_document)
+    visible_photo_records = [
+        photo for photo in shared_photo_records
+        if not document_photo_ids or str(photo["id"]) in document_photo_ids
+    ]
     visible_photo_ids = {str(photo["id"]) for photo in visible_photo_records}
+    shared_memories = [memory for memory in memories if not is_pending_memory(memory)]
     visible_memories = [
         memory
-        for memory in memories
-        if not is_pending_memory(memory) and str(memory.get("photo_id") or "") in visible_photo_ids
+        for memory in shared_memories
+        if str(memory.get("photo_id") or "") in visible_photo_ids
     ]
     chapter_stories = visible_date_stories(album.get("chapter_stories"), visible_photo_records)
     memories_by_photo: dict[str, list[dict]] = {}
@@ -160,43 +167,58 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         pid = str(mem.get("photo_id") or "")
         memories_by_photo.setdefault(pid, []).append(mem)
 
-    photos = []
-    for photo in visible_photo_records:
+    all_memories_by_photo: dict[str, list[dict]] = {}
+    for mem in shared_memories:
+        all_memories_by_photo.setdefault(str(mem.get("photo_id") or ""), []).append(mem)
+
+    def to_public_photo(photo: dict) -> AlbumPhotoUrlResponse:
         pid = str(photo["id"])
-        mems = memories_by_photo.get(pid, [])
-        photos.append(
-            AlbumPhotoUrlResponse(
-                id=UUID(pid),
-                sort_order=int(photo.get("sort_order") or 0),
-                comment=str(photo.get("comment") or "").strip() or None,
-                comments=[
-                    {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
-                    for m in mems
-                    if str(m.get("comment") or "").strip()
-                ]
-                or None,
-                original_url=get_signed_url(
-                    client,
-                    str(photo["storage_bucket"]),
-                    str(photo["storage_path"]),
-                    settings.signed_url_ttl_seconds,
-                ),
-                thumbnail_url=get_signed_url(
-                    client,
-                    str(photo["thumbnail_bucket"]),
-                    str(photo["thumbnail_path"]),
-                    settings.signed_url_ttl_seconds,
-                ),
-                width=photo.get("width"),
-                height=photo.get("height"),
-                taken_at=photo.get("taken_at"),
-                latitude=photo.get("latitude"),
-                longitude=photo.get("longitude"),
-                location_name=photo.get("location_name"),
-                location_source=photo.get("location_source"),
-                orientation=photo.get("orientation"),
-            )
+        mems = all_memories_by_photo.get(pid, [])
+        return AlbumPhotoUrlResponse(
+            id=UUID(pid),
+            sort_order=int(photo.get("sort_order") or 0),
+            comment=str(photo.get("comment") or "").strip() or None,
+            comments=[
+                {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
+                for m in mems
+                if str(m.get("comment") or "").strip()
+            ] or None,
+            original_url=get_signed_url(client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds),
+            thumbnail_url=get_signed_url(client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds),
+            width=photo.get("width"), height=photo.get("height"), taken_at=photo.get("taken_at"),
+            latitude=photo.get("latitude"), longitude=photo.get("longitude"),
+            location_name=photo.get("location_name"), location_source=photo.get("location_source"),
+            orientation=photo.get("orientation"),
         )
+
+    shared_photo_models = {str(photo["id"]): to_public_photo(photo) for photo in shared_photo_records}
+    photos = [shared_photo_models[str(photo["id"])] for photo in visible_photo_records]
+
+    memory_by_id = {str(memory["id"]): memory for memory in shared_memories}
+    living_append_pages: list[dict] = []
+    for page in album.get("living_append_pages") or []:
+        if not isinstance(page, dict):
+            continue
+        page_photos = [
+            shared_photo_models[str(photo_id)].model_dump(mode="json")
+            for photo_id in page.get("photo_ids") or []
+            if str(photo_id) in shared_photo_models
+        ]
+        page_memories = [
+            {
+                "id": str(memory["id"]),
+                "author_name": _public_author_name(memory.get("author_name")),
+                "content": str(memory.get("comment") or "").strip(),
+                "created_at": memory.get("created_at"),
+            }
+            for memory_id in page.get("memory_ids") or []
+            if (memory := memory_by_id.get(str(memory_id))) and str(memory.get("comment") or "").strip()
+        ]
+        if page_photos or page_memories:
+            living_append_pages.append({
+                "id": str(page.get("id") or ""), "type": "append_page", "created_at": page.get("created_at"),
+                "photos": page_photos, "memories": page_memories,
+            })
 
     pending_items: list[PublicContributionItem] = []
     for photo in pending_photo_records:
@@ -233,13 +255,30 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         )
     pending_items.sort(key=lambda item: str(item.created_at or ""), reverse=True)
 
+    cover_photo_id = str(album.get("cover_photo_id") or "").strip() or None
+    cover_photo = next((photo for photo in visible_photo_records if str(photo.get("id")) == cover_photo_id), None)
+    if cover_photo is None and visible_photo_records:
+        cover_photo = visible_photo_records[0]
+        cover_photo_id = str(cover_photo.get("id"))
+    cover_image_url = (
+        get_signed_url(
+            client,
+            str(cover_photo.get("thumbnail_bucket") or cover_photo.get("storage_bucket")),
+            str(cover_photo.get("thumbnail_path") or cover_photo.get("storage_path")),
+            settings.signed_url_ttl_seconds,
+        )
+        if cover_photo else None
+    )
+
     return PublicShareAlbumResponse(
         album_id=UUID(album_id),
         title=str(album.get("title") or "우리의 추억"),
         narrative=narrative,
         epilogue=narrative or None,
         chapter_stories=chapter_stories,
-        image_url=get_public_url(client, str(album.get("result_path") or ""), settings),
+        image_url=cover_image_url or get_public_url(client, str(album.get("result_path") or ""), settings),
+        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
+        cover_image_url=cover_image_url,
         date=str(album.get("event_date") or ""),
         category=album.get("category"),
         template_type=album.get("template_type"),
@@ -248,6 +287,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         photo_count=len(photo_records),
         photo_limit=int(album.get("photo_limit") or 30),
         pending_items=pending_items[:30],
+        living_append_pages=living_append_pages,
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
     )

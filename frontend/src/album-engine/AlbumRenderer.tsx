@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AlbumCategory, AlbumPhoto, AlbumTemplateType } from "../types";
+import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
@@ -18,12 +18,14 @@ export interface AlbumRendererProps {
   category?: AlbumCategory | string | null;
   templateType?: AlbumTemplateType | string | null;
   albumId?: string | null;
+  coverPhotoId?: string | null;
   mode?: AlbumRendererMode;
   fallbackImageUrl?: string;
   participants?: string[];
   onReady?: () => void;
   onEditEpilogue?: () => void;
   photoCommentEdit?: PhotoCommentEditState | null;
+  livingAppendPages?: LivingAppendPage[];
   className?: string;
 }
 
@@ -86,18 +88,21 @@ export default function AlbumRenderer({
   category,
   templateType,
   albumId,
+  coverPhotoId,
   mode = "screen",
   fallbackImageUrl,
   participants = [],
   onReady,
   onEditEpilogue,
   photoCommentEdit = null,
+  livingAppendPages = [],
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
-  const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const blockRefs = useRef<Array<HTMLElement | null>>([]);
   const preferOriginal = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
+  const [newAppendPageIds, setNewAppendPageIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -133,11 +138,45 @@ export default function AlbumRenderer({
   }, [album, onReady]);
 
   useEffect(() => {
-    if (mode !== "screen" || !album?.elements.length) return;
+    if (mode !== "screen" || !livingAppendPages.length || !albumId) return;
+    const unseen = new Set<string>();
+    for (const page of livingAppendPages) {
+      try {
+        if (!sessionStorage.getItem(`momento-living-page-seen:${albumId}:${page.id}`)) unseen.add(page.id);
+      } catch {
+        // Rendering the page must not depend on WebView storage availability.
+      }
+    }
+    setNewAppendPageIds(unseen);
+    const focusKey = `momento-living-focus:${albumId}`;
+    let focusId: string | null = null;
+    try {
+      focusId = sessionStorage.getItem(focusKey);
+      if (focusId) sessionStorage.removeItem(focusKey);
+    } catch {
+      // Best-effort enhancement only.
+    }
+    if (focusId) {
+      const index = livingAppendPages.findIndex((page) => page.id === focusId);
+      const target = blockRefs.current[(album?.elements.length ?? 0) + index];
+      requestAnimationFrame(() => target?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    const timeout = window.setTimeout(() => {
+      for (const page of livingAppendPages) {
+        try { sessionStorage.setItem(`momento-living-page-seen:${albumId}:${page.id}`, "1"); } catch { /* noop */ }
+      }
+      setNewAppendPageIds(new Set());
+    }, 1400);
+    return () => window.clearTimeout(timeout);
+  }, [album?.elements.length, albumId, livingAppendPages, mode]);
+
+  useEffect(() => {
+    const pageCount = (album?.elements.length ?? 0) + livingAppendPages.length;
+    if (mode !== "screen" || !pageCount) return;
 
     const readPage = () => {
       const value = Number(new URLSearchParams(window.location.search).get("page"));
-      return Number.isInteger(value) && value >= 1 && value <= album.elements.length ? value : 1;
+      return Number.isInteger(value) && value >= 1 && value <= pageCount ? value : 1;
     };
     const scrollToPage = (page: number) => {
       const target = blockRefs.current[page - 1];
@@ -177,13 +216,13 @@ export default function AlbumRenderer({
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("popstate", onPopState);
     };
-  }, [album, mode]);
+  }, [album, livingAppendPages.length, mode]);
 
   const heroSrc = useMemo(() => {
     if (!photos.length) return fallbackImageUrl ?? null;
-    const hero = photos.find((p) => p.original_url) ?? photos[0];
+    const hero = photos.find((photo) => photo.id === coverPhotoId) ?? photos.find((p) => p.original_url) ?? photos[0];
     return hero.original_url || hero.thumbnail_url || fallbackImageUrl || null;
-  }, [photos, fallbackImageUrl]);
+  }, [photos, fallbackImageUrl, coverPhotoId]);
 
   if (!photos.length) {
     if (!fallbackImageUrl) return null;
@@ -231,6 +270,46 @@ export default function AlbumRenderer({
           </div>
 
           <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+          {livingAppendPages.map((page, index) => (
+            <section
+              key={page.id}
+              className="album-living-page"
+              data-living-append-page={page.id}
+              ref={(node) => { blockRefs.current[album.elements.length + index] = node; }}
+            >
+              <header className="album-living-page__header">
+                <div>
+                  <p>함께 자라는 앨범</p>
+                  <h2>새롭게 더해진 추억</h2>
+                </div>
+                {newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
+              </header>
+              {page.photos.length ? (
+                <div className="album-living-page__photos">
+                  {page.photos.map((photo) => (
+                    <figure key={photo.id}>
+                      <img src={photo.thumbnail_url || photo.original_url} alt="새롭게 더해진 추억" loading="lazy" />
+                      {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
+                    </figure>
+                  ))}
+                </div>
+              ) : null}
+              {page.memories.length ? (
+                <ul className="album-living-page__memories">
+                  {page.memories.map((memory) => (
+                    <li key={memory.id}>
+                      <p>{memory.content}</p>
+                      <small>{memory.author_name || "참여자"}</small>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ))}
+          <footer className="album-renderer__brand-footer">
+            <p>이 추억은 Momento에서 함께 만들었습니다.</p>
+            <a href="/">가족과 함께 추억을 이어가 보세요.</a>
+          </footer>
         </div>
       </PhotoCommentEditProvider>
     </div>

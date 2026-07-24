@@ -23,7 +23,7 @@ TemplateType = Literal["A", "B", "C"]
 class PhotoStoryInput(BaseModel):
     """사진 한 장에 대한 설명(스토리)."""
 
-    order: int = Field(ge=0, lt=10, description="업로드 슬롯 순서 (0부터 연속)")
+    order: int = Field(ge=0, lt=30, description="업로드 슬롯 순서 (0부터 연속)")
     user: str = Field(default="", max_length=30, description="작성자 이름(선택)")
     text: str = Field(min_length=1, max_length=300, description="사진 설명 스토리")
 
@@ -57,6 +57,15 @@ class AlbumPhotoLocationUpdate(BaseModel):
     location_source: Literal["exif", "user", "ai_estimated", "unknown"] = "user"
 
 
+class AlbumCoverPhotoUpdate(BaseModel):
+    photo_id: UUID | None = None
+
+
+class AlbumCoverPhotoResponse(BaseModel):
+    cover_photo_id: UUID | None = None
+    cover_image_url: str | None = None
+
+
 class AlbumUploadResponse(BaseModel):
     album_id: UUID
     meeting_type: MeetingType
@@ -69,6 +78,8 @@ class AlbumUploadResponse(BaseModel):
     epilogue: str | None = None
     chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
+    cover_photo_id: UUID | None = None
+    cover_image_url: str | None = None
     share_url: str
     created_at: datetime
     saved: bool = True
@@ -89,11 +100,16 @@ class AlbumDetailResponse(BaseModel):
     epilogue: str | None = None
     chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
+    cover_photo_id: UUID | None = None
+    cover_image_url: str | None = None
     share_url: str
     created_at: datetime
     media: list["AlbumMediaSummary"] = Field(default_factory=list)
     saved: bool = True
     album_version: int = 0
+    living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
+    edition_previous: int | None = None
+    edition_is_latest: bool = False
 
 
 class MyAlbumListItem(BaseModel):
@@ -101,6 +117,8 @@ class MyAlbumListItem(BaseModel):
     title: str
     created_at: datetime
     image_url: str
+    cover_photo_id: UUID | None = None
+    cover_image_url: str | None = None
     photo_count: int = 0
     new_memory_count: int = 0
 
@@ -184,6 +202,8 @@ class PublicShareAlbumResponse(BaseModel):
     epilogue: str | None = None
     chapter_stories: dict[str, str] = Field(default_factory=dict)
     image_url: str
+    cover_photo_id: UUID | None = None
+    cover_image_url: str | None = None
     date: str = ""
     category: str | None = None
     template_type: str | None = None
@@ -192,6 +212,7 @@ class PublicShareAlbumResponse(BaseModel):
     photo_count: int = 0
     photo_limit: int = 30
     pending_items: list[PublicContributionItem] = Field(default_factory=list)
+    living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
     og_title: str
     og_description: str
 
@@ -503,6 +524,7 @@ class CollaborationRebuildResponse(BaseModel):
 
 class CollaborationStatusResponse(BaseModel):
     album_id: UUID
+    can_edit_settings: bool = False
     collaboration_enabled: bool
     collaboration_status: CollaborationStatus
     dirty: bool
@@ -518,6 +540,166 @@ class CollaborationStatusResponse(BaseModel):
     invite_url: str | None = None
     contributors: list[CollaborationContributorResponse] = Field(default_factory=list)
     album_json: dict[str, Any] | None = None
+
+
+# --- Admin console ---
+
+
+class AdminMetricCard(BaseModel):
+    label: str
+    value: str
+
+
+class AdminTrendPoint(BaseModel):
+    date: str
+    value: int
+
+
+class AdminOpsDashboardResponse(BaseModel):
+    today: dict[str, int]
+    totals: dict[str, int]
+    trends: dict[str, list[AdminTrendPoint]]
+
+
+class AdminGrowthDashboardResponse(BaseModel):
+    living_album: dict[str, float]
+    collaboration: dict[str, float]
+    viral: dict[str, Any]
+    retention: dict[str, float]
+    content: dict[str, int]
+
+
+class AdminInvestorDashboardResponse(BaseModel):
+    headline_metrics: list[AdminMetricCard]
+    growth: AdminGrowthDashboardResponse
+
+
+class AdminFunnelStage(BaseModel):
+    key: str
+    label: str
+    count: int
+    conversion_from_previous: float | None = None
+
+
+class AdminViralFunnelResponse(BaseModel):
+    stages: list[AdminFunnelStage]
+
+
+class AdminAlbumListItem(BaseModel):
+    album_id: str
+    title: str
+    owner_id: str | None = None
+    owner_name: str | None = None
+    owner_email: str | None = None
+    cover_image_url: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    photo_count: int = 0
+    memory_count: int = 0
+    participant_count: int = 0
+    share_count: int = 0
+    page_count: int = 0
+    edition_count: int = 0
+    is_living: bool = False
+
+
+class AdminAlbumSearchResponse(BaseModel):
+    albums: list[AdminAlbumListItem]
+    query: str = ""
+    limit: int
+    offset: int
+
+
+class AdminTimelineItem(BaseModel):
+    at: datetime | str | None = None
+    kind: str
+    label: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AdminAlbumDetailResponse(BaseModel):
+    album_id: str
+    title: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    owner_id: str | None = None
+    owner_name: str | None = None
+    owner_email: str | None = None
+    cover_image_url: str | None = None
+    photo_count: int = 0
+    memory_count: int = 0
+    participant_count: int = 0
+    share_count: int = 0
+    page_count: int = 0
+    edition_count: int = 0
+    is_living: bool = False
+    lifetime_days: float = 0
+    contributors: list[dict[str, Any]] = Field(default_factory=list)
+    shares: list[dict[str, Any]] = Field(default_factory=list)
+    timeline: list[AdminTimelineItem] = Field(default_factory=list)
+    view_url: str
+
+
+class AdminUserListItem(BaseModel):
+    user_id: str
+    email: str | None = None
+    display_name: str | None = None
+    created_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    album_count: int = 0
+    participation_count: int = 0
+    share_count: int = 0
+
+
+class AdminUserSearchResponse(BaseModel):
+    users: list[AdminUserListItem]
+    query: str = ""
+    limit: int
+    offset: int
+
+
+class AdminUserAlbumsResponse(BaseModel):
+    user_id: str
+    albums: list[AdminAlbumListItem]
+
+
+class AdminEventItem(BaseModel):
+    id: str | None = None
+    event_name: str
+    label: str
+    album_id: str | None = None
+    share_link_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+
+
+class AdminEventLogResponse(BaseModel):
+    events: list[AdminEventItem]
+
+
+class AdminErrorBucket(BaseModel):
+    event_name: str
+    count: int
+    last_occurred_at: datetime | None = None
+
+
+class AdminErrorDashboardResponse(BaseModel):
+    errors: list[AdminErrorBucket]
+    recent: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AdminCostDashboardResponse(BaseModel):
+    gpt_calls: int
+    vision_calls: int
+    pdf_generations: int
+    storage_bytes: int
+    api_calls: int
+    operations: dict[str, int] = Field(default_factory=dict)
+
+
+class AdminAccessResponse(BaseModel):
+    ok: bool = True
+    user_id: str
 
 
 class JoinPreviewResponse(BaseModel):

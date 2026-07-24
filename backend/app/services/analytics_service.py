@@ -10,7 +10,20 @@ from supabase import Client
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_METADATA_KEYS = frozenset({"source", "reaction"})
+ALLOWED_METADATA_KEYS = frozenset({
+    "source",
+    "reaction",
+    "owner_id",
+    "previous_version",
+    "new_version",
+    "started_at",
+    "completed_at",
+    "duration_ms",
+    "applied_photo_count",
+    "applied_memory_count",
+    "failure_code",
+    "mode",
+})
 
 
 def _build_row(

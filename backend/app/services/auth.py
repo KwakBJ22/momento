@@ -7,7 +7,8 @@ from gotrue.errors import (
     AuthSessionMissingError,
 )
 
-from app.config import get_settings
+from app.config import Settings, get_settings
+from app.services.membership import get_user_email
 from app.services.supabase import get_supabase_client
 
 
@@ -69,3 +70,24 @@ def optional_authenticated_user(
     if user is None or not user.id:
         return None
     return str(user.id)
+
+
+def require_platform_admin(
+    user_id: str = Depends(require_authenticated_user),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    """Platform operator (env allowlist), not family admin role."""
+    allowed = settings.platform_admin_email_set
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin console is not configured.",
+        )
+    client = get_supabase_client(settings)
+    email = get_user_email(client, user_id)
+    if email not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return user_id

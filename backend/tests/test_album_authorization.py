@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -15,6 +15,7 @@ from app.services.auth import require_authenticated_user
 ALBUM_ID = "11111111-1111-1111-1111-111111111111"
 OWNER_ID = "22222222-2222-2222-2222-222222222222"
 OTHER_USER_ID = "33333333-3333-3333-3333-333333333333"
+PHOTO_ID = "44444444-4444-4444-4444-444444444444"
 
 
 def album_record(owner_id: str = OWNER_ID) -> dict[str, object]:
@@ -37,10 +38,10 @@ class AlbumAuthorizationTests(TestCase):
         self.app.include_router(router)
         self.app.include_router(auth_router)
         self.client = TestClient(self.app)
-        self.settings = SimpleNamespace(frontend_base_url="https://momento.example")
+        self.settings = SimpleNamespace(frontend_base_url="https://momento.example", signed_url_ttl_seconds=3600)
 
         self.get_settings = patch("app.api.album.get_settings", return_value=self.settings)
-        self.supabase_client = object()
+        self.supabase_client = MagicMock()
         self.get_supabase_client = patch("app.api.album.get_supabase_client", return_value=self.supabase_client)
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
         self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
@@ -108,6 +109,44 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 204)
         delete_album_record.assert_called_once()
+
+    def test_owner_can_change_cover_photo_without_rebuilding_album(self) -> None:
+        self.as_user(OWNER_ID)
+        photos = [{
+            "id": PHOTO_ID,
+            "storage_bucket": "albums",
+            "storage_path": "photos/cover.jpg",
+            "thumbnail_bucket": "albums",
+            "thumbnail_path": "photos/cover-thumb.jpg",
+        }]
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.get_album_photo_records", return_value=photos
+        ), patch("app.api.album.get_signed_url", return_value="https://cdn.example/cover.jpg"), patch(
+            "app.api.album.log_event", return_value=True
+        ):
+            response = self.client.patch(f"/api/albums/{ALBUM_ID}/cover-photo", json={"photo_id": PHOTO_ID})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["cover_photo_id"], PHOTO_ID)
+        self.assertEqual(response.json()["cover_image_url"], "https://cdn.example/cover.jpg")
+        self.supabase_client.table.assert_called_with("albums")
+
+    def test_non_owner_cannot_change_cover_photo(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()):
+            response = self.client.patch(f"/api/albums/{ALBUM_ID}/cover-photo", json={"photo_id": PHOTO_ID})
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_unapplied_contributor_photo_cannot_become_cover(self) -> None:
+        self.as_user(OWNER_ID)
+        pending_photo = {"id": PHOTO_ID, "uploaded_by_contributor_id": "guest-contributor"}
+        with patch("app.api.album.get_album_record", return_value={**album_record(), "applied_contribution_photo_ids": []}), patch(
+            "app.api.album.get_album_photo_records", return_value=[pending_photo]
+        ):
+            response = self.client.patch(f"/api/albums/{ALBUM_ID}/cover-photo", json={"photo_id": PHOTO_ID})
+
+        self.assertEqual(response.status_code, 400)
 
     def test_non_owner_cannot_update_even_if_owner_id_is_sent(self) -> None:
         self.as_user(OTHER_USER_ID)

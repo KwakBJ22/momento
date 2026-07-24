@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
@@ -26,6 +27,8 @@ from app.models.schemas import (
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.authorization import require_album_edit_settings, require_album_read
 from app.services.collaboration_service import (
+    LIVING_APPEND_MEMORY_THRESHOLD,
+    LIVING_APPEND_PHOTO_THRESHOLD,
     MAX_BATCH_UPLOAD,
     close_collaboration,
     count_active_contributors,
@@ -33,11 +36,13 @@ from app.services.collaboration_service import (
     create_photo_memory,
     deactivate_invites,
     delete_photo_memory,
+    ensure_owner_contributor,
     get_album_for_invite,
     get_contributor,
     join_as_contributor,
     list_contributors,
     list_photo_memories,
+    living_recommended_mode,
     mark_album_dirty,
     new_guest_id,
     publish_album,
@@ -60,6 +65,7 @@ from app.services.supabase import (
     save_album_photo_records,
     upload_album_photo_assets,
 )
+from app.services.share_service import log_event
 
 router = APIRouter(tags=["collaboration"])
 
@@ -92,6 +98,10 @@ def _resolve_expires(raw: Any) -> datetime | None:
     if not raw:
         return None
     return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+
+
+def _iso_for_analytics() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -280,6 +290,7 @@ async def get_collaboration_status(
 
     return CollaborationStatusResponse(
         album_id=UUID(album_id),
+        can_edit_settings=access.can_edit_settings,
         collaboration_enabled=bool(album.get("collaboration_enabled")),
         collaboration_status=album.get("collaboration_status") or "draft",
         dirty=bool(album.get("dirty")),
@@ -296,7 +307,7 @@ async def get_collaboration_status(
         contributors=[
             CollaborationContributorResponse(
                 id=UUID(str(c["id"])),
-                display_name=str(c["display_name"]),
+                display_name=str(c.get("display_name") or ("주최자" if c.get("role") == "owner" else "이름 없는 참여자")),
                 relationship=c.get("relationship"),
                 role=str(c.get("role") or "contributor"),
                 joined_at=c.get("joined_at"),
@@ -317,18 +328,33 @@ async def get_album_participation(
     if not album:
         raise HTTPException(status_code=404, detail="Album not found.")
     require_album_read(get_album_access(client, album, authenticated_user_id))
+    owner_id = str(album.get("created_by") or album.get("owner_id") or "").strip()
+    if owner_id:
+        ensure_owner_contributor(client, album, owner_id)
     contributors = list_contributors(client, album_id)
     photos = client.table("album_photos").select("id, uploaded_by_contributor_id, created_at").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
     memories = list_photo_memories(client, album_id)
     participant_rows = []
     for contributor in contributors:
         contributor_id = str(contributor["id"])
+        photo_rows = [photo for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") == contributor_id]
+        memory_rows = [memory for memory in memories if str(memory.get("contributor_id") or "") == contributor_id]
+        role = "host" if contributor.get("role") == "owner" else "participant"
+        name = str(contributor.get("display_name") or "").strip() or ("주최자" if role == "host" else "이름 없는 참여자")
+        activity_times = [
+            str(value) for value in [
+                contributor.get("last_active_at"),
+                *(photo.get("created_at") for photo in photo_rows),
+                *(memory.get("created_at") for memory in memory_rows),
+            ] if value
+        ]
         participant_rows.append({
             "id": contributor_id,
-            "name": str(contributor.get("display_name") or "참여자"),
-            "role": "host" if contributor.get("role") == "owner" else "participant",
-            "photo_count": sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") == contributor_id),
-            "memory_count": sum(1 for memory in memories if str(memory.get("contributor_id") or "") == contributor_id),
+            "name": name,
+            "role": role,
+            "photo_count": len(photo_rows),
+            "memory_count": len(memory_rows),
+            "last_active_at": max(activity_times) if activity_times else None,
         })
     activities = [{"type": "album_created", "actor_name": str(next((row["name"] for row in participant_rows if row["role"] == "host"), "주최자")), "count": 1, "created_at": album.get("created_at")}]
     for photo in photos:
@@ -337,41 +363,20 @@ async def get_album_participation(
     for memory in memories:
         activities.append({"type": "memory_added", "actor_name": str(memory.get("author_name") or "참여자"), "count": 1, "created_at": memory.get("created_at")})
     activities = sorted((item for item in activities if item.get("created_at")), key=lambda item: str(item["created_at"]), reverse=True)[:10]
-    recent_cutoff = str(album.get("created_at") or "")
+    recent_cutoff = str(album.get("last_collaboration_applied_at") or album.get("created_at") or "")
     applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
-    new_memory_count = sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") not in owner_ids and str(photo.get("created_at") or "") > recent_cutoff and str(photo.get("id")) not in applied_photo_ids)
-    new_memory_count += sum(1 for memory in memories if str(memory.get("contributor_id") or "") not in owner_ids and str(memory.get("created_at") or "") > recent_cutoff and str(memory.get("id")) not in applied_memory_ids)
-    return {"participants": participant_rows, "recent_activities": activities, "new_memory_count": new_memory_count}
-
-    return CollaborationStatusResponse(
-        album_id=UUID(album_id),
-        collaboration_enabled=bool(album.get("collaboration_enabled")),
-        collaboration_status=album.get("collaboration_status") or "draft",
-        dirty=bool(album.get("dirty")),
-        album_version=int(album.get("album_version") or 0),
-        last_built_at=album.get("last_built_at"),
-        published_at=album.get("published_at"),
-        photo_count=count_ready_photos(client, album_id),
-        photo_limit=int(album.get("photo_limit") or 30),
-        contributor_count=count_active_contributors(client, album_id),
-        contributor_limit=int(album.get("contributor_limit") or 10),
-        memory_count=len(memories),
-        invite_active=bool(active.data),
-        invite_url=None,
-        contributors=[
-            CollaborationContributorResponse(
-                id=UUID(str(c["id"])),
-                display_name=str(c["display_name"]),
-                relationship=c.get("relationship"),
-                role=str(c.get("role") or "contributor"),
-                joined_at=c.get("joined_at"),
-            )
-            for c in contributors
-        ],
-        album_json=album.get("album_json"),
-    )
+    new_photo_count = sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") not in owner_ids and str(photo.get("created_at") or "") > recent_cutoff and str(photo.get("id")) not in applied_photo_ids)
+    new_memory_count = sum(1 for memory in memories if str(memory.get("contributor_id") or "") not in owner_ids and str(memory.get("created_at") or "") > recent_cutoff and str(memory.get("id")) not in applied_memory_ids)
+    return {
+        "participants": participant_rows,
+        "recent_activities": activities,
+        "new_photo_count": new_photo_count,
+        "new_memory_count": new_memory_count,
+        "new_contribution_count": new_photo_count + new_memory_count,
+        "recommended_mode": living_recommended_mode(new_photo_count, new_memory_count),
+    }
 
 
 @router.get("/api/albums/{album_id}/pending-contributions")
@@ -387,13 +392,26 @@ async def get_pending_contributions(
     if str(album.get("created_by") or album.get("owner_id") or "") != authenticated_user_id:
         raise HTTPException(status_code=403, detail="Only the album host can review new memories.")
     items, _ = _pending_contributions(client, album, settings)
-    return {"count": len(items), "items": items, "last_applied_at": album.get("last_collaboration_applied_at")}
+    photo_count = sum(1 for item in items if item.get("type") == "photo")
+    memory_count = sum(1 for item in items if item.get("type") == "memory")
+    return {
+        "count": len(items),
+        "items": items,
+        "last_applied_at": album.get("last_collaboration_applied_at"),
+        "recommended_mode": (
+            "append_page"
+            if photo_count <= LIVING_APPEND_PHOTO_THRESHOLD and memory_count <= LIVING_APPEND_MEMORY_THRESHOLD
+            else "edition"
+        ),
+        "append_photo_threshold": LIVING_APPEND_PHOTO_THRESHOLD,
+        "append_memory_threshold": LIVING_APPEND_MEMORY_THRESHOLD,
+    }
 
 
 @router.post("/api/albums/{album_id}/apply-contributions")
 async def apply_contributions(
     album_id: str,
-    body: dict[str, list[str]],
+    body: dict[str, Any],
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, Any]:
     settings = get_settings()
@@ -405,8 +423,60 @@ async def apply_contributions(
         raise HTTPException(status_code=403, detail="Only the album host can update this album.")
     photo_ids = {str(item) for item in body.get("photo_ids", [])}
     memory_ids = {str(item) for item in body.get("memory_ids", [])}
-    result = apply_selected_contributions(client, album, photo_ids=photo_ids, memory_ids=memory_ids)
-    return {"status": "completed", "album_id": album_id, "applied_count": result["applied_count"], "last_applied_at": result["last_applied_at"]}
+    requested_mode = str(body.get("mode") or "auto")
+    started_at = _iso_for_analytics()
+    started_perf = time.perf_counter()
+    previous_version = int(album.get("album_version") or 0)
+    log_event(client, "album_rebuild_started", album_id=album_id, metadata={
+        "owner_id": authenticated_user_id,
+        "previous_version": previous_version,
+        "started_at": started_at,
+        "applied_photo_count": len(photo_ids),
+        "applied_memory_count": len(memory_ids),
+        "mode": requested_mode,
+    })
+    try:
+        result = apply_selected_contributions(
+            client,
+            album,
+            photo_ids=photo_ids,
+            memory_ids=memory_ids,
+            mode=requested_mode,
+        )
+    except HTTPException as exc:
+        log_event(client, "album_rebuild_failed", album_id=album_id, metadata={
+            "owner_id": authenticated_user_id,
+            "previous_version": previous_version,
+            "started_at": started_at,
+            "completed_at": _iso_for_analytics(),
+            "duration_ms": round((time.perf_counter() - started_perf) * 1000),
+            "applied_photo_count": len(photo_ids),
+            "applied_memory_count": len(memory_ids),
+            "failure_code": str(exc.status_code),
+            "mode": requested_mode,
+        })
+        raise
+    log_event(client, "album_rebuild_completed", album_id=album_id, metadata={
+        "owner_id": authenticated_user_id,
+        "previous_version": previous_version,
+        "new_version": int(result["album_version"]),
+        "started_at": started_at,
+        "completed_at": _iso_for_analytics(),
+        "duration_ms": round((time.perf_counter() - started_perf) * 1000),
+        "applied_photo_count": len(photo_ids),
+        "applied_memory_count": len(memory_ids),
+        "mode": result["mode"],
+    })
+    return {
+        "status": "completed",
+        "album_id": album_id,
+        "applied_count": result["applied_count"],
+        "last_applied_at": result["last_applied_at"],
+        "album_version": result["album_version"],
+        "mode": result["mode"],
+        "append_page_id": result.get("append_page_id"),
+        "previous_edition": result.get("previous_edition"),
+    }
 
 
 @router.get("/api/albums/{album_id}/contribute/workspace")

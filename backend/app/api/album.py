@@ -20,6 +20,8 @@ from app.models.schemas import (
     AlbumPhotoUrlResponse,
     AlbumPhotoUrlsResponse,
     AlbumPhotoLocationUpdate,
+    AlbumCoverPhotoResponse,
+    AlbumCoverPhotoUpdate,
     EpilogueGenerateResponse,
     EpilogueUpdate,
     PhotoCommentResponse,
@@ -85,7 +87,14 @@ from app.services.membership import (
     save_album_member,
 )
 from app.services.share_service import create_share_link
-from app.services.collaboration_service import get_cached_pdf_path, list_photo_memories, set_cached_pdf_path
+from app.services.share_service import log_event
+from app.services.collaboration_service import (
+    album_document_photo_ids,
+    get_cached_pdf_path,
+    list_photo_memories,
+    set_cached_pdf_path,
+    unpack_edition_snapshot,
+)
 from app.services.question_service import format_existing_answers, generate_album_questions
 from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key, visible_date_stories
 
@@ -97,9 +106,55 @@ _VALID_TEMPLATES = set(get_args(TemplateType))
 _VALID_CATEGORIES = set(ALBUM_CATEGORIES)
 
 
+def _resolve_cover_photo(album: dict[str, Any], photos: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not isinstance(photos, list):
+        return None
+    requested = str(album.get("cover_photo_id") or "").strip()
+    if requested:
+        selected = next((photo for photo in photos if str(photo.get("id")) == requested), None)
+        if selected:
+            return selected
+    return photos[0] if photos else None
+
+
+def _cover_image_url(client: Any, settings: Settings, album: dict[str, Any], photos: list[dict[str, Any]]) -> tuple[str | None, str | None]:
+    cover = _resolve_cover_photo(album, photos)
+    if not cover:
+        return None, None
+    return (
+        str(cover.get("id")),
+        get_signed_url(
+            client,
+            str(cover.get("thumbnail_bucket") or cover.get("storage_bucket")),
+            str(cover.get("thumbnail_path") or cover.get("storage_path")),
+            settings.signed_url_ttl_seconds,
+        ),
+    )
+
+
+def _my_album_list_item(
+    client: Any,
+    settings: Settings,
+    record: dict[str, Any],
+    memory_count: int,
+) -> MyAlbumListItem:
+    photos = get_album_photo_records(client, str(record["id"]))
+    cover_photo_id, cover_image_url = _cover_image_url(client, settings, record, photos)
+    return MyAlbumListItem(
+        album_id=UUID(str(record["id"])),
+        title=str(record.get("title") or "우리의 추억"),
+        created_at=record["created_at"],
+        image_url=cover_image_url or (get_public_url(client, str(record["result_path"]), settings) if record.get("result_path") else ""),
+        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
+        cover_image_url=cover_image_url,
+        photo_count=len(photos) if isinstance(photos, list) else len(record.get("photo_paths") or []),
+        new_memory_count=memory_count,
+    )
+
+
 @router.post("/upload-album", response_model=AlbumUploadResponse)
 async def upload_album(
-    photos: list[UploadFile] = File(..., description="최대 10장의 사진"),
+    photos: list[UploadFile] = File(..., description="최대 30장의 사진"),
     stories: str = Form(..., description='JSON 배열: [{"order":0,"user":"","text":"..."}, ...]'),
     meeting_type: str = Form("friend", description="family/friend/work/university"),
     category: str = Form("", description="family/friend/couple/colleague/pet/travel/other"),
@@ -109,6 +164,7 @@ async def upload_album(
     date: str = Form("", description="(deprecated) 사용자 날짜 입력은 사용하지 않음. EXIF로 자동 결정"),
     description: str = Form("", description="선택형 앨범 보강 정보"),
     file_meta: str = Form("[]", description='[{"last_modified": 1710000000000}, ...] File.lastModified'),
+    cover_photo_order: int = Form(-1),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumUploadResponse:
     settings = get_settings()
@@ -283,6 +339,10 @@ async def upload_album(
             )
 
         # 에필로그는 owner가 AI/직접 작성. 업로드 시 AI 호출하지 않음.
+        cover_photo_id = next(
+            (str(record["id"]) for entry, record in zip(entries, photo_records) if int(entry["upload_order"]) == cover_photo_order),
+            str(photo_records[0]["id"]),
+        )
         narrative = await generate_narrative(
             ordered_stories, meeting_type, title, settings,
             event_date=event_date,
@@ -345,6 +405,7 @@ async def upload_album(
             result_path=result_path,
             category=album_category,
             template_type=album_template_type,
+            cover_photo_id=cover_photo_id,
         )
         album_saved = True
         save_album_photo_records(client, photo_records)
@@ -412,6 +473,7 @@ async def upload_album(
         )
         for photo in photo_records
     ]
+    cover_image_url = next((photo.thumbnail_url for photo in photo_urls if str(photo.id) == cover_photo_id), None)
 
     return AlbumUploadResponse(
         album_id=UUID(album_id),
@@ -425,6 +487,8 @@ async def upload_album(
         epilogue=narrative,
         chapter_stories=chapter_stories,
         image_url=image_url,
+        cover_photo_id=UUID(cover_photo_id),
+        cover_image_url=cover_image_url,
         share_url=share_url,
         created_at=datetime.now(timezone.utc),
         saved=True,
@@ -435,6 +499,7 @@ async def upload_album(
 @router.get("/albums/{album_id}/photos", response_model=AlbumPhotoUrlsResponse)
 async def get_album_photo_urls(
     album_id: str,
+    edition: int | None = None,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPhotoUrlsResponse:
     """Issue short-lived private asset URLs only to the album owner."""
@@ -447,6 +512,10 @@ async def get_album_photo_urls(
     require_album_read(access)
 
     media_by_id = {str(media["id"]): media for media in get_album_media_records(client, album_id)}
+    document, _ = _edition_document_and_pages(record, edition)
+    document_photo_ids = album_document_photo_ids(document)
+    all_photos = get_album_photo_records(client, album_id)
+    visible_photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
     photo_urls = [
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
@@ -467,7 +536,7 @@ async def get_album_photo_urls(
             location_source=photo.get("location_source"),
             orientation=photo.get("orientation") or (media_by_id.get(str(photo["id"])) or {}).get("orientation"),
         )
-        for photo in get_album_photo_records(client, album_id)
+        for photo in visible_photos
     ]
     return AlbumPhotoUrlsResponse(photos=photo_urls)
 
@@ -708,13 +777,105 @@ async def delete_media(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -> AlbumDetailResponse:
+def _edition_document_and_pages(
+    record: dict[str, Any], edition: int | None,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    if edition is None:
+        document = record.get("album_json") if isinstance(record.get("album_json"), dict) else None
+        pages = record.get("living_append_pages")
+        return document, list(pages) if isinstance(pages, list) else []
+    history = record.get("album_version_history") or {}
+    snapshot = history.get(str(edition)) if isinstance(history, dict) else None
+    document, pages = unpack_edition_snapshot(snapshot)
+    if document is None:
+        raise HTTPException(status_code=404, detail="이전 앨범을 찾을 수 없습니다.")
+    return document, pages
+
+
+def _album_photo_response(
+    client: Any,
+    settings: Settings,
+    photo: dict[str, Any],
+    memories: list[dict[str, Any]],
+) -> AlbumPhotoUrlResponse:
+    photo_id = str(photo["id"])
+    photo_memories = [memory for memory in memories if str(memory.get("photo_id") or "") == photo_id]
+    return AlbumPhotoUrlResponse(
+        id=UUID(photo_id),
+        sort_order=int(photo.get("sort_order") or 0),
+        comment=str(photo.get("comment") or "").strip() or None,
+        comments=[
+            {"author": memory.get("author_name"), "text": str(memory.get("comment") or "")}
+            for memory in photo_memories
+            if str(memory.get("comment") or "").strip()
+        ] or None,
+        original_url=get_signed_url(client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds),
+        thumbnail_url=get_signed_url(client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds),
+        width=photo.get("width"),
+        height=photo.get("height"),
+        taken_at=photo.get("taken_at"),
+        latitude=photo.get("latitude"),
+        longitude=photo.get("longitude"),
+        location_name=photo.get("location_name"),
+        location_source=photo.get("location_source"),
+        orientation=photo.get("orientation"),
+    )
+
+
+def _living_append_payload(
+    client: Any,
+    settings: Settings,
+    pages: list[dict[str, Any]],
+    photos: list[dict[str, Any]],
+    memories: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    photo_by_id = {str(photo["id"]): photo for photo in photos}
+    memory_by_id = {str(memory["id"]): memory for memory in memories}
+    payload: list[dict[str, Any]] = []
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        page_photos = [
+            _album_photo_response(client, settings, photo_by_id[photo_id], memories).model_dump(mode="json")
+            for photo_id in page.get("photo_ids") or []
+            if str(photo_id) in photo_by_id
+        ]
+        page_memories = [
+            {
+                "id": str(memory["id"]),
+                "author_name": memory.get("author_name") or "참여자",
+                "content": str(memory.get("comment") or "").strip(),
+                "created_at": memory.get("created_at"),
+            }
+            for memory_id in page.get("memory_ids") or []
+            if (memory := memory_by_id.get(str(memory_id))) and str(memory.get("comment") or "").strip()
+        ]
+        if page_photos or page_memories:
+            payload.append({
+                "id": str(page.get("id") or ""),
+                "type": "append_page",
+                "created_at": page.get("created_at"),
+                "photos": page_photos,
+                "memories": page_memories,
+            })
+    return payload
+
+
+def _record_to_detail(
+    record: dict[str, Any], settings: Settings, client: Any, edition: int | None = None,
+) -> AlbumDetailResponse:
     album_id = str(record["id"])
     image_url = get_public_url(client, record["result_path"], settings) if record.get("result_path") else ""
     epilogue = str(record.get("epilogue") or record.get("narrative") or "").strip()
+    all_photos = get_album_photo_records(client, album_id)
+    document, append_pages = _edition_document_and_pages(record, edition)
+    document_photo_ids = album_document_photo_ids(document)
+    photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
+    memories = list_photo_memories(client, album_id)
+    cover_photo_id, cover_image_url = _cover_image_url(client, settings, record, photos)
     chapter_stories = visible_date_stories(
         record.get("chapter_stories"),
-        get_album_photo_records(client, album_id),
+        photos,
     )
     return AlbumDetailResponse(
         album_id=UUID(album_id),
@@ -728,6 +889,8 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
         epilogue=epilogue,
         chapter_stories=chapter_stories,
         image_url=image_url,
+        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
+        cover_image_url=cover_image_url,
         # /album/{id} is the authenticated album-management route.  It must
         # never be exposed as a public share URL because in-app browsers do
         # not have the owner's authentication session.
@@ -735,42 +898,73 @@ def _record_to_detail(record: dict[str, Any], settings: Settings, client: Any) -
         created_at=record["created_at"],
         media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
         album_version=int(record.get("album_version") or 0),
+        living_append_pages=_living_append_payload(client, settings, append_pages, all_photos, memories),
+        edition_previous=(int(record.get("living_latest_edition_previous")) if edition is None and record.get("living_latest_edition_previous") is not None else None),
+        edition_is_latest=edition is None and bool(record.get("living_latest_edition_previous") is not None),
         saved=True,
     )
 
 
 @router.get("/albums/mine", response_model=MyAlbumsResponse)
 async def get_my_albums(
+    response: Response,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> MyAlbumsResponse:
     """List the signed-in creator's albums without exposing family/member albums."""
+    response.headers["Cache-Control"] = "no-store"
     settings = get_settings()
     client = get_supabase_client(settings)
     records = list_owned_album_records(client, authenticated_user_id)
     memory_counts = get_pending_guest_memory_counts(client, [str(record["id"]) for record in records])
     return MyAlbumsResponse(
         albums=[
-            MyAlbumListItem(
-                album_id=UUID(str(record["id"])),
-                title=str(record.get("title") or "우리의 추억"),
-                created_at=record["created_at"],
-                image_url=get_public_url(client, str(record["result_path"]), settings) if record.get("result_path") else "",
-                photo_count=len(record.get("photo_paths") or []),
-                new_memory_count=memory_counts.get(str(record["id"]), 0),
-            )
+            _my_album_list_item(client, settings, record, memory_counts.get(str(record["id"]), 0))
             for record in records
         ]
     )
 
 
 @router.get("/albums/{album_id}", response_model=AlbumDetailResponse)
-async def get_album(album_id: str) -> AlbumDetailResponse:
+async def get_album(album_id: str, edition: int | None = None) -> AlbumDetailResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    return _record_to_detail(record, settings, client)
+    return _record_to_detail(record, settings, client, edition)
+
+
+@router.patch("/albums/{album_id}/cover-photo", response_model=AlbumCoverPhotoResponse)
+async def update_album_cover_photo(
+    album_id: str,
+    body: AlbumCoverPhotoUpdate,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumCoverPhotoResponse:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_edit_settings(access)
+
+    photos = get_album_photo_records(client, album_id)
+    requested = str(body.photo_id) if body.photo_id else None
+    selected_photo = next((photo for photo in photos if str(photo.get("id")) == requested), None) if requested else None
+    if requested and not selected_photo:
+        raise HTTPException(status_code=400, detail="앨범에 포함된 사진만 대표사진으로 선택할 수 있습니다.")
+    applied_photo_ids = {str(photo_id) for photo_id in (album.get("applied_contribution_photo_ids") or [])}
+    if selected_photo and selected_photo.get("uploaded_by_contributor_id") and requested not in applied_photo_ids:
+        raise HTTPException(status_code=400, detail="앨범에 반영된 사진만 대표사진으로 선택할 수 있습니다.")
+    selected_id = requested or (str(photos[0]["id"]) if photos else None)
+    client.table("albums").update({"cover_photo_id": selected_id}).eq("id", album_id).execute()
+    log_event(client, "cover_photo_changed", album_id=album_id, metadata={"owner_id": authenticated_user_id})
+    updated_album = {**album, "cover_photo_id": selected_id}
+    cover_photo_id, cover_image_url = _cover_image_url(client, settings, updated_album, photos)
+    return AlbumCoverPhotoResponse(
+        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
+        cover_image_url=cover_image_url,
+    )
 
 
 @router.patch("/albums/{album_id}", response_model=AlbumDetailResponse)
@@ -1001,6 +1195,7 @@ async def upload_album_pdf(
         {"content-type": "application/pdf", "upsert": "true"},
     )
     set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path)
+    log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_public_url(client, path, settings)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
 

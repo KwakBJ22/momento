@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { filterImageFiles, limitSelectedPhotos, snapshotSelectedFiles } from "../src/lib/imageFile";
+
+function image(name: string): File {
+  return { name, type: "image/jpeg" } as File;
+}
+
+test("mobile picker snapshots and processes every selected photo", () => {
+  const selected = [image("first.jpg"), image("second.jpg")];
+  const snapshot = snapshotSelectedFiles(selected as unknown as FileList);
+  const filtered = filterImageFiles(snapshot);
+
+  assert.equal(snapshot.length, 2);
+  assert.equal(filtered.accepted.length, 2);
+  assert.deepEqual(filtered.accepted.map((file) => file.name), ["first.jpg", "second.jpg"]);
+});
+
+for (const count of [2, 10, 20, 30]) {
+  test(`album selection preserves all ${count} photos within the 30-photo limit`, () => {
+    const selected = Array.from({ length: count }, (_, index) => image(`${index}.jpg`));
+    const limited = limitSelectedPhotos(selected, 30);
+    assert.equal(limited.accepted.length, count);
+    assert.equal(limited.skipped, 0);
+    assert.deepEqual(limited.accepted.map((file) => file.name), selected.map((file) => file.name));
+  });
+}
+
+test("album selection keeps the first 30 photos and reports one skipped photo", () => {
+  const selected = Array.from({ length: 31 }, (_, index) => image(`${index}.jpg`));
+  const limited = limitSelectedPhotos(selected, 30);
+  assert.equal(limited.accepted.length, 30);
+  assert.equal(limited.skipped, 1);
+  assert.equal(limited.accepted[29]?.name, "29.jpg");
+});

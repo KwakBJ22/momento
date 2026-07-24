@@ -116,6 +116,7 @@ def save_album_record(
     template_type: str | None = None,
     epilogue: str | None = None,
     chapter_stories: dict[str, str] | None = None,
+    cover_photo_id: str | None = None,
 ) -> dict[str, Any]:
     record = {
         "id": album_id,
@@ -137,6 +138,7 @@ def save_album_record(
         "photo_paths": photo_paths,
         "photo_meta": photo_meta,
         "result_path": result_path,
+        "cover_photo_id": cover_photo_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     client.table("albums").insert(record).execute()
@@ -202,7 +204,7 @@ def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, 
     """Return only albums created by this profile, including legacy owner rows."""
     result = (
         client.table("albums")
-        .select("id, title, created_at, result_path, photo_paths")
+        .select("id, title, created_at, result_path, photo_paths, cover_photo_id")
         .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
         .is_("deleted_at", "null")
         .order("created_at", desc=True)
@@ -290,7 +292,8 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
         client.table("album_photos")
         .select(
             "id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, "
-            "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height"
+            "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height, "
+            "uploaded_by_contributor_id, created_at"
         )
         .eq("album_id", album_id)
         .is_("deleted_at", "null")

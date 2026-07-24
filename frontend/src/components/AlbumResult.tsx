@@ -258,6 +258,8 @@ export default function AlbumResultView({
         category: result.category,
         templateType: result.template_type,
         chapterStories,
+        coverPhotoId: result.cover_photo_id,
+        livingAppendPages: result.living_append_pages,
       });
       setNotice("PDF 파일을 저장했어요.");
     } catch (err) {
@@ -272,6 +274,9 @@ export default function AlbumResultView({
       <div className="album-page__layout">
         <article className="album-page__book album-result">
           <header className="album-result__intro">
+            {result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? (
+              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p>
+            ) : null}
             <p className="album-result__cover">{coverLineForCategory(result.category)}</p>
             <h2 className="album-result__title">앨범이 완성됐어요!</h2>
             <p className="album-result__subtitle">추억을 저장하고 가족과 나눠보세요.</p>
@@ -297,6 +302,8 @@ export default function AlbumResultView({
                 category={result.category}
                 templateType={result.template_type}
                 albumId={result.album_id}
+                coverPhotoId={result.cover_photo_id}
+                livingAppendPages={result.living_append_pages}
                 mode="screen"
                 onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
               />

@@ -8,6 +8,7 @@ import {
   reconcilePublicShareAlbum,
   savePublicShareCache,
   sharePublicAlbum,
+  updatePublicShareCoverCache,
 } from "../src/lib/publicShareFlow";
 import type { PublicShareAlbum } from "../src/types";
 
@@ -64,6 +65,18 @@ test("cached public album is available immediately when the same share token is 
 
   assert.deepEqual(cached?.album, album);
   assert.equal(cached?.contributionAction, "memory");
+});
+
+test("cover change updates the cached public album without replacing its photos", () => {
+  const storage = memoryStorage();
+  const cachedAlbum = { ...album, photos: [{ id: "photo-1", sort_order: 0 }] };
+  savePublicShareCache("share-token", cachedAlbum, null, null, storage);
+  updatePublicShareCoverCache("share-token", "photo-1", "https://example.com/new-cover.jpg", storage);
+
+  const cached = readPublicShareCache("share-token", storage);
+  assert.equal(cached?.album.cover_photo_id, "photo-1");
+  assert.equal(cached?.album.image_url, "https://example.com/new-cover.jpg");
+  assert.deepEqual(cached?.album.photos, cachedAlbum.photos);
 });
 
 test("quiet public refresh preserves the photo array used by AlbumRenderer", () => {

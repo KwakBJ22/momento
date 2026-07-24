@@ -102,7 +102,7 @@ async def get_memory_questions(
     return MemoryQuestionsListResponse(
         questions=questions,
         can_regenerate=access.can_regenerate_questions,
-        can_analyze_media=access.can_regenerate_questions,
+        can_analyze_media=bool(getattr(settings, "enable_vision_analysis", False) and access.can_regenerate_questions),
     )
 
 
@@ -183,6 +183,8 @@ async def analyze_media(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AnalyzeMediaResponse:
     settings = get_settings()
+    if not getattr(settings, "enable_vision_analysis", False):
+        raise HTTPException(status_code=403, detail="사진 내용 분석은 현재 사용할 수 없습니다.")
     client = get_supabase_client(settings)
     album = get_album_record(client, album_id)
     if not album:

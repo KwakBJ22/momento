@@ -60,6 +60,29 @@ export function savePublicShareCache(
   }
 }
 
+/** Update an already-cached public view when its owner changes the cover. */
+export function updatePublicShareCoverCache(
+  token: string,
+  coverPhotoId: string | null,
+  coverImageUrl: string | null,
+  storage: StorageLike | null = publicShareSessionStorage(),
+): void {
+  const cached = readPublicShareCache(token, storage);
+  if (!cached) return;
+  savePublicShareCache(
+    token,
+    {
+      ...cached.album,
+      cover_photo_id: coverPhotoId,
+      cover_image_url: coverImageUrl,
+      image_url: coverImageUrl || cached.album.image_url,
+    },
+    cached.contributionAction,
+    cached.nameAction ?? null,
+    storage,
+  );
+}
+
 function hasSamePhotos(current: PublicShareAlbum["photos"], next: PublicShareAlbum["photos"]): boolean {
   const currentPhotos = current || [];
   const nextPhotos = next || [];

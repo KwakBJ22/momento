@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthPanel from "./components/AuthPanel";
-import AlbumMembersPanel from "./components/AlbumMembersPanel";
-import AlbumParticipationPanel from "./components/AlbumParticipationPanel";
 import AlbumResultView from "./components/AlbumResult";
 import AlbumView from "./components/AlbumView";
 import CollaborationPanel from "./components/CollaborationPanel";
@@ -12,14 +10,17 @@ import InviteAccept from "./components/InviteAccept";
 import JoinPage from "./components/JoinPage";
 import Landing from "./components/Landing";
 import MyAlbums from "./components/MyAlbums";
+import AdminConsole, { parseAdminRoute } from "./components/admin/AdminConsole";
 import QuestionFlow from "./components/QuestionFlow";
 import PublicShareView from "./components/PublicShareView";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import type { AlbumCategory, AlbumResult } from "./types";
-import { authenticatedFetch, claimGuestAlbum, claimGuestMemory, trackGuestEvent } from "./lib/api";
+import { authenticatedFetch, claimGuestAlbum, claimGuestMemory, getAlbum, getAlbumPhotos, trackGuestEvent } from "./lib/api";
 import {
   clearGuestAlbumClaim,
+  buildGuestAlbumClaimRedirect,
+  getGuestAlbumClaimQuery,
   getGuestAlbumClaimInput,
   getStoredGuestAlbumId,
   hasPendingGuestAlbumClaim,
@@ -61,12 +62,17 @@ function getShareTokenFromPath(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function isFamilyPage(): boolean {
-  return window.location.pathname === "/family";
+function getParticipantsAlbumIdFromPath(): string | null {
+  const match = window.location.pathname.match(/^\/album\/([0-9a-fA-F-]{36})\/participants$/);
+  return match ? match[1] : null;
 }
 
 function isMyAlbumsPage(): boolean {
   return window.location.pathname === "/my-albums";
+}
+
+function getAdminRoute() {
+  return parseAdminRoute(window.location.pathname);
 }
 
 function App() {
@@ -86,8 +92,10 @@ function App() {
   const questionsAlbumId = getQuestionsAlbumIdFromPath();
   const inviteToken = getInviteTokenFromPath();
   const shareToken = getShareTokenFromPath();
-  const familyPage = isFamilyPage();
+  const claimQuery = getGuestAlbumClaimQuery(window.location.search);
+  const participantsAlbumId = getParticipantsAlbumIdFromPath();
   const myAlbumsPage = isMyAlbumsPage();
+  const adminRoute = getAdminRoute();
 
   useEffect(() => {
     if (!supabase) {
@@ -120,13 +128,22 @@ function App() {
   }, [session?.access_token]);
 
   useEffect(() => {
-    if (!session || !hasPendingGuestAlbumClaim()) return;
+    const hasRecoverableClaim = hasPendingGuestAlbumClaim() || Boolean(claimQuery.albumId || claimQuery.shareToken);
+    if (!session || !hasRecoverableClaim) return;
     let active = true;
-    const claimInput = getGuestAlbumClaimInput(sharedAlbumId, shareToken);
+    const claimInput = getGuestAlbumClaimInput(claimQuery.albumId || sharedAlbumId, claimQuery.shareToken || shareToken);
     setClaimError(null);
+    if (import.meta.env.DEV) {
+      console.debug("[Momento] Guest album claim requested", {
+        albumId: claimInput.albumId,
+        hasGuestToken: Boolean(claimInput.guestToken),
+        hasShareToken: Boolean(claimInput.shareToken),
+      });
+    }
     void claimGuestAlbum(claimInput)
-      .then(() => {
+      .then((claimed) => {
         if (!active) return;
+        if (import.meta.env.DEV) console.debug("[Momento] Guest album claim completed", { albumId: claimed.album_id });
         clearGuestAlbumClaim();
         setGuestMode(false);
         setShowLogin(false);
@@ -136,7 +153,7 @@ function App() {
         if (active) setClaimError(error instanceof Error ? error.message : "앨범을 보관하지 못했어요. 다시 시도해 주세요.");
       });
     return () => { active = false; };
-  }, [session?.access_token, claimRetry, sharedAlbumId, shareToken]);
+  }, [session?.access_token, claimQuery.albumId, claimQuery.shareToken, claimRetry, sharedAlbumId, shareToken]);
 
   useEffect(() => {
     if (!session) trackGuestEvent("landing_viewed");
@@ -168,21 +185,21 @@ function App() {
   };
 
   const isAlbumSurface = Boolean(
-    shareToken || joinToken || contributeAlbumId || sharedAlbumId || (result && !showAlbumResult && (session || guestMode)),
+    shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || (result && !showAlbumResult && (session || guestMode)),
   );
+  const isAdminSurface = Boolean(adminRoute);
 
   return (
-    <div className={isAlbumSurface ? "app app--album" : "app"}>
+    <div className={isAdminSurface ? "app app--album admin-app" : isAlbumSurface ? "app app--album" : "app"}>
+      {!isAdminSurface ? (
       <header className="app__header">
         <h1>Momento</h1>
         {session && (
           <div className="app__header-actions">
-            {!sharedAlbumId && !inviteToken && !contributeAlbumId && !joinToken && (
+            {sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}
+            {!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken && (
               <>
                 <a className="app__nav-link" href="/my-albums">내 앨범</a>
-                <a className="app__nav-link" href="/family">
-                가족 관리
-                </a>
               </>
             )}
             <button type="button" className="app__logout" onClick={logout}>
@@ -192,14 +209,35 @@ function App() {
         )}
         {!session && !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}
       </header>
+      ) : null}
 
       <main className="app__main">
-        {shareToken ? (
+        {adminRoute ? (
+          session === undefined ? (
+            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
+          ) : !isSupabaseAuthConfigured || !session ? (
+            <AuthPanel />
+          ) : bootstrapError ? (
+            <p className="auth-panel__notice">{bootstrapError}</p>
+          ) : (
+            <AdminConsole route={adminRoute} />
+          )
+        ) : shareToken ? (
           <PublicShareView token={shareToken} />
         ) : joinToken ? (
           <JoinPage token={joinToken} />
         ) : contributeAlbumId ? (
           <ContributeWorkspace albumId={contributeAlbumId} />
+        ) : participantsAlbumId ? (
+          session === undefined ? (
+            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
+          ) : !isSupabaseAuthConfigured || !session ? (
+            <AuthPanel />
+          ) : bootstrapError ? (
+            <p className="auth-panel__notice">{bootstrapError}</p>
+          ) : (
+            <ParticipantsPage albumId={participantsAlbumId} />
+          )
         ) : sharedAlbumId ? (
           <AlbumView albumId={sharedAlbumId} />
         ) : questionsAlbumId ? (
@@ -231,16 +269,6 @@ function App() {
           ) : (
             <MyAlbums />
           )
-        ) : familyPage ? (
-          session === undefined ? (
-            <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>
-          ) : !isSupabaseAuthConfigured || !session ? (
-            <AuthPanel />
-          ) : bootstrapError ? (
-            <p className="auth-panel__notice">{bootstrapError}</p>
-          ) : (
-            <ParticipantsPage />
-          )
         ) : !session && result ? (
           <>
             <AlbumResultView
@@ -266,7 +294,7 @@ function App() {
             {showLogin ? (
               <div className="share-modal" role="dialog" aria-modal="true" aria-label="내 앨범에 보관하기">
                 <section className="share-modal__card">
-                  <AuthPanel purpose="album-storage" />
+                  <AuthPanel purpose="album-storage" redirectTo={buildGuestAlbumClaimRedirect(window.location.origin, result.album_id, result.share_url)} />
                   <button type="button" className="btn btn--ghost" onClick={() => setShowLogin(false)}>닫기</button>
                 </section>
               </div>
@@ -334,11 +362,29 @@ function App() {
             }
             onReset={resetToStart}
             manageSlot={
-              <>
-                <AlbumParticipationPanel albumId={result.album_id} />
-                <AlbumMembersPanel albumId={result.album_id} />
-                <CollaborationPanel albumId={result.album_id} />
-              </>
+              <CollaborationPanel
+                albumId={result.album_id}
+                shareUrl={result.share_url}
+                imageUrl={result.cover_image_url || result.image_url}
+                title={result.title}
+                photos={result.photos}
+                coverPhotoId={result.cover_photo_id}
+                onOpenParticipants={() => {
+                  window.location.assign(`/album/${result.album_id}/participants`);
+                }}
+                onAlbumUpdated={() => {
+                  void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)])
+                    .then(([updated, photos]) => setResult((current) => (
+                      current?.album_id === result.album_id ? { ...updated, photos } : current
+                    )))
+                    .catch(() => undefined);
+                }}
+                onCoverUpdated={(coverPhotoId, coverImageUrl) => {
+                  setResult((current) => current?.album_id === result.album_id
+                    ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url }
+                    : current);
+                }}
+              />
             }
           />
         ) : !category ? (

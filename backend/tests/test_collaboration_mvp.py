@@ -1,19 +1,139 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
 from app.services.collaboration_service import (
     MAX_BATCH_UPLOAD,
+    LIVING_APPEND_MEMORY_THRESHOLD,
+    LIVING_APPEND_PHOTO_THRESHOLD,
+    apply_selected_contributions,
     build_album_document_from_records,
+    rebuild_album,
     sanitize_memory_comment,
 )
 
 
+class _Query:
+    def __init__(self, responses: list[list[dict]] | None = None) -> None:
+        self.responses = list(responses or [])
+        self.updates: list[dict] = []
+
+    def update(self, value: dict):
+        self.updates.append(value)
+        return self
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def is_(self, *_args):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self.responses.pop(0) if self.responses else [{}])
+
+
+class _RebuildClient:
+    def __init__(self, lock_rows: list[dict]) -> None:
+        self.albums = _Query([lock_rows, [{}], [{}]])
+        self.photos = _Query([[]])
+
+    def table(self, name: str):
+        return self.albums if name == "albums" else self.photos
+
+
 class CollaborationServiceTests(unittest.TestCase):
     def test_batch_limit(self) -> None:
-        self.assertEqual(MAX_BATCH_UPLOAD, 10)
+        self.assertEqual(MAX_BATCH_UPLOAD, 30)
+
+    def test_rebuild_has_no_quota_and_preserves_the_previous_document(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        album = {
+            "id": "a1",
+            "dirty": True,
+            "album_version": 2,
+            "album_json": {"title": "이전 앨범"},
+            "album_version_history": {"1": {"title": "첫 앨범"}},
+            "collaboration_status": "collecting",
+        }
+        with patch("app.services.collaboration_service.list_photo_memories", return_value=[]):
+            result = rebuild_album(client, album, album_json={"title": "새 앨범"}, force=True)
+            second = rebuild_album(
+                client,
+                {
+                    **album,
+                    "album_version": result["album_version"],
+                    "album_json": result["album_json"],
+                    "album_version_history": {"1": {"title": "첫 앨범"}, "2": {"title": "이전 앨범"}},
+                    "dirty": True,
+                },
+                album_json={"title": "두 번째 새 앨범"},
+                force=True,
+            )
+
+        self.assertEqual(result["album_version"], 3)
+        self.assertEqual(second["album_version"], 4)
+        document_updates = [update for update in client.albums.updates if "album_json" in update]
+        document_update = document_updates[-1]
+        self.assertEqual(document_update["album_version_history"], {
+            "1": {"title": "첫 앨범"},
+            "2": {"title": "이전 앨범"},
+            "3": {"title": "새 앨범"},
+        })
+        self.assertIsNone(client.albums.updates[-1]["last_rebuild_started_at"])
+
+    def test_rebuild_rejects_only_an_in_progress_duplicate(self) -> None:
+        client = _RebuildClient(lock_rows=[])
+        with self.assertRaises(HTTPException) as raised:
+            rebuild_album(client, {"id": "a1", "dirty": True}, album_json={"title": "새 앨범"}, force=True)
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_selected_contributions_cannot_exceed_thirty_photos(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        existing = [
+            {
+                "id": f"owner-{index}",
+                "uploaded_by_contributor_id": "owner",
+                "created_at": "2026-07-01T00:00:00+00:00",
+                "status": "ready",
+            }
+            for index in range(28)
+        ]
+        incoming = [
+            {
+                "id": f"guest-{index}",
+                "uploaded_by_contributor_id": "guest",
+                "created_at": "2026-07-02T00:00:00+00:00",
+                "status": "ready",
+            }
+            for index in range(3)
+        ]
+        client.photos = _Query([existing + incoming])
+        album = {"id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30}
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album") as rebuild:
+            with self.assertRaises(HTTPException) as raised:
+                apply_selected_contributions(
+                    client,
+                    album,
+                    photo_ids={"guest-0", "guest-1", "guest-2"},
+                    memory_ids=set(),
+                )
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertIn("사진 30장", raised.exception.detail)
+        rebuild.assert_not_called()
 
     def test_build_document_groups_by_date_and_merges_undated(self) -> None:
         album = {"id": "a1", "title": "여행", "narrative": "우리 이야기"}
@@ -152,6 +272,126 @@ class CollaborationServiceTests(unittest.TestCase):
         self.assertEqual(len(memory_blocks), 1)
         self.assertEqual(len(memory_blocks[0]["segments"]), 3)
         self.assertEqual(memory_blocks[0]["segments"][0]["author"], "아빠")
+
+    def test_small_contributions_append_a_final_living_page(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        owner_photo = {
+            "id": "owner-1", "uploaded_by_contributor_id": "owner",
+            "created_at": "2026-07-01T00:00:00+00:00", "status": "ready", "sort_order": 0,
+        }
+        guest_photos = [
+            {
+                "id": f"guest-{index}", "uploaded_by_contributor_id": "guest",
+                "created_at": "2026-07-02T00:00:00+00:00", "status": "ready", "sort_order": index + 1,
+            }
+            for index in range(2)
+        ]
+        client.photos = _Query([[owner_photo, *guest_photos]])
+        album = {"id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30, "album_version": 1}
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album", return_value={"album_version": 2, "album_json": {}}):
+            result = apply_selected_contributions(client, album, photo_ids={"guest-0", "guest-1"}, memory_ids=set())
+
+        self.assertEqual(result["mode"], "append_page")
+        self.assertIsNotNone(result["append_page_id"])
+        living_update = next(update for update in client.albums.updates if "living_append_pages" in update)
+        self.assertEqual(len(living_update["living_append_pages"]), 1)
+        self.assertEqual(set(living_update["living_append_pages"][0]["photo_ids"]), {"guest-0", "guest-1"})
+
+    def test_many_contributions_default_to_a_new_edition(self) -> None:
+        self.assertEqual(LIVING_APPEND_PHOTO_THRESHOLD, 5)
+        self.assertEqual(LIVING_APPEND_MEMORY_THRESHOLD, 5)
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        owner_photo = {
+            "id": "owner-1", "uploaded_by_contributor_id": "owner",
+            "created_at": "2026-07-01T00:00:00+00:00", "status": "ready", "sort_order": 0,
+        }
+        guest_photos = [
+            {
+                "id": f"guest-{index}", "uploaded_by_contributor_id": "guest",
+                "created_at": "2026-07-02T00:00:00+00:00", "status": "ready", "sort_order": index + 1,
+            }
+            for index in range(20)
+        ]
+        client.photos = _Query([[owner_photo, *guest_photos]])
+        album = {
+            "id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30,
+            "album_version": 4, "cover_photo_id": "owner-1",
+        }
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album", return_value={"album_version": 5, "album_json": {}}):
+            result = apply_selected_contributions(
+                client, album, photo_ids={photo["id"] for photo in guest_photos}, memory_ids=set()
+            )
+
+        self.assertEqual(result["mode"], "edition")
+        self.assertEqual(result["previous_edition"], 4)
+        living_update = next(update for update in client.albums.updates if "living_append_pages" in update)
+        self.assertEqual(living_update["living_append_pages"], [])
+        self.assertEqual(living_update["cover_photo_id"], "owner-1")
+
+    def test_explicit_append_mode_can_be_selected_for_many_items(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        owner_photo = {
+            "id": "owner-1", "uploaded_by_contributor_id": "owner",
+            "created_at": "2026-07-01T00:00:00+00:00", "status": "ready", "sort_order": 0,
+        }
+        guests = [
+            {
+                "id": f"guest-{index}", "uploaded_by_contributor_id": "guest",
+                "created_at": "2026-07-02T00:00:00+00:00", "status": "ready", "sort_order": index + 1,
+            }
+            for index in range(6)
+        ]
+        client.photos = _Query([[owner_photo, *guests]])
+        album = {"id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30, "album_version": 1}
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album", return_value={"album_version": 2, "album_json": {}}):
+            result = apply_selected_contributions(
+                client, album, photo_ids={guest["id"] for guest in guests}, memory_ids=set(), mode="append_page"
+            )
+
+        self.assertEqual(result["mode"], "append_page")
+
+    def test_explicit_edition_mode_can_be_selected_for_small_items(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        owner = {"id": "owner", "uploaded_by_contributor_id": "owner", "created_at": "2026-07-01T00:00:00+00:00", "status": "ready", "sort_order": 0}
+        guest = {"id": "guest", "uploaded_by_contributor_id": "guest", "created_at": "2026-07-02T00:00:00+00:00", "status": "ready", "sort_order": 1}
+        client.photos = _Query([[owner, guest]])
+        album = {"id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30, "album_version": 3}
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album", return_value={"album_version": 4, "album_json": {}}):
+            result = apply_selected_contributions(client, album, photo_ids={"guest"}, memory_ids=set(), mode="edition")
+
+        self.assertEqual(result["mode"], "edition")
+        self.assertEqual(result["previous_edition"], 3)
+
+    def test_new_edition_snapshot_keeps_the_previous_document_and_append_page(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        album = {
+            "id": "a1", "dirty": True, "album_version": 2,
+            "album_json": {"chapters": [{"photos": [{"id": "old-photo"}]}]},
+            "living_append_pages": [{"id": "page-1", "photo_ids": ["guest-photo"], "memory_ids": []}],
+            "album_version_history": {},
+        }
+        with patch("app.services.collaboration_service.list_photo_memories", return_value=[]):
+            rebuild_album(
+                client,
+                album,
+                album_json={"chapters": [{"photos": [{"id": "old-photo"}, {"id": "guest-photo"}]}]},
+                force=True,
+                history_append_pages=album["living_append_pages"],
+            )
+
+        update = next(item for item in client.albums.updates if "album_version_history" in item)
+        self.assertEqual(update["album_version_history"]["2"], {
+            "document": album["album_json"],
+            "append_pages": album["living_append_pages"],
+        })
 
 
 if __name__ == "__main__":

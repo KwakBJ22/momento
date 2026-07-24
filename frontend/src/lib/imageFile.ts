@@ -51,6 +51,28 @@ export function filterImageFiles(files: FileList | File[] | null | undefined): {
 }
 
 /**
+ * Copy a picker FileList before the input is reset.
+ * Some mobile WebViews expose a live FileList which becomes empty after
+ * `input.value = ""`, even when the async preparation work has started.
+ */
+export function snapshotSelectedFiles(files: FileList | null | undefined): File[] {
+  return files ? Array.from(files) : [];
+}
+
+/** Keep picker order while reporting photo-limit overflow to the caller. */
+export function limitSelectedPhotos(
+  files: File[],
+  maxPhotos: number,
+  existingCount = 0,
+): { accepted: File[]; skipped: number } {
+  const remaining = Math.max(0, maxPhotos - existingCount);
+  return {
+    accepted: files.slice(0, remaining),
+    skipped: Math.max(0, files.length - remaining),
+  };
+}
+
+/**
  * Visually hide file input without `hidden`/`display:none`,
  * which can break programmatic .click() on some iOS WebViews.
  */
