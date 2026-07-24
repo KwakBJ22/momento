@@ -298,28 +298,11 @@ def _batch_profile_names(client: Client, profile_ids: list[str]) -> dict[str, st
 
 
 def _batch_owner_emails(client: Client, profile_ids: list[str]) -> dict[str, str | None]:
-    wanted = {profile_id for profile_id in dict.fromkeys(profile_ids) if profile_id}
-    if not wanted:
+    unique = list(dict.fromkeys(profile_id for profile_id in profile_ids if profile_id))
+    if not unique:
         return {}
-    found: dict[str, str | None] = {profile_id: None for profile_id in wanted}
-    page = 1
-    while wanted and page <= 20:
-        try:
-            listing = client.auth.admin.list_users(page=page, per_page=200)
-        except Exception:
-            break
-        users = getattr(listing, "users", None) or []
-        for user in users:
-            user_id = str(getattr(user, "id", "") or "")
-            if user_id not in wanted:
-                continue
-            email = getattr(user, "email", None)
-            found[user_id] = email.strip().lower() if isinstance(email, str) and email.strip() else None
-            wanted.discard(user_id)
-        if len(users) < 200:
-            break
-        page += 1
-    for profile_id in wanted:
+    found: dict[str, str | None] = {}
+    for profile_id in unique:
         found[profile_id] = _safe_email(client, profile_id)
     return found
 
