@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
+import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
@@ -10,9 +10,10 @@ import { useKakaoSdk } from "../hooks/useKakaoSdk";
 
 import CollaborationPanel from "./CollaborationPanel";
 
+import { coverLineForCategory, normalizeTemplateType } from "../types";
 import type { AlbumPhoto, AlbumResult } from "../types";
 
-import { coverLineForCategory, normalizeTemplateType } from "../types";
+import { visibleChapterStories } from "../lib/storyRules";
 
 import "./AlbumResult.css";
 
@@ -32,6 +33,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [album, setAlbum] = useState<AlbumResult | null>(null);
 
   const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
+  const [livingAppendPages, setLivingAppendPages] = useState<import("../types").LivingAppendPage[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [photosReady, setPhotosReady] = useState(false);
@@ -50,6 +52,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   useEffect(() => {
     const controller = new AbortController();
     setPhotosReady(false);
+    setLivingAppendPages([]);
     setError(null);
     setLoadedAlbumId(null);
     setPublicShareUrl("");
@@ -77,13 +80,36 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     return () => controller.abort();
   }, [albumId, loadedKey, requestedEdition, retryKey]);
 
+  useEffect(() => {
+    if (!photosReady || !album) return;
+    const pageCount =
+      album.current_edition?.living_append_page_count ??
+      album.living_append_pages?.length ??
+      0;
+    if (pageCount <= 0) {
+      setLivingAppendPages([]);
+      return;
+    }
+    const controller = new AbortController();
+    void getAlbumLivingAppendPages(albumId, requestedEdition, controller.signal)
+      .then((pages) => {
+        if (!controller.signal.aborted) setLivingAppendPages(pages);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLivingAppendPages([]);
+      });
+    return () => controller.abort();
+  }, [album, albumId, photosReady, requestedEdition]);
 
+  const chapterStories = useMemo(
+    () => visibleChapterStories(album?.chapter_stories, photos),
+    [album?.chapter_stories, photos],
+  );
 
   const handlePdf = async () => {
 
-    if (!displayAlbum && !album) return;
-    const source = displayAlbum ?? album;
-    if (!source) return;
+    if (!album) return;
+    const source = album;
 
     setIsExportingPdf(true);
 
@@ -106,9 +132,9 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         category: source.category,
 
         templateType: source.template_type,
-        chapterStories: source.chapter_stories,
+        chapterStories: visibleChapterStories(source.chapter_stories, photos),
         coverPhotoId: source.cover_photo_id,
-        livingAppendPages: source.living_append_pages,
+        livingAppendPages,
 
       });
 
@@ -322,7 +348,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
               epilogue={epilogue}
 
               coverDateLabel={displayAlbum?.date}
-              chapterStories={displayAlbum?.chapter_stories}
+              chapterStories={chapterStories}
 
               category={category}
 
@@ -330,7 +356,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               albumId={displayAlbum?.album_id ?? albumId}
               coverPhotoId={displayAlbum?.cover_photo_id}
-              livingAppendPages={displayAlbum?.living_append_pages}
+              livingAppendPages={livingAppendPages}
 
               mode="screen"
 

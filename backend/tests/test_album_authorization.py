@@ -205,7 +205,9 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(delete_response.status_code, 404)
 
     def test_public_link_can_read_but_not_edit_or_delete(self) -> None:
-        with patch("app.api.album.get_album_record", return_value=album_record()):
+        with patch("app.api.album.get_album_detail_light_record", return_value=album_record()), patch(
+            "app.api.album.count_ready_album_photos", return_value=0
+        ), patch("app.api.album.count_album_photo_memories", return_value=0):
             get_response = self.client.get(f"/api/albums/{ALBUM_ID}")
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
             delete_response = self.client.delete(f"/api/albums/{ALBUM_ID}")

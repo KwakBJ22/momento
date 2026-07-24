@@ -160,9 +160,11 @@ class MembershipApiTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_public_link_can_read_but_not_edit(self) -> None:
-        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+        with patch("app.api.album.get_album_detail_light_record", return_value=album_record()), patch(
             "app.api.album.get_public_url", return_value="https://cdn.example/album.png"
-        ), patch("app.api.album.get_album_media_records", return_value=[]):
+        ), patch("app.api.album.count_ready_album_photos", return_value=0), patch(
+            "app.api.album.count_album_photo_memories", return_value=0
+        ):
             get_response = self.client.get(f"/api/albums/{ALBUM_ID}")
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Hack"})
 

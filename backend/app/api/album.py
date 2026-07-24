@@ -13,6 +13,8 @@ from app.models.album_styles import layout_for_template_type, normalize_template
 from app.models.categories import ALBUM_CATEGORIES, meeting_type_for_category, normalize_category
 from app.models.schemas import (
     AlbumDetailResponse,
+    LivingAppendPagesResponse,
+    CurrentEditionSummary,
     MyAlbumListItem,
     MyAlbumsResponse,
     AlbumPdfUrlResponse,
@@ -50,6 +52,11 @@ from app.services.supabase import (
     delete_storage_paths,
     ensure_default_family,
     get_album_record,
+    get_album_detail_light_record,
+    get_album_detail_edition_record,
+    count_ready_album_photos,
+    count_album_photo_memories,
+    get_album_photo_records_by_ids,
     get_pending_guest_memory_counts,
     get_album_story_inputs,
     get_album_photo_records,
@@ -965,22 +972,29 @@ def _living_append_payload(
     return payload
 
 
-def _record_to_detail(
-    record: dict[str, Any], settings: Settings, client: Any, edition: int | None = None,
+def _living_append_page_count(record: dict[str, Any], edition: int | None) -> int:
+    _, append_pages = _edition_document_and_pages(record, edition)
+    return len(append_pages)
+
+
+def _detail_from_record(
+    record: dict[str, Any],
+    settings: Settings,
+    client: Any,
+    *,
+    edition: int | None,
+    current_edition: CurrentEditionSummary,
+    living_append_pages: list[dict[str, Any]] | None = None,
 ) -> AlbumDetailResponse:
     album_id = str(record["id"])
     image_url = get_public_url(client, record["result_path"], settings) if record.get("result_path") else ""
     epilogue = str(record.get("epilogue") or record.get("narrative") or "").strip()
-    all_photos = get_album_photo_records(client, album_id)
-    document, append_pages = _edition_document_and_pages(record, edition)
-    document_photo_ids = album_document_photo_ids(document)
-    photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
-    memories = list_photo_memories(client, album_id)
-    signed_urls = _batch_signed_urls_for_photos(client, settings, photos)
-    cover_photo_id, cover_image_url = _cover_image_url(client, settings, record, photos)
-    chapter_stories = visible_date_stories(
-        record.get("chapter_stories"),
-        photos,
+    cover_photo_id = record.get("cover_photo_id")
+    raw_stories = record.get("chapter_stories")
+    chapter_stories = (
+        {str(key): str(value).strip() for key, value in raw_stories.items() if str(value).strip()}
+        if isinstance(raw_stories, dict)
+        else {}
     )
     return AlbumDetailResponse(
         album_id=UUID(album_id),
@@ -994,19 +1008,97 @@ def _record_to_detail(
         epilogue=epilogue,
         chapter_stories=chapter_stories,
         image_url=image_url,
-        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
-        cover_image_url=cover_image_url,
-        # /album/{id} is the authenticated album-management route.  It must
-        # never be exposed as a public share URL because in-app browsers do
-        # not have the owner's authentication session.
+        cover_photo_id=UUID(str(cover_photo_id)) if cover_photo_id else None,
+        cover_image_url=None,
         share_url="",
         created_at=record["created_at"],
-        media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
+        media=[],
         album_version=int(record.get("album_version") or 0),
-        living_append_pages=_living_append_payload(client, settings, append_pages, all_photos, memories, signed_urls=signed_urls),
+        living_append_pages=list(living_append_pages or []),
+        current_edition=current_edition,
         edition_previous=_previous_edition_number(record, edition),
         edition_is_latest=edition is None and bool(record.get("living_latest_edition_previous") is not None),
         saved=True,
+    )
+
+
+def _edition_photo_count(client: Any, record: dict[str, Any], edition: int) -> int:
+    document, _ = _edition_document_and_pages(record, edition)
+    document_photo_ids = album_document_photo_ids(document)
+    if document_photo_ids:
+        return len(document_photo_ids)
+    return count_ready_album_photos(client, str(record["id"]))
+
+
+def _record_to_detail_light(
+    record: dict[str, Any],
+    settings: Settings,
+    client: Any,
+    *,
+    edition: int | None,
+    photo_count: int,
+    memory_count: int,
+) -> AlbumDetailResponse:
+    living_count = _living_append_page_count(record, edition)
+    return _detail_from_record(
+        record,
+        settings,
+        client,
+        edition=edition,
+        current_edition=CurrentEditionSummary(
+            photo_count=photo_count,
+            memory_count=memory_count,
+            living_append_page_count=living_count,
+        ),
+        living_append_pages=[],
+    )
+
+
+def _signed_living_append_pages(
+    client: Any,
+    settings: Settings,
+    record: dict[str, Any],
+    album_id: str,
+    edition: int | None,
+) -> list[dict[str, Any]]:
+    _, append_pages = _edition_document_and_pages(record, edition)
+    if not append_pages:
+        return []
+    photo_ids: list[str] = []
+    memory_ids: set[str] = set()
+    for page in append_pages:
+        if not isinstance(page, dict):
+            continue
+        photo_ids.extend(str(photo_id) for photo_id in (page.get("photo_ids") or []))
+        memory_ids.update(str(memory_id) for memory_id in (page.get("memory_ids") or []))
+    photos = get_album_photo_records_by_ids(client, album_id, photo_ids)
+    memories = [
+        memory
+        for memory in list_photo_memories(client, album_id)
+        if str(memory.get("id") or "") in memory_ids
+    ] if memory_ids else []
+    signed_urls = _batch_signed_urls_for_photos(client, settings, photos)
+    return _living_append_payload(client, settings, append_pages, photos, memories, signed_urls=signed_urls)
+
+
+def _record_to_detail(
+    record: dict[str, Any], settings: Settings, client: Any, edition: int | None = None,
+) -> AlbumDetailResponse:
+    """Legacy full detail builder; PATCH responses use the lightweight shape."""
+    album_id = str(record["id"])
+    photo_count = (
+        _edition_photo_count(client, record, edition)
+        if edition is not None
+        else count_ready_album_photos(client, album_id)
+    )
+    memory_count = count_album_photo_memories(client, album_id)
+    return _record_to_detail_light(
+        record,
+        settings,
+        client,
+        edition=edition,
+        photo_count=photo_count,
+        memory_count=memory_count,
     )
 
 
@@ -1060,13 +1152,85 @@ async def get_my_album_covers(
 
 
 @router.get("/albums/{album_id}", response_model=AlbumDetailResponse)
-async def get_album(album_id: str, edition: int | None = None) -> AlbumDetailResponse:
+async def get_album(
+    album_id: str,
+    response: Response,
+    edition: int | None = None,
+) -> AlbumDetailResponse:
+    started_at = time.perf_counter()
     settings = get_settings()
     client = get_supabase_client(settings)
-    record = get_album_record(client, album_id)
+    if edition is not None:
+        record = await asyncio.to_thread(get_album_detail_edition_record, client, album_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+        photo_count = await asyncio.to_thread(_edition_photo_count, client, record, edition)
+        memory_count = await asyncio.to_thread(count_album_photo_memories, client, album_id)
+        detail = _record_to_detail_light(
+            record,
+            settings,
+            client,
+            edition=edition,
+            photo_count=photo_count,
+            memory_count=memory_count,
+        )
+    else:
+        record, photo_count, memory_count = await asyncio.gather(
+            asyncio.to_thread(get_album_detail_light_record, client, album_id),
+            asyncio.to_thread(count_ready_album_photos, client, album_id),
+            asyncio.to_thread(count_album_photo_memories, client, album_id),
+        )
+        if not record:
+            raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+        detail = _record_to_detail_light(
+            record,
+            settings,
+            client,
+            edition=None,
+            photo_count=photo_count,
+            memory_count=memory_count,
+        )
+    duration_ms = round((time.perf_counter() - started_at) * 1000)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"
+    logger.info(
+        "album_detail_completed album_id=%s edition=%s duration_ms=%s light=true",
+        album_id,
+        edition,
+        duration_ms,
+    )
+    return detail
+
+
+@router.get("/albums/{album_id}/living-append-pages", response_model=LivingAppendPagesResponse)
+async def get_album_living_append_pages(
+    album_id: str,
+    edition: int | None = None,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> LivingAppendPagesResponse:
+    """Signed Living Album append pages; loaded after the main album screen."""
+    started_at = time.perf_counter()
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = await asyncio.to_thread(
+        get_album_detail_edition_record if edition is not None else get_album_detail_light_record,
+        client,
+        album_id,
+    )
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    return _record_to_detail(record, settings, client, edition)
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_read(access)
+    pages = await asyncio.to_thread(_signed_living_append_pages, client, settings, record, album_id, edition)
+    duration_ms = round((time.perf_counter() - started_at) * 1000)
+    logger.info(
+        "album_living_append_completed album_id=%s edition=%s page_count=%s duration_ms=%s",
+        album_id,
+        edition,
+        len(pages),
+        duration_ms,
+    )
+    return LivingAppendPagesResponse(living_append_pages=pages)
 
 
 @router.patch("/albums/{album_id}/cover-photo", response_model=AlbumCoverPhotoResponse)

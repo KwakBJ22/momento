@@ -161,6 +161,11 @@ export interface AlbumResult {
   saved?: boolean;
   album_version?: number;
   living_append_pages?: LivingAppendPage[];
+  current_edition?: {
+    photo_count: number;
+    memory_count: number;
+    living_append_page_count: number;
+  };
   edition_previous?: number | null;
   edition_is_latest?: boolean;
 }

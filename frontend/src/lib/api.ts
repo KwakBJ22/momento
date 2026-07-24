@@ -141,6 +141,24 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
   return { narrative: generated.epilogue };
 }
 
+export async function getAlbumLivingAppendPages(
+  albumId: string,
+  edition?: number | null,
+  signal?: AbortSignal,
+): Promise<import("../types").LivingAppendPage[]> {
+  const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
+  const key = `album-living:${albumId}:${edition ?? "latest"}`;
+  return dedupeRequest(key, async () => {
+    const response = await authenticatedFetch(`/api/albums/${albumId}/living-append-pages${suffix}`, {
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok) throw new Error(await parseError(response));
+    const body = (await response.json()) as { living_append_pages?: import("../types").LivingAppendPage[] };
+    return body.living_append_pages ?? [];
+  });
+}
+
 export async function getAlbumPhotos(albumId: string, edition?: number | null, signal?: AbortSignal): Promise<import("../types").AlbumPhoto[]> {
   const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
   const key = `album-photos:${albumId}:${edition ?? "latest"}`;

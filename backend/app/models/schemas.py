@@ -86,6 +86,12 @@ class AlbumUploadResponse(BaseModel):
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
 
 
+class CurrentEditionSummary(BaseModel):
+    photo_count: int = 0
+    memory_count: int = 0
+    living_append_page_count: int = 0
+
+
 class AlbumDetailResponse(BaseModel):
     """공유 링크(/album/{id}) 페이지용 앨범 상세."""
 
@@ -108,8 +114,13 @@ class AlbumDetailResponse(BaseModel):
     saved: bool = True
     album_version: int = 0
     living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
+    current_edition: CurrentEditionSummary = Field(default_factory=CurrentEditionSummary)
     edition_previous: int | None = None
     edition_is_latest: bool = False
+
+
+class LivingAppendPagesResponse(BaseModel):
+    living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class MyAlbumListItem(BaseModel):

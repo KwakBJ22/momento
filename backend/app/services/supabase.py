@@ -200,6 +200,95 @@ def get_album_record(client: Client, album_id: str) -> dict[str, Any] | None:
     return data[0] if data else None
 
 
+ALBUM_DETAIL_LIGHT_COLUMNS = (
+    "id,meeting_type,category,template,template_type,title,event_date,"
+    "epilogue,narrative,chapter_stories,result_path,cover_photo_id,created_at,"
+    "album_version,living_latest_edition_previous,living_append_pages"
+)
+
+
+def get_album_detail_light_record(client: Client, album_id: str) -> dict[str, Any] | None:
+    result = (
+        client.table("albums")
+        .select(ALBUM_DETAIL_LIGHT_COLUMNS)
+        .eq("id", album_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    data = result.data or []
+    return data[0] if data else None
+
+
+def get_album_detail_edition_record(client: Client, album_id: str) -> dict[str, Any] | None:
+    columns = f"{ALBUM_DETAIL_LIGHT_COLUMNS},album_version_history"
+    result = (
+        client.table("albums")
+        .select(columns)
+        .eq("id", album_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    data = result.data or []
+    return data[0] if data else None
+
+
+def count_ready_album_photos(client: Client, album_id: str) -> int:
+    result = (
+        client.table("album_photos")
+        .select("id", count="exact")
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .eq("status", "ready")
+        .limit(0)
+        .execute()
+    )
+    return int(result.count or 0)
+
+
+def count_album_photo_memories(client: Client, album_id: str) -> int:
+    result = (
+        client.table("photo_memories")
+        .select("id", count="exact")
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .limit(0)
+        .execute()
+    )
+    return int(result.count or 0)
+
+
+def get_album_photo_records_by_ids(
+    client: Client, album_id: str, photo_ids: list[str],
+) -> list[dict[str, Any]]:
+    unique_ids = sorted({str(photo_id) for photo_id in photo_ids if photo_id})
+    if not unique_ids:
+        return []
+    result = (
+        client.table("album_photos")
+        .select(
+            "id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, "
+            "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height, "
+            "uploaded_by_contributor_id, created_at"
+        )
+        .eq("album_id", album_id)
+        .in_("id", unique_ids)
+        .is_("deleted_at", "null")
+        .eq("status", "ready")
+        .execute()
+    )
+    rows = result.data or []
+    rows.sort(
+        key=lambda row: (
+            row.get("taken_at") is None,
+            str(row.get("taken_at") or ""),
+            int(row.get("sort_order") or 0),
+        )
+    )
+    return rows
+
+
 def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, Any]]:
     """Return only albums created by this profile, including legacy owner rows."""
     result = (
