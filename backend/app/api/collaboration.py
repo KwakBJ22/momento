@@ -467,6 +467,15 @@ async def apply_contributions(
         "applied_memory_count": len(memory_ids),
         "mode": result["mode"],
     })
+    living_event = "living_page_appended" if result["mode"] == "append_page" else "edition_created"
+    log_event(client, living_event, album_id=album_id, metadata={
+        "owner_id": authenticated_user_id,
+        "photo_count": len(photo_ids),
+        "memory_count": len(memory_ids),
+        "selected_mode": result["mode"],
+        "previous_edition": previous_version,
+        "new_edition": int(result["album_version"]),
+    })
     return {
         "status": "completed",
         "album_id": album_id,

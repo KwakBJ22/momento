@@ -299,6 +299,37 @@ class CollaborationServiceTests(unittest.TestCase):
         self.assertEqual(len(living_update["living_append_pages"]), 1)
         self.assertEqual(set(living_update["living_append_pages"][0]["photo_ids"]), {"guest-0", "guest-1"})
 
+    def test_living_pages_accumulate_across_multiple_small_updates(self) -> None:
+        client = _RebuildClient(lock_rows=[{"id": "a1"}])
+        owner = {"id": "owner", "uploaded_by_contributor_id": "owner", "created_at": "2026-07-01T00:00:00+00:00", "status": "ready", "sort_order": 0}
+        first = {"id": "guest-1", "uploaded_by_contributor_id": "guest", "created_at": "2026-07-02T00:00:00+00:00", "status": "ready", "sort_order": 1}
+        second = {"id": "guest-2", "uploaded_by_contributor_id": "guest", "created_at": "2026-07-03T00:00:00+00:00", "status": "ready", "sort_order": 2}
+        album = {"id": "a1", "created_at": "2026-07-01T00:00:00+00:00", "photo_limit": 30, "album_version": 1}
+        with patch("app.services.collaboration_service.list_contributors", return_value=[{"id": "owner", "role": "owner"}]), patch(
+            "app.services.collaboration_service.list_photo_memories", return_value=[]
+        ), patch("app.services.collaboration_service.rebuild_album", return_value={"album_version": 2, "album_json": {}}):
+            client.photos = _Query([[owner, first]])
+            first_result = apply_selected_contributions(client, album, photo_ids={"guest-1"}, memory_ids=set())
+            first_pages = next(update for update in client.albums.updates if "living_append_pages" in update)["living_append_pages"]
+            client.photos = _Query([[owner, first, second]])
+            apply_selected_contributions(
+                client,
+                {
+                    **album,
+                    "album_version": 2,
+                    "album_json": {},
+                    "living_append_pages": first_pages,
+                    "applied_contribution_photo_ids": ["guest-1"],
+                },
+                photo_ids={"guest-2"},
+                memory_ids=set(),
+            )
+
+        updates = [update for update in client.albums.updates if "living_append_pages" in update]
+        self.assertEqual(len(updates[-1]["living_append_pages"]), 2)
+        self.assertEqual(updates[-1]["living_append_pages"][0]["id"], first_result["append_page_id"])
+        self.assertEqual(updates[-1]["living_append_pages"][1]["photo_ids"], ["guest-2"])
+
     def test_many_contributions_default_to_a_new_edition(self) -> None:
         self.assertEqual(LIVING_APPEND_PHOTO_THRESHOLD, 5)
         self.assertEqual(LIVING_APPEND_MEMORY_THRESHOLD, 5)

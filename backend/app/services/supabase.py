@@ -213,6 +213,97 @@ def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, 
     return result.data or []
 
 
+def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    """Return the minimal, newest-first fields needed by the customer album list."""
+    result = (
+        client.table("albums")
+        .select("id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous")
+        .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
+        .is_("deleted_at", "null")
+        .order("updated_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
+def list_album_photo_list_summaries(client: Client, album_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch only IDs and ordering for list counts and legacy cover fallback in one query."""
+    if not album_ids:
+        return []
+    result = (
+        client.table("album_photos")
+        .select("album_id, id, sort_order")
+        .in_("album_id", album_ids)
+        .is_("deleted_at", "null")
+        .eq("status", "ready")
+        .order("album_id")
+        .order("sort_order")
+        .execute()
+    )
+    return result.data or []
+
+
+def list_owned_album_cover_records(
+    client: Client,
+    profile_id: str,
+    album_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Read only owned album cover IDs for the asynchronous cover-image request."""
+    if not album_ids:
+        return []
+    result = (
+        client.table("albums")
+        .select("id, cover_photo_id")
+        .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
+        .in_("id", album_ids)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    return result.data or []
+
+
+def list_album_photo_cover_records(client: Client, album_ids: list[str], photo_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch the selected covers' storage paths in one query, never one query per album."""
+    if not album_ids or not photo_ids:
+        return []
+    result = (
+        client.table("album_photos")
+        .select("album_id, id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path")
+        .in_("album_id", album_ids)
+        .in_("id", photo_ids)
+        .is_("deleted_at", "null")
+        .eq("status", "ready")
+        .execute()
+    )
+    return result.data or []
+
+
+def get_signed_urls_batch(client: Client, assets: list[dict[str, Any]], expires_in: int) -> dict[tuple[str, str], str]:
+    """Create cover URLs per storage bucket instead of one storage request per album."""
+    paths_by_bucket: dict[str, list[str]] = {}
+    for asset in assets:
+        bucket = str(asset.get("thumbnail_bucket") or asset.get("storage_bucket") or "").strip()
+        path = str(asset.get("thumbnail_path") or asset.get("storage_path") or "").strip()
+        if bucket and path:
+            paths_by_bucket.setdefault(bucket, []).append(path)
+
+    signed_urls: dict[tuple[str, str], str] = {}
+    for bucket, paths in paths_by_bucket.items():
+        try:
+            rows = client.storage.from_(bucket).create_signed_urls(paths, expires_in)
+        except Exception:
+            continue
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+            path = str(row.get("path") or "")
+            url = str(row.get("signedURL") or row.get("signedUrl") or "")
+            if path and url:
+                signed_urls[(bucket, path)] = url
+    return signed_urls
+
+
 def get_pending_guest_memory_counts(client: Client, album_ids: list[str]) -> dict[str, int]:
     """Count submitted guest memories that have not yet been claimed."""
     if not album_ids:

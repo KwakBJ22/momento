@@ -2,12 +2,34 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from postgrest.exceptions import APIError
 from supabase import Client
+
+logger = logging.getLogger(__name__)
+
+_admin_kpi_rpc_missing_warned = False
+
+
+def _admin_kpi_rpc_not_installed(exc: APIError) -> bool:
+    code = str(getattr(exc, "code", "") or "")
+    if code == "PGRST202":
+        return True
+    message = str(getattr(exc, "message", "") or exc).lower()
+    return "admin_album_kpi_summary" in message and "could not find the function" in message
+
+
+def _warn_admin_kpi_rpc_missing_once() -> None:
+    global _admin_kpi_rpc_missing_warned
+    if _admin_kpi_rpc_missing_warned:
+        return
+    _admin_kpi_rpc_missing_warned = True
+    logger.warning("Admin KPI RPC is not installed.\nUsing Python fallback.")
 
 
 def _parse_ts(value: Any) -> datetime | None:
@@ -117,6 +139,10 @@ def fetch_admin_album_kpi_summary(client: Client) -> dict[str, Any]:
     """Single SQL aggregate for growth/investor dashboards (see admin_album_kpi_summary RPC)."""
     try:
         payload = client.rpc("admin_album_kpi_summary").execute().data
+    except APIError as exc:
+        if _admin_kpi_rpc_not_installed(exc):
+            _warn_admin_kpi_rpc_missing_once()
+        return {}
     except Exception:
         return {}
     if isinstance(payload, dict):

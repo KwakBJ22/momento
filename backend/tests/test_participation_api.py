@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.collaboration import router
@@ -59,3 +59,51 @@ class AlbumParticipationApiTests(TestCase):
         ])
         self.assertEqual(body["recommended_mode"], "append_page")
         self.ensure_owner.assert_called_once_with(self.db, {"id": ALBUM_ID, "created_at": "2026-07-23T09:00:00+00:00", "created_by": HOST_ID}, HOST_ID)
+
+    def test_successful_append_records_one_living_event(self) -> None:
+        with (
+            patch(
+                "app.api.collaboration.apply_selected_contributions",
+                return_value={
+                    "applied_count": 2,
+                    "last_applied_at": "2026-07-24T10:00:00+00:00",
+                    "album_version": 3,
+                    "mode": "append_page",
+                    "append_page_id": "page-1",
+                    "previous_edition": None,
+                },
+            ),
+            patch("app.api.collaboration.log_event") as log_event,
+        ):
+            response = self.client.post(
+                f"/api/albums/{ALBUM_ID}/apply-contributions",
+                json={"photo_ids": ["photo-2"], "memory_ids": ["memory-1"], "mode": "append_page"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        event_names = [call.args[1] for call in log_event.call_args_list]
+        self.assertEqual(event_names.count("living_page_appended"), 1)
+        self.assertNotIn("edition_created", event_names)
+        living_call = next(call for call in log_event.call_args_list if call.args[1] == "living_page_appended")
+        self.assertEqual(living_call.kwargs["metadata"]["selected_mode"], "append_page")
+        self.assertEqual(living_call.kwargs["metadata"]["photo_count"], 1)
+        self.assertEqual(living_call.kwargs["metadata"]["memory_count"], 1)
+
+    def test_failed_apply_does_not_record_a_living_success_event(self) -> None:
+        with (
+            patch(
+                "app.api.collaboration.apply_selected_contributions",
+                side_effect=HTTPException(status_code=409, detail="Already in progress."),
+            ),
+            patch("app.api.collaboration.log_event") as log_event,
+        ):
+            response = self.client.post(
+                f"/api/albums/{ALBUM_ID}/apply-contributions",
+                json={"photo_ids": ["photo-2"], "mode": "append_page"},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        event_names = [call.args[1] for call in log_event.call_args_list]
+        self.assertEqual(event_names.count("album_rebuild_failed"), 1)
+        self.assertNotIn("living_page_appended", event_names)
+        self.assertNotIn("edition_created", event_names)

@@ -202,4 +202,9 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  .album-living-page__new,
+  .album-renderer__brand-footer a {
+    display: none !important;
+  }
 }

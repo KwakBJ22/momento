@@ -77,7 +77,9 @@ async function copyPublicLink(value: string): Promise<void> {
 }
 
 export default function PublicShareView({ token }: PublicShareViewProps) {
-  const initialCache = readPublicShareCache(token);
+  const editionValue = new URLSearchParams(window.location.search).get("edition");
+  const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
+  const initialCache = requestedEdition === null ? readPublicShareCache(token) : null;
   const [album, setAlbum] = useState<PublicShareAlbum | null>(() => initialCache?.album ?? null);
   const [albumLoading, setAlbumLoading] = useState(() => !initialCache);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   useEffect(() => {
     const startedAt = performance.now();
     let active = true;
-    const cached = readPublicShareCache(token);
+    const cached = requestedEdition === null ? readPublicShareCache(token) : null;
     const hasCachedAlbum = Boolean(cached);
     setAlbumLoading(!hasCachedAlbum);
     if (cached) {
@@ -118,7 +120,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     setNameAction(canRestoreContribution ? null : cached?.nameAction ?? null);
     setContributionError(null);
     setShareMessage(null);
-    void getPublicShare(token).then((data) => {
+    void getPublicShare(token, requestedEdition).then((data) => {
       if (!active) return;
       debugTiming("public album API response", startedAt);
       setAlbum((current) => reconcilePublicShareAlbum(current, data));
@@ -137,12 +139,12 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
       setAlbumLoading(false);
     });
     return () => { active = false; };
-  }, [token, retryKey]);
+  }, [token, retryKey, requestedEdition]);
 
   useEffect(() => {
     if (!album || loadedToken !== token) return;
-    savePublicShareCache(token, album, contributionAction, nameAction);
-  }, [album, contributionAction, loadedToken, nameAction, token]);
+    if (requestedEdition === null) savePublicShareCache(token, album, contributionAction, nameAction);
+  }, [album, contributionAction, loadedToken, nameAction, token, requestedEdition]);
 
   useEffect(() => {
     if ((!contributionAction && !nameAction) || !contributionAlbumId) return;
@@ -252,7 +254,8 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
 
   if (error) return <div className="album-result"><h2 className="album-result__title">공유 앨범을 불러오지 못했어요.</h2><p>{error}</p><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
   if (albumLoading || !album || loadedToken !== token) return <p className="auth-panel__notice">앨범을 불러오는 중...</p>;
-  if (!photos.length) return <div className="album-result"><h2 className="album-result__title">앨범 사진을 불러오지 못했습니다.</h2><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
+  // Empty legacy albums and memory-only Living Albums are valid responses.
+  if (!Array.isArray(album.photos)) return <div className="album-result"><h2 className="album-result__title">앨범 사진을 불러오지 못했습니다.</h2><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
   const epilogue = (album.epilogue ?? album.narrative ?? "").trim();
 
   return <div className="album-page public-share">
@@ -261,6 +264,11 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
         <h2 className="album-result__title">{album.title}</h2>
         <p className="album-result__subtitle">함께 만든 추억 앨범</p>
       </header>
+      {album.edition_is_latest === false ? (
+        <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p>
+      ) : album.edition_previous ? (
+        <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p>
+      ) : null}
       <div className="album-result__stage">
         <AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} />
       </div>

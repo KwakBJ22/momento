@@ -116,11 +116,13 @@ class MyAlbumListItem(BaseModel):
     album_id: UUID
     title: str
     created_at: datetime
+    updated_at: datetime | None = None
     image_url: str
     cover_photo_id: UUID | None = None
     cover_image_url: str | None = None
     photo_count: int = 0
     new_memory_count: int = 0
+    is_latest_edition: bool = True
 
 
 class MyAlbumsResponse(BaseModel):
@@ -213,6 +215,8 @@ class PublicShareAlbumResponse(BaseModel):
     photo_limit: int = 30
     pending_items: list[PublicContributionItem] = Field(default_factory=list)
     living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
+    edition_previous: int | None = None
+    edition_is_latest: bool = True
     og_title: str
     og_description: str
 

@@ -64,7 +64,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     getAlbumPhotos(albumId, requestedEdition)
       .then((data) => {
         if (!active) return;
-        if (!data.length) {
+        // An empty album is a valid legacy/Living Album state; only reject an invalid response.
+        if (!Array.isArray(data)) {
           setError("앨범 사진을 불러오지 못했습니다.");
           return;
         }
@@ -276,7 +277,12 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         <article className="album-page__book album-result">
 
           <header className="album-result__intro">
-            {requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최근 앨범 보기</a></p> : null}
+            {requestedEdition !== null ? (
+              <p className="album-result__subtitle">
+                <a href={`/album/${albumId}`}>최신 앨범 보기</a>
+                {album.edition_previous !== null && album.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${album.edition_previous}`}>더 이전 앨범 보기</a></> : null}
+              </p>
+            ) : null}
             {requestedEdition === null && album.edition_is_latest && album.edition_previous !== null && album.edition_previous !== undefined ? (
               <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${albumId}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p>
             ) : null}

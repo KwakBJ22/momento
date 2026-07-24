@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from typing import Any, get_args
 from uuid import UUID, uuid4
+import asyncio
 import json
+import logging
+import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 
@@ -53,7 +56,11 @@ from app.services.supabase import (
     get_album_media_record,
     get_album_media_records,
     get_public_url,
-    list_owned_album_records,
+    get_signed_urls_batch,
+    list_album_photo_cover_records,
+    list_album_photo_list_summaries,
+    list_owned_album_cover_records,
+    list_owned_album_list_records,
     get_signed_url,
     get_supabase_client,
     save_album_record,
@@ -100,6 +107,7 @@ from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key,
 
 router = APIRouter(prefix="/api", tags=["album"])
 PDF_RENDERER_VERSION = 2
+logger = logging.getLogger(__name__)
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
@@ -132,24 +140,71 @@ def _cover_image_url(client: Any, settings: Settings, album: dict[str, Any], pho
     )
 
 
-def _my_album_list_item(
+def _my_album_list_items(
     client: Any,
     settings: Settings,
-    record: dict[str, Any],
-    memory_count: int,
-) -> MyAlbumListItem:
-    photos = get_album_photo_records(client, str(record["id"]))
-    cover_photo_id, cover_image_url = _cover_image_url(client, settings, record, photos)
-    return MyAlbumListItem(
-        album_id=UUID(str(record["id"])),
-        title=str(record.get("title") or "우리의 추억"),
-        created_at=record["created_at"],
-        image_url=cover_image_url or (get_public_url(client, str(record["result_path"]), settings) if record.get("result_path") else ""),
-        cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
-        cover_image_url=cover_image_url,
-        photo_count=len(photos) if isinstance(photos, list) else len(record.get("photo_paths") or []),
-        new_memory_count=memory_count,
-    )
+    records: list[dict[str, Any]],
+    memory_counts: dict[str, int],
+    photo_rows: list[dict[str, Any]],
+) -> list[MyAlbumListItem]:
+    """Build list cards from batch rows without per-album photo or storage requests."""
+    photos_by_album: dict[str, list[dict[str, Any]]] = {}
+    for photo in photo_rows:
+        album_id = str(photo.get("album_id") or "")
+        if album_id:
+            photos_by_album.setdefault(album_id, []).append(photo)
+
+    items: list[MyAlbumListItem] = []
+    for record in records:
+        album_id = str(record["id"])
+        photos = photos_by_album.get(album_id, [])
+        requested_cover_id = str(record.get("cover_photo_id") or "").strip()
+        available_ids = {str(photo.get("id")) for photo in photos}
+        cover_photo_id = requested_cover_id if requested_cover_id in available_ids else (str(photos[0]["id"]) if photos else None)
+        items.append(
+            MyAlbumListItem(
+                album_id=UUID(album_id),
+                title=str(record.get("title") or "우리의 추억"),
+                created_at=record["created_at"],
+                updated_at=record.get("updated_at"),
+                image_url=(
+                    get_public_url(client, str(record["result_path"]), settings)
+                    if record.get("result_path")
+                    else ""
+                ),
+                cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
+                cover_image_url=None,
+                photo_count=len(photos),
+                new_memory_count=int(memory_counts.get(album_id, 0)),
+                is_latest_edition=True,
+            )
+        )
+    return items
+
+
+def _owned_cover_urls(
+    client: Any,
+    settings: Settings,
+    profile_id: str,
+    album_ids: list[str],
+    cover_photo_ids: list[str],
+) -> dict[str, str]:
+    """Resolve requested cover thumbnails in constant query count for owned albums only."""
+    owned = list_owned_album_cover_records(client, profile_id, album_ids)
+    owned_ids = [str(row["id"]) for row in owned]
+    requested_ids = {str(photo_id) for photo_id in cover_photo_ids}
+    if not owned_ids or not requested_ids:
+        return {}
+    rows = list_album_photo_cover_records(client, owned_ids, sorted(requested_ids))
+    signed_urls = get_signed_urls_batch(client, rows, settings.signed_url_ttl_seconds)
+    covers: dict[str, str] = {}
+    for row in rows:
+        bucket = str(row.get("thumbnail_bucket") or row.get("storage_bucket") or "")
+        path = str(row.get("thumbnail_path") or row.get("storage_path") or "")
+        url = signed_urls.get((bucket, path))
+        if url:
+            covers[str(row["album_id"])] = url
+    return covers
 
 
 @router.post("/upload-album", response_model=AlbumUploadResponse)
@@ -931,17 +986,47 @@ async def get_my_albums(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> MyAlbumsResponse:
     """List the signed-in creator's albums without exposing family/member albums."""
+    started_at = time.perf_counter()
     response.headers["Cache-Control"] = "no-store"
     settings = get_settings()
     client = get_supabase_client(settings)
-    records = list_owned_album_records(client, authenticated_user_id)
-    memory_counts = get_pending_guest_memory_counts(client, [str(record["id"]) for record in records])
-    return MyAlbumsResponse(
-        albums=[
-            _my_album_list_item(client, settings, record, memory_counts.get(str(record["id"]), 0))
-            for record in records
-        ]
+    records = list_owned_album_list_records(client, authenticated_user_id, limit=20)
+    album_ids = [str(record["id"]) for record in records]
+    memory_counts, photo_rows = await asyncio.gather(
+        asyncio.to_thread(get_pending_guest_memory_counts, client, album_ids),
+        asyncio.to_thread(list_album_photo_list_summaries, client, album_ids),
     )
+    payload = MyAlbumsResponse(
+        albums=_my_album_list_items(client, settings, records, memory_counts, photo_rows)
+    )
+    duration_ms = round((time.perf_counter() - started_at) * 1000)
+    response.headers["Server-Timing"] = f"my-albums;dur={duration_ms}"
+    logger.info(
+        "my_albums_list_completed album_count=%s db_query_count=3 duration_ms=%s",
+        len(payload.albums),
+        duration_ms,
+    )
+    return payload
+
+
+@router.get("/albums/mine/covers")
+async def get_my_album_covers(
+    album_ids: list[str] = Query(default=[]),
+    cover_photo_ids: list[str] = Query(default=[]),
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> dict[str, dict[str, str]]:
+    """Fetch card cover URLs after the lightweight album-list response is already visible."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    # The list route is capped at 20; preserve that bound for this follow-up too.
+    covers = _owned_cover_urls(
+        client,
+        settings,
+        authenticated_user_id,
+        [str(album_id) for album_id in album_ids[:20]],
+        [str(photo_id) for photo_id in cover_photo_ids[:20]],
+    )
+    return {"covers": covers}
 
 
 @router.get("/albums/{album_id}", response_model=AlbumDetailResponse)

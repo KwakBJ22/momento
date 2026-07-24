@@ -25,21 +25,26 @@ class MyAlbumsApiTests(TestCase):
             patch("app.api.album.get_settings", return_value=SimpleNamespace()),
             patch("app.api.album.get_supabase_client"),
             patch("app.api.album.get_pending_guest_memory_counts", return_value={NEW_ALBUM_ID: 2}),
+            patch("app.api.album.list_album_photo_list_summaries", return_value=[
+                {"album_id": NEW_ALBUM_ID, "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "sort_order": 0},
+                {"album_id": NEW_ALBUM_ID, "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "sort_order": 1},
+                {"album_id": OLD_ALBUM_ID, "id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "sort_order": 0},
+            ]),
             patch("app.api.album.get_public_url", side_effect=lambda _client, path, _settings: f"https://cdn.example/{path}"),
-            patch("app.api.album.list_owned_album_records", return_value=[
+            patch("app.api.album.list_owned_album_list_records", return_value=[
                 {
                     "id": NEW_ALBUM_ID,
                     "title": "새 앨범",
                     "created_at": "2026-07-23T12:00:00+00:00",
+                    "updated_at": "2026-07-23T12:00:00+00:00",
                     "result_path": "new/result.png",
-                    "photo_paths": ["new/1.jpg", "new/2.jpg"],
                 },
                 {
                     "id": OLD_ALBUM_ID,
                     "title": "이전 앨범",
                     "created_at": "2026-07-22T12:00:00+00:00",
+                    "updated_at": "2026-07-22T12:00:00+00:00",
                     "result_path": "old/result.png",
-                    "photo_paths": ["old/1.jpg"],
                 },
             ]),
         ]
@@ -52,7 +57,43 @@ class MyAlbumsApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertTrue(response.headers["server-timing"].startswith("my-albums;dur="))
         body = response.json()
         self.assertEqual([album["album_id"] for album in body["albums"]], [NEW_ALBUM_ID, OLD_ALBUM_ID])
         self.assertEqual(body["albums"][0]["photo_count"], 2)
         self.assertEqual(body["albums"][0]["new_memory_count"], 2)
+
+    def test_list_uses_one_batch_photo_query_not_per_album_photo_or_signed_url_calls(self) -> None:
+        with patch("app.api.album.get_album_photo_records") as per_album_photos, patch(
+            "app.api.album.get_signed_url"
+        ) as per_album_signed_url:
+            response = self.client.get("/api/albums/mine")
+
+        self.assertEqual(response.status_code, 200)
+        per_album_photos.assert_not_called()
+        per_album_signed_url.assert_not_called()
+
+    def test_cover_urls_are_batched_and_a_missing_signed_url_is_omitted(self) -> None:
+        settings = SimpleNamespace(signed_url_ttl_seconds=3600)
+        asset = {
+            "album_id": NEW_ALBUM_ID,
+            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "thumbnail_bucket": "albums",
+            "thumbnail_path": "new/thumb.jpg",
+        }
+        with patch("app.api.album.get_settings", return_value=settings), patch(
+            "app.api.album.list_owned_album_cover_records",
+            return_value=[{"id": NEW_ALBUM_ID, "cover_photo_id": asset["id"]}],
+        ), patch(
+            "app.api.album.list_album_photo_cover_records", return_value=[asset]
+        ) as cover_rows, patch(
+            "app.api.album.get_signed_urls_batch", return_value={("albums", "new/thumb.jpg"): "https://cdn.example/new/thumb.jpg"}
+        ) as signed_urls:
+            response = self.client.get(
+                f"/api/albums/mine/covers?album_ids={NEW_ALBUM_ID}&cover_photo_ids={asset['id']}"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["covers"], {NEW_ALBUM_ID: "https://cdn.example/new/thumb.jpg"})
+        cover_rows.assert_called_once()
+        signed_urls.assert_called_once()

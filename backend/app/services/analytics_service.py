@@ -23,6 +23,11 @@ ALLOWED_METADATA_KEYS = frozenset({
     "applied_memory_count",
     "failure_code",
     "mode",
+    "photo_count",
+    "memory_count",
+    "selected_mode",
+    "previous_edition",
+    "new_edition",
 })
 
 

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.album import router
+from app.api.album import _edition_document_and_pages, _previous_edition_number, router
 from app.services.authorization import resolve_album_access
 from app.api.auth import router as auth_router
 from app.services.auth import require_authenticated_user
@@ -83,21 +83,27 @@ class AlbumAuthorizationTests(TestCase):
     def test_my_albums_returns_only_the_authenticated_creators_albums(self) -> None:
         self.as_user(OWNER_ID)
         created_at = datetime.now(timezone.utc).isoformat()
-        with patch("app.api.album.list_owned_album_records", return_value=[{
+        with patch("app.api.album.list_owned_album_list_records", return_value=[{
             "id": ALBUM_ID,
             "title": "My album",
             "created_at": created_at,
+            "updated_at": created_at,
             "result_path": "result.png",
-            "photo_paths": ["one.png", "two.png"],
         }]) as list_owned, patch(
             "app.api.album.get_pending_guest_memory_counts", return_value={ALBUM_ID: 2}
-        ) as memory_counts:
+        ) as memory_counts, patch(
+            "app.api.album.list_album_photo_list_summaries",
+            return_value=[
+                {"album_id": ALBUM_ID, "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "sort_order": 0},
+                {"album_id": ALBUM_ID, "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "sort_order": 1},
+            ],
+        ):
             response = self.client.get("/api/albums/mine")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["albums"][0]["album_id"], ALBUM_ID)
         self.assertEqual(response.json()["albums"][0]["new_memory_count"], 2)
-        list_owned.assert_called_once_with(self.supabase_client, OWNER_ID)
+        list_owned.assert_called_once_with(self.supabase_client, OWNER_ID, limit=20)
         memory_counts.assert_called_once_with(self.supabase_client, [ALBUM_ID])
 
     def test_owner_can_delete_album(self) -> None:
@@ -219,3 +225,30 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         ensure_family.assert_called_once_with(get_client.return_value, OWNER_ID)
         self.assertEqual(response.json()["profile_id"], OWNER_ID)
+
+    def test_edition_history_can_navigate_back_one_snapshot_at_a_time(self) -> None:
+        record = {
+            "living_latest_edition_previous": 7,
+            "album_version_history": {"2": {}, "5": {}, "7": {}},
+        }
+        self.assertEqual(_previous_edition_number(record, None), 7)
+        self.assertEqual(_previous_edition_number(record, 7), 5)
+        self.assertEqual(_previous_edition_number(record, 5), 2)
+        self.assertIsNone(_previous_edition_number(record, 2))
+
+    def test_previous_edition_uses_its_own_document_and_living_pages(self) -> None:
+        record = {
+            "album_json": {"title": "latest"},
+            "living_append_pages": [{"id": "latest-page"}],
+            "album_version_history": {
+                "3": {
+                    "document": {"title": "previous"},
+                    "append_pages": [{"id": "previous-page"}],
+                },
+            },
+        }
+        document, pages = _edition_document_and_pages(record, 3)
+        self.assertEqual(document, {"title": "previous"})
+        self.assertEqual(pages, [{"id": "previous-page"}])
+        self.assertEqual(record["album_json"], {"title": "latest"})
+        self.assertEqual(record["living_append_pages"], [{"id": "latest-page"}])

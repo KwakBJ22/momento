@@ -51,17 +51,32 @@ export type MyAlbum = {
   album_id: string;
   title: string;
   created_at: string;
+  updated_at?: string | null;
   image_url: string;
   cover_photo_id?: string | null;
   cover_image_url?: string | null;
   photo_count: number;
   new_memory_count: number;
+  is_latest_edition?: boolean;
 };
 
 export async function getMyAlbums(): Promise<MyAlbum[]> {
   const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   return ((await response.json()) as { albums: MyAlbum[] }).albums;
+}
+
+export async function getMyAlbumCoverUrls(albums: Array<Pick<MyAlbum, "album_id" | "cover_photo_id">>): Promise<Record<string, string>> {
+  const targets = albums.filter((album) => Boolean(album.cover_photo_id));
+  if (!targets.length) return {};
+  const params = new URLSearchParams();
+  for (const album of targets) {
+    params.append("album_ids", album.album_id);
+    params.append("cover_photo_ids", album.cover_photo_id!);
+  }
+  const response = await authenticatedFetch(`/api/albums/mine/covers?${params.toString()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return ((await response.json()) as { covers?: Record<string, string> }).covers ?? {};
 }
 
 export async function patchNarrative(albumId: string, narrative: string): Promise<AlbumResult> {
@@ -160,8 +175,9 @@ export async function updateAlbumPhotoLocation(
   return (await response.json()) as import("../types").AlbumPhoto;
 }
 
-export async function getPublicShare(token: string): Promise<import("../types").PublicShareAlbum> {
-  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}`, {
+export async function getPublicShare(token: string, edition?: number | null): Promise<import("../types").PublicShareAlbum> {
+  const params = edition ? `?edition=${encodeURIComponent(String(edition))}` : "";
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}${params}`, {
     cache: "no-store",
   });
   if (!response.ok) throw new Error(await parseError(response));

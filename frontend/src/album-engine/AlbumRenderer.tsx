@@ -189,9 +189,14 @@ export default function AlbumRenderer({
       window.history.replaceState(window.history.state, "", url);
     };
 
+    const rawPage = new URLSearchParams(window.location.search).get("page");
     const initialPage = readPage();
-    if (initialPage === 1 && new URLSearchParams(window.location.search).has("page")) replacePage(1);
-    requestAnimationFrame(() => scrollToPage(initialPage));
+    if (initialPage === 1 && rawPage) replacePage(1);
+    // Do not move a first-time visitor. Restore only an explicit valid page
+    // after refresh/back-forward navigation.
+    if (rawPage && Number(rawPage) === initialPage) {
+      requestAnimationFrame(() => scrollToPage(initialPage));
+    }
 
     let currentPage = initialPage;
     const onScroll = () => {
@@ -224,7 +229,67 @@ export default function AlbumRenderer({
     return hero.original_url || hero.thumbnail_url || fallbackImageUrl || null;
   }, [photos, fallbackImageUrl, coverPhotoId]);
 
+  const livingPages = livingAppendPages.map((page, index) => {
+    const pageIndex = (album?.elements.length ?? 0) + index;
+    return (
+      <section
+        key={page.id}
+        className="album-living-page"
+        data-living-append-page={page.id}
+        ref={(node) => { blockRefs.current[pageIndex] = node; }}
+      >
+        <header className="album-living-page__header">
+          <div>
+            <p>함께 만든 이야기</p>
+            <h2>새롭게 더해진 추억</h2>
+          </div>
+          {mode === "screen" && newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
+        </header>
+        {page.photos.length ? (
+          <div className="album-living-page__photos">
+            {page.photos.map((photo) => (
+              <figure key={photo.id}>
+                <img src={photo.original_url || photo.thumbnail_url} alt="새롭게 더해진 추억" loading="lazy" />
+                {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
+              </figure>
+            ))}
+          </div>
+        ) : null}
+        {page.memories.length ? (
+          <ul className="album-living-page__memories">
+            {page.memories.map((memory) => (
+              <li key={memory.id}>
+                <p>{memory.content}</p>
+                <small>{memory.author_name || "참여자"}</small>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    );
+  });
+
+  const brandFooter = (
+    <footer className="album-renderer__brand-footer">
+      <p>이 추억은 Momento에서 함께 만들었습니다.</p>
+      {mode === "screen" ? <a href="/">가족과 함께 추억을 이어가 보세요.</a> : <p>가족과 함께 추억을 이어가 보세요.</p>}
+    </footer>
+  );
+
   if (!photos.length) {
+    if (livingAppendPages.length) {
+      return (
+        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+          <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+            <div className="album-renderer__body">
+              <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+              {livingPages}
+              {brandFooter}
+            </div>
+          </PhotoCommentEditProvider>
+        </div>
+      );
+    }
     if (!fallbackImageUrl) return null;
     return (
       <div className={`album-renderer album-renderer--${mode} ${className}`.trim()}>
@@ -282,7 +347,7 @@ export default function AlbumRenderer({
                   <p>함께 자라는 앨범</p>
                   <h2>새롭게 더해진 추억</h2>
                 </div>
-                {newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
+                {mode === "screen" && newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
               </header>
               {page.photos.length ? (
                 <div className="album-living-page__photos">

@@ -28,7 +28,7 @@ from app.services.supabase import (
     get_signed_url,
     get_supabase_client,
 )
-from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories
+from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, unpack_edition_snapshot
 from app.services.collaboration_service import join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
@@ -53,6 +53,39 @@ def _rate_limit(key: str, limit: int) -> None:
 def _public_author_name(value: object) -> str:
     name = str(value or "").strip()
     return "익명" if name in _LEGACY_ANONYMOUS_NAMES else name
+
+
+def _public_edition_document_and_pages(
+    album: dict[str, object], edition: int | None,
+) -> tuple[dict[str, object] | None, list[dict[str, object]]]:
+    if edition is None:
+        document = album.get("album_json") if isinstance(album.get("album_json"), dict) else None
+        pages = album.get("living_append_pages")
+        return document, list(pages) if isinstance(pages, list) else []
+    history = album.get("album_version_history")
+    snapshot = history.get(str(edition)) if isinstance(history, dict) else None
+    document, pages = unpack_edition_snapshot(snapshot)
+    if document is None:
+        raise HTTPException(status_code=404, detail="The requested album edition was not found.")
+    return document, pages
+
+
+def _public_previous_edition(album: dict[str, object], edition: int | None) -> int | None:
+    if edition is None:
+        value = album.get("living_latest_edition_previous")
+        return int(value) if value is not None else None
+    history = album.get("album_version_history")
+    if not isinstance(history, dict):
+        return None
+    older: list[int] = []
+    for key in history:
+        try:
+            candidate = int(key)
+        except (TypeError, ValueError):
+            continue
+        if candidate < edition:
+            older.append(candidate)
+    return max(older) if older else None
 
 
 def _share_response(row: dict, share_url: str | None = None) -> ShareLinkResponse:
@@ -100,7 +133,7 @@ async def deactivate_album_share_link(album_id: str, share_id: str, authenticate
 
 
 @router.get("/public/shares/{token}", response_model=PublicShareAlbumResponse)
-async def get_public_share(token: str, request: Request) -> PublicShareAlbumResponse:
+async def get_public_share(token: str, request: Request, edition: int | None = None) -> PublicShareAlbumResponse:
     _rate_limit(f"view:{token}", _PUBLIC_LIMIT)
     client = get_supabase_client()
     share = get_active_share(client, token)
@@ -145,10 +178,10 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
             and str(memory.get("id")) not in applied_memory_ids
         )
 
-    pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)]
-    pending_memories = [memory for memory in memories if is_pending_memory(memory)]
+    pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)] if edition is None else []
+    pending_memories = [memory for memory in memories if is_pending_memory(memory)] if edition is None else []
     shared_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
-    current_document = album.get("album_json") if isinstance(album.get("album_json"), dict) else None
+    current_document, selected_append_pages = _public_edition_document_and_pages(album, edition)
     document_photo_ids = album_document_photo_ids(current_document)
     visible_photo_records = [
         photo for photo in shared_photo_records
@@ -196,7 +229,7 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
 
     memory_by_id = {str(memory["id"]): memory for memory in shared_memories}
     living_append_pages: list[dict] = []
-    for page in album.get("living_append_pages") or []:
+    for page in selected_append_pages:
         if not isinstance(page, dict):
             continue
         page_photos = [
@@ -288,6 +321,8 @@ async def get_public_share(token: str, request: Request) -> PublicShareAlbumResp
         photo_limit=int(album.get("photo_limit") or 30),
         pending_items=pending_items[:30],
         living_append_pages=living_append_pages,
+        edition_previous=_public_previous_edition(album, edition),
+        edition_is_latest=edition is None,
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
     )

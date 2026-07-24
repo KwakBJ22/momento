@@ -78,6 +78,49 @@ class ShareApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["title"], album()["title"])
 
+    def test_public_share_can_read_an_older_edition_without_edit_access(self) -> None:
+        old_photo_id = "44444444-4444-4444-4444-444444444444"
+        latest_photo_id = "55555555-5555-5555-5555-555555555555"
+        edition_album = {
+            **album(),
+            "album_version": 3,
+            "living_latest_edition_previous": 2,
+            "album_json": {"chapters": [{"photos": [{"id": latest_photo_id}]}]},
+            "album_version_history": {
+                "2": {
+                    "document": {"chapters": [{"photos": [{"id": old_photo_id}]}]},
+                    "append_pages": [],
+                },
+            },
+        }
+        photos = [
+            {
+                "id": photo_id,
+                "sort_order": index,
+                "storage_bucket": "private",
+                "storage_path": f"photos/{photo_id}.jpg",
+                "thumbnail_bucket": "private",
+                "thumbnail_path": f"thumbs/{photo_id}.jpg",
+            }
+            for index, photo_id in enumerate((old_photo_id, latest_photo_id))
+        ]
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=edition_album
+        ), patch("app.api.share.get_album_media_records", return_value=[]), patch(
+            "app.api.share.get_album_photo_records", return_value=photos
+        ), patch("app.api.share.list_photo_memories", return_value=[]), patch(
+            "app.api.share.list_contributors", return_value=[]
+        ), patch("app.api.share.get_signed_url", return_value="https://cdn.example/photo.jpg"), patch(
+            "app.api.share.get_public_url", return_value="https://cdn.example/result.png"
+        ), patch("app.api.share.increment_view"), patch("app.api.share.log_event"):
+            response = self.client.get("/api/public/shares/opaque-token?edition=2")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual([photo["id"] for photo in body["photos"]], [old_photo_id])
+        self.assertFalse(body["edition_is_latest"])
+        self.assertIsNone(body["edition_previous"])
+
     def test_share_link_creation_returns_a_tokenized_public_url(self) -> None:
         self.app.dependency_overrides[require_authenticated_user] = lambda: OWNER_ID
         with patch("app.api.share.get_album_record", return_value=album()), patch(

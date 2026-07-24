@@ -235,6 +235,8 @@ export interface PublicShareAlbum {
   photo_limit?: number;
   pending_items?: PublicContributionItem[];
   living_append_pages?: LivingAppendPage[];
+  edition_previous?: number | null;
+  edition_is_latest?: boolean;
   media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
   og_title: string;
   og_description: string;
