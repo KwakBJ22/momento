@@ -449,6 +449,7 @@ async def upload_album(
     image_url = get_public_url(client, result_path, settings)
     _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
     share_url = f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}"
+    log_event(client, "album_created", album_id=album_id, metadata={"owner_id": authenticated_user_id})
 
     photo_urls = [
         AlbumPhotoUrlResponse(
@@ -792,6 +793,25 @@ def _edition_document_and_pages(
     return document, pages
 
 
+def _previous_edition_number(record: dict[str, Any], edition: int | None) -> int | None:
+    """Return the next older saved snapshot without exposing internal versions in UI."""
+    if edition is None:
+        value = record.get("living_latest_edition_previous")
+        return int(value) if value is not None else None
+    history = record.get("album_version_history") or {}
+    if not isinstance(history, dict):
+        return None
+    older: list[int] = []
+    for key in history:
+        try:
+            value = int(key)
+        except (TypeError, ValueError):
+            continue
+        if value < edition:
+            older.append(value)
+    return max(older) if older else None
+
+
 def _album_photo_response(
     client: Any,
     settings: Settings,
@@ -899,7 +919,7 @@ def _record_to_detail(
         media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
         album_version=int(record.get("album_version") or 0),
         living_append_pages=_living_append_payload(client, settings, append_pages, all_photos, memories),
-        edition_previous=(int(record.get("living_latest_edition_previous")) if edition is None and record.get("living_latest_edition_previous") is not None else None),
+        edition_previous=_previous_edition_number(record, edition),
         edition_is_latest=edition is None and bool(record.get("living_latest_edition_previous") is not None),
         saved=True,
     )

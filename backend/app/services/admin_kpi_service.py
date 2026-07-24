@@ -260,7 +260,11 @@ def compute_viral_kpis(client: Client, event_counts: Counter[str]) -> ViralKpis:
             client.table("share_links").select("id", count="exact").limit(1).execute().count or 0
         )
     new_users = event_counts.get("guest_album_claimed", 0)
-    new_albums = event_counts.get("second_album_started", 0) + event_counts.get("guest_album_generated", 0)
+    new_albums = (
+        event_counts.get("album_created", 0)
+        + event_counts.get("second_album_started", 0)
+        + event_counts.get("guest_album_generated", 0)
+    )
     views = event_counts.get("public_album_viewed", 0)
     conversion = (new_users / views * 100.0) if views else 0.0
     return ViralKpis(

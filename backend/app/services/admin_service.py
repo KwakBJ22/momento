@@ -116,7 +116,7 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
             "pdf_generated": total_pdf,
         },
         "trends": {
-            "new_albums": daily_series(buckets, "guest_album_generated", 14),
+            "new_albums": daily_series(buckets, "album_created", 14),
             "share_views": daily_series(buckets, "public_album_viewed", 14),
             "new_memories": daily_series(buckets, "guest_memory_completed", 14),
         },
@@ -203,7 +203,7 @@ def build_viral_funnel(client: Client) -> dict[str, Any]:
         + int(client.table("album_contributors").select("id", count="exact").eq("status", "active").limit(1).execute().count or 0)
     )
     new_users = count_analytics(client, "guest_album_claimed") or count_rows(client, "profiles")
-    new_albums = count_analytics(client, "second_album_started") + count_analytics(client, "guest_album_generated")
+    new_albums = count_analytics(client, "album_created") or count_analytics(client, "guest_album_generated")
 
     stages = [
         {"key": "album_created", "label": "앨범 생성", "count": albums_created},
@@ -238,6 +238,70 @@ def _safe_email(client: Client, profile_id: str | None) -> str | None:
         return None
 
 
+def _batch_profile_names(client: Client, profile_ids: list[str]) -> dict[str, str]:
+    unique = list(dict.fromkeys(profile_id for profile_id in profile_ids if profile_id))
+    if not unique:
+        return {}
+    rows = client.table("profiles").select("id,display_name").in_("id", unique).execute().data or []
+    return {str(row["id"]): str(row.get("display_name") or "") for row in rows}
+
+
+def _batch_owner_emails(client: Client, profile_ids: list[str]) -> dict[str, str | None]:
+    emails: dict[str, str | None] = {}
+    for profile_id in dict.fromkeys(profile_ids):
+        if profile_id:
+            emails[profile_id] = _safe_email(client, profile_id)
+    return emails
+
+
+def _batch_album_cover_photos(client: Client, album_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    photos_by_album: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    if not album_ids:
+        return {}
+    chunk = 200
+    for index in range(0, len(album_ids), chunk):
+        subset = album_ids[index : index + chunk]
+        rows = (
+            client.table("album_photos")
+            .select("id,album_id,storage_path,sort_order,taken_at")
+            .in_("album_id", subset)
+            .is_("deleted_at", "null")
+            .eq("status", "ready")
+            .order("sort_order")
+            .limit(5000)
+            .execute()
+            .data
+            or []
+        )
+        for row in rows:
+            photos_by_album[str(row["album_id"])].append(row)
+    for album_id, photos in photos_by_album.items():
+        photos.sort(
+            key=lambda row: (
+                row.get("taken_at") is None,
+                str(row.get("taken_at") or ""),
+                int(row.get("sort_order") or 0),
+            )
+        )
+        photos_by_album[album_id] = photos
+    return dict(photos_by_album)
+
+
+def _cover_image_url_for_album(
+    client: Client,
+    settings: Settings,
+    album_row: dict[str, Any],
+    photos: list[dict[str, Any]],
+) -> str | None:
+    cover_id = str(album_row.get("cover_photo_id") or "")
+    cover = next((photo for photo in photos if str(photo.get("id")) == cover_id), None) if cover_id else None
+    if not cover and photos:
+        cover = photos[0]
+    if cover and cover.get("storage_path"):
+        return get_public_url(client, str(cover["storage_path"]), settings)
+    return None
+
+
 def search_albums(client: Client, settings: Settings, *, query: str = "", limit: int = 40, offset: int = 0) -> dict[str, Any]:
     q = query.strip()
     request = (
@@ -258,27 +322,24 @@ def search_albums(client: Client, settings: Settings, *, query: str = "", limit:
         for item in share_rows:
             share_counts[str(item.get("album_id"))] += 1
     contributors = contributor_counts(client, album_ids)
+    owner_ids = [str(row.get("created_by") or row.get("owner_id") or "") for row in rows]
+    profile_names = _batch_profile_names(client, owner_ids)
+    owner_emails = _batch_owner_emails(client, owner_ids)
+    photos_by_album = _batch_album_cover_photos(client, album_ids)
 
     items: list[dict[str, Any]] = []
     for row in rows:
         album_id = str(row["id"])
         owner_id = str(row.get("created_by") or row.get("owner_id") or "")
-        photos = get_album_photo_records(client, album_id)
-        cover_url = None
-        if row.get("cover_photo_id"):
-            cover = next((photo for photo in photos if str(photo.get("id")) == str(row.get("cover_photo_id"))), None)
-            if cover and cover.get("storage_path"):
-                cover_url = get_public_url(client, str(cover["storage_path"]), settings)
-        elif photos and photos[0].get("storage_path"):
-            cover_url = get_public_url(client, str(photos[0]["storage_path"]), settings)
+        photos = photos_by_album.get(album_id, [])
         items.append(
             {
                 "album_id": album_id,
                 "title": row.get("title") or "앨범",
                 "owner_id": owner_id or None,
-                "owner_name": _profile_display_name(client, owner_id),
-                "owner_email": _safe_email(client, owner_id),
-                "cover_image_url": cover_url,
+                "owner_name": profile_names.get(owner_id) or None,
+                "owner_email": owner_emails.get(owner_id),
+                "cover_image_url": _cover_image_url_for_album(client, settings, row, photos),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
                 "photo_count": photo_counts.get(album_id, 0),

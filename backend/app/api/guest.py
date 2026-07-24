@@ -413,6 +413,7 @@ async def upload_guest_album(
         raise
     logger.info("Guest album upload completed: album_id=%s duration_seconds=%.2f", album_id, time.perf_counter() - started_at)
     _safe_event(client, "upload_completed", album_id)
+    _safe_event(client, "album_created", album_id)
     _safe_event(client, "guest_album_generated", album_id)
     photo_urls = [
         AlbumPhotoUrlResponse(

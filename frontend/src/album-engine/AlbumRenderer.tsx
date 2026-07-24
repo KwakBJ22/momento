@@ -288,7 +288,7 @@ export default function AlbumRenderer({
                 <div className="album-living-page__photos">
                   {page.photos.map((photo) => (
                     <figure key={photo.id}>
-                      <img src={photo.thumbnail_url || photo.original_url} alt="새롭게 더해진 추억" loading="lazy" />
+                      <img src={photo.original_url || photo.thumbnail_url} alt="새롭게 더해진 추억" loading="lazy" />
                       {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
                     </figure>
                   ))}
