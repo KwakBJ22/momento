@@ -113,6 +113,19 @@ def fetch_event_counts(client: Client, *, since: datetime | None = None) -> Coun
     return Counter(str(row.get("event_name") or "") for row in rows)
 
 
+def fetch_admin_album_kpi_summary(client: Client) -> dict[str, Any]:
+    """Single SQL aggregate for growth/investor dashboards (see admin_album_kpi_summary RPC)."""
+    try:
+        payload = client.rpc("admin_album_kpi_summary").execute().data
+    except Exception:
+        return {}
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, list) and payload and isinstance(payload[0], dict):
+        return payload[0]
+    return {}
+
+
 def load_active_albums(client: Client, *, limit: int = 2000) -> list[dict[str, Any]]:
     result = (
         client.table("albums")
@@ -275,7 +288,12 @@ def compute_viral_kpis(client: Client, event_counts: Counter[str]) -> ViralKpis:
     )
 
 
-def compute_retention_kpis(client: Client, profiles: list[dict[str, Any]]) -> RetentionKpis:
+def compute_retention_kpis(
+    client: Client,
+    profiles: list[dict[str, Any]],
+    *,
+    reopened_album_ratio: float | None = None,
+) -> RetentionKpis:
     if not profiles:
         return RetentionKpis(0.0, 0.0, 0.0)
     events = (
@@ -317,14 +335,17 @@ def compute_retention_kpis(client: Client, profiles: list[dict[str, Any]]) -> Re
             if any(day >= created.date() + timedelta(days=30) for day in days):
                 thirty_hits += 1
 
-    albums = load_active_albums(client, limit=1000)
-    reopened = 0
-    for album in albums:
-        created = _parse_ts(album.get("created_at"))
-        updated = _parse_ts(album.get("updated_at")) or _parse_ts(album.get("last_collaboration_applied_at"))
-        if created and updated and (updated - created) > timedelta(days=3):
-            reopened += 1
-    reopened_ratio = (reopened / len(albums) * 100.0) if albums else 0.0
+    if reopened_album_ratio is not None:
+        reopened_ratio = float(reopened_album_ratio)
+    else:
+        albums = load_active_albums(client, limit=1000)
+        reopened = 0
+        for album in albums:
+            created = _parse_ts(album.get("created_at"))
+            updated = _parse_ts(album.get("updated_at")) or _parse_ts(album.get("last_collaboration_applied_at"))
+            if created and updated and (updated - created) > timedelta(days=3):
+                reopened += 1
+        reopened_ratio = (reopened / len(albums) * 100.0) if albums else 0.0
 
     return RetentionKpis(
         return_visit_7d_rate=round((seven_hits / eligible_7 * 100.0) if eligible_7 else 0.0, 1),
@@ -412,6 +433,7 @@ __all__ = [
     "count_rows",
     "count_analytics",
     "fetch_event_counts",
+    "fetch_admin_album_kpi_summary",
     "load_active_albums",
     "compute_living_album_kpis",
     "compute_collaboration_kpis",

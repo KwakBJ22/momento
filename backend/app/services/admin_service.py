@@ -24,10 +24,10 @@ from app.services.admin_kpi_service import (
     contributor_counts,
     count_analytics,
     count_by_album,
-    count_pdf_generations,
     count_rows,
     daily_series,
     edition_count,
+    fetch_admin_album_kpi_summary,
     fetch_event_counts,
     load_active_albums,
     page_append_count,
@@ -77,8 +77,6 @@ def _contributor_added_counts(client: Client, album_ids: list[str]) -> tuple[dic
 
 def build_ops_dashboard(client: Client) -> dict[str, Any]:
     today = _start_of_day_utc()
-    albums = load_active_albums(client)
-    album_ids = [str(row["id"]) for row in albums]
     all_event_today = fetch_event_counts(client, since=today)
     buckets = build_event_counts_by_day(client, days=14)
 
@@ -88,14 +86,14 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
     today_shares = count_analytics(client, "share_link_created", since=today) or count_rows(client, "share_links", since=today)
     today_pages = all_event_today.get("living_page_appended", 0)
     today_editions = all_event_today.get("edition_created", 0) or all_event_today.get("album_rebuild_completed", 0)
-    today_pdf = count_pdf_generations(client, albums, since=today)
+    today_pdf = count_analytics(client, "pdf_generated", since=today)
 
     total_users = count_rows(client, "profiles")
     total_albums = count_rows(client, "albums")
     total_photos = count_rows(client, "album_photos")
     total_memories = count_rows(client, "photo_memories")
     total_shares = count_analytics(client, "share_link_created") or count_rows(client, "share_links")
-    total_pdf = count_pdf_generations(client, albums)
+    total_pdf = count_analytics(client, "pdf_generated")
 
     return {
         "today": {
@@ -123,7 +121,60 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
     }
 
 
+def _growth_from_summary(summary: dict[str, Any], client: Client) -> dict[str, Any]:
+    total_albums = int(summary.get("total_albums") or 0)
+    living_count = int(summary.get("living_album_count") or 0)
+    living_ratio = round((living_count / total_albums * 100.0) if total_albums else 0.0, 1)
+    all_events = fetch_event_counts(client)
+    profiles = client.table("profiles").select("id,created_at,updated_at").limit(2000).execute().data or []
+    viral = compute_viral_kpis(client, all_events)
+    retention = compute_retention_kpis(
+        client,
+        profiles,
+        reopened_album_ratio=float(summary.get("reopened_album_ratio") or 0),
+    )
+    total_photos = int(client.table("album_photos").select("id", count="exact").is_("deleted_at", "null").limit(1).execute().count or 0)
+    total_memories = int(
+        client.table("photo_memories").select("id", count="exact").is_("deleted_at", "null").limit(1).execute().count or 0
+    )
+    return {
+        "living_album": {
+            "living_album_ratio": living_ratio,
+            "avg_album_lifetime_days": round(float(summary.get("avg_lifetime_days") or 0), 1),
+            "avg_page_append_count": round(float(summary.get("avg_page_count") or 0), 2),
+            "avg_edition_count": round(float(summary.get("avg_edition_count") or 0), 2),
+        },
+        "collaboration": {
+            "avg_participants_per_album": round(float(summary.get("avg_participants") or 0), 2),
+            "avg_added_photos": round(float(summary.get("avg_added_photos") or 0), 2),
+            "avg_added_memories": round(float(summary.get("avg_added_memories") or 0), 2),
+            "participation_rate": round(float(summary.get("participation_rate") or 0), 1),
+        },
+        "viral": {
+            "share_count": viral.share_count,
+            "share_to_new_users": viral.share_to_new_users,
+            "share_to_new_albums": viral.share_to_new_albums,
+            "viral_conversion_rate": viral.viral_conversion_rate,
+        },
+        "retention": {
+            "return_visit_7d_rate": retention.return_visit_7d_rate,
+            "return_visit_30d_rate": retention.return_visit_30d_rate,
+            "reopened_album_ratio": retention.reopened_album_ratio,
+        },
+        "content": {
+            "total_photos": total_photos,
+            "total_memories": total_memories,
+            "total_pages": int(summary.get("total_pages") or 0),
+            "total_editions": int(summary.get("total_editions") or 0),
+        },
+    }
+
+
 def build_growth_dashboard(client: Client) -> dict[str, Any]:
+    summary = fetch_admin_album_kpi_summary(client)
+    if summary:
+        return _growth_from_summary(summary, client)
+
     albums = load_active_albums(client)
     album_ids = [str(row["id"]) for row in albums]
     contributors = contributor_counts(client, album_ids)
@@ -247,11 +298,30 @@ def _batch_profile_names(client: Client, profile_ids: list[str]) -> dict[str, st
 
 
 def _batch_owner_emails(client: Client, profile_ids: list[str]) -> dict[str, str | None]:
-    emails: dict[str, str | None] = {}
-    for profile_id in dict.fromkeys(profile_ids):
-        if profile_id:
-            emails[profile_id] = _safe_email(client, profile_id)
-    return emails
+    wanted = {profile_id for profile_id in dict.fromkeys(profile_ids) if profile_id}
+    if not wanted:
+        return {}
+    found: dict[str, str | None] = {profile_id: None for profile_id in wanted}
+    page = 1
+    while wanted and page <= 20:
+        try:
+            listing = client.auth.admin.list_users(page=page, per_page=200)
+        except Exception:
+            break
+        users = getattr(listing, "users", None) or []
+        for user in users:
+            user_id = str(getattr(user, "id", "") or "")
+            if user_id not in wanted:
+                continue
+            email = getattr(user, "email", None)
+            found[user_id] = email.strip().lower() if isinstance(email, str) and email.strip() else None
+            wanted.discard(user_id)
+        if len(users) < 200:
+            break
+        page += 1
+    for profile_id in wanted:
+        found[profile_id] = _safe_email(client, profile_id)
+    return found
 
 
 def _batch_album_cover_photos(client: Client, album_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
