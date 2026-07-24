@@ -20,13 +20,13 @@
   justify-content: center;
   aspect-ratio: 1;
   max-height: 280px;
-  background: #faf7f2;
-  border-radius: 10px;
-  border: 1px solid #e5dfd6;
-  padding: 0.35rem;
+  background: transparent;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
   box-sizing: border-box;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: visible;
+  box-shadow: none;
 }
 
 .grid6-block__frame {

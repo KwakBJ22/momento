@@ -48,42 +48,33 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
   useEffect(() => {
-
-    let active = true;
-
+    const controller = new AbortController();
     setPhotosReady(false);
     setError(null);
     setLoadedAlbumId(null);
     setPublicShareUrl("");
 
-    getAlbum(albumId, requestedEdition)
-
-      .then((data) => active && setAlbum(data))
-
-      .catch((err) => active && setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요."));
-
-    getAlbumPhotos(albumId, requestedEdition)
-      .then((data) => {
-        if (!active) return;
-        // An empty album is a valid legacy/Living Album state; only reject an invalid response.
-        if (!Array.isArray(data)) {
+    void Promise.all([
+      getAlbum(albumId, requestedEdition, controller.signal),
+      getAlbumPhotos(albumId, requestedEdition, controller.signal),
+    ])
+      .then(([albumData, photoData]) => {
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(photoData)) {
           setError("앨범 사진을 불러오지 못했습니다.");
           return;
         }
-        setPhotos(data);
+        setAlbum(albumData);
+        setPhotos(photoData);
         setLoadedAlbumId(loadedKey);
         setPhotosReady(true);
       })
       .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요.");
       });
 
-    return () => {
-
-      active = false;
-
-    };
-
+    return () => controller.abort();
   }, [albumId, loadedKey, requestedEdition, retryKey]);
 
 
@@ -261,6 +252,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
       <div className="album-page">
 
+        <a className="album-page__back-link" href="/my-albums">← 내 앨범</a>
+
         <div className="album-page__layout">
 
           <article className="album-page__book album-result album-result--skeleton">
@@ -291,14 +284,13 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     <div className={`album-page album-result--${normalizeTemplateType(templateType)}`}>
 
+      <a className="album-page__back-link" href="/my-albums">← 내 앨범</a>
+
       <div className="album-page__layout">
 
         <article className="album-page__book album-result">
 
           <header className="album-result__intro">
-            <p className="album-result__back">
-              <a className="album-result__back-link" href="/my-albums">← 내 앨범</a>
-            </p>
             {requestedEdition !== null ? (
               <p className="album-result__subtitle">
                 <a href={`/album/${albumId}`}>최신 앨범 보기</a>
@@ -438,14 +430,14 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
           </div>
 
-          {requestedEdition === null && album ? <CollaborationPanel
-            albumId={album.album_id}
-            imageUrl={album.cover_image_url || album.image_url}
-            title={album.title}
+          {requestedEdition === null ? <CollaborationPanel
+            albumId={albumId}
+            imageUrl={displayAlbum?.cover_image_url || displayAlbum?.image_url}
+            title={displayTitle}
             photos={photos}
-            coverPhotoId={album.cover_photo_id}
+            coverPhotoId={displayAlbum?.cover_photo_id}
             onOpenParticipants={() => {
-              window.location.assign(`/album/${album.album_id}/participants`);
+              window.location.assign(`/album/${albumId}/participants`);
             }}
             onAlbumUpdated={() => setRetryKey((value) => value + 1)}
             onCoverUpdated={(coverPhotoId, coverImageUrl) => {

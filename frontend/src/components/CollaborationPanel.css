@@ -8,6 +8,33 @@
   background: #fffdf8;
 }
 
+.collab-panel__loading-hint {
+  margin: 0 0 0.65rem;
+  color: #766960;
+  font-size: 0.82rem;
+}
+
+.collab-panel__skeleton-lines {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.collab-panel__skeleton-lines span {
+  display: block;
+  height: 0.72rem;
+  border-radius: 6px;
+  background: #efe5da;
+}
+
+.collab-panel__skeleton-lines span:nth-child(1) { width: 72%; }
+.collab-panel__skeleton-lines span:nth-child(2) { width: 54%; }
+.collab-panel__skeleton-lines span:nth-child(3) { width: 64%; }
+
+.collab-panel__error-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .collab-panel__title {
   margin: 0;
   color: #342f2a;

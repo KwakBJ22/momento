@@ -1,6 +1,8 @@
 .photo-block {
   break-inside: avoid;
   page-break-inside: avoid;
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 

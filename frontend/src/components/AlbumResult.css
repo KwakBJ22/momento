@@ -7,6 +7,7 @@
 .album-page {
   width: 100%;
   min-height: 60vh;
+  position: relative;
   background:
     radial-gradient(ellipse at top, rgba(255, 252, 247, 0.95), transparent 55%),
     linear-gradient(180deg, #f3eee7 0%, #faf7f4 40%, #f7f3ee 100%);
@@ -20,6 +21,29 @@
   margin: 0 auto;
   display: grid;
   gap: 2rem;
+}
+
+.album-page__back-link {
+  display: block;
+  width: calc(100% - 48px);
+  max-width: 1180px;
+  margin: 0 auto 0.65rem;
+  padding: 0;
+  color: #8d6a4f;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+}
+
+.album-page__back-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .album-page__back-link {
+    margin-left: 16px;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -95,8 +119,7 @@
 
 .album-result__back { margin: 0 0 0.75rem; }
 .album-result__back-link { color: #8d6a4f; font-size: 0.92rem; font-weight: 700; text-decoration: none; }
-.album-result__back-link:hover { text-decoration: underline; }
-.album-result__skeleton-stage { min-height: 280px; border-radius: 16px; background: linear-gradient(90deg, #f3ebe3 25%, #faf6f1 50%, #f3ebe3 75%); background-size: 200% 100%; animation: album-skeleton-shimmer 1.2s infinite; }
+.album-result__back-link:hover { text-decoration: underline; }.album-result__skeleton-stage { min-height: 280px; border-radius: 16px; background: linear-gradient(90deg, #f3ebe3 25%, #faf6f1 50%, #f3ebe3 75%); background-size: 200% 100%; animation: album-skeleton-shimmer 1.2s infinite; }
 @keyframes album-skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .btn--danger { color: #a14f45; }
 

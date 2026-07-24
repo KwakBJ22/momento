@@ -25,6 +25,22 @@ export function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase();
 
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function dedupeRequest<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const existing = inFlightRequests.get(key);
+  if (existing) return existing as Promise<T>;
+  const request = load().finally(() => {
+    if (inFlightRequests.get(key) === request) inFlightRequests.delete(key);
+  });
+  inFlightRequests.set(key, request);
+  return request;
+}
+
+export function resetInFlightRequestsForTest(): void {
+  inFlightRequests.clear();
+}
+
 export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
   const headers = new Headers(init.headers);
@@ -40,11 +56,14 @@ async function parseError(response: Response): Promise<string> {
   return "요청을 처리하지 못했어요.";
 }
 
-export async function getAlbum(albumId: string, edition?: number | null): Promise<AlbumResult> {
+export async function getAlbum(albumId: string, edition?: number | null, signal?: AbortSignal): Promise<AlbumResult> {
   const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}${suffix}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as AlbumResult;
+  const key = `album:${albumId}:${edition ?? "latest"}`;
+  return dedupeRequest(key, async () => {
+    const response = await authenticatedFetch(`/api/albums/${albumId}${suffix}`, { cache: "no-store", signal });
+    if (!response.ok) throw new Error(await parseError(response));
+    return (await response.json()) as AlbumResult;
+  });
 }
 
 export type MyAlbum = {
@@ -122,12 +141,15 @@ export async function regenerateStory(albumId: string): Promise<{ narrative: str
   return { narrative: generated.epilogue };
 }
 
-export async function getAlbumPhotos(albumId: string, edition?: number | null): Promise<import("../types").AlbumPhoto[]> {
+export async function getAlbumPhotos(albumId: string, edition?: number | null, signal?: AbortSignal): Promise<import("../types").AlbumPhoto[]> {
   const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
-  const response = await authenticatedFetch(`/api/albums/${albumId}/photos${suffix}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(await parseError(response));
-  const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
-  return body.photos;
+  const key = `album-photos:${albumId}:${edition ?? "latest"}`;
+  return dedupeRequest(key, async () => {
+    const response = await authenticatedFetch(`/api/albums/${albumId}/photos${suffix}`, { cache: "no-store", signal });
+    if (!response.ok) throw new Error(await parseError(response));
+    const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
+    return body.photos;
+  });
 }
 
 export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<void> {
@@ -516,10 +538,22 @@ export async function deactivateCollaborationInvite(albumId: string) {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
-export async function getCollaborationStatus(albumId: string) {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/collaboration`);
-  if (!response.ok) throw new Error(await parseError(response));
-  return response.json();
+export async function getCollaborationStatus(albumId: string, signal?: AbortSignal) {
+  const key = `collaboration:${albumId}`;
+  return dedupeRequest(key, async () => {
+    const response = await authenticatedFetch(`/api/albums/${albumId}/collaboration`, { cache: "no-store", signal });
+    if (!response.ok) throw new Error(await parseError(response));
+    return response.json() as Promise<{
+      can_edit_settings: boolean;
+      collaboration_enabled: boolean;
+      collaboration_status: string;
+      photo_count: number;
+      photo_limit: number;
+      contributor_count: number;
+      memory_count: number;
+      participation?: Awaited<ReturnType<typeof getAlbumParticipation>>;
+    }>;
+  });
 }
 
 export async function getAlbumParticipation(albumId: string) {

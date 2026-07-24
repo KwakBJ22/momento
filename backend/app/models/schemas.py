@@ -526,6 +526,14 @@ class CollaborationRebuildResponse(BaseModel):
     album_json: dict[str, Any] | None = None
 
 
+class CollaborationParticipationSummary(BaseModel):
+    participants: list[dict[str, Any]] = Field(default_factory=list)
+    new_photo_count: int = 0
+    new_memory_count: int = 0
+    new_contribution_count: int = 0
+    recommended_mode: str = "append_page"
+
+
 class CollaborationStatusResponse(BaseModel):
     album_id: UUID
     can_edit_settings: bool = False
@@ -544,6 +552,7 @@ class CollaborationStatusResponse(BaseModel):
     invite_url: str | None = None
     contributors: list[CollaborationContributorResponse] = Field(default_factory=list)
     album_json: dict[str, Any] | None = None
+    participation: CollaborationParticipationSummary | None = None
 
 
 # --- Admin console ---

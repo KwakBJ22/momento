@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   applyContributions,
   createAlbumShareLink,
-  getAlbumParticipation,
   getCollaborationStatus,
   getPendingContributions,
   isPublicShareUrl,
@@ -24,7 +23,8 @@ type CollaborationStatus = {
   contributor_count: number;
   memory_count: number;
 };
-type Participation = Awaited<ReturnType<typeof getAlbumParticipation>>;
+
+type Participation = NonNullable<Awaited<ReturnType<typeof getCollaborationStatus>>["participation"]>;
 type LivingMode = "append_page" | "edition";
 
 interface CollaborationPanelProps {
@@ -69,7 +69,7 @@ export default function CollaborationPanel({
   const [shareUrl, setShareUrl] = useState<string | null>(() => (
     isPublicShareUrl(initialShareUrl) ? initialShareUrl || null : readStoredShareUrl(albumId)
   ));
-  const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [busy, setBusy] = useState<"start" | "apply" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,25 +89,27 @@ export default function CollaborationPanel({
     } catch { /* private WebViews can reject storage */ }
   }, [albumId]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!albumId) return;
-    setLoading(true);
+    setStatusLoading(true);
     try {
-      const [nextStatus, nextParticipation] = await Promise.all([
-        getCollaborationStatus(albumId) as Promise<CollaborationStatus>,
-        getAlbumParticipation(albumId),
-      ]);
-      setStatus(nextStatus);
-      setParticipation(nextParticipation);
+      const payload = await getCollaborationStatus(albumId, signal);
+      setStatus(payload);
+      setParticipation(payload.participation ?? null);
       setError(null);
     } catch (cause) {
+      if (signal?.aborted) return;
       setError(cause instanceof Error ? cause.message : "함께 만들기 정보를 불러오지 못했습니다.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setStatusLoading(false);
     }
   }, [albumId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void refresh(controller.signal);
+    return () => controller.abort();
+  }, [refresh]);
   useEffect(() => {
     if (isPublicShareUrl(initialShareUrl)) rememberShareUrl(initialShareUrl || null);
   }, [initialShareUrl, rememberShareUrl]);
@@ -214,11 +216,8 @@ export default function CollaborationPanel({
     } finally { setSavingCover(false); }
   };
 
-  if (loading && !status) return <section className="collab-panel"><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__copy">함께 만들기를 불러오는 중...</p></section>;
-  if (!status) return <section className="collab-panel"><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__error">{error || "함께 만들기 정보를 불러오지 못했습니다."}</p><button type="button" onClick={() => void refresh()}>다시 시도</button></section>;
-
-  const started = status.collaboration_enabled && !["draft", "closed"].includes(status.collaboration_status);
-  const canManage = status.can_edit_settings;
+  const started = status ? status.collaboration_enabled && !["draft", "closed"].includes(status.collaboration_status) : false;
+  const canManage = status?.can_edit_settings ?? false;
   const newPhotos = participation?.new_photo_count ?? 0;
   const newMemories = participation?.new_memory_count ?? 0;
   const hasNew = newPhotos + newMemories > 0;
@@ -226,16 +225,34 @@ export default function CollaborationPanel({
 
   return <section className="collab-panel">
     <div><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__copy">가족과 친구를 초대해 사진과 추억을 함께 모아보세요.</p></div>
-    {!started && canManage ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void start()}>{busy === "start" ? "시작하는 중..." : "함께 만들기 시작"}</button> : null}
-    {started && canManage ? <>
-      <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>카카오로 초대</button></div>
-      <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
-      {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
-    </> : null}
-    <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
-    {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
+
+    {statusLoading ? (
+      <div className="collab-panel__loading" aria-busy="true">
+        <p className="collab-panel__loading-hint">함께 만든 추억을 확인하고 있어요.</p>
+        <div className="collab-panel__skeleton-lines">
+          <span /><span /><span />
+        </div>
+      </div>
+    ) : !status ? (
+      <div className="collab-panel__error-block">
+        <p className="collab-panel__error">{error || "함께 만들기 정보를 불러오지 못했습니다."}</p>
+        <button type="button" onClick={() => void refresh()}>다시 시도</button>
+      </div>
+    ) : (
+      <>
+        {!started && canManage ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void start()}>{busy === "start" ? "시작하는 중..." : "함께 만들기 시작"}</button> : null}
+        {started && canManage ? <>
+          <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>카카오로 초대</button></div>
+          <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
+          {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
+        </> : null}
+        <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
+        {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
+      </>
+    )}
+
     {message ? <p className="collab-panel__message">{message}</p> : null}
-    {error ? <p className="collab-panel__error">{error}</p> : null}
+    {error && status ? <p className="collab-panel__error">{error}</p> : null}
 
     {pending ? <LivingPicker pending={pending} selectedIds={selectedIds} setSelectedIds={setSelectedIds} mode={livingMode} setMode={setLivingMode} busy={busy === "apply"} onCancel={() => setPending(null)} onApply={() => void applySelected()} /> : null}
     {coverPickerOpen ? <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-label="대표사진 변경"><section><h4>대표사진 바꾸기</h4><div className="collab-panel__cover-grid">{photos.map((photo) => <button type="button" key={photo.id} className={selectedCoverId === photo.id ? "is-selected" : ""} onClick={() => setSelectedCoverId(photo.id)}><img src={photo.thumbnail_url || photo.original_url} alt="대표사진 후보" loading="lazy" /></button>)}</div><div className="collab-panel__cover-actions"><button type="button" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}>취소</button><button type="button" className="collab-panel__primary" disabled={savingCover || !selectedCoverId} onClick={() => void saveCover()}>{savingCover ? "저장 중..." : "저장"}</button></div></section></div> : null}

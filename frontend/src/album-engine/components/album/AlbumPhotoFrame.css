@@ -1,5 +1,9 @@
 .album-photo-frame {
-  margin: 0;
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  vertical-align: top;
   background: #ffffff;
   padding: 10px;
   border: 1px solid #d8d5d0;
@@ -10,9 +14,9 @@
 
 .album-photo-frame__img {
   display: block;
-  width: 100%;
-  height: auto;
+  width: auto;
   max-width: 100%;
+  height: auto;
   max-height: 680px;
   object-fit: contain;
   border-radius: 4px;
