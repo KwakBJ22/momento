@@ -53,12 +53,27 @@ class AlbumParticipationApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
+        self.assertEqual(body["new_photo_count"], 1)
+        self.assertEqual(body["new_memory_count"], 1)
         self.assertEqual(body["participants"], [
             {"id": "host-contributor", "name": "병준", "role": "host", "photo_count": 1, "memory_count": 0, "last_active_at": "2026-07-23T10:00:00+00:00"},
             {"id": "guest-contributor", "name": "민수", "role": "participant", "photo_count": 1, "memory_count": 1, "last_active_at": "2026-07-23T11:05:00+00:00"},
         ])
         self.assertEqual(body["recommended_mode"], "append_page")
         self.ensure_owner.assert_called_once_with(self.db, {"id": ALBUM_ID, "created_at": "2026-07-23T09:00:00+00:00", "created_by": HOST_ID}, HOST_ID)
+
+    def test_legacy_host_photos_without_contributor_are_not_new(self) -> None:
+        with patch("app.api.collaboration.list_photo_memories", return_value=[]):
+            photo_query = self.db.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value
+            photo_query.execute.return_value = SimpleNamespace(data=[
+                {"id": "photo-legacy", "uploaded_by_contributor_id": None, "created_at": "2026-07-23T10:00:00+00:00"},
+                {"id": "photo-guest", "uploaded_by_contributor_id": "guest-contributor", "created_at": "2026-07-23T11:00:00+00:00"},
+            ])
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/participation")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["new_photo_count"], 1)
+        self.assertEqual(body["new_memory_count"], 0)
 
     def test_successful_append_records_one_living_event(self) -> None:
         with (

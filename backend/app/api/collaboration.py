@@ -48,6 +48,8 @@ from app.services.collaboration_service import (
     publish_album,
     rebuild_album,
     apply_selected_contributions,
+    contribution_baseline_at,
+    count_new_contributions,
     remove_contributor,
     require_contributor,
     rotate_invite,
@@ -106,15 +108,29 @@ def _iso_for_analytics() -> str:
 
 def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     album_id = str(album["id"])
-    baseline = str(album.get("created_at") or "")
+    baseline = contribution_baseline_at(album)
     applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     owners = {str(row["id"]) for row in list_contributors(client, album_id) if row.get("role") == "owner"}
     contributors = {str(row["id"]): str(row.get("display_name") or "참여자") for row in list_contributors(client, album_id)}
     photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
     memories = list_photo_memories(client, album_id)
-    pending_photos = [row for row in photos if str(row.get("uploaded_by_contributor_id") or "") and str(row.get("uploaded_by_contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_photo_ids]
-    pending_memories = [row for row in memories if str(row.get("contributor_id") or "") and str(row.get("contributor_id") or "") not in owners and str(row.get("created_at") or "") > baseline and str(row["id"]) not in applied_memory_ids]
+    pending_photos = [
+        row
+        for row in photos
+        if str(row.get("uploaded_by_contributor_id") or "").strip()
+        and str(row.get("uploaded_by_contributor_id") or "").strip() not in owners
+        and str(row.get("created_at") or "") > baseline
+        and str(row["id"]) not in applied_photo_ids
+    ]
+    pending_memories = [
+        row
+        for row in memories
+        if str(row.get("contributor_id") or "").strip()
+        and str(row.get("contributor_id") or "").strip() not in owners
+        and str(row.get("created_at") or "") > baseline
+        and str(row["id"]) not in applied_memory_ids
+    ]
     items: list[dict[str, Any]] = []
     for row in pending_photos:
         items.append({"id": str(row["id"]), "type": "photo", "actor_name": contributors.get(str(row.get("uploaded_by_contributor_id") or ""), "참여자"), "created_at": row.get("created_at"), "thumbnail_url": get_signed_url(client, str(row["thumbnail_bucket"]), str(row["thumbnail_path"]), settings.signed_url_ttl_seconds), "comment": str(row.get("comment") or "").strip() or None})
@@ -363,12 +379,18 @@ async def get_album_participation(
     for memory in memories:
         activities.append({"type": "memory_added", "actor_name": str(memory.get("author_name") or "참여자"), "count": 1, "created_at": memory.get("created_at")})
     activities = sorted((item for item in activities if item.get("created_at")), key=lambda item: str(item["created_at"]), reverse=True)[:10]
-    recent_cutoff = str(album.get("last_collaboration_applied_at") or album.get("created_at") or "")
+    recent_cutoff = contribution_baseline_at(album)
     applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
-    new_photo_count = sum(1 for photo in photos if str(photo.get("uploaded_by_contributor_id") or "") not in owner_ids and str(photo.get("created_at") or "") > recent_cutoff and str(photo.get("id")) not in applied_photo_ids)
-    new_memory_count = sum(1 for memory in memories if str(memory.get("contributor_id") or "") not in owner_ids and str(memory.get("created_at") or "") > recent_cutoff and str(memory.get("id")) not in applied_memory_ids)
+    new_photo_count, new_memory_count = count_new_contributions(
+        photos,
+        memories,
+        owner_contributor_ids=owner_ids,
+        applied_photo_ids=applied_photo_ids,
+        applied_memory_ids=applied_memory_ids,
+        baseline=recent_cutoff,
+    )
     return {
         "participants": participant_rows,
         "recent_activities": activities,
@@ -423,6 +445,8 @@ async def apply_contributions(
         raise HTTPException(status_code=403, detail="Only the album host can update this album.")
     photo_ids = {str(item) for item in body.get("photo_ids", [])}
     memory_ids = {str(item) for item in body.get("memory_ids", [])}
+    if not photo_ids and not memory_ids:
+        raise HTTPException(status_code=400, detail="반영할 새 추억이 없습니다.")
     requested_mode = str(body.get("mode") or "auto")
     started_at = _iso_for_analytics()
     started_perf = time.perf_counter()

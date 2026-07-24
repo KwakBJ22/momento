@@ -137,7 +137,8 @@ def parse_captured_at(raw: Any) -> datetime | None:
 def validate_upload_limits(files: list[UploadFile], settings: Settings) -> None:
     """Reject oversized requests before decoding or storing any image bytes."""
     max_file_bytes = int(getattr(settings, "max_file_size_mb", 25)) * 1024 * 1024
-    max_total_bytes = int(getattr(settings, "max_total_upload_size_mb", 100)) * 1024 * 1024
+    max_photos = int(getattr(settings, "max_photos", 30))
+    max_total_bytes = max_photos * max_file_bytes
     total_bytes = 0
     for upload in files:
         try:

@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   applyContributions,
-  closeCollaborationAlbum,
   createAlbumShareLink,
-  deactivateAlbumShareLink,
-  deactivateCollaborationInvite,
   getAlbumParticipation,
-  getAlbumShareLinks,
   getCollaborationStatus,
   getPendingContributions,
   isPublicShareUrl,
-  rotateCollaborationInvite,
   startCollaboration,
   updateAlbumCoverPhoto,
   type PendingContributionItem,
@@ -75,7 +70,7 @@ export default function CollaborationPanel({
     isPublicShareUrl(initialShareUrl) ? initialShareUrl || null : readStoredShareUrl(albumId)
   ));
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"start" | "apply" | "rotate" | "deactivate" | "close" | null>(null);
+  const [busy, setBusy] = useState<"start" | "apply" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Awaited<ReturnType<typeof getPendingContributions>> | null>(null);
@@ -204,34 +199,6 @@ export default function CollaborationPanel({
     } finally { setBusy(null); }
   };
 
-  const updateInvite = async (action: "rotate" | "deactivate" | "close") => {
-    const confirmations = {
-      rotate: "초대 링크를 새로 만들까요? 기존 링크는 더 이상 사용할 수 없습니다.",
-      deactivate: "초대 링크를 비활성화할까요? 이 링크로는 더 이상 사진과 기억을 추가할 수 없습니다.",
-      close: "함께 만들기를 종료할까요? 참여자는 더 이상 사진과 기억을 추가할 수 없습니다. 현재 앨범과 참여 내용은 유지됩니다.",
-    };
-    if (!window.confirm(confirmations[action])) return;
-    setBusy(action); setError(null);
-    try {
-      if (action === "rotate") {
-        const links = await getAlbumShareLinks(albumId);
-        await Promise.all(links.filter((link) => link.status === "active").map((link) => deactivateAlbumShareLink(albumId, link.id)));
-        await rotateCollaborationInvite(albumId);
-        rememberShareUrl((await createAlbumShareLink(albumId)).share_url);
-      } else if (action === "deactivate") {
-        const links = await getAlbumShareLinks(albumId);
-        await Promise.all(links.filter((link) => link.status === "active").map((link) => deactivateAlbumShareLink(albumId, link.id)));
-        await deactivateCollaborationInvite(albumId);
-        rememberShareUrl(null);
-      } else {
-        await closeCollaborationAlbum(albumId);
-      }
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.");
-    } finally { setBusy(null); }
-  };
-
   const saveCover = async () => {
     if (!selectedCoverId) return;
     setSavingCover(true); setError(null);
@@ -263,11 +230,10 @@ export default function CollaborationPanel({
     {started && canManage ? <>
       <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>카카오로 초대</button></div>
       <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
-      <button type="button" className="collab-panel__primary" disabled={busy !== null || !hasNew} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button>
+      {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
     </> : null}
     <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
     {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
-    {started && canManage ? <details className="collab-panel__advanced"><summary>고급 설정</summary><div><button type="button" disabled={busy !== null} onClick={() => void updateInvite("rotate")}>초대 링크 새로 만들기</button><button type="button" disabled={busy !== null} onClick={() => void updateInvite("deactivate")}>초대 링크 비활성화</button><button type="button" disabled={busy !== null} onClick={() => void updateInvite("close")}>함께 만들기 종료</button></div></details> : null}
     {message ? <p className="collab-panel__message">{message}</p> : null}
     {error ? <p className="collab-panel__error">{error}</p> : null}
 

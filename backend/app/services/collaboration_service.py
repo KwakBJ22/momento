@@ -23,6 +23,44 @@ LIVING_APPEND_PHOTO_THRESHOLD = 5
 LIVING_APPEND_MEMORY_THRESHOLD = 5
 
 
+def contribution_baseline_at(album: dict[str, Any]) -> str:
+    return str(album.get("last_collaboration_applied_at") or album.get("created_at") or "")
+
+
+def count_new_contributions(
+    photos: list[dict[str, Any]],
+    memories: list[dict[str, Any]],
+    *,
+    owner_contributor_ids: set[str],
+    applied_photo_ids: set[str],
+    applied_memory_ids: set[str],
+    baseline: str,
+) -> tuple[int, int]:
+    """Count contributor photos/memories not yet applied to the Living Album."""
+    new_photos = 0
+    for photo in photos:
+        contributor_id = str(photo.get("uploaded_by_contributor_id") or "").strip()
+        if not contributor_id or contributor_id in owner_contributor_ids:
+            continue
+        if str(photo.get("id")) in applied_photo_ids:
+            continue
+        if str(photo.get("created_at") or "") <= baseline:
+            continue
+        new_photos += 1
+
+    new_memories = 0
+    for memory in memories:
+        contributor_id = str(memory.get("contributor_id") or "").strip()
+        if not contributor_id or contributor_id in owner_contributor_ids:
+            continue
+        if str(memory.get("id")) in applied_memory_ids:
+            continue
+        if str(memory.get("created_at") or "") <= baseline:
+            continue
+        new_memories += 1
+    return new_photos, new_memories
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -827,17 +865,33 @@ def apply_selected_contributions(
 ) -> dict[str, Any]:
     """Apply selected contributions as an appended page or a newly composed edition."""
     album_id = str(album["id"])
+    if not photo_ids and not memory_ids:
+        raise HTTPException(status_code=400, detail="반영할 새 추억이 없습니다.")
     if mode not in {"auto", "append_page", "edition"}:
         raise HTTPException(status_code=400, detail="Unknown Living Album update mode.")
-    baseline = album.get("created_at")
+    baseline = contribution_baseline_at(album)
     applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     contributors = list_contributors(client, album_id)
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
     photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
     memories = list_photo_memories(client, album_id)
-    pending_photos = {str(row["id"]) for row in photos if str(row.get("uploaded_by_contributor_id") or "") and str(row.get("uploaded_by_contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_photo_ids}
-    pending_memories = {str(row["id"]) for row in memories if str(row.get("contributor_id") or "") and str(row.get("contributor_id") or "") not in owner_ids and str(row.get("created_at") or "") > str(baseline or "") and str(row["id"]) not in applied_memory_ids}
+    pending_photos = {
+        str(row["id"])
+        for row in photos
+        if str(row.get("uploaded_by_contributor_id") or "").strip()
+        and str(row.get("uploaded_by_contributor_id") or "").strip() not in owner_ids
+        and str(row.get("created_at") or "") > baseline
+        and str(row["id"]) not in applied_photo_ids
+    }
+    pending_memories = {
+        str(row["id"])
+        for row in memories
+        if str(row.get("contributor_id") or "").strip()
+        and str(row.get("contributor_id") or "").strip() not in owner_ids
+        and str(row.get("created_at") or "") > baseline
+        and str(row["id"]) not in applied_memory_ids
+    }
     if not photo_ids.issubset(pending_photos) or not memory_ids.issubset(pending_memories):
         raise HTTPException(status_code=409, detail="Some selected memories are no longer waiting to be applied.")
     pending_photo_count = len(photo_ids)

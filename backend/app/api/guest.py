@@ -150,8 +150,10 @@ async def upload_guest_album(
     _allow_guest_upload(request)
     settings = get_settings()
     total_upload_bytes = sum(int(item["size_bytes"] or 0) for item in file_metadata)
-    if not photos or len(photos) > settings.max_photos:
-        raise HTTPException(status_code=400, detail=f"사진은 1~{settings.max_photos}장까지 올릴 수 있어요.")
+    if not photos:
+        raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")
+    if len(photos) > settings.max_photos:
+        raise HTTPException(status_code=400, detail=f"사진은 최대 {settings.max_photos}장까지 업로드할 수 있습니다.")
     validate_upload_limits(photos, settings)
     album_category = normalize_category(category) if category.strip() else normalize_category(meeting_type)
     if album_category not in ALBUM_CATEGORIES and meeting_type not in {"family", "friend", "work", "university"}:

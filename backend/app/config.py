@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +36,12 @@ class Settings(BaseSettings):
     max_photos: int = 30
     max_file_size_mb: int = 25
     max_total_upload_size_mb: int = 100
+
+    @field_validator("max_photos", mode="after")
+    @classmethod
+    def _product_max_photos(cls, value: int) -> int:
+        """MVP album upload cap (frontend and API must stay aligned)."""
+        return 30
     max_video_file_size_mb: int = 500
     max_audio_file_size_mb: int = 100
     max_document_file_size_mb: int = 50

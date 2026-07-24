@@ -572,28 +572,23 @@ async def get_album_photo_urls(
     document_photo_ids = album_document_photo_ids(document)
     all_photos = get_album_photo_records(client, album_id)
     visible_photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
-    photo_urls = [
-        AlbumPhotoUrlResponse(
-            id=UUID(str(photo["id"])),
-            sort_order=int(photo["sort_order"]),
-            comment=str(photo.get("comment") or "").strip() or None,
-            original_url=get_signed_url(
-                client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
-            ),
-            thumbnail_url=get_signed_url(
-                client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
-            ),
-            width=photo.get("width") if photo.get("width") is not None else (media_by_id.get(str(photo["id"])) or {}).get("width"),
-            height=photo.get("height") if photo.get("height") is not None else (media_by_id.get(str(photo["id"])) or {}).get("height"),
-            taken_at=photo.get("taken_at") or (media_by_id.get(str(photo["id"])) or {}).get("taken_at"),
-            latitude=photo.get("latitude") if photo.get("latitude") is not None else (media_by_id.get(str(photo["id"])) or {}).get("latitude"),
-            longitude=photo.get("longitude") if photo.get("longitude") is not None else (media_by_id.get(str(photo["id"])) or {}).get("longitude"),
-            location_name=photo.get("location_name"),
-            location_source=photo.get("location_source"),
-            orientation=photo.get("orientation") or (media_by_id.get(str(photo["id"])) or {}).get("orientation"),
+    signed_urls = _batch_signed_urls_for_photos(client, settings, visible_photos)
+    photo_urls: list[AlbumPhotoUrlResponse] = []
+    for photo in visible_photos:
+        media = media_by_id.get(str(photo["id"])) or {}
+        row = _album_photo_response(client, settings, photo, [], signed_urls=signed_urls)
+        photo_urls.append(
+            row.model_copy(
+                update={
+                    "width": photo.get("width") if photo.get("width") is not None else media.get("width"),
+                    "height": photo.get("height") if photo.get("height") is not None else media.get("height"),
+                    "taken_at": photo.get("taken_at") or media.get("taken_at"),
+                    "latitude": photo.get("latitude") if photo.get("latitude") is not None else media.get("latitude"),
+                    "longitude": photo.get("longitude") if photo.get("longitude") is not None else media.get("longitude"),
+                    "orientation": photo.get("orientation") or media.get("orientation"),
+                }
+            )
         )
-        for photo in visible_photos
-    ]
     return AlbumPhotoUrlsResponse(photos=photo_urls)
 
 
@@ -867,14 +862,46 @@ def _previous_edition_number(record: dict[str, Any], edition: int | None) -> int
     return max(older) if older else None
 
 
+def _batch_signed_urls_for_photos(
+    client: Any,
+    settings: Settings,
+    photos: list[dict[str, Any]],
+) -> dict[tuple[str, str], str]:
+    assets: list[dict[str, Any]] = []
+    for photo in photos:
+        storage_bucket = str(photo.get("storage_bucket") or "")
+        storage_path = str(photo.get("storage_path") or "")
+        if storage_bucket and storage_path:
+            assets.append({"storage_bucket": storage_bucket, "storage_path": storage_path})
+        thumb_bucket = str(photo.get("thumbnail_bucket") or "")
+        thumb_path = str(photo.get("thumbnail_path") or "")
+        if thumb_bucket and thumb_path:
+            assets.append({"thumbnail_bucket": thumb_bucket, "thumbnail_path": thumb_path})
+    if not assets:
+        return {}
+    return get_signed_urls_batch(client, assets, settings.signed_url_ttl_seconds)
+
+
 def _album_photo_response(
     client: Any,
     settings: Settings,
     photo: dict[str, Any],
     memories: list[dict[str, Any]],
+    *,
+    signed_urls: dict[tuple[str, str], str] | None = None,
 ) -> AlbumPhotoUrlResponse:
     photo_id = str(photo["id"])
     photo_memories = [memory for memory in memories if str(memory.get("photo_id") or "") == photo_id]
+    storage_bucket = str(photo["storage_bucket"])
+    storage_path = str(photo["storage_path"])
+    thumb_bucket = str(photo["thumbnail_bucket"])
+    thumb_path = str(photo["thumbnail_path"])
+    if signed_urls is not None:
+        original_url = signed_urls.get((storage_bucket, storage_path), "")
+        thumbnail_url = signed_urls.get((thumb_bucket, thumb_path), "")
+    else:
+        original_url = get_signed_url(client, storage_bucket, storage_path, settings.signed_url_ttl_seconds)
+        thumbnail_url = get_signed_url(client, thumb_bucket, thumb_path, settings.signed_url_ttl_seconds)
     return AlbumPhotoUrlResponse(
         id=UUID(photo_id),
         sort_order=int(photo.get("sort_order") or 0),
@@ -884,8 +911,8 @@ def _album_photo_response(
             for memory in photo_memories
             if str(memory.get("comment") or "").strip()
         ] or None,
-        original_url=get_signed_url(client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds),
-        thumbnail_url=get_signed_url(client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds),
+        original_url=original_url,
+        thumbnail_url=thumbnail_url,
         width=photo.get("width"),
         height=photo.get("height"),
         taken_at=photo.get("taken_at"),
@@ -903,6 +930,8 @@ def _living_append_payload(
     pages: list[dict[str, Any]],
     photos: list[dict[str, Any]],
     memories: list[dict[str, Any]],
+    *,
+    signed_urls: dict[tuple[str, str], str] | None = None,
 ) -> list[dict[str, Any]]:
     photo_by_id = {str(photo["id"]): photo for photo in photos}
     memory_by_id = {str(memory["id"]): memory for memory in memories}
@@ -911,7 +940,7 @@ def _living_append_payload(
         if not isinstance(page, dict):
             continue
         page_photos = [
-            _album_photo_response(client, settings, photo_by_id[photo_id], memories).model_dump(mode="json")
+            _album_photo_response(client, settings, photo_by_id[photo_id], memories, signed_urls=signed_urls).model_dump(mode="json")
             for photo_id in page.get("photo_ids") or []
             if str(photo_id) in photo_by_id
         ]
@@ -947,6 +976,7 @@ def _record_to_detail(
     document_photo_ids = album_document_photo_ids(document)
     photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
     memories = list_photo_memories(client, album_id)
+    signed_urls = _batch_signed_urls_for_photos(client, settings, photos)
     cover_photo_id, cover_image_url = _cover_image_url(client, settings, record, photos)
     chapter_stories = visible_date_stories(
         record.get("chapter_stories"),
@@ -973,7 +1003,7 @@ def _record_to_detail(
         created_at=record["created_at"],
         media=[_media_summary(media) for media in get_album_media_records(client, album_id)],
         album_version=int(record.get("album_version") or 0),
-        living_append_pages=_living_append_payload(client, settings, append_pages, all_photos, memories),
+        living_append_pages=_living_append_payload(client, settings, append_pages, all_photos, memories, signed_urls=signed_urls),
         edition_previous=_previous_edition_number(record, edition),
         edition_is_latest=edition is None and bool(record.get("living_latest_edition_previous") is not None),
         saved=True,

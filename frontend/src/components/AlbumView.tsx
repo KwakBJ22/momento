@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, getAlbum, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
+import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
@@ -34,7 +34,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
 
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [photosReady, setPhotosReady] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [publicShareUrl, setPublicShareUrl] = useState("");
@@ -50,7 +51,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     let active = true;
 
-    setIsLoading(true);
+    setPhotosReady(false);
     setError(null);
     setLoadedAlbumId(null);
     setPublicShareUrl("");
@@ -71,12 +72,10 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         }
         setPhotos(data);
         setLoadedAlbumId(loadedKey);
+        setPhotosReady(true);
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
       });
 
     return () => {
@@ -91,7 +90,9 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
   const handlePdf = async () => {
 
-    if (!album) return;
+    if (!displayAlbum && !album) return;
+    const source = displayAlbum ?? album;
+    if (!source) return;
 
     setIsExportingPdf(true);
 
@@ -99,24 +100,24 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
       await downloadAlbumPdf({
 
-        albumId: album.album_id,
+        albumId: source.album_id,
 
-        albumVersion: album.album_version ?? 0,
+        albumVersion: source.album_version ?? 0,
 
-        title: album.title,
+        title: source.title,
 
         photos,
 
-        epilogue: album.epilogue ?? album.narrative ?? "",
+        epilogue: source.epilogue ?? source.narrative ?? "",
 
-        coverDateLabel: album.date,
+        coverDateLabel: source.date,
 
-        category: album.category,
+        category: source.category,
 
-        templateType: album.template_type,
-        chapterStories: album.chapter_stories,
-        coverPhotoId: album.cover_photo_id,
-        livingAppendPages: album.living_append_pages,
+        templateType: source.template_type,
+        chapterStories: source.chapter_stories,
+        coverPhotoId: source.cover_photo_id,
+        livingAppendPages: source.living_append_pages,
 
       });
 
@@ -130,6 +131,20 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     }
 
+  };
+
+
+
+  const handleDeleteAlbum = async () => {
+    if (!window.confirm("이 앨범을 삭제할까요? 삭제한 앨범은 복구할 수 없습니다.")) return;
+    setIsDeleting(true);
+    try {
+      await deleteAlbum(albumId);
+      window.location.assign("/my-albums");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "앨범을 삭제하지 못했어요.");
+      setIsDeleting(false);
+    }
   };
 
 
@@ -240,7 +255,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
 
-  if (isLoading || loadedAlbumId !== loadedKey || !album) {
+  if (!photosReady || loadedAlbumId !== loadedKey) {
 
     return (
 
@@ -248,9 +263,11 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
         <div className="album-page__layout">
 
-          <article className="album-page__book album-result">
+          <article className="album-page__book album-result album-result--skeleton">
 
             <p className="album-result__subtitle">앨범을 불러오는 중...</p>
+
+            <div className="album-result__skeleton-stage" aria-hidden="true" />
 
           </article>
 
@@ -264,33 +281,37 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
 
-  const epilogue = (album.epilogue ?? album.narrative ?? "").trim();
-
-
+  const displayAlbum = album;
+  const displayTitle = displayAlbum?.title ?? "우리의 추억";
+  const epilogue = (displayAlbum?.epilogue ?? displayAlbum?.narrative ?? "").trim();
+  const templateType = displayAlbum?.template_type;
+  const category = displayAlbum?.category;
 
   return (
 
-    <div className={`album-page album-result--${normalizeTemplateType(album.template_type)}`}>
+    <div className={`album-page album-result--${normalizeTemplateType(templateType)}`}>
 
       <div className="album-page__layout">
 
         <article className="album-page__book album-result">
 
           <header className="album-result__intro">
+            <p className="album-result__back">
+              <a className="album-result__back-link" href="/my-albums">← 내 앨범</a>
+            </p>
             {requestedEdition !== null ? (
               <p className="album-result__subtitle">
                 <a href={`/album/${albumId}`}>최신 앨범 보기</a>
-                {album.edition_previous !== null && album.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${album.edition_previous}`}>더 이전 앨범 보기</a></> : null}
+                {displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>더 이전 앨범 보기</a></> : null}
               </p>
             ) : null}
-            {requestedEdition === null && album.edition_is_latest && album.edition_previous !== null && album.edition_previous !== undefined ? (
-              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${albumId}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p>
+            {requestedEdition === null && displayAlbum?.edition_is_latest && displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? (
+              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></p>
             ) : null}
-            <p className="album-result__memory-placeholder">새로운 추억 0개</p>
 
-            <p className="album-result__cover">{coverLineForCategory(album.category)}</p>
+            <p className="album-result__cover">{coverLineForCategory(category)}</p>
 
-            <h2 className="album-result__title">{album.title}</h2>
+            <h2 className="album-result__title">{displayTitle}</h2>
 
             <p className="album-result__subtitle">우리 모임의 추억 앨범</p>
 
@@ -304,20 +325,20 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               photos={photos}
 
-              title={album.title}
+              title={displayTitle}
 
               epilogue={epilogue}
 
-              coverDateLabel={album.date}
-              chapterStories={album.chapter_stories}
+              coverDateLabel={displayAlbum?.date}
+              chapterStories={displayAlbum?.chapter_stories}
 
-              category={album.category}
+              category={category}
 
-              templateType={album.template_type}
+              templateType={templateType}
 
-              albumId={album.album_id}
-              coverPhotoId={album.cover_photo_id}
-              livingAppendPages={album.living_append_pages}
+              albumId={displayAlbum?.album_id ?? albumId}
+              coverPhotoId={displayAlbum?.cover_photo_id}
+              livingAppendPages={displayAlbum?.living_append_pages}
 
               mode="screen"
 
@@ -325,7 +346,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
           </div>
 
-          {album.media.some((media) => media.media_type !== "image" && media.media_type !== "gif") && (
+          {displayAlbum?.media?.some((media) => media.media_type !== "image" && media.media_type !== "gif") ? (
 
             <section className="album-result__narrative">
 
@@ -337,7 +358,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               <ul className="media-placeholder-list">
 
-                {album.media
+                {displayAlbum.media
 
                   .filter((media) => media.media_type !== "image" && media.media_type !== "gif")
 
@@ -363,7 +384,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
             </section>
 
-          )}
+          ) : null}
 
         </article>
 
@@ -391,9 +412,15 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
             </button>
 
-            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>
+            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>
 
               {isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}
+
+            </button>
+
+            <button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>
+
+              {isDeleting ? "삭제하는 중..." : "앨범 삭제"}
 
             </button>
 
@@ -411,7 +438,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
           </div>
 
-          {requestedEdition === null ? <CollaborationPanel
+          {requestedEdition === null && album ? <CollaborationPanel
             albumId={album.album_id}
             imageUrl={album.cover_image_url || album.image_url}
             title={album.title}

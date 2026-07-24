@@ -66,6 +66,11 @@ export async function getMyAlbums(): Promise<MyAlbum[]> {
   return ((await response.json()) as { albums: MyAlbum[] }).albums;
 }
 
+export async function deleteAlbum(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
 export async function getMyAlbumCoverUrls(albums: Array<Pick<MyAlbum, "album_id" | "cover_photo_id">>): Promise<Record<string, string>> {
   const targets = albums.filter((album) => Boolean(album.cover_photo_id));
   if (!targets.length) return {};
