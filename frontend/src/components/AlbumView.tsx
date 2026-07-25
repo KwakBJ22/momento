@@ -50,7 +50,10 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
   useEffect(() => {
-    const controller = new AbortController();
+    // Keep a shared in-flight request alive across React StrictMode's
+    // development remount. Aborting it would make the second subscriber reuse
+    // the same rejected request and falsely show an album loading error.
+    let active = true;
     setPhotosReady(false);
     setLivingAppendPages([]);
     setError(null);
@@ -58,11 +61,11 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     setPublicShareUrl("");
 
     void Promise.all([
-      getAlbum(albumId, requestedEdition, controller.signal),
-      getAlbumPhotos(albumId, requestedEdition, controller.signal),
+      getAlbum(albumId, requestedEdition),
+      getAlbumPhotos(albumId, requestedEdition),
     ])
       .then(([albumData, photoData]) => {
-        if (controller.signal.aborted) return;
+        if (!active) return;
         if (!Array.isArray(photoData)) {
           setError("앨범 사진을 불러오지 못했습니다.");
           return;
@@ -73,11 +76,11 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         setPhotosReady(true);
       })
       .catch((err) => {
-        if (controller.signal.aborted) return;
+        if (!active) return;
         setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요.");
       });
 
-    return () => controller.abort();
+    return () => { active = false; };
   }, [albumId, loadedKey, requestedEdition, retryKey]);
 
   useEffect(() => {
@@ -90,15 +93,15 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
       setLivingAppendPages([]);
       return;
     }
-    const controller = new AbortController();
-    void getAlbumLivingAppendPages(albumId, requestedEdition, controller.signal)
+    let active = true;
+    void getAlbumLivingAppendPages(albumId, requestedEdition)
       .then((pages) => {
-        if (!controller.signal.aborted) setLivingAppendPages(pages);
+        if (active) setLivingAppendPages(pages);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setLivingAppendPages([]);
+        if (active) setLivingAppendPages([]);
       });
-    return () => controller.abort();
+    return () => { active = false; };
   }, [album, albumId, photosReady, requestedEdition]);
 
   const chapterStories = useMemo(

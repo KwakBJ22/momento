@@ -63,8 +63,6 @@ export default function AlbumResultView({
   const [photoCommentDraft, setPhotoCommentDraft] = useState("");
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
 
-  void isSavingPhotoComment;
-
   const hasEpilogue = Boolean(epilogue.trim());
   const templateType = normalizeTemplateType(result.template_type);
 
@@ -199,9 +197,6 @@ export default function AlbumResultView({
     }
   };
 
-  void handleStartPhotoCommentEdit;
-  void handleSavePhotoComment;
-
   const handleCopyLink = async () => {
     try {
       const url = await resolveShareUrl();
@@ -306,6 +301,16 @@ export default function AlbumResultView({
                 livingAppendPages={result.living_append_pages}
                 mode="screen"
                 onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined}
+                photoCommentEdit={!guestMode && canEditStories ? {
+                  canEdit: true,
+                  editingPhotoId,
+                  savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
+                  draft: photoCommentDraft,
+                  startEdit: handleStartPhotoCommentEdit,
+                  cancelEdit: handleCancelPhotoCommentEdit,
+                  setDraft: setPhotoCommentDraft,
+                  saveEdit: () => { void handleSavePhotoComment(); },
+                } : null}
               />
             )}
           </div>

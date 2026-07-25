@@ -115,3 +115,25 @@ class ContributionUploadApiTests(TestCase):
         self.assertTrue(response.json()["mine"])
         self.assertNotIn("photos", response.json())
         self.assertNotIn("album_json", response.json())
+
+    def test_participant_can_update_own_memory(self) -> None:
+        updated = {
+            "id": MEMORY_ID,
+            "photo_id": PHOTO_ID,
+            "contributor_id": CONTRIBUTOR_ID,
+            "author_name": "Participant",
+            "relationship": None,
+            "comment": "Updated memory",
+            "created_at": "2026-07-23T10:00:00+00:00",
+            "updated_at": "2026-07-23T10:01:00+00:00",
+        }
+        with patch("app.api.collaboration.update_photo_memory", return_value=updated) as save_memory:
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/memories/{MEMORY_ID}",
+                json={"comment": "Updated memory", "contributor_id": CONTRIBUTOR_ID},
+                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["comment"], "Updated memory")
+        save_memory.assert_called_once()

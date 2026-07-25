@@ -574,16 +574,38 @@ async def get_album_photo_urls(
     access = get_album_access(client, record, authenticated_user_id)
     require_album_read(access)
 
-    media_by_id = {str(media["id"]): media for media in get_album_media_records(client, album_id)}
     document, _ = _edition_document_and_pages(record, edition)
     document_photo_ids = album_document_photo_ids(document)
-    all_photos = get_album_photo_records(client, album_id)
+    # Keep photo comments in the private photo payload.  The detail endpoint is
+    # intentionally light, but photo memories are part of the rendered photo
+    # content (and not optional decoration), so dropping this collection makes
+    # existing participant memories disappear from the album.
+    all_photos, memories = await asyncio.gather(
+        asyncio.to_thread(get_album_photo_records, client, album_id),
+        asyncio.to_thread(list_photo_memories, client, album_id),
+    )
+    # album_photos already contains the display metadata for current uploads.
+    # Keep the album_media fallback only for legacy rows that do not have it,
+    # rather than paying for a second complete media list on every album view.
+    needs_legacy_media = any(
+        photo.get("width") is None
+        or photo.get("height") is None
+        or not photo.get("taken_at")
+        or not photo.get("orientation")
+        for photo in all_photos
+    )
+    media_records = (
+        await asyncio.to_thread(get_album_media_records, client, album_id)
+        if needs_legacy_media
+        else []
+    )
+    media_by_id = {str(media["id"]): media for media in media_records}
     visible_photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
     signed_urls = _batch_signed_urls_for_photos(client, settings, visible_photos)
     photo_urls: list[AlbumPhotoUrlResponse] = []
     for photo in visible_photos:
         media = media_by_id.get(str(photo["id"])) or {}
-        row = _album_photo_response(client, settings, photo, [], signed_urls=signed_urls)
+        row = _album_photo_response(client, settings, photo, memories, signed_urls=signed_urls)
         photo_urls.append(
             row.model_copy(
                 update={

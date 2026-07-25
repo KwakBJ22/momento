@@ -43,8 +43,11 @@ const shareUrlStorageKey = (albumId: string) => `momento-collaboration-share-url
 
 function readStoredShareUrl(albumId: string): string | null {
   try {
-    const value = sessionStorage.getItem(shareUrlStorageKey(albumId));
-    return isPublicShareUrl(value) ? value : null;
+    const key = shareUrlStorageKey(albumId);
+    const durable = localStorage.getItem(key);
+    if (isPublicShareUrl(durable)) return durable;
+    const temporary = sessionStorage.getItem(key);
+    return isPublicShareUrl(temporary) ? temporary : null;
   } catch {
     return null;
   }
@@ -84,8 +87,14 @@ export default function CollaborationPanel({
   const rememberShareUrl = useCallback((url: string | null) => {
     setShareUrl(url);
     try {
-      if (url) sessionStorage.setItem(shareUrlStorageKey(albumId), url);
-      else sessionStorage.removeItem(shareUrlStorageKey(albumId));
+      const key = shareUrlStorageKey(albumId);
+      if (url) {
+        sessionStorage.setItem(key, url);
+        localStorage.setItem(key, url);
+      } else {
+        sessionStorage.removeItem(key);
+        localStorage.removeItem(key);
+      }
     } catch { /* private WebViews can reject storage */ }
   }, [albumId]);
 
@@ -136,7 +145,10 @@ export default function CollaborationPanel({
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(await ensureShareUrl());
+      // Copy an already-issued public link before waiting on any network work.
+      // Creating a link is only necessary for legacy albums with no cached URL.
+      const readyUrl = isPublicShareUrl(shareUrl) ? shareUrl : readStoredShareUrl(albumId);
+      await navigator.clipboard.writeText(readyUrl || await ensureShareUrl());
       setMessage("링크를 복사했습니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "링크를 복사하지 못했습니다.");

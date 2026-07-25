@@ -80,6 +80,36 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["narrative"], "Updated narrative")
 
+    def test_owner_can_save_a_photo_comment(self) -> None:
+        self.as_user(OWNER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.update_album_photo_comment",
+            return_value={"id": PHOTO_ID, "comment": "Updated photo comment"},
+        ):
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/comment",
+                json={"comment": "Updated photo comment"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["comment"], "Updated photo comment")
+
+    def test_owner_can_update_epilogue(self) -> None:
+        self.as_user(OWNER_ID)
+        updated = {**album_record(), "epilogue": "Updated epilogue", "narrative": "Updated epilogue"}
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.update_album_epilogue", return_value=updated
+        ), patch("app.api.album.count_ready_album_photos", return_value=0), patch(
+            "app.api.album.count_album_photo_memories", return_value=0
+        ):
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/epilogue",
+                json={"epilogue": "Updated epilogue"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["epilogue"], "Updated epilogue")
+
     def test_my_albums_returns_only_the_authenticated_creators_albums(self) -> None:
         self.as_user(OWNER_ID)
         created_at = datetime.now(timezone.utc).isoformat()
@@ -178,6 +208,47 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_private_photo_payload_keeps_existing_photo_memories(self) -> None:
+        self.as_user(OWNER_ID)
+        photo = {
+            "id": PHOTO_ID,
+            "sort_order": 0,
+            "comment": "Owner caption",
+            "storage_bucket": "private",
+            "storage_path": "photos/photo.jpg",
+            "thumbnail_bucket": "private",
+            "thumbnail_path": "thumbnails/photo.jpg",
+            "width": 1200,
+            "height": 800,
+            "taken_at": datetime(2026, 7, 12, 10, 0, tzinfo=timezone.utc),
+            "orientation": "landscape",
+        }
+        with (
+            patch("app.api.album.get_album_record", return_value=album_record()),
+            patch("app.api.album.get_album_photo_records", return_value=[photo]),
+            patch("app.api.album.get_album_media_records", return_value=[]) as media_records,
+            patch("app.api.album.list_photo_memories", return_value=[{
+                "id": "55555555-5555-5555-5555-555555555555",
+                "photo_id": PHOTO_ID,
+                "author_name": "Participant",
+                "comment": "Participant memory",
+            }]),
+            patch(
+                "app.api.album._batch_signed_urls_for_photos",
+                return_value={
+                    ("private", "photos/photo.jpg"): "https://cdn.example/photo.jpg",
+                    ("private", "thumbnails/photo.jpg"): "https://cdn.example/photo-thumb.jpg",
+                },
+            ),
+        ):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}/photos")
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["photos"][0]
+        self.assertEqual(item["comment"], "Owner caption")
+        self.assertEqual(item["comments"], [{"author": "Participant", "text": "Participant memory"}])
+        media_records.assert_not_called()
+
     def test_non_owner_cannot_get_private_media_urls(self) -> None:
         self.as_user(OTHER_USER_ID)
         with patch("app.api.album.get_album_record", return_value=album_record()):
@@ -216,6 +287,21 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(get_response.json()["share_url"], "")
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
+
+    def test_light_album_detail_keeps_epilogue_and_date_stories(self) -> None:
+        record = {
+            **album_record(),
+            "epilogue": "A saved epilogue",
+            "chapter_stories": {"2026-07-12": "A saved date story"},
+        }
+        with patch("app.api.album.get_album_detail_light_record", return_value=record), patch(
+            "app.api.album.count_ready_album_photos", return_value=5
+        ), patch("app.api.album.count_album_photo_memories", return_value=1):
+            response = self.client.get(f"/api/albums/{ALBUM_ID}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["epilogue"], "A saved epilogue")
+        self.assertEqual(response.json()["chapter_stories"], {"2026-07-12": "A saved date story"})
 
     def test_bootstrap_provisions_the_verified_session_user(self) -> None:
         self.as_user(OWNER_ID)
