@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image } from "lucide-react";
-import { deleteAlbum, getMyAlbumCoverUrls, getMyAlbums, type MyAlbum } from "../lib/api";
-import {
-  mergeMyAlbumCoverUrls,
-  requestMyAlbumCovers,
-  requestMyAlbumList,
-} from "../lib/myAlbumsRequest";
+import { deleteAlbum, getMyAlbums, type MyAlbum } from "../lib/api";
+import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -50,14 +46,6 @@ export default function MyAlbums() {
         setAlbums(items);
         debugTiming("my albums list response", startedAt);
         window.requestAnimationFrame(() => debugTiming("my albums first card", startedAt));
-
-        void requestMyAlbumCovers(items, getMyAlbumCoverUrls)
-          .then((covers) => {
-            if (!active) return;
-            setAlbums((current) => current ? mergeMyAlbumCoverUrls(current, covers) : current);
-            debugTiming("my albums cover URLs", startedAt);
-          })
-          .catch(() => undefined);
       })
       .catch((reason) => active && setError(reason instanceof Error ? reason.message : "앨범을 불러오지 못했어요."));
 
@@ -101,8 +89,10 @@ export default function MyAlbums() {
       ) : (
         <div className="my-albums__list">
           {albums.map((album) => {
-            const imageUrl = album.cover_image_url || album.image_url;
-            const imageFailed = failedImageUrls.has(imageUrl);
+            const imageUrl = album.cover_photo_id
+              ? (album.cover_image_url ?? "")
+              : (album.cover_image_url || album.image_url || "");
+            const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
             return (
               <div key={album.album_id} className="my-albums__card">
                 <a className="my-albums__card-link" href={`/album/${album.album_id}`}>

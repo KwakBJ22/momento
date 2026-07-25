@@ -27,11 +27,17 @@ export default function PhotoWithMemories({
 }: PhotoWithMemoriesProps) {
   const edit = usePhotoCommentEdit();
   void flowPlan;
-  const captionSegments = photo.comments?.length
-    ? photo.comments.map((entry) => ({ author: entry.author, text: entry.text, photoId: photo.id }))
-    : photo.comment?.trim()
-      ? [{ author: photo.authorLabel, text: photo.comment, photoId: photo.id }]
-      : undefined;
+  const captionSegments = (() => {
+    const fromComments = photo.comments?.length
+      ? photo.comments.map((entry) => ({ author: entry.author, text: entry.text, photoId: photo.id }))
+      : [];
+    const ownerText = photo.comment?.trim();
+    if (ownerText && !fromComments.some((entry) => entry.text === ownerText)) {
+      fromComments.unshift({ author: photo.authorLabel, text: ownerText, photoId: photo.id });
+    }
+    if (fromComments.length) return fromComments;
+    return undefined;
+  })();
 
   const rotation = deterministicPhotoRotation(albumKey, photo.id, index, { isHero });
   const frameStyle: CSSProperties | undefined =

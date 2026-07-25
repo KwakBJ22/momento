@@ -140,6 +140,7 @@ def save_album_record(
         "result_path": result_path,
         "cover_photo_id": cover_photo_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     client.table("albums").insert(record).execute()
     return record
@@ -309,11 +310,16 @@ def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int
         .select("id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous")
         .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
         .is_("deleted_at", "null")
-        .order("updated_at", desc=True)
+        .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return result.data or []
+    rows = result.data or []
+    rows.sort(
+        key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
+        reverse=True,
+    )
+    return rows[:limit]
 
 
 def list_album_photo_list_summaries(client: Client, album_ids: list[str]) -> list[dict[str, Any]]:
@@ -438,6 +444,19 @@ def update_album_epilogue(client: Client, album_id: str, epilogue: str) -> dict[
     data = result.data or []
     row = data[0] if data else None
     if row:
+        bump_album_version(client, album_id)
+    return get_album_record(client, album_id)
+
+
+def update_album_title(client: Client, album_id: str, title: str) -> dict[str, Any] | None:
+    result = (
+        client.table("albums")
+        .update({"title": title.strip()})
+        .eq("id", album_id)
+        .execute()
+    )
+    data = result.data or []
+    if data:
         bump_album_version(client, album_id)
     return get_album_record(client, album_id)
 

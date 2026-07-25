@@ -18,27 +18,22 @@ function templateTypeForCategory(category: string | null | undefined): LayoutSel
   return "warm";
 }
 
-function pickHeroPhoto(photos: EnginePhoto[]): EnginePhoto {
-  return photos.find((photo) => photo.orientation === "landscape") ?? photos[0];
-}
-
-function takeExcept(photos: EnginePhoto[], excludeId: string): EnginePhoto[] {
-  return photos.filter((photo) => photo.id !== excludeId);
-}
-
 function block(kind: AlbumLayoutKind, photos: EnginePhoto[]): LayoutBlock {
   return { kind, photos };
+}
+
+function gridBlocks(photos: EnginePhoto[]): LayoutBlock[] {
+  const blocks: LayoutBlock[] = []
+  for (let index = 0; index < photos.length; index += 6) {
+    blocks.push(block("Grid6", photos.slice(index, index + 6)));
+  }
+  return blocks;
 }
 
 /**
  * Album Engine V1 layoutSelector
  *
- * 1장 → Hero
- * 2~4장 → Hero + Polaroid3
- * 5~8장 → Hero + Grid6
- * 9장+ → Hero + Grid6 + Grid6 + Ending
- *
- * category는 향후 확장용으로만 전달·저장한다.
+ * Every photo uses the same Grid6 frame. No per-chapter hero treatment.
  */
 export function selectLayout(
   photos: EnginePhoto[],
@@ -50,34 +45,23 @@ export function selectLayout(
   const templateType = templateTypeForCategory(context.category);
 
   let blocks: LayoutBlock[] = [];
-
   if (count <= 0) {
     blocks = [];
-  } else if (count === 1) {
-    blocks = [block("Hero", ordered)];
-  } else if (count <= 4) {
-    const hero = pickHeroPhoto(ordered);
-    const rest = takeExcept(ordered, hero.id);
-    blocks = [block("Hero", [hero]), block("Polaroid3", rest.slice(0, 4))];
-  } else if (count <= 8) {
-    const hero = pickHeroPhoto(ordered);
-    const rest = takeExcept(ordered, hero.id);
-    blocks = [block("Hero", [hero]), block("Grid6", rest.slice(0, 6))];
+  } else if (count <= 6) {
+    blocks = [block("Grid6", ordered)];
+  } else if (count <= 12) {
+    blocks = [block("Grid6", ordered.slice(0, 6)), block("Grid6", ordered.slice(6, 12))];
   } else {
-    const hero = pickHeroPhoto(ordered);
-    const rest = takeExcept(ordered, hero.id);
     blocks = [
-      block("Hero", [hero]),
-      block("Grid6", rest.slice(0, 6)),
-      block("Grid6", rest.slice(6, 12)),
+      ...gridBlocks(ordered.slice(0, 12)),
       block("Ending", []),
     ].filter((item) => item.kind === "Ending" || item.photos.length > 0);
   }
 
   const primary = blocks[0];
   return {
-    kind: primary?.kind ?? "Hero",
-    photos: primary?.photos ?? ordered.slice(0, 1),
+    kind: primary?.kind ?? "Grid6",
+    photos: primary?.photos ?? ordered.slice(0, 6),
     blocks,
     dominantOrientation: dominant,
     templateType,

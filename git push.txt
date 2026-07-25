@@ -1,0 +1,5 @@
+cd /d D:\Momento
+git status
+git add .
+git commit -m "fix: restore album comments and editing after performance optimization"
+git push origin main

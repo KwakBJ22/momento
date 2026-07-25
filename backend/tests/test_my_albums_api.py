@@ -53,7 +53,8 @@ class MyAlbumsApiTests(TestCase):
             self.addCleanup(item.stop)
 
     def test_claimed_owner_album_is_returned_first_by_my_albums_api(self) -> None:
-        response = self.client.get("/api/albums/mine")
+        with patch("app.api.album._attach_my_album_cover_urls", side_effect=lambda _client, _settings, _profile, items: items):
+            response = self.client.get("/api/albums/mine")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["cache-control"], "no-store")
@@ -66,7 +67,9 @@ class MyAlbumsApiTests(TestCase):
     def test_list_uses_one_batch_photo_query_not_per_album_photo_or_signed_url_calls(self) -> None:
         with patch("app.api.album.get_album_photo_records") as per_album_photos, patch(
             "app.api.album.get_signed_url"
-        ) as per_album_signed_url:
+        ) as per_album_signed_url, patch(
+            "app.api.album._attach_my_album_cover_urls", side_effect=lambda _client, _settings, _profile, items: items
+        ):
             response = self.client.get("/api/albums/mine")
 
         self.assertEqual(response.status_code, 200)

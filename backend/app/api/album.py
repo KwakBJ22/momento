@@ -29,6 +29,7 @@ from app.models.schemas import (
     AlbumCoverPhotoUpdate,
     EpilogueGenerateResponse,
     EpilogueUpdate,
+    AlbumTitleUpdate,
     PhotoCommentResponse,
     PhotoCommentUpdate,
     AlbumUploadResponse,
@@ -74,6 +75,7 @@ from app.services.supabase import (
     save_album_photo_records,
     save_album_media_records,
     update_album_epilogue,
+    update_album_title,
     update_album_chapter_stories,
     update_album_narrative,
     update_album_photo_comment,
@@ -168,6 +170,7 @@ def _my_album_list_items(
         requested_cover_id = str(record.get("cover_photo_id") or "").strip()
         available_ids = {str(photo.get("id")) for photo in photos}
         cover_photo_id = requested_cover_id if requested_cover_id in available_ids else (str(photos[0]["id"]) if photos else None)
+        has_cover = bool(cover_photo_id)
         items.append(
             MyAlbumListItem(
                 album_id=UUID(album_id),
@@ -175,9 +178,13 @@ def _my_album_list_items(
                 created_at=record["created_at"],
                 updated_at=record.get("updated_at"),
                 image_url=(
-                    get_public_url(client, str(record["result_path"]), settings)
-                    if record.get("result_path")
-                    else ""
+                    ""
+                    if has_cover
+                    else (
+                        get_public_url(client, str(record["result_path"]), settings)
+                        if record.get("result_path")
+                        else ""
+                    )
                 ),
                 cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
                 cover_image_url=None,
@@ -187,6 +194,38 @@ def _my_album_list_items(
             )
         )
     return items
+
+
+def _attach_my_album_cover_urls(
+    client: Any,
+    settings: Settings,
+    profile_id: str,
+    items: list[MyAlbumListItem],
+) -> list[MyAlbumListItem]:
+    """Sign cover thumbnails in one batch so the list never flashes PDF previews."""
+    targets = [
+        (str(item.album_id), str(item.cover_photo_id))
+        for item in items
+        if item.cover_photo_id
+    ]
+    if not targets:
+        return items
+    album_ids = [album_id for album_id, _ in targets]
+    cover_photo_ids = [photo_id for _, photo_id in targets]
+    covers = _owned_cover_urls(client, settings, profile_id, album_ids, cover_photo_ids)
+    if not covers:
+        return items
+    return [
+        item.model_copy(
+            update={
+                "cover_image_url": covers.get(str(item.album_id)) or item.cover_image_url,
+                "image_url": covers.get(str(item.album_id)) or item.image_url,
+            }
+        )
+        if covers.get(str(item.album_id))
+        else item
+        for item in items
+    ]
 
 
 def _owned_cover_urls(
@@ -921,6 +960,12 @@ def _album_photo_response(
 ) -> AlbumPhotoUrlResponse:
     photo_id = str(photo["id"])
     photo_memories = [memory for memory in memories if str(memory.get("photo_id") or "") == photo_id]
+    memory_comments = [
+        {"author": memory.get("author_name"), "text": str(memory.get("comment") or memory.get("content") or "").strip()}
+        for memory in photo_memories
+        if str(memory.get("comment") or memory.get("content") or "").strip()
+    ] or None
+    photo_comment = str(photo.get("comment") or photo.get("caption") or "").strip() or None
     storage_bucket = str(photo["storage_bucket"])
     storage_path = str(photo["storage_path"])
     thumb_bucket = str(photo["thumbnail_bucket"])
@@ -934,12 +979,8 @@ def _album_photo_response(
     return AlbumPhotoUrlResponse(
         id=UUID(photo_id),
         sort_order=int(photo.get("sort_order") or 0),
-        comment=str(photo.get("comment") or "").strip() or None,
-        comments=[
-            {"author": memory.get("author_name"), "text": str(memory.get("comment") or "")}
-            for memory in photo_memories
-            if str(memory.get("comment") or "").strip()
-        ] or None,
+        comment=photo_comment,
+        comments=memory_comments,
         original_url=original_url,
         thumbnail_url=thumbnail_url,
         width=photo.get("width"),
@@ -1141,7 +1182,12 @@ async def get_my_albums(
         asyncio.to_thread(list_album_photo_list_summaries, client, album_ids),
     )
     payload = MyAlbumsResponse(
-        albums=_my_album_list_items(client, settings, records, memory_counts, photo_rows)
+        albums=_attach_my_album_cover_urls(
+            client,
+            settings,
+            authenticated_user_id,
+            _my_album_list_items(client, settings, records, memory_counts, photo_rows),
+        )
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Server-Timing"] = f"my-albums;dur={duration_ms}"
@@ -1325,6 +1371,25 @@ async def patch_epilogue(
     epilogue = body.epilogue.strip()
     updated = update_album_epilogue(client, album_id, epilogue)
     return _record_to_detail(updated or {**record, "epilogue": epilogue, "narrative": epilogue}, settings, client)
+
+
+@router.patch("/albums/{album_id}/title", response_model=AlbumDetailResponse)
+async def patch_album_title(
+    album_id: str,
+    body: AlbumTitleUpdate,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumDetailResponse:
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_owner_story(access)
+
+    title = body.title.strip()
+    updated = update_album_title(client, album_id, title)
+    return _record_to_detail(updated or {**record, "title": title}, settings, client)
 
 
 @router.post("/albums/{album_id}/epilogue/generate", response_model=EpilogueGenerateResponse)

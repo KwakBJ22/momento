@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, isPublicShareUrl } from "../lib/api";
+import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, isPublicShareUrl, patchAlbumTitle, patchEpilogue, saveAlbumPhotoComment } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
@@ -44,6 +44,12 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEditingEpilogue, setIsEditingEpilogue] = useState(false);
+  const [epilogueDraft, setEpilogueDraft] = useState("");
+  const [isSavingEpilogue, setIsSavingEpilogue] = useState(false);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [photoCommentDraft, setPhotoCommentDraft] = useState("");
+  const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
 
   const { shareAlbum } = useKakaoSdk();
 
@@ -108,6 +114,63 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     () => visibleChapterStories(album?.chapter_stories, photos),
     [album?.chapter_stories, photos],
   );
+
+  const epilogueText = (album?.epilogue ?? album?.narrative ?? "").trim();
+  const hasEpilogue = Boolean(epilogueText);
+
+  const handleStartPhotoCommentEdit = (photoId: string, comment: string) => {
+    setEditingPhotoId(photoId);
+    setPhotoCommentDraft(comment);
+  };
+
+  const handleCancelPhotoCommentEdit = () => {
+    setEditingPhotoId(null);
+    setPhotoCommentDraft("");
+  };
+
+  const handleSavePhotoComment = async () => {
+    const photo = photos.find((item) => item.id === editingPhotoId);
+    if (!photo || !editingPhotoId) return;
+    setIsSavingPhotoComment(true);
+    try {
+      await saveAlbumPhotoComment(albumId, editingPhotoId, photoCommentDraft);
+      setPhotos((current) =>
+        current.map((item) =>
+          item.id === editingPhotoId ? { ...item, comment: photoCommentDraft.trim() || null } : item,
+        ),
+      );
+      handleCancelPhotoCommentEdit();
+    } finally {
+      setIsSavingPhotoComment(false);
+    }
+  };
+
+  const handleSaveEpilogue = async () => {
+    setIsSavingEpilogue(true);
+    try {
+      const updated = await patchEpilogue(albumId, epilogueDraft);
+      setAlbum((current) => current ? {
+        ...current,
+        epilogue: updated.epilogue ?? updated.narrative,
+        narrative: updated.narrative,
+      } : current);
+      setIsEditingEpilogue(false);
+    } finally {
+      setIsSavingEpilogue(false);
+    }
+  };
+
+  const handleEditTitle = async () => {
+    if (!album) return;
+    const next = window.prompt("앨범 제목", album.title);
+    if (!next?.trim() || next.trim() === album.title) return;
+    try {
+      const updated = await patchAlbumTitle(albumId, next.trim());
+      setAlbum((current) => current ? { ...current, title: updated.title } : current);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "제목을 바꾸지 못했어요.");
+    }
+  };
 
   const handlePdf = async () => {
 
@@ -333,6 +396,13 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
             <p className="album-result__cover">{coverLineForCategory(category)}</p>
 
             <h2 className="album-result__title">{displayTitle}</h2>
+            {requestedEdition === null ? (
+              <p className="album-result__subtitle">
+                <button type="button" className="link-btn" onClick={() => void handleEditTitle()}>
+                  제목 수정
+                </button>
+              </p>
+            ) : null}
 
             <p className="album-result__subtitle">우리 모임의 추억 앨범</p>
 
@@ -348,7 +418,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
               title={displayTitle}
 
-              epilogue={epilogue}
+              epilogue={isEditingEpilogue ? "" : epilogue}
 
               coverDateLabel={displayAlbum?.date}
               chapterStories={chapterStories}
@@ -362,10 +432,65 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
               livingAppendPages={livingAppendPages}
 
               mode="screen"
+              onEditEpilogue={requestedEdition === null && hasEpilogue ? () => {
+                setEpilogueDraft(epilogueText);
+                setIsEditingEpilogue(true);
+              } : undefined}
+              photoCommentEdit={requestedEdition === null ? {
+                canEdit: true,
+                editingPhotoId,
+                savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
+                draft: photoCommentDraft,
+                startEdit: handleStartPhotoCommentEdit,
+                cancelEdit: handleCancelPhotoCommentEdit,
+                setDraft: setPhotoCommentDraft,
+                saveEdit: (photoId: string) => {
+                  if (editingPhotoId === photoId) void handleSavePhotoComment();
+                },
+              } : null}
 
             />
 
           </div>
+
+          {isEditingEpilogue ? (
+            <section className="album-result__narrative album-result__epilogue">
+              <div className="album-result__narrative-head">
+                <h3>우리의 이야기</h3>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => void handleSaveEpilogue()}
+                  disabled={isSavingEpilogue}
+                >
+                  {isSavingEpilogue ? "저장 중..." : "완료"}
+                </button>
+              </div>
+              <textarea
+                className="album-result__editor"
+                value={epilogueDraft}
+                onChange={(event) => setEpilogueDraft(event.target.value)}
+                rows={6}
+                maxLength={800}
+                autoFocus
+              />
+            </section>
+          ) : null}
+
+          {!isEditingEpilogue && requestedEdition === null && !hasEpilogue ? (
+            <div className="album-result__epilogue-actions album-result__epilogue-actions--alone">
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setEpilogueDraft("");
+                  setIsEditingEpilogue(true);
+                }}
+              >
+                우리의 이야기 쓰기
+              </button>
+            </div>
+          ) : null}
 
           {displayAlbum?.media?.some((media) => media.media_type !== "image" && media.media_type !== "gif") ? (
 

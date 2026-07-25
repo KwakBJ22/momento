@@ -103,11 +103,11 @@ export async function getMyAlbumCoverUrls(albums: Array<Pick<MyAlbum, "album_id"
   return ((await response.json()) as { covers?: Record<string, string> }).covers ?? {};
 }
 
-export async function patchNarrative(albumId: string, narrative: string): Promise<AlbumResult> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}`, {
+export async function patchAlbumTitle(albumId: string, title: string): Promise<AlbumResult> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/title`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ narrative }),
+    body: JSON.stringify({ title }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as AlbumResult;
