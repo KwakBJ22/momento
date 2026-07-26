@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AlbumRenderer } from "../album-engine";
+import AlbumScreen from "./AlbumScreen";
 import {
   createAlbumShareLink,
   getAlbum,
@@ -11,8 +12,6 @@ import {
 } from "../lib/api";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import {
-  coverLineForCategory,
-  normalizeTemplateType,
   type AlbumPhoto,
   type AlbumResult,
 } from "../types";
@@ -64,9 +63,9 @@ export default function AlbumResultView({
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCommentDraft, setPhotoCommentDraft] = useState("");
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
+  const [photoCommentSaveError, setPhotoCommentSaveError] = useState<string | null>(null);
 
   const hasEpilogue = Boolean(epilogue.trim());
-  const templateType = normalizeTemplateType(result.template_type);
 
   useEffect(() => {
     setStagePhotos(result.photos ?? []);
@@ -168,11 +167,13 @@ export default function AlbumResultView({
   };
 
   const handleStartPhotoCommentEdit = (photoId: string, comment: string) => {
+    setPhotoCommentSaveError(null);
     setEditingPhotoId(photoId);
     setPhotoCommentDraft(comment);
   };
 
   const handleCancelPhotoCommentEdit = () => {
+    setPhotoCommentSaveError(null);
     setEditingPhotoId(null);
     setPhotoCommentDraft("");
   };
@@ -187,31 +188,27 @@ export default function AlbumResultView({
       return;
     }
     setIsSavingPhotoComment(true);
+    setPhotoCommentSaveError(null);
     setNotice(null);
     try {
-      await saveAlbumPhotoComment(result.album_id, photo.id, photoCommentDraft);
-      setStagePhotos((photos) => photos.map((item) => (item.id === photo.id ? { ...item, comment: photoCommentDraft } : item)));
+      const saved = await saveAlbumPhotoComment(result.album_id, photo.id, photoCommentDraft);
+      setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, comment: saved.comment } : item)));
       handleCancelPhotoCommentEdit();
       setNotice("사진 코멘트를 저장했어요.");
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "사진 코멘트를 저장하지 못했어요.");
+      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진 코멘트를 저장하지 못했어요.");
     } finally {
       setIsSavingPhotoComment(false);
     }
   };
 
-  const handleEditTitle = async () => {
-    if (guestMode || !canEditStories) return;
-    const next = window.prompt("앨범 제목", albumTitle);
-    if (!next?.trim() || next.trim() === albumTitle) return;
-    try {
-      const updated = await patchAlbumTitle(result.album_id, next.trim());
-      setAlbumTitle(updated.title);
-      setNotice("앨범 제목을 수정했어요.");
-    } catch (err) {
-      setNotice(err instanceof Error ? err.message : "앨범 제목을 수정하지 못했어요.");
-    }
+  const handleSaveTitle = async (next: string): Promise<string> => {
+    if (guestMode || !canEditStories) throw new Error("제목을 수정할 권한이 없어요.");
+    const updated = await patchAlbumTitle(result.album_id, next.trim());
+    setAlbumTitle(updated.title);
+    return updated.title;
   };
+
 
   const handleCopyLink = async () => {
     try {
@@ -280,11 +277,51 @@ export default function AlbumResultView({
     }
   };
 
+  const albumBody = (
+    <>
+      <div className="album-result__stage album-result__stage--web">
+        {isStagePhotosLoading ? <p className="album-result__subtitle">앨범을 준비하는 중...</p> : stagePhotosError ? (
+          <div className="album-result__error"><p>{stagePhotosError}</p><button type="button" className="btn btn--secondary" onClick={() => setPhotoLoadAttempt((value) => value + 1)}>다시 시도</button></div>
+        ) : (
+          <AlbumRenderer photos={stagePhotos} title={albumTitle} epilogue={isEditing ? "" : epilogue} coverDateLabel={result.date} chapterStories={chapterStories} category={result.category} templateType={result.template_type} albumId={result.album_id} coverPhotoId={result.cover_photo_id} livingAppendPages={result.living_append_pages} mode="screen" onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined} photoCommentEdit={!guestMode && canEditStories ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: () => { void handleSavePhotoComment(); } } : null} />
+        )}
+      </div>
+      {isEditing ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleToggleEdit()} disabled={isPersisting}>{isPersisting ? "저장 중..." : "완료"}</button></div><p className="album-result__placeholder">{EDIT_HINT}</p><textarea className="album-result__editor" value={epilogue} onChange={(event) => setEpilogue(event.target.value)} rows={6} maxLength={800} placeholder={EDIT_HINT} autoFocus /></section> : null}
+      {!isEditing && canEditStories && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => setIsEditing(true)}>우리의 이야기 쓰기</button></div> : null}
+      {saveStatus ? <p className="album-result__save-status">{saveStatus}</p> : null}
+      {notice ? <p className="album-result__notice">{notice}</p> : null}
+    </>
+  );
+  const resultActions = (
+    <><div className="album-result__actions">
+      {guestMode && onSaveAccount ? <button type="button" className="btn btn--secondary" onClick={onSaveAccount}>내 앨범에 보관하기</button> : null}
+      <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>{guestMode ? "앨범 저장" : isSavingAlbum ? "확인 중..." : "앨범 저장"}</button>
+      <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>공유하기</button>
+      <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
+      <button type="button" className="btn btn--ghost" onClick={onReset}>새 앨범 만들기</button>
+    </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>
+  );
+
+  return <>
+    <AlbumScreen title={albumTitle} subtitle={guestMode ? "함께 보고 간직해 보세요." : undefined} canEditTitle={!guestMode && canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} />
+    {showShareModal && (
+      <div className="share-modal" role="dialog" aria-modal="true" aria-label="공유하기"><section className="share-modal__card"><h3>공유하기</h3><button type="button" className="btn btn--secondary" onClick={() => void handleCopyLink()}>{copied ? "링크를 복사했어요" : "링크 복사"}</button><button type="button" className="btn btn--secondary" onClick={() => void handleNativeShare()}>다른 앱으로 공유</button><button type="button" className="btn btn--kakao" onClick={() => void handleKakaoShare()}>카카오톡 공유</button><button type="button" className="btn btn--ghost" onClick={() => setShowShareModal(false)}>닫기</button></section></div>
+    )}
+  </>;
+
+  /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
+  /*
   return (
     <div className={`album-page album-result--${templateType}${guestMode ? " album-page--guest" : ""}`}>
       <div className="album-page__layout">
         <article className="album-page__book album-result">
           <header className="album-result__intro">
+            <AlbumScreenHeader
+              title={albumTitle}
+              subtitle={guestMode ? "함께 보고 간직해 보세요." : undefined}
+              canEdit={!guestMode && canEditStories}
+              onSaveTitle={handleSaveTitle}
+            />
             {result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? (
               <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p>
             ) : null}
@@ -328,6 +365,7 @@ export default function AlbumResultView({
                   canEdit: true,
                   editingPhotoId,
                   savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
+                  error: photoCommentSaveError,
                   draft: photoCommentDraft,
                   startEdit: handleStartPhotoCommentEdit,
                   cancelEdit: handleCancelPhotoCommentEdit,
@@ -421,4 +459,5 @@ export default function AlbumResultView({
       )}
     </div>
   );
+  */
 }

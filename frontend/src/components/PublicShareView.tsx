@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
+import AlbumScreen from "./AlbumScreen";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 import { createId } from "../lib/id";
@@ -258,9 +259,30 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   if (!Array.isArray(album.photos)) return <div className="album-result"><h2 className="album-result__title">앨범 사진을 불러오지 못했습니다.</h2><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
   const epilogue = (album.epilogue ?? album.narrative ?? "").trim();
 
+  const publicBody = (
+    <>
+      <div className="album-result__stage"><AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
+      {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 추억"><h3>새로 더해진 추억</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
+      <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button><button type="button" className="btn btn--ghost" disabled={shareLoading} onClick={() => void share()}>{shareLoading ? "공유 준비 중..." : "카카오톡으로 공유"}</button></div>{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}</p> : null}{shareMessage ? <p className="public-share__join-status" role="status">{shareMessage}</p> : null}</section>
+      {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">추억을 남긴 분의 이름을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}
+      {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
+    </>
+  );
+  const publicNav = {
+    onTop: scrollToAlbumStart,
+    onAddPhoto: () => openContribution("photo"),
+    onAddMemory: () => openContribution("memory"),
+    onShare: () => { void share(); },
+  };
+  const editionLink = album.edition_is_latest === false ? <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p> : album.edition_previous ? <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p> : null;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} bottomNavigation={publicNav} className="public-share" />;
+
+  /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
+  /*
   return <div className="album-page public-share">
     <article className="album-page__book album-result">
       <header className="album-result__intro">
+        <AlbumScreenHeader title={album.title} subtitle="함께 만든 추억 앨범" />
         <h2 className="album-result__title">{album.title}</h2>
         <p className="album-result__subtitle">함께 만든 추억 앨범</p>
       </header>
@@ -319,12 +341,12 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
         />
       </div> : null}
     </article>
-    <nav className="public-share__bottom-nav" aria-label="공개 앨범 메뉴">
-      <button type="button" onClick={scrollToAlbumStart}>앨범 처음으로</button>
-      <button type="button" onClick={() => openContribution("photo")}>사진 추가</button>
-      <button type="button" onClick={() => openContribution("memory")}>기억 남기기</button>
-      <button type="button" disabled={shareLoading} onClick={() => void share()}>{shareLoading ? "공유 중..." : "공유하기"}</button>
-      <a href="/">우리 가족 앨범도 만들어보기</a>
-    </nav>
+    <AlbumBottomNavigation
+      onTop={scrollToAlbumStart}
+      onAddPhoto={() => openContribution("photo")}
+      onAddMemory={() => openContribution("memory")}
+      onShare={() => { void share(); }}
+    />
   </div>;
+  */
 }

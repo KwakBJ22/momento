@@ -159,7 +159,7 @@ class MembershipApiTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_public_link_can_read_but_not_edit(self) -> None:
+    def test_private_album_read_requires_authentication(self) -> None:
         with patch("app.api.album.get_album_detail_light_record", return_value=album_record()), patch(
             "app.api.album.get_public_url", return_value="https://cdn.example/album.png"
         ), patch("app.api.album.count_ready_album_photos", return_value=0), patch(
@@ -168,7 +168,7 @@ class MembershipApiTests(TestCase):
             get_response = self.client.get(f"/api/albums/{ALBUM_ID}")
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Hack"})
 
-        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.status_code, 401)
         self.assertEqual(patch_response.status_code, 401)
 
     def test_create_invitation_returns_link(self) -> None:

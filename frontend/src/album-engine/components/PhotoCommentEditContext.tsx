@@ -4,6 +4,7 @@ export interface PhotoCommentEditState {
   canEdit: boolean;
   editingPhotoId: string | null;
   savingPhotoId: string | null;
+  error?: string | null;
   draft: string;
   startEdit: (photoId: string, text: string) => void;
   cancelEdit: () => void;

@@ -1224,6 +1224,7 @@ async def get_album(
     album_id: str,
     response: Response,
     edition: int | None = None,
+    authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumDetailResponse:
     started_at = time.perf_counter()
     settings = get_settings()
@@ -1258,6 +1259,12 @@ async def get_album(
             photo_count=photo_count,
             memory_count=memory_count,
         )
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_read(access)
+    detail = detail.model_copy(update={
+        "can_edit": access.is_album_owner,
+        "can_contribute": access.can_contribute,
+    })
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Cache-Control"] = "no-store"
     response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"

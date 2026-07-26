@@ -1,4 +1,5 @@
 import { usePhotoCommentEdit } from "./PhotoCommentEditContext";
+import { Pencil } from "lucide-react";
 import type { MemorySegmentData } from "../types";
 import {
   buildPhotoMemoryDisplayLines,
@@ -91,6 +92,7 @@ export default function PhotoMemoryLines({
               취소
             </button>
           </div>
+          {edit.error ? <p className="photo-memory-lines__error" role="alert">{edit.error}</p> : null}
         </div>
       </div>
     );
@@ -109,7 +111,7 @@ export default function PhotoMemoryLines({
             onClick={() => edit.startEdit(photoId, "")}
             aria-label="사진 코멘트 수정"
           >
-            수정
+            <Pencil size={15} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -137,7 +139,7 @@ export default function PhotoMemoryLines({
               onClick={() => edit.startEdit(photoId, displayText)}
               aria-label="사진 코멘트 수정"
             >
-              수정
+              <Pencil size={15} aria-hidden="true" />
             </button>
           ) : null}
         </div>

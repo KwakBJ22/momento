@@ -170,9 +170,10 @@ export async function getAlbumPhotos(albumId: string, edition?: number | null, s
   });
 }
 
-export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<void> {
+export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<{ id: string; comment: string | null }> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
   if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { id: string; comment: string | null };
 }
 
 export async function getAlbumPdfUrl(

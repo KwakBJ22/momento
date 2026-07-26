@@ -117,6 +117,10 @@ class AlbumDetailResponse(BaseModel):
     current_edition: CurrentEditionSummary = Field(default_factory=CurrentEditionSummary)
     edition_previous: int | None = None
     edition_is_latest: bool = False
+    # UI capability flags are derived from the authenticated server-side access
+    # check; clients must never infer edit rights from a local album id.
+    can_edit: bool = False
+    can_contribute: bool = False
 
 
 class LivingAppendPagesResponse(BaseModel):

@@ -130,6 +130,15 @@
   padding-bottom: 0.5rem;
 }
 
+.album-result__intro .album-screen-header ~ .album-result__title,
+.album-result__intro .album-screen-header ~ .album-result__subtitle:has(.link-btn) {
+  display: none;
+}
+
+.public-share .album-result__intro .album-screen-header ~ .album-result__subtitle {
+  display: none;
+}
+
 .album-result__cover {
   margin: 0;
   font-size: clamp(0.78rem, 1.6vw, 0.88rem);

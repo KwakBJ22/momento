@@ -1,0 +1,6 @@
+.album-screen__book { gap: 2rem; }
+.album-screen__body { display: grid; gap: 1.5rem; min-width: 0; }
+.album-screen__header-supplement { display: grid; gap: 0.35rem; justify-items: center; text-align: center; }
+.album-screen__header-supplement .album-result__subtitle { margin: 0; }
+.album-screen__actions { align-content: start; }
+@media (max-width: 768px) { .album-screen__book { gap: 1.5rem; } }

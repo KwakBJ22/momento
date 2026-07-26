@@ -170,6 +170,8 @@
   max-width: 100%;
 }
 
+.photo-memory-lines__error { margin: 0.4rem 0 0; color: #a14f45; font-size: 0.8rem; line-height: 1.4; }
+
 .photo-memory-lines__input {
   box-sizing: border-box;
   display: block;

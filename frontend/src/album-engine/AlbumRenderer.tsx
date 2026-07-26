@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
+import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
+import ChapterHeader from "./blocks/ChapterHeader";
+import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import "./AlbumRenderer.css";
@@ -276,6 +279,48 @@ export default function AlbumRenderer({
     </footer>
   );
 
+  // Web albums intentionally do not replay the historic Hero/Polaroid block
+  // choices stored in an album document. Those choices are presentation data
+  // for the print engine; using them on screen made the same date render with
+  // different frame sizes. Screen mode is one consistent date -> card grid.
+  const screenChapters = mode === "screen" ? album?.chapters.map((chapter, chapterIndex) => {
+    const flowPlan = album.memoryFlows[chapterIndex];
+    return (
+      <section className="album-screen-chapter" key={`screen-chapter-${chapter.date ?? chapterIndex}`}>
+        <ChapterHeader
+          dayIndex={chapter.dayIndex}
+          date={chapter.date}
+          dateLabel={chapter.dateLabel}
+          dateRangeLabel={chapter.dateRangeLabel}
+          title={chapter.title}
+          place={chapter.place}
+          locationSource={chapter.locationSource}
+          kind={chapter.kind}
+          photoCount={chapter.photos.length}
+          variant="date-only"
+        />
+        <div className="album-screen-photo-grid">
+          {chapter.photos.map((photo, photoIndex) => (
+            <PhotoWithMemories
+              key={photo.id}
+              photo={photo}
+              flowPlan={flowPlan}
+              albumKey={albumId || title || "album"}
+              index={photoIndex + 1}
+              frameClassName="album-screen-photo-card__frame"
+            />
+          ))}
+        </div>
+        {chapter.storyBody ? (
+          <StoryBlock
+            title={chapter.dateRangeLabel ? `${chapter.dateRangeLabel}의 이야기` : "그날의 이야기"}
+            body={chapter.storyBody}
+          />
+        ) : null}
+      </section>
+    );
+  }) : null;
+
   if (!photos.length) {
     if (livingAppendPages.length) {
       return (
@@ -322,17 +367,23 @@ export default function AlbumRenderer({
 
       <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
         <div className="album-renderer__body">
-          <div className="album-renderer__blocks">
-            {album.elements.map((element, index) => (
-              <div
-                key={`album-block-${index}`}
-                className="album-renderer__block"
-                ref={(node) => { blockRefs.current[index] = node; }}
-              >
-                {element}
-              </div>
-            ))}
-          </div>
+          {mode === "screen" ? (
+            <div className="album-renderer__screen-chapters">
+              {screenChapters}
+            </div>
+          ) : (
+            <div className="album-renderer__blocks">
+              {album.elements.map((element, index) => (
+                <div
+                  key={`album-block-${index}`}
+                  className="album-renderer__block"
+                  ref={(node) => { blockRefs.current[index] = node; }}
+                >
+                  {element}
+                </div>
+              ))}
+            </div>
+          )}
 
           <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
           {livingAppendPages.map((page, index) => (

@@ -291,7 +291,7 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(update_response.status_code, 404)
         self.assertEqual(delete_response.status_code, 404)
 
-    def test_public_link_can_read_but_not_edit_or_delete(self) -> None:
+    def test_private_album_requires_authentication(self) -> None:
         with patch("app.api.album.get_album_detail_light_record", return_value=album_record()), patch(
             "app.api.album.count_ready_album_photos", return_value=0
         ), patch("app.api.album.count_album_photo_memories", return_value=0):
@@ -299,12 +299,12 @@ class AlbumAuthorizationTests(TestCase):
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
             delete_response = self.client.delete(f"/api/albums/{ALBUM_ID}")
 
-        self.assertEqual(get_response.status_code, 200)
-        self.assertEqual(get_response.json()["share_url"], "")
+        self.assertEqual(get_response.status_code, 401)
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
 
     def test_light_album_detail_keeps_epilogue_and_date_stories(self) -> None:
+        self.as_user(OWNER_ID)
         record = {
             **album_record(),
             "epilogue": "A saved epilogue",

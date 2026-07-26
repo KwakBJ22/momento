@@ -168,6 +168,8 @@ export interface AlbumResult {
   };
   edition_previous?: number | null;
   edition_is_latest?: boolean;
+  can_edit?: boolean;
+  can_contribute?: boolean;
 }
 
 export interface AlbumMediaSummary {
