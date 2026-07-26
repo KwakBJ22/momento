@@ -23,10 +23,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.polaroid3-block--n3 .polaroid3-block__item:first-child {
-  grid-column: 1 / -1;
-}
-
 .polaroid3-block--n4 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -62,10 +58,6 @@
   .polaroid3-block--n3,
   .polaroid3-block--n4 {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .polaroid3-block--n3 .polaroid3-block__item:first-child {
-    grid-column: 1 / -1;
   }
 
   .polaroid3-block__item .album-photo-frame__img {

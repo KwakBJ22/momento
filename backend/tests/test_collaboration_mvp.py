@@ -171,6 +171,9 @@ class CollaborationServiceTests(unittest.TestCase):
         kinds = [block["kind"] for block in document["chapters"][0]["blocks"]]
         self.assertIn("MemoryBlock", kinds)
         self.assertNotIn("Story", kinds)
+        self.assertNotIn("Hero", kinds)
+        self.assertNotIn("Polaroid3", kinds)
+        self.assertEqual(kinds[0], "Grid6")
 
     def test_chapter_stories_field_ignored(self) -> None:
         album = {

@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import PhotoMemoryLines from "./PhotoMemoryLines";
 import { usePhotoCommentEdit } from "./PhotoCommentEditContext";
 import AlbumPhotoFrame from "./album/AlbumPhotoFrame";
+import { buildPhotoCaptionSegments } from "./photoCaptionSegments";
 import type { MemoryFlowPlan } from "../engine/memoryFlow";
 import { deterministicPhotoRotation } from "../engine/deterministicLayout";
 import type { EnginePhoto } from "../types";
@@ -27,17 +28,7 @@ export default function PhotoWithMemories({
 }: PhotoWithMemoriesProps) {
   const edit = usePhotoCommentEdit();
   void flowPlan;
-  const captionSegments = (() => {
-    const fromComments = photo.comments?.length
-      ? photo.comments.map((entry) => ({ author: entry.author, text: entry.text, photoId: photo.id }))
-      : [];
-    const ownerText = photo.comment?.trim();
-    if (ownerText && !fromComments.some((entry) => entry.text === ownerText)) {
-      fromComments.unshift({ author: photo.authorLabel, text: ownerText, photoId: photo.id });
-    }
-    if (fromComments.length) return fromComments;
-    return undefined;
-  })();
+  const captionSegments = buildPhotoCaptionSegments(photo);
 
   const rotation = deterministicPhotoRotation(albumKey, photo.id, index, { isHero });
   const frameStyle: CSSProperties | undefined =
@@ -58,6 +49,7 @@ export default function PhotoWithMemories({
           segments={captionSegments}
           variant="caption"
           photoId={photo.id}
+          editableText={photo.comment}
           showEditWhenEmpty={Boolean(edit?.canEdit && !captionSegments?.length)}
         />
       ) : null}

@@ -693,28 +693,10 @@ def build_album_document_from_records(
     for chapter_i, chapter in enumerate(chapter_list):
         blocks: list[dict[str, Any]] = []
         photos_in_chapter = chapter["photos"]
-        is_last = chapter_i == len(chapter_list) - 1
         if photos_in_chapter:
-            hero = photos_in_chapter[0]
-            blocks.append({"kind": "Hero", "photoIds": [hero["id"]]})
-            hero_mems = hero.get("memories") or []
-            if len(hero_mems) >= 2 or (len(hero_mems) == 1 and len(str(hero_mems[0].get("comment") or "")) >= 81):
-                blocks.append(
-                    {
-                        "kind": "MemoryBlock",
-                        "photoIds": [hero["id"]],
-                        "segments": [
-                            {"author": m.get("author_name"), "text": m.get("comment")}
-                            for m in hero_mems
-                        ],
-                    }
-                )
-            rest = photos_in_chapter[1:]
-            i = 0
-            while i < len(rest):
-                chunk = rest[i : i + 6]
-                kind = "Polaroid3" if len(chunk) <= 4 else "Grid6"
-                blocks.append({"kind": kind, "photoIds": [p["id"] for p in chunk]})
+            for i in range(0, len(photos_in_chapter), 6):
+                chunk = photos_in_chapter[i : i + 6]
+                blocks.append({"kind": "Grid6", "photoIds": [p["id"] for p in chunk]})
                 for photo in chunk:
                     mems = photo.get("memories") or []
                     if len(mems) >= 2 or (len(mems) == 1 and len(str(mems[0].get("comment") or "")) >= 81):
@@ -731,7 +713,6 @@ def build_album_document_from_records(
                                 ],
                             }
                         )
-                i += 6
         # Collapse consecutive MemoryBlocks — no chapter Story blocks
         collapsed: list[dict[str, Any]] = []
         for block in blocks:

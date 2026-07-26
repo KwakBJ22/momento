@@ -14,6 +14,8 @@ interface PhotoMemoryLinesProps {
   variant?: "block" | "caption";
   className?: string;
   photoId?: string;
+  /** The album owner's saved photo comment, separate from participant memories. */
+  editableText?: string | null;
   /** 코멘트가 없을 때도 수정 버튼만 표시 */
   showEditWhenEmpty?: boolean;
 }
@@ -27,12 +29,16 @@ export default function PhotoMemoryLines({
   variant = "block",
   className = "",
   photoId,
+  editableText,
   showEditWhenEmpty = false,
 }: PhotoMemoryLinesProps) {
   const edit = usePhotoCommentEdit();
   const lines = buildPhotoMemoryDisplayLines(segments, text).slice(0, 2);
+  const hasExplicitEditableText = editableText !== undefined;
   const canInlineEdit = Boolean(
-    edit?.canEdit && photoId && !photoMemoryHasAuthors(lines) && lines.length <= 1,
+    edit?.canEdit
+      && photoId
+      && (hasExplicitEditableText || (!photoMemoryHasAuthors(lines) && lines.length <= 1)),
   );
   const isEditing = canInlineEdit && edit?.editingPhotoId === photoId;
   const isSaving = canInlineEdit && edit?.savingPhotoId === photoId;
@@ -41,7 +47,7 @@ export default function PhotoMemoryLines({
 
   const tier = photoMemoryLayoutTier(lines);
   const multiAuthor = photoMemoryHasAuthors(lines);
-  const displayText = lines[0]?.text ?? "";
+  const displayText = hasExplicitEditableText ? (editableText ?? "").trim() : (lines[0]?.text ?? "");
 
   const classes = [
     "photo-memory-lines",

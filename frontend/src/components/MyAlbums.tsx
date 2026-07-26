@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Image } from "lucide-react";
 import { deleteAlbum, getMyAlbums, type MyAlbum } from "../lib/api";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
+import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -89,9 +90,7 @@ export default function MyAlbums() {
       ) : (
         <div className="my-albums__list">
           {albums.map((album) => {
-            const imageUrl = album.cover_photo_id
-              ? (album.cover_image_url ?? "")
-              : (album.cover_image_url || album.image_url || "");
+            const imageUrl = myAlbumCardImageUrl(album);
             const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
             return (
               <div key={album.album_id} className="my-albums__card">

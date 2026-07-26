@@ -140,6 +140,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
         ),
       );
       handleCancelPhotoCommentEdit();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "사진 코멘트를 수정하지 못했어요.");
     } finally {
       setIsSavingPhotoComment(false);
     }

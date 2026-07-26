@@ -110,6 +110,22 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["epilogue"], "Updated epilogue")
 
+    def test_owner_can_update_title(self) -> None:
+        self.as_user(OWNER_ID)
+        updated = {**album_record(), "title": "Updated title"}
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.update_album_title", return_value=updated
+        ), patch("app.api.album.count_ready_album_photos", return_value=0), patch(
+            "app.api.album.count_album_photo_memories", return_value=0
+        ):
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/title",
+                json={"title": "Updated title"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["title"], "Updated title")
+
     def test_my_albums_returns_only_the_authenticated_creators_albums(self) -> None:
         self.as_user(OWNER_ID)
         created_at = datetime.now(timezone.utc).isoformat()

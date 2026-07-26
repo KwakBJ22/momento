@@ -5,6 +5,7 @@ import {
   getAlbum,
   getAlbumPhotos,
   isPublicShareUrl,
+  patchAlbumTitle,
   patchEpilogue,
   saveAlbumPhotoComment,
 } from "../lib/api";
@@ -59,6 +60,7 @@ export default function AlbumResultView({
   const [stagePhotosError, setStagePhotosError] = useState<string | null>(null);
   const [photoLoadAttempt, setPhotoLoadAttempt] = useState(0);
   const [chapterStories, setChapterStories] = useState<Record<string, string>>(result.chapter_stories ?? {});
+  const [albumTitle, setAlbumTitle] = useState(result.title);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCommentDraft, setPhotoCommentDraft] = useState("");
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
@@ -74,6 +76,7 @@ export default function AlbumResultView({
     setEpilogue(next);
     setSavedEpilogue(next);
     setChapterStories(result.chapter_stories ?? {});
+    setAlbumTitle(result.title);
   }, [result.album_id, result.photos, result.epilogue, result.narrative]);
 
   useEffect(() => {
@@ -197,6 +200,19 @@ export default function AlbumResultView({
     }
   };
 
+  const handleEditTitle = async () => {
+    if (guestMode || !canEditStories) return;
+    const next = window.prompt("앨범 제목", albumTitle);
+    if (!next?.trim() || next.trim() === albumTitle) return;
+    try {
+      const updated = await patchAlbumTitle(result.album_id, next.trim());
+      setAlbumTitle(updated.title);
+      setNotice("앨범 제목을 수정했어요.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "앨범 제목을 수정하지 못했어요.");
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       const url = await resolveShareUrl();
@@ -214,7 +230,7 @@ export default function AlbumResultView({
       const url = await resolveShareUrl();
       if (navigator.share) {
         await navigator.share({
-          title: result.title || "Momento 앨범",
+          title: albumTitle || "Momento 앨범",
           text: epilogue.slice(0, 120) || "우리의 추억 앨범을 확인해보세요.",
           url,
         });
@@ -233,7 +249,7 @@ export default function AlbumResultView({
   const handleKakaoShare = async () => {
     try {
       const url = await resolveShareUrl();
-      onShareKakao(epilogue || result.title, url);
+      onShareKakao(epilogue || albumTitle, url);
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "카카오 공유를 시작하지 못했어요.");
     }
@@ -246,7 +262,7 @@ export default function AlbumResultView({
       await downloadAlbumPdf({
         albumId: result.album_id,
         albumVersion: result.album_version ?? 0,
-        title: result.title,
+        title: albumTitle,
         photos: stagePhotos,
         epilogue,
         coverDateLabel: result.date,
@@ -274,6 +290,13 @@ export default function AlbumResultView({
             ) : null}
             <p className="album-result__cover">{coverLineForCategory(result.category)}</p>
             <h2 className="album-result__title">앨범이 완성됐어요!</h2>
+            {!guestMode && canEditStories ? (
+              <p className="album-result__subtitle">
+                <button type="button" className="link-btn" onClick={() => void handleEditTitle()}>
+                  제목 수정
+                </button>
+              </p>
+            ) : null}
             <p className="album-result__subtitle">추억을 저장하고 가족과 나눠보세요.</p>
           </header>
 
@@ -290,7 +313,7 @@ export default function AlbumResultView({
             ) : (
               <AlbumRenderer
                 photos={stagePhotos}
-                title={result.title}
+                title={albumTitle}
                 epilogue={isEditing ? "" : epilogue}
                 coverDateLabel={result.date}
                 chapterStories={chapterStories}
