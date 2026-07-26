@@ -1,6 +1,6 @@
 .album-photo-frame {
   display: inline-block;
-  width: auto;
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
   vertical-align: top;
@@ -14,10 +14,11 @@
 
 .album-photo-frame__img {
   display: block;
-  width: auto;
+  width: 100%;
   max-width: 100%;
   height: auto;
-  max-height: 680px;
+  max-height: none;
+  transform: none;
   object-fit: contain;
   border-radius: 4px;
 }

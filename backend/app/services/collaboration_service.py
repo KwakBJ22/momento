@@ -1008,9 +1008,17 @@ def get_cached_pdf_path(album: dict[str, Any], version: int | str) -> str | None
     return None
 
 
-def set_cached_pdf_path(client: Client, album: dict[str, Any], version: int | str, path: str) -> None:
+def get_cached_pdf_bucket(album: dict[str, Any], version: int | str, default_bucket: str) -> str:
+    cache = album.get("pdf_cache") or {}
+    entry = cache.get(str(version)) if isinstance(cache, dict) else None
+    if isinstance(entry, dict) and entry.get("bucket"):
+        return str(entry["bucket"])
+    return default_bucket
+
+
+def set_cached_pdf_path(client: Client, album: dict[str, Any], version: int | str, path: str, bucket: str | None = None) -> None:
     cache = dict(album.get("pdf_cache") or {})
-    cache[str(version)] = {"path": path, "created_at": _iso()}
+    cache[str(version)] = {"path": path, "bucket": bucket, "created_at": _iso()}
     client.table("albums").update({"pdf_cache": cache}).eq("id", album["id"]).execute()
 
 

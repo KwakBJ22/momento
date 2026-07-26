@@ -6,7 +6,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 
 from app.config import Settings, get_settings
 from app.models.album_styles import layout_for_template_type, normalize_template_type
@@ -48,6 +48,7 @@ from app.services.image_service import (
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.supabase import (
     create_album_id,
+    cleanup_incomplete_album,
     delete_album_record,
     delete_album_media_record,
     delete_storage_paths,
@@ -63,7 +64,8 @@ from app.services.supabase import (
     get_album_photo_records,
     get_album_media_record,
     get_album_media_records,
-    get_public_url,
+    get_result_signed_url,
+    get_public_url,  # compatibility import for legacy integration mocks; not used for assets
     get_signed_urls_batch,
     list_album_photo_cover_records,
     list_album_photo_list_summaries,
@@ -72,6 +74,7 @@ from app.services.supabase import (
     get_signed_url,
     get_supabase_client,
     save_album_record,
+    set_album_creation_status,
     save_album_photo_records,
     save_album_media_records,
     update_album_epilogue,
@@ -106,7 +109,9 @@ from app.services.share_service import create_share_link
 from app.services.share_service import log_event
 from app.services.collaboration_service import (
     album_document_photo_ids,
+    get_contributor,
     get_cached_pdf_path,
+    get_cached_pdf_bucket,
     list_photo_memories,
     set_cached_pdf_path,
     unpack_edition_snapshot,
@@ -121,6 +126,51 @@ logger = logging.getLogger(__name__)
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
 _VALID_CATEGORIES = set(ALBUM_CATEGORIES)
+
+
+def _require_photo_mutation_access(
+    client: Any,
+    *,
+    album_id: str,
+    photo_id: str,
+    authenticated_user_id: str,
+    access: Any,
+) -> dict[str, Any]:
+    """Allow contributors to mutate only the photo they submitted.
+
+    The service-role client bypasses RLS, so this ownership relation must be
+    checked before every authenticated photo mutation.
+    """
+    require_album_contribute(access)
+    result = (
+        client.table("album_photos")
+        .select("*")
+        .eq("id", photo_id)
+        .eq("album_id", album_id)
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
+    photo = rows[0]
+    if access.can_edit_settings:
+        return photo
+    if str(photo.get("contributor_profile_id") or "") == authenticated_user_id:
+        return photo
+    contributor = get_contributor(client, album_id, user_id=authenticated_user_id)
+    if contributor and str(photo.get("uploaded_by_contributor_id") or "") == str(contributor.get("id") or ""):
+        return photo
+    raise HTTPException(status_code=403, detail="본인이 추가한 사진만 수정할 수 있습니다.")
+
+
+def _require_media_mutation_access(media: dict[str, Any], access: Any, authenticated_user_id: str) -> None:
+    require_album_contribute(access)
+    if access.can_edit_settings:
+        return
+    if str(media.get("uploader_id") or "") == authenticated_user_id:
+        return
+    raise HTTPException(status_code=403, detail="본인이 추가한 미디어만 삭제할 수 있습니다.")
 
 
 def _resolve_cover_photo(album: dict[str, Any], photos: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -181,7 +231,7 @@ def _my_album_list_items(
                     ""
                     if has_cover
                     else (
-                        get_public_url(client, str(record["result_path"]), settings)
+                        get_result_signed_url(client, record, settings)
                         if record.get("result_path")
                         else ""
                     )
@@ -255,6 +305,7 @@ def _owned_cover_urls(
 
 @router.post("/upload-album", response_model=AlbumUploadResponse)
 async def upload_album(
+    request: Request,
     photos: list[UploadFile] = File(..., description="최대 30장의 사진"),
     stories: str = Form(..., description='JSON 배열: [{"order":0,"user":"","text":"..."}, ...]'),
     meeting_type: str = Form("friend", description="family/friend/work/university"),
@@ -327,7 +378,15 @@ async def upload_album(
     family_id = ensure_default_family(client, authenticated_user_id)
     family_membership = get_family_membership(client, family_id, authenticated_user_id)
     require_family_write_role(family_membership["role"] if family_membership else None)
-    album_id = create_album_id()
+    operation_id = (request.headers.get("X-Momento-Operation-Id") or "").strip()
+    try:
+        album_id = str(UUID(operation_id)) if operation_id else create_album_id()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid album creation operation.")
+    if get_album_record(client, album_id):
+        # A retried request cannot create a second album. The client preserves
+        # this key until it receives a completed response.
+        raise HTTPException(status_code=409, detail="This album creation request is already being processed.")
 
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
     entries: list[dict[str, Any]] = []
@@ -504,6 +563,8 @@ async def upload_album(
             photo_paths=photo_paths,
             photo_meta=photo_meta,
             result_path=result_path,
+            result_bucket=settings.supabase_private_storage_bucket,
+            creation_status="processing",
             category=album_category,
             template_type=album_template_type,
             cover_photo_id=cover_photo_id,
@@ -518,6 +579,7 @@ async def upload_album(
             role="owner",
             invited_by=authenticated_user_id,
         )
+        set_album_creation_status(client, album_id, "active")
         try:
             await generate_album_questions(
                 client,
@@ -539,15 +601,15 @@ async def upload_album(
     except Exception:
         if album_saved:
             try:
-                delete_album_record(client, album_id)
+                cleanup_incomplete_album(client, album_id)
             except Exception:
                 pass
         delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_private_paths)
         if result_path:
-            delete_storage_paths(client, settings.supabase_storage_bucket, [result_path])
+            delete_storage_paths(client, settings.supabase_private_storage_bucket, [result_path])
         raise
 
-    image_url = get_public_url(client, result_path, settings)
+    image_url = get_signed_url(client, settings.supabase_private_storage_bucket, result_path, settings.signed_url_ttl_seconds)
     _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
     share_url = f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}"
     log_event(client, "album_created", album_id=album_id, metadata={"owner_id": authenticated_user_id})
@@ -674,7 +736,13 @@ async def update_photo_location(
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
-    require_album_contribute(access)
+    _require_photo_mutation_access(
+        client,
+        album_id=album_id,
+        photo_id=photo_id,
+        authenticated_user_id=authenticated_user_id,
+        access=access,
+    )
 
     name = (body.location_name or "").strip() or None
     payload: dict[str, Any] = {
@@ -732,7 +800,13 @@ async def save_photo_comment(
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
-    require_album_contribute(access)
+    _require_photo_mutation_access(
+        client,
+        album_id=album_id,
+        photo_id=photo_id,
+        authenticated_user_id=authenticated_user_id,
+        access=access,
+    )
     comment = body.comment.strip() if body.comment else None
     saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=comment)
     if not saved:
@@ -886,13 +960,14 @@ async def delete_media(
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
-    require_album_contribute(access)
     media = get_album_media_record(client, album_id, media_id)
     if not media:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
+    _require_media_mutation_access(media, access, authenticated_user_id)
     paths = [path for path in (media.get("original_path"), media.get("preview_path"), media.get("thumbnail_path")) if path]
     client.storage.from_(settings.supabase_private_storage_bucket).remove(paths)
-    delete_album_media_record(client, media_id)
+    if not delete_album_media_record(client, album_id, media_id):
+        raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1050,7 +1125,7 @@ def _detail_from_record(
     living_append_pages: list[dict[str, Any]] | None = None,
 ) -> AlbumDetailResponse:
     album_id = str(record["id"])
-    image_url = get_public_url(client, record["result_path"], settings) if record.get("result_path") else ""
+    image_url = get_result_signed_url(client, record, settings)
     epilogue = str(record.get("epilogue") or record.get("narrative") or "").strip()
     cover_photo_id = record.get("cover_photo_id")
     raw_stories = record.get("chapter_stories")
@@ -1554,7 +1629,7 @@ async def get_album_pdf(
     if not cached_path:
         return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
 
-    url = get_public_url(client, cached_path, settings)
+    url = get_signed_url(client, get_cached_pdf_bucket(record, f"{target_version}:r{renderer_version}", settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
 
 
@@ -1581,15 +1656,15 @@ async def upload_album_pdf(
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="PDF 파일이 아닙니다.")
 
-    path = f"albums/{album_id}/pdf/v{version}-r{renderer_version}.pdf"
-    client.storage.from_(settings.supabase_storage_bucket).upload(
+    path = f"albums/{album_id}/pdf/{uuid4()}.pdf"
+    client.storage.from_(settings.supabase_private_storage_bucket).upload(
         path,
         content,
         {"content-type": "application/pdf", "upsert": "true"},
     )
-    set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path)
+    set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path, settings.supabase_private_storage_bucket)
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
-    url = get_public_url(client, path, settings)
+    url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
 
 

@@ -3,7 +3,7 @@ import type { CollabSession } from "./api";
 
 type ContributionAction = "photo" | "memory";
 
-type StorageLike = Pick<Storage, "getItem" | "setItem">;
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export type PublicShareCache = {
   album: PublicShareAlbum;
@@ -57,6 +57,18 @@ export function savePublicShareCache(
     storage.setItem(cacheKey(token), JSON.stringify({ album, contributionAction, nameAction, cachedAt: now } satisfies PublicShareCache));
   } catch {
     // sessionStorage can be unavailable in private WebViews. The in-memory view still works.
+  }
+}
+
+/** A public cache is never authorization. Remove it as soon as the link fails. */
+export function clearPublicShareCache(
+  token: string,
+  storage: Pick<Storage, "removeItem"> | null = publicShareSessionStorage(),
+): void {
+  try {
+    storage?.removeItem(cacheKey(token));
+  } catch {
+    // Storage can be disabled in private WebViews.
   }
 }
 

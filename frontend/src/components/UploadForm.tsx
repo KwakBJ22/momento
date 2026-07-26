@@ -32,6 +32,7 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
   const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const operationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setCoverPhotoId((current) => (
@@ -137,15 +138,19 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       formData.append("description", "");
       formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ captured_at: photo.capturedAt }))));
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
+      const operationId = operationIdRef.current || crypto.randomUUID();
+      operationIdRef.current = operationId;
+      const headers = { "X-Momento-Operation-Id": operationId };
       const response = guestMode
-        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal })
-        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal });
+        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal, headers })
+        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal, headers });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
       }
       const created = (await response.json()) as AlbumResult | GuestAlbumResult;
       if ("guest_token" in created) onGuestCreated?.(created.guest_token);
+      operationIdRef.current = null;
       onSuccess(created);
     } catch (cause: unknown) {
       console.error("Album upload failed", { cause, guestMode, photoCount: photos.length });

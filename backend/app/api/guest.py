@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from functools import wraps
 from typing import Any
 from uuid import UUID, uuid4
-import json
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from postgrest.exceptions import APIError
@@ -22,25 +21,25 @@ from app.models.schemas import (
     GuestAnalyticsEventRequest,
 )
 from app.services.auth import require_authenticated_user
-from app.services.guest_service import claim_guest_album, claim_guest_album_by_id, claim_guest_album_by_share_token, create_guest_session
+from app.services.guest_service import claim_guest_album, create_guest_session
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
 from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
-from app.services.membership import save_album_member
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.share_service import create_share_link, log_event
 from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key
 from app.services.supabase import (
     create_album_id,
-    delete_album_record,
+    cleanup_incomplete_album,
     delete_storage_paths,
     ensure_default_family,
-    get_public_url,
+    get_album_record,
     get_signed_url,
     get_supabase_client,
     save_album_media_records,
     save_album_photo_records,
     save_album_record,
+    set_album_creation_status,
     upload_album_photo_assets,
     upload_result_image,
 )
@@ -195,7 +194,14 @@ async def upload_guest_album(
     )
     client = get_supabase_client(settings)
     _safe_event(client, "upload_started")
-    album_id, guest_scope_id = create_album_id(), str(uuid4())
+    operation_id = (request.headers.get("X-Momento-Operation-Id") or "").strip()
+    try:
+        album_id = str(UUID(operation_id)) if operation_id else create_album_id()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid album creation operation.")
+    if get_album_record(client, album_id):
+        raise HTTPException(status_code=409, detail="This album creation request is already being processed.")
+    guest_scope_id = str(uuid4())
     title = title.strip() or "우리의 추억"
     try:
         meta_list = json.loads(file_meta) if file_meta.strip() else []
@@ -381,6 +387,8 @@ async def upload_guest_album(
             epilogue=narrative,
             chapter_stories=chapter_stories,
             cover_photo_id=cover_photo_id,
+            result_bucket=settings.supabase_private_storage_bucket,
+            creation_status="processing",
         )
         album_saved = True
         save_album_photo_records(client, photo_records)
@@ -388,6 +396,7 @@ async def upload_guest_album(
         logger.info("guest_upload_database_insert_completed request_id=%s album_id=%s", request_id, album_id)
         token = create_guest_session(client, album_id)
         _, share_token = create_share_link(client, album_id, None, None)
+        set_album_creation_status(client, album_id, "active")
         share_url = f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}"
     except Exception as exc:
         logger.exception(
@@ -399,12 +408,12 @@ async def upload_guest_album(
         )
         if album_saved:
             try:
-                delete_album_record(client, album_id)
+                cleanup_incomplete_album(client, album_id)
             except Exception:
                 pass
         delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_paths)
         if result_path:
-            delete_storage_paths(client, settings.supabase_storage_bucket, [result_path])
+            delete_storage_paths(client, settings.supabase_private_storage_bucket, [result_path])
         if isinstance(exc, HTTPException):
             raise
         if isinstance(exc, APIError) and getattr(exc, "code", None) == "PGRST205":
@@ -451,7 +460,7 @@ async def upload_guest_album(
         narrative=narrative,
         epilogue=narrative,
         chapter_stories=chapter_stories,
-        image_url=get_public_url(client, result_path, settings),
+        image_url=get_signed_url(client, settings.supabase_private_storage_bucket, result_path, settings.signed_url_ttl_seconds),
         cover_photo_id=UUID(cover_photo_id),
         cover_image_url=cover_image_url,
         share_url=share_url,
@@ -472,22 +481,12 @@ async def claim_guest_album_after_login(
 ) -> dict[str, str]:
     settings = get_settings()
     client = get_supabase_client(settings)
+    if not payload.guest_token:
+        # Album ids and public share links are identifiers, never ownership
+        # credentials.  Only the creation-browser ownership secret can claim.
+        raise HTTPException(status_code=400, detail="앨범을 보관하려면 생성한 브라우저의 보관 정보가 필요합니다.")
     family_id = ensure_default_family(client, authenticated_user_id)
-    if payload.guest_token:
-        album_id = claim_guest_album(client, payload.guest_token, authenticated_user_id, family_id)
-    elif payload.album_id:
-        album_id = claim_guest_album_by_id(client, str(payload.album_id), authenticated_user_id, family_id)
-    elif payload.share_token:
-        album_id = claim_guest_album_by_share_token(client, payload.share_token, authenticated_user_id, family_id)
-    else:
-        raise HTTPException(status_code=400, detail="보관할 임시 앨범 정보를 찾을 수 없어요.")
-    save_album_member(
-        client,
-        album_id=album_id,
-        profile_id=authenticated_user_id,
-        role="owner",
-        invited_by=authenticated_user_id,
-    )
+    album_id = claim_guest_album(client, payload.guest_token, authenticated_user_id, family_id)
     logger.info("guest_album_claim_completed album_id=%s profile_id=%s family_id=%s", album_id, authenticated_user_id, family_id)
     _safe_event(client, "guest_album_claimed", album_id)
     return {"album_id": album_id, "family_id": family_id}

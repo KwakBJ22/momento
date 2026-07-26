@@ -226,7 +226,11 @@ export async function getPublicShare(token: string, edition?: number | null): Pr
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}${params}`, {
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(await parseError(response));
+  if (!response.ok) {
+    const error = new Error(await parseError(response)) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
   return (await response.json()) as import("../types").PublicShareAlbum;
 }
 

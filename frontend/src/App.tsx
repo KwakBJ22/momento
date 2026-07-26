@@ -20,7 +20,6 @@ import { authenticatedFetch, claimGuestAlbum, claimGuestMemory, getAlbum, getAlb
 import {
   clearGuestAlbumClaim,
   buildGuestAlbumClaimRedirect,
-  getGuestAlbumClaimQuery,
   getGuestAlbumClaimInput,
   getStoredGuestAlbumId,
   hasPendingGuestAlbumClaim,
@@ -92,7 +91,6 @@ function App() {
   const questionsAlbumId = getQuestionsAlbumIdFromPath();
   const inviteToken = getInviteTokenFromPath();
   const shareToken = getShareTokenFromPath();
-  const claimQuery = getGuestAlbumClaimQuery(window.location.search);
   const participantsAlbumId = getParticipantsAlbumIdFromPath();
   const myAlbumsPage = isMyAlbumsPage();
   const adminRoute = getAdminRoute();
@@ -128,10 +126,10 @@ function App() {
   }, [session?.access_token]);
 
   useEffect(() => {
-    const hasRecoverableClaim = hasPendingGuestAlbumClaim() || Boolean(claimQuery.albumId || claimQuery.shareToken);
+    const hasRecoverableClaim = hasPendingGuestAlbumClaim();
     if (!session || !hasRecoverableClaim) return;
     let active = true;
-    const claimInput = getGuestAlbumClaimInput(claimQuery.albumId || sharedAlbumId, claimQuery.shareToken || shareToken);
+    const claimInput = getGuestAlbumClaimInput(null, null);
     setClaimError(null);
     if (import.meta.env.DEV) {
       console.debug("[Momento] Guest album claim requested", {
@@ -153,7 +151,7 @@ function App() {
         if (active) setClaimError(error instanceof Error ? error.message : "앨범을 보관하지 못했어요. 다시 시도해 주세요.");
       });
     return () => { active = false; };
-  }, [session?.access_token, claimQuery.albumId, claimQuery.shareToken, claimRetry, sharedAlbumId, shareToken]);
+  }, [session?.access_token, claimRetry]);
 
   useEffect(() => {
     if (!session) trackGuestEvent("landing_viewed");

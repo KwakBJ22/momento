@@ -28,17 +28,13 @@ export function saveGuestAlbumContext(albumId: string, shareUrl: string): void {
   if (shareToken) localStorage.setItem(GUEST_ALBUM_SHARE_TOKEN_KEY, shareToken);
 }
 
-function shareTokenFromUrl(shareUrl: string): string | null {
-  return shareUrl.match(/\/s\/([^/?#]+)/)?.[1] || null;
-}
-
 /** Keep recoverable guest album context through a Magic Link browser handoff. */
 export function buildGuestAlbumClaimRedirect(origin: string, albumId: string, shareUrl: string): string {
-  const redirect = new URL("/", origin);
-  redirect.searchParams.set("claim_album_id", albumId);
-  const shareToken = shareTokenFromUrl(shareUrl);
-  if (shareToken) redirect.searchParams.set("claim_share_token", shareToken);
-  return redirect.toString();
+  // Ownership is preserved only in the creation browser's private storage.
+  // Never put a public album identifier or share token into a Magic Link.
+  void albumId;
+  void shareUrl;
+  return new URL("/", origin).toString();
 }
 
 export function getGuestAlbumClaimQuery(search: string): GuestAlbumClaimQuery {
@@ -64,10 +60,12 @@ export function hasPendingGuestAlbumClaim(): boolean {
 }
 
 export function getGuestAlbumClaimInput(fallbackAlbumId: string | null, fallbackShareToken: string | null): GuestAlbumClaimInput {
+  void fallbackAlbumId;
+  void fallbackShareToken;
   return {
     guestToken: localStorage.getItem(GUEST_ALBUM_TOKEN_KEY),
-    albumId: localStorage.getItem(GUEST_ALBUM_ID_KEY) || fallbackAlbumId,
-    shareToken: localStorage.getItem(GUEST_ALBUM_SHARE_TOKEN_KEY) || fallbackShareToken,
+    albumId: null,
+    shareToken: null,
   };
 }
 

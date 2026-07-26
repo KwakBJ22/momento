@@ -7,6 +7,7 @@ import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContri
 import { createId } from "../lib/id";
 import {
   appendPendingContributions,
+  clearPublicShareCache,
   contributionPanelAction,
   readPublicShareCache,
   reconcilePublicShareAlbum,
@@ -81,10 +82,11 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
   const initialCache = requestedEdition === null ? readPublicShareCache(token) : null;
-  const [album, setAlbum] = useState<PublicShareAlbum | null>(() => initialCache?.album ?? null);
-  const [albumLoading, setAlbumLoading] = useState(() => !initialCache);
+  // Cache is only used after the link has been authorized by the server.
+  const [album, setAlbum] = useState<PublicShareAlbum | null>(null);
+  const [albumLoading, setAlbumLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadedToken, setLoadedToken] = useState<string | null>(() => initialCache ? token : null);
+  const [loadedToken, setLoadedToken] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
@@ -104,14 +106,9 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     const startedAt = performance.now();
     let active = true;
     const cached = requestedEdition === null ? readPublicShareCache(token) : null;
-    const hasCachedAlbum = Boolean(cached);
-    setAlbumLoading(!hasCachedAlbum);
-    if (cached) {
-      setAlbum(cached.album);
-      setLoadedToken(token);
-    } else {
-      setLoadedToken(null);
-    }
+    setAlbumLoading(true);
+    setAlbum(null);
+    setLoadedToken(null);
     setError(null);
     const cachedSession = cached ? loadCollabSession(cached.album.album_id) : null;
     const canRestoreContribution = Boolean(cachedSession && hasParticipantName(cachedSession.displayName));
@@ -124,7 +121,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     void getPublicShare(token, requestedEdition).then((data) => {
       if (!active) return;
       debugTiming("public album API response", startedAt);
-      setAlbum((current) => reconcilePublicShareAlbum(current, data));
+      setAlbum((current) => reconcilePublicShareAlbum(current ?? cached?.album ?? null, data));
       setLoadedToken(token);
       setContributionAlbumId(data.album_id);
       const savedSession = loadCollabSession(data.album_id);
@@ -136,7 +133,10 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     }).catch((cause) => {
       if (!active) return;
       console.warn("[Momento] Public album request failed.", cause);
-      if (!hasCachedAlbum) setError(cause instanceof Error ? cause.message : "공유 앨범을 불러오지 못했어요.");
+      const status = (cause as { status?: number } | null)?.status;
+      if (status && [401, 403, 404, 410].includes(status)) clearPublicShareCache(token);
+      setAlbum(null);
+      setError(cause instanceof Error ? cause.message : "공유 앨범을 불러오지 못했어요.");
       setAlbumLoading(false);
     });
     return () => { active = false; };
@@ -274,8 +274,14 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     onAddMemory: () => openContribution("memory"),
     onShare: () => { void share(); },
   };
+  const publicActions = (
+    <div className="album-result__actions">
+      <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>공유하기</button>
+      <a className="btn btn--ghost" href="/">새 앨범 만들기</a>
+    </div>
+  );
   const editionLink = album.edition_is_latest === false ? <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p> : album.edition_previous ? <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p> : null;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} actionPanel={publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

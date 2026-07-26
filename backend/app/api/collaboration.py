@@ -63,7 +63,7 @@ from app.services.image_upload_service import process_upload
 from app.services.membership import get_album_access
 from app.services.supabase import (
     get_album_record,
-    get_public_url,
+    get_result_signed_url,
     get_signed_url,
     get_supabase_client,
     save_album_photo_records,
@@ -148,7 +148,7 @@ async def join_preview(token: str) -> JoinPreviewResponse:
     album, _invite = get_album_for_invite(client, token)
     cover = None
     if album.get("result_path"):
-        cover = get_public_url(client, str(album["result_path"]), settings)
+        cover = get_result_signed_url(client, album, settings)
     return JoinPreviewResponse(
         album_id=UUID(str(album["id"])),
         title=str(album.get("title") or "함께 만드는 앨범"),

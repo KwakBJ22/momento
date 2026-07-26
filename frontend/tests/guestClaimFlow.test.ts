@@ -5,11 +5,11 @@ import { buildGuestAlbumClaimRedirect, getGuestAlbumClaimQuery } from "../src/li
 
 const albumId = "11111111-1111-1111-1111-111111111111";
 
-test("Magic Link redirect keeps the guest album and public share recovery context", () => {
+test("Magic Link redirect never exposes album or public share identifiers as claim credentials", () => {
   const redirect = buildGuestAlbumClaimRedirect("https://momento.example", albumId, "https://momento.example/s/share-token");
   const url = new URL(redirect);
 
-  assert.deepEqual(getGuestAlbumClaimQuery(url.search), { albumId, shareToken: "share-token" });
+  assert.deepEqual(getGuestAlbumClaimQuery(url.search), { albumId: null, shareToken: null });
 });
 
 test("invalid guest claim query values are ignored", () => {

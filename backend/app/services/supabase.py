@@ -86,17 +86,30 @@ def upload_result_image(
     image_bytes: bytes,
     settings: Settings,
 ) -> str:
-    path = f"{album_id}/result/album.png"
-    client.storage.from_(settings.supabase_storage_bucket).upload(
+    # Generated artifacts are private objects.  Database rows keep the path;
+    # callers issue a short-lived signed URL only after authorization.
+    path = f"albums/{album_id}/result/{uuid.uuid4()}.png"
+    client.storage.from_(settings.supabase_private_storage_bucket).upload(
         path,
         image_bytes,
-        file_options={"content-type": "image/png", "upsert": "true"},
+        file_options={"content-type": "image/png", "upsert": "false"},
     )
     return path
 
 
 def get_public_url(client: Client, path: str, settings: Settings) -> str:
-    return client.storage.from_(settings.supabase_storage_bucket).get_public_url(path)
+    """Legacy compatibility only; never use this for generated album assets."""
+    return get_signed_url(client, settings.supabase_storage_bucket, path, settings.signed_url_ttl_seconds)
+
+
+def get_result_signed_url(client: Client, record: dict[str, Any], settings: Settings) -> str:
+    path = str(record.get("result_path") or "").strip()
+    if not path:
+        return ""
+    # Legacy rows point to the former albums bucket; newly created rows persist
+    # momento-private explicitly.  No route returns an unsigned object URL.
+    bucket = str(record.get("result_bucket") or getattr(settings, "supabase_storage_bucket", "albums"))
+    return get_signed_url(client, bucket, path, getattr(settings, "signed_url_ttl_seconds", 300))
 
 
 def save_album_record(
@@ -117,6 +130,8 @@ def save_album_record(
     epilogue: str | None = None,
     chapter_stories: dict[str, str] | None = None,
     cover_photo_id: str | None = None,
+    result_bucket: str | None = None,
+    creation_status: str = "active",
 ) -> dict[str, Any]:
     record = {
         "id": album_id,
@@ -138,6 +153,8 @@ def save_album_record(
         "photo_paths": photo_paths,
         "photo_meta": photo_meta,
         "result_path": result_path,
+        "result_bucket": result_bucket or settings_bucket_name(),
+        "status": creation_status,
         "cover_photo_id": cover_photo_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -589,8 +606,20 @@ def get_album_media_record(client: Client, album_id: str, media_id: str) -> dict
     return data[0] if data else None
 
 
-def delete_album_media_record(client: Client, media_id: str) -> None:
-    client.table("album_media").update({"deleted_at": datetime.now(timezone.utc).isoformat()}).eq("id", media_id).execute()
+def settings_bucket_name() -> str:
+    return get_settings().supabase_private_storage_bucket
+
+
+def delete_album_media_record(client: Client, album_id: str, media_id: str) -> bool:
+    result = (
+        client.table("album_media")
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", media_id)
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    return bool(result.data)
 
 
 def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int) -> str:
@@ -602,3 +631,22 @@ def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int)
 
 def delete_album_record(client: Client, album_id: str) -> None:
     client.table("albums").delete().eq("id", album_id).execute()
+
+
+def cleanup_incomplete_album(client: Client, album_id: str) -> None:
+    """Compensate a failed create in child-first order before removing assets."""
+    # These rows are created by both authenticated and guest creation routes.
+    # Delete children first because album foreign keys intentionally restrict
+    # deleting a completed album with dependent content.
+    for table in ("album_members", "album_media", "album_photos", "guest_album_sessions", "share_links"):
+        try:
+            client.table(table).delete().eq("album_id", album_id).execute()
+        except Exception:
+            # Continue cleanup and leave the original exception as the request
+            # failure; database logs retain any compensating-action error.
+            pass
+    delete_album_record(client, album_id)
+
+
+def set_album_creation_status(client: Client, album_id: str, status: str) -> None:
+    client.table("albums").update({"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}).eq("id", album_id).execute()

@@ -26,7 +26,7 @@
 .album-renderer--screen .album-screen-photo-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.5rem 1.25rem;
   align-items: start;
 }
 
@@ -37,16 +37,19 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0.7rem;
+  padding: 0.75rem;
   box-sizing: border-box;
   border: 1px solid #e7dfd6;
-  border-radius: 12px;
+  border-radius: 9px;
   background: #fff;
-  box-shadow: 0 5px 16px rgba(61, 53, 48, 0.05);
+  box-shadow: 0 7px 20px rgba(75, 57, 42, 0.10);
+  transform-origin: center center;
 }
 
 .album-renderer--screen .album-screen-photo-grid > .photo-block:only-child {
   grid-column: 1 / -1;
+  width: min(100%, 38rem);
+  justify-self: center;
 }
 
 .album-renderer--screen .album-screen-photo-card__frame {
@@ -71,8 +74,8 @@
 }
 
 .album-renderer--screen .album-screen-photo-grid .photo-memory-lines--caption {
-  margin: 0.75rem 0 0;
-  text-align: left;
+  margin: 0.9rem 0 0;
+  text-align: center;
 }
 
 .album-renderer--screen .album-screen-photo-grid .photo-memory-lines__edit-btn {
@@ -80,6 +83,25 @@
   min-height: 32px;
   padding: 0.25rem;
 }
+
+.album-renderer--screen .album-screen-photo-grid .photo-memory-lines__line,
+.album-renderer--screen .album-screen-photo-grid .photo-memory-lines__row,
+.album-renderer--screen .album-screen-photo-grid .photo-memory-lines__text {
+  text-align: center;
+}
+
+.album-renderer--screen .album-screen-photo-grid .photo-memory-lines--caption .photo-memory-lines__line {
+  font-size: clamp(0.94rem, 1.4vw, 1.05rem);
+  line-height: 1.58;
+}
+
+.album-renderer--screen .album-screen-photo-grid .photo-memory-lines__edit-btn {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.2rem;
+}
+
+.album-renderer--screen .album-screen-photo-grid > .photo-block { position: relative; }
 
 .album-renderer--print {
   background: #faf7f4;

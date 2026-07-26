@@ -24,7 +24,8 @@ from app.services.supabase import (
     get_album_media_records,
     get_album_photo_records,
     get_album_record,
-    get_public_url,
+    get_result_signed_url,
+    get_public_url,  # compatibility import for legacy integration mocks; never returned directly
     get_signed_url,
     get_supabase_client,
 )
@@ -309,7 +310,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         narrative=narrative,
         epilogue=narrative or None,
         chapter_stories=chapter_stories,
-        image_url=cover_image_url or get_public_url(client, str(album.get("result_path") or ""), settings),
+        image_url=cover_image_url or get_result_signed_url(client, album, settings),
         cover_photo_id=UUID(cover_photo_id) if cover_photo_id else None,
         cover_image_url=cover_image_url,
         date=str(album.get("event_date") or ""),

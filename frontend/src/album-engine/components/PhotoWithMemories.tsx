@@ -31,18 +31,17 @@ export default function PhotoWithMemories({
   const captionSegments = buildPhotoCaptionSegments(photo);
 
   const rotation = deterministicPhotoRotation(albumKey, photo.id, index, { isHero });
-  const frameStyle: CSSProperties | undefined =
+  const cardStyle: CSSProperties | undefined =
     rotation !== 0 ? { transform: `rotate(${rotation}deg)` } : undefined;
 
   const showCaption = Boolean(captionSegments?.length) || Boolean(edit?.canEdit);
 
   return (
-    <div className="photo-block" data-photo-id={photo.id}>
+    <div className="photo-block album-photo-card" data-photo-id={photo.id} style={cardStyle}>
       <AlbumPhotoFrame
         src={photo.src}
         alt={photo.alt || ""}
         className={frameClassName}
-        style={frameStyle}
       />
       {showCaption ? (
         <PhotoMemoryLines

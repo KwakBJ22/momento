@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   appendPendingContributions,
+  clearPublicShareCache,
   contributionPanelAction,
   readPublicShareCache,
   reconcilePublicShareAlbum,
@@ -30,6 +31,7 @@ function memoryStorage(): Storage {
   return {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => { values.set(key, value); },
+    removeItem: (key) => { values.delete(key); },
   } as Storage;
 }
 
@@ -65,6 +67,15 @@ test("cached public album is available immediately when the same share token is 
 
   assert.deepEqual(cached?.album, album);
   assert.equal(cached?.contributionAction, "memory");
+});
+
+test("an invalid public link can remove only its token-scoped cache", () => {
+  const storage = memoryStorage();
+  savePublicShareCache("active-token", album, null, null, storage);
+  savePublicShareCache("invalid-token", album, null, null, storage);
+  clearPublicShareCache("invalid-token", storage);
+  assert.equal(readPublicShareCache("invalid-token", storage), null);
+  assert.deepEqual(readPublicShareCache("active-token", storage)?.album, album);
 });
 
 test("cover change updates the cached public album without replacing its photos", () => {
