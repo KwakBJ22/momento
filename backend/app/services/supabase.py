@@ -1,4 +1,5 @@
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,6 +9,25 @@ from supabase import Client, create_client
 from app.config import Settings, get_settings
 from app.services.image_upload_service import ProcessedPhoto
 from app.services.media_upload_service import ProcessedMedia
+from app.services.storage_service import (
+    StorageService,
+    album_media_paths,
+    album_photo_paths,
+    album_result_path,
+    cleanup_orphan_assets,
+    cleanup_temporary_uploads,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _is_missing_column_error(exc: Exception, column: str) -> bool:
+    """Recognize PostgREST's missing-column response during phased deploys."""
+    message = " ".join(
+        str(value or "")
+        for value in (getattr(exc, "message", None), getattr(exc, "details", None), str(exc))
+    ).lower()
+    return column.lower() in message and any(marker in message for marker in ("column", "schema cache", "pgrst204", "42703"))
 
 
 def get_supabase_client(settings: Settings | None = None) -> Client:
@@ -23,21 +43,12 @@ def upload_album_photo_assets(
     photo: ProcessedPhoto,
     settings: Settings,
 ) -> tuple[str, str]:
-    base_path = f"families/{family_id}/albums/{album_id}/photos/{photo_id}"
-    original_path = f"{base_path}/original.{photo.original_extension}"
-    thumbnail_path = f"{base_path}/derived/thumbnail.webp"
-    bucket = client.storage.from_(settings.supabase_private_storage_bucket)
+    del family_id  # Album paths are provider-neutral and no longer family-shaped.
+    original_path, thumbnail_path = album_photo_paths("", album_id, photo_id, photo.original_extension)
+    storage = StorageService.for_supabase(client, settings)
     try:
-        bucket.upload(
-            original_path,
-            photo.original_bytes,
-            file_options={"content-type": photo.original_mime_type, "upsert": "false"},
-        )
-        bucket.upload(
-            thumbnail_path,
-            photo.thumbnail_bytes,
-            file_options={"content-type": "image/webp", "upsert": "false"},
-        )
+        storage.upload(settings.supabase_private_storage_bucket, original_path, photo.original_bytes, content_type=photo.original_mime_type)
+        storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, photo.thumbnail_bytes, content_type="image/webp")
     except Exception:
         delete_storage_paths(client, settings.supabase_private_storage_bucket, [original_path, thumbnail_path])
         raise
@@ -52,18 +63,16 @@ def upload_album_media_assets(
     media: ProcessedMedia,
     settings: Settings,
 ) -> tuple[str, str | None, str | None]:
-    base_path = f"families/{family_id}/albums/{album_id}/media/{media_id}"
-    original_path = f"{base_path}/original"
-    preview_path = f"{base_path}/preview" if media.preview_bytes else None
-    thumbnail_path = f"{base_path}/thumbnail" if media.thumbnail_bytes else None
-    bucket = client.storage.from_(settings.supabase_private_storage_bucket)
+    del family_id
+    original_path, preview_path, thumbnail_path = album_media_paths(album_id, media_id, bool(media.preview_bytes), bool(media.thumbnail_bytes))
+    storage = StorageService.for_supabase(client, settings)
     paths = [original_path] + [path for path in (preview_path, thumbnail_path) if path]
     try:
-        bucket.upload(original_path, media.original_bytes, file_options={"content-type": media.mime_type, "upsert": "false"})
+        storage.upload(settings.supabase_private_storage_bucket, original_path, media.original_bytes, content_type=media.mime_type)
         if preview_path and media.preview_bytes and media.preview_mime_type:
-            bucket.upload(preview_path, media.preview_bytes, file_options={"content-type": media.preview_mime_type, "upsert": "false"})
+            storage.upload(settings.supabase_private_storage_bucket, preview_path, media.preview_bytes, content_type=media.preview_mime_type)
         if thumbnail_path and media.thumbnail_bytes:
-            bucket.upload(thumbnail_path, media.thumbnail_bytes, file_options={"content-type": "image/webp", "upsert": "false"})
+            storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, media.thumbnail_bytes, content_type="image/webp")
     except Exception:
         delete_storage_paths(client, settings.supabase_private_storage_bucket, paths)
         raise
@@ -74,7 +83,7 @@ def delete_storage_paths(client: Client, bucket_name: str, paths: list[str]) -> 
     if not paths:
         return
     try:
-        client.storage.from_(bucket_name).remove(paths)
+        StorageService.for_supabase(client, get_settings()).delete(bucket_name, paths)
     except Exception:
         # Rollback is best-effort: preserve the original upload exception.
         pass
@@ -88,12 +97,8 @@ def upload_result_image(
 ) -> str:
     # Generated artifacts are private objects.  Database rows keep the path;
     # callers issue a short-lived signed URL only after authorization.
-    path = f"albums/{album_id}/result/{uuid.uuid4()}.png"
-    client.storage.from_(settings.supabase_private_storage_bucket).upload(
-        path,
-        image_bytes,
-        file_options={"content-type": "image/png", "upsert": "false"},
-    )
+    path = album_result_path(album_id, str(uuid.uuid4()))
+    StorageService.for_supabase(client, settings).upload(settings.supabase_private_storage_bucket, path, image_bytes, content_type="image/png")
     return path
 
 
@@ -108,8 +113,20 @@ def get_result_signed_url(client: Client, record: dict[str, Any], settings: Sett
         return ""
     # Legacy rows point to the former albums bucket; newly created rows persist
     # momento-private explicitly.  No route returns an unsigned object URL.
-    bucket = str(record.get("result_bucket") or getattr(settings, "supabase_storage_bucket", "albums"))
-    return get_signed_url(client, bucket, path, getattr(settings, "signed_url_ttl_seconds", 300))
+    configured_bucket = str(record.get("result_bucket") or "").strip()
+    # A deployment can reach Railway before the additive ``result_bucket``
+    # migration. New result objects are private, so try that non-public bucket
+    # first for legacy rows and only then the historical bucket.
+    candidates = [configured_bucket] if configured_bucket else []
+    candidates.extend([
+        getattr(settings, "supabase_private_storage_bucket", "momento-private"),
+        getattr(settings, "supabase_storage_bucket", "albums"),
+    ])
+    for bucket in dict.fromkeys(bucket for bucket in candidates if bucket):
+        url = get_signed_url(client, str(bucket), path, getattr(settings, "signed_url_ttl_seconds", 300))
+        if url:
+            return url
+    return ""
 
 
 def save_album_record(
@@ -159,8 +176,20 @@ def save_album_record(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    client.table("albums").insert(record).execute()
-    return record
+    try:
+        client.table("albums").insert(record).execute()
+        return record
+    except Exception as exc:
+        if not _is_missing_column_error(exc, "result_bucket"):
+            raise
+        # Keep creation available while the additive migration rolls out. The
+        # object remains in the private bucket and is resolved securely by
+        # ``get_result_signed_url`` above; no public URL fallback is used.
+        legacy_record = dict(record)
+        legacy_record.pop("result_bucket", None)
+        logger.warning("album_result_bucket_column_unavailable; retrying compatible insert album_id=%s", album_id)
+        client.table("albums").insert(legacy_record).execute()
+        return legacy_record
 
 
 def save_album_photo_records(client: Client, records: list[dict[str, Any]]) -> None:
@@ -433,7 +462,7 @@ def get_signed_urls_batch(client: Client, assets: list[dict[str, Any]], expires_
     signed_urls: dict[tuple[str, str], str] = {}
     for bucket, paths in paths_by_bucket.items():
         try:
-            rows = client.storage.from_(bucket).create_signed_urls(paths, expires_in)
+            rows = StorageService.for_supabase(client, get_settings()).create_signed_urls(bucket, paths, expires_in)
         except Exception:
             continue
         for row in rows or []:
@@ -623,10 +652,19 @@ def delete_album_media_record(client: Client, album_id: str, media_id: str) -> b
 
 
 def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int) -> str:
-    response = client.storage.from_(bucket_name).create_signed_url(path, expires_in)
-    if isinstance(response, dict):
-        return str(response.get("signedURL") or response.get("signedUrl") or "")
-    return str(response)
+    try:
+        return StorageService.for_supabase(client, get_settings()).create_signed_url(bucket_name, path, expires_in)
+    except Exception as exc:
+        # A missing bucket/object or temporary Storage outage must not turn an
+        # otherwise valid album-detail/public-share response into a server 500.
+        logger.warning(
+            "storage_signed_url_failed bucket=%s path=%s error_type=%s message=%s",
+            bucket_name,
+            path,
+            type(exc).__name__,
+            str(exc)[:240],
+        )
+        return ""
 
 
 def delete_album_record(client: Client, album_id: str) -> None:
@@ -650,3 +688,86 @@ def cleanup_incomplete_album(client: Client, album_id: str) -> None:
 
 def set_album_creation_status(client: Client, album_id: str, status: str) -> None:
     client.table("albums").update({"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}).eq("id", album_id).execute()
+
+
+def _cached_pdf_paths(record: dict[str, Any]) -> list[str]:
+    cache = record.get("pdf_cache") or {}
+    if not isinstance(cache, dict):
+        return []
+    return [str(entry.get("path")) for entry in cache.values() if isinstance(entry, dict) and entry.get("path")]
+
+
+def cleanup_album_files(
+    client: Client,
+    settings: Settings,
+    album: dict[str, Any],
+    *,
+    photo_rows: list[dict[str, Any]] | None = None,
+    media_rows: list[dict[str, Any]] | None = None,
+    dry_run: bool = True,
+) -> dict[str, list[str]]:
+    """Collect, and optionally remove, every known asset for one album.
+
+    This is idempotent: repeated calls only attempt the same paths, allowing an
+    operations job to retry cleanup after a storage failure.
+    """
+    photos = photo_rows if photo_rows is not None else get_album_photo_records(client, str(album["id"]))
+    media = media_rows if media_rows is not None else get_album_media_records(client, str(album["id"]))
+    by_bucket: dict[str, list[str]] = {}
+    def add(bucket: str | None, path: str | None) -> None:
+        if bucket and path:
+            by_bucket.setdefault(str(bucket), []).append(str(path))
+    for row in photos:
+        add(row.get("storage_bucket"), row.get("storage_path"))
+        add(row.get("thumbnail_bucket"), row.get("thumbnail_path"))
+    for row in media:
+        for key in ("original_path", "preview_path", "thumbnail_path"):
+            add(getattr(settings, "supabase_private_storage_bucket", "momento-private"), row.get(key))
+    result_path = str(album.get("result_path") or "")
+    if result_path:
+        add(str(album.get("result_bucket") or getattr(settings, "supabase_storage_bucket", "albums")), result_path)
+    for path in _cached_pdf_paths(album):
+        add(getattr(settings, "supabase_private_storage_bucket", "momento-private"), path)
+    for bucket, paths in by_bucket.items():
+        by_bucket[bucket] = sorted(set(paths))
+    if not dry_run:
+        storage = StorageService.for_supabase(client, settings)
+        for bucket, paths in by_bucket.items():
+            storage.delete(bucket, paths)
+    return by_bucket
+
+
+def cleanup_temporary_album_uploads(
+    client: Client,
+    settings: Settings,
+    album_id: str,
+    *,
+    minimum_age_hours: int = 24,
+    dry_run: bool = True,
+) -> list[str]:
+    return cleanup_temporary_uploads(
+        StorageService.for_supabase(client, settings),
+        settings.supabase_private_storage_bucket,
+        album_id,
+        minimum_age_hours=minimum_age_hours,
+        dry_run=dry_run,
+    )
+
+
+def cleanup_album_orphans(
+    client: Client,
+    settings: Settings,
+    album_id: str,
+    known_paths: set[str],
+    *,
+    exclude_prefixes: tuple[str, ...] = (),
+    dry_run: bool = True,
+) -> list[str]:
+    return cleanup_orphan_assets(
+        StorageService.for_supabase(client, settings),
+        settings.supabase_private_storage_bucket,
+        known_paths,
+        prefix=f"albums/{album_id}",
+        exclude_prefixes=exclude_prefixes,
+        dry_run=dry_run,
+    )

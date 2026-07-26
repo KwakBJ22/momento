@@ -62,6 +62,7 @@ yarn-error.log*
 !docs/QA_GUIDE.md
 !docs/KNOWN_ISSUES.md
 !docs/CODEBASE_RISK_AUDIT.md
+!docs/OPERATIONS.md
 coverage/
 .coverage
 htmlcov/

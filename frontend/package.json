@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test:public-share": "tsx --test tests/publicShareFlow.test.ts",
-    "test:frontend": "tsx --test tests/publicShareFlow.test.ts tests/guestClaimFlow.test.ts tests/uploadSelection.test.ts tests/myAlbumsRequest.test.ts tests/albumRenderingRegression.test.ts tests/albumWebLayout.test.ts tests/albumScreenComposition.test.ts",
+    "test:frontend": "tsx --test tests/publicShareFlow.test.ts tests/guestClaimFlow.test.ts tests/uploadSelection.test.ts tests/myAlbumsRequest.test.ts tests/albumRenderingRegression.test.ts tests/albumWebLayout.test.ts tests/albumScreenComposition.test.ts tests/urgentRegression.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -258,13 +258,15 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     if (!album) return;
 
+    let shareUrl = "";
     try {
 
+      shareUrl = await resolvePublicShareUrl();
       shareAlbum({
 
         imageUrl: album.image_url,
 
-        linkUrl: await resolvePublicShareUrl(),
+        linkUrl: shareUrl,
 
         description: (album.epilogue ?? album.narrative ?? "").trim(),
 
@@ -274,10 +276,26 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
     } catch (cause) {
 
-      setError(cause instanceof Error ? cause.message : "카카오톡 공유를 시작하지 못했습니다.");
+      try {
+        await navigator.clipboard.writeText(shareUrl || await resolvePublicShareUrl());
+        setError("링크를 복사했습니다.");
+      } catch (copyCause) {
+        setError(copyCause instanceof Error ? copyCause.message : "앨범을 공유하지 못했습니다.");
+      }
 
     }
 
+  };
+
+  const openContribution = async (action: "photo" | "memory") => {
+    try {
+      const shareUrl = await resolvePublicShareUrl();
+      const target = new URL(shareUrl, window.location.origin);
+      target.searchParams.set("contribute", action);
+      window.location.assign(target.toString());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
+    }
   };
 
 
@@ -365,10 +383,10 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     </>
   );
   const albumActions = (
-    <><div className="album-result__actions"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>공유하기</button><button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button><a className="btn btn--ghost" href="/">새 앨범 만들기</a></div>{requestedEdition === null ? <CollaborationPanel albumId={albumId} imageUrl={displayAlbum?.cover_image_url} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
+    <><div className="album-result__actions"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>앨범 공유하기</button><button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button><a className="btn btn--ghost" href="/">새 앨범 만들기</a></div>{requestedEdition === null ? <CollaborationPanel albumId={albumId} imageUrl={displayAlbum?.cover_image_url} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
   );
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
-  return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={editionLinks} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => document.querySelector(".collaboration-panel")?.scrollIntoView({ behavior: "smooth", block: "center" }), onAddMemory: () => document.querySelector(".collaboration-panel")?.scrollIntoView({ behavior: "smooth", block: "center" }), onShare: () => { void handleKakaoShare(); }, canAddPhoto: requestedEdition === null, canAddMemory: requestedEdition === null }} backHref="/my-albums" backLabel="내 앨범" />;
+  return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={editionLinks} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => { void handleKakaoShare(); }, onCreateAlbum: () => window.location.assign("/"), canAddPhoto: requestedEdition === null, canAddMemory: requestedEdition === null }} backHref="/my-albums" backLabel="내 앨범" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

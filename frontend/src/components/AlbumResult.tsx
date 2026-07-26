@@ -248,7 +248,14 @@ export default function AlbumResultView({
       const url = await resolveShareUrl();
       onShareKakao(epilogue || albumTitle, url);
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "카카오 공유를 시작하지 못했어요.");
+      try {
+        await navigator.clipboard.writeText(await resolveShareUrl());
+        setCopied(true);
+        setNotice("링크를 복사했습니다.");
+        setTimeout(() => setCopied(false), 2000);
+      } catch (copyErr) {
+        setNotice(copyErr instanceof Error ? copyErr.message : "앨범을 공유하지 못했습니다.");
+      }
     }
   };
 
@@ -296,16 +303,21 @@ export default function AlbumResultView({
     <><div className="album-result__actions">
       {guestMode && onSaveAccount ? <button type="button" className="btn btn--secondary" onClick={onSaveAccount}>내 앨범에 보관하기</button> : null}
       <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>{guestMode ? "앨범 저장" : isSavingAlbum ? "확인 중..." : "앨범 저장"}</button>
-      <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>공유하기</button>
+      <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>앨범 공유하기</button>
       <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
       <button type="button" className="btn btn--ghost" onClick={onReset}>새 앨범 만들기</button>
     </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>
   );
 
+  const openEpilogueEditor = () => {
+    if (!canEditStories) return;
+    setIsEditing(true);
+    window.requestAnimationFrame(() => document.querySelector(".album-result__epilogue")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
   return <>
-    <AlbumScreen title={albumTitle} subtitle={guestMode ? "함께 보고 간직해 보세요." : undefined} canEditTitle={!guestMode && canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: onReset, onAddMemory: () => document.querySelector(".album-result__epilogue")?.scrollIntoView({ behavior: "smooth", block: "center" }), onShare: () => setShowShareModal(true), canAddMemory: canEditStories }} />
+    <AlbumScreen title={albumTitle} subtitle={guestMode ? "함께 보고 간직해 보세요." : undefined} canEditTitle={!guestMode && canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: onReset, onAddMemory: openEpilogueEditor, onShare: () => setShowShareModal(true), onCreateAlbum: onReset, canAddMemory: canEditStories }} />
     {showShareModal && (
-      <div className="share-modal" role="dialog" aria-modal="true" aria-label="공유하기"><section className="share-modal__card"><h3>공유하기</h3><button type="button" className="btn btn--secondary" onClick={() => void handleCopyLink()}>{copied ? "링크를 복사했어요" : "링크 복사"}</button><button type="button" className="btn btn--secondary" onClick={() => void handleNativeShare()}>다른 앱으로 공유</button><button type="button" className="btn btn--kakao" onClick={() => void handleKakaoShare()}>카카오톡 공유</button><button type="button" className="btn btn--ghost" onClick={() => setShowShareModal(false)}>닫기</button></section></div>
+      <div className="share-modal" role="dialog" aria-modal="true" aria-label="앨범 공유하기"><section className="share-modal__card"><h3>앨범 공유하기</h3><button type="button" className="btn btn--secondary" onClick={() => void handleCopyLink()}>{copied ? "링크를 복사했어요" : "링크 복사"}</button><button type="button" className="btn btn--secondary" onClick={() => void handleNativeShare()}>다른 앱으로 공유</button><button type="button" className="btn btn--kakao" onClick={() => void handleKakaoShare()}>카카오톡 공유</button><button type="button" className="btn btn--ghost" onClick={() => setShowShareModal(false)}>닫기</button></section></div>
     )}
   </>;
 

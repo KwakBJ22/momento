@@ -49,6 +49,7 @@ from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.supabase import (
     create_album_id,
     cleanup_incomplete_album,
+    cleanup_album_files,
     delete_album_record,
     delete_album_media_record,
     delete_storage_paths,
@@ -118,6 +119,7 @@ from app.services.collaboration_service import (
 )
 from app.services.question_service import format_existing_answers, generate_album_questions
 from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key, visible_date_stories
+from app.services.storage_service import StorageService, album_pdf_path
 
 router = APIRouter(prefix="/api", tags=["album"])
 PDF_RENDERER_VERSION = 2
@@ -965,7 +967,7 @@ async def delete_media(
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
     _require_media_mutation_access(media, access, authenticated_user_id)
     paths = [path for path in (media.get("original_path"), media.get("preview_path"), media.get("thumbnail_path")) if path]
-    client.storage.from_(settings.supabase_private_storage_bucket).remove(paths)
+    StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, paths)
     if not delete_album_media_record(client, album_id, media_id):
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -1656,11 +1658,9 @@ async def upload_album_pdf(
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="PDF 파일이 아닙니다.")
 
-    path = f"albums/{album_id}/pdf/{uuid4()}.pdf"
-    client.storage.from_(settings.supabase_private_storage_bucket).upload(
-        path,
-        content,
-        {"content-type": "application/pdf", "upsert": "true"},
+    path = album_pdf_path(album_id, str(uuid4()))
+    StorageService.for_supabase(client, settings).upload(
+        settings.supabase_private_storage_bucket, path, content, content_type="application/pdf"
     )
     set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path, settings.supabase_private_storage_bucket)
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
@@ -1681,5 +1681,12 @@ async def delete_album(
     access = get_album_access(client, record, authenticated_user_id)
     require_album_delete(access)
 
+    # Delete the database record first. If that fails, assets remain intact;
+    # if storage cleanup fails, cleanup_album_files can be retried idempotently.
+    cleanup_plan = cleanup_album_files(client, settings, record, dry_run=True)
     delete_album_record(client, album_id)
+    try:
+        cleanup_album_files(client, settings, record, dry_run=False)
+    except Exception:
+        logger.exception("album_asset_cleanup_failed album_id=%s plan=%s", album_id, cleanup_plan)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

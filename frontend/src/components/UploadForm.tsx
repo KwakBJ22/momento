@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { API_BASE, authenticatedFetch } from "../lib/api";
 import { createId } from "../lib/id";
-import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
+import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, AlbumResult, GuestAlbumResult, PhotoItem, StoryPayload } from "../types";
@@ -52,7 +52,8 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       setError(rejected ? "사진 파일을 선택해주세요." : "사진을 선택해주세요.");
       return;
     }
-    const { accepted: limited, skipped } = limitSelectedPhotos(accepted, MAX_PHOTOS, photos.length);
+    const { accepted: unique, duplicates } = dedupeSelectedPhotos(accepted, photos.map((photo) => photo.file));
+    const { accepted: limited, skipped } = limitSelectedPhotos(unique, MAX_PHOTOS, photos.length);
     if (!limited.length) {
       setError("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
       return;
@@ -83,6 +84,7 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
           failures.push(`${file.name}: 이 사진을 준비하지 못했습니다. 다른 사진을 선택해주세요.`);
         }
       }
+      if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
       if (rejected > 0) failures.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
       setPhotos((previous) => [...previous, ...added]);

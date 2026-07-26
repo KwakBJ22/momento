@@ -7,6 +7,7 @@ from supabase import Client
 
 from app.ai.vision_service import VisionAIService, format_analysis_summary
 from app.config import Settings, get_settings
+from app.services.storage_service import StorageService
 
 __all__ = [
     "analyze_album_media",
@@ -23,7 +24,7 @@ def _download_media_bytes(client: Client, settings: Settings, media: dict[str, A
     if not path:
         raise HTTPException(status_code=404, detail="미디어 파일을 찾을 수 없습니다.")
     try:
-        payload = client.storage.from_(bucket).download(path)
+        payload = StorageService.for_supabase(client, settings).download(bucket, str(path))
     except Exception as exc:
         raise HTTPException(status_code=502, detail="미디어를 불러오지 못했습니다.") from exc
     mime_type = media.get("mime_type") or "image/jpeg"

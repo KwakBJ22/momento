@@ -17,6 +17,7 @@ export interface ShareAlbumOptions {
   linkUrl: string;
   description: string;
   title?: string;
+  buttonTitle?: string;
 }
 
 interface UseKakaoSdkResult {
@@ -63,7 +64,7 @@ export function useKakaoSdk(): UseKakaoSdkResult {
     };
   }, []);
 
-  const shareAlbum = useCallback(({ imageUrl, linkUrl, description, title = "우리 모임 앨범이 완성됐어요" }: ShareAlbumOptions) => {
+  const shareAlbum = useCallback(({ imageUrl, linkUrl, description, title = "우리 모임 앨범이 완성됐어요", buttonTitle = "앨범 전체 보기" }: ShareAlbumOptions) => {
     if (!window.Kakao?.isInitialized() || !window.Kakao.Share?.sendDefault) {
       throw new Error("Kakao SDK is not ready.");
     }
@@ -82,7 +83,7 @@ export function useKakaoSdk(): UseKakaoSdkResult {
       },
       buttons: [
         {
-          title: "앨범 전체 보기",
+          title: buttonTitle,
           link: {
             mobileWebUrl: linkUrl,
             webUrl: linkUrl,

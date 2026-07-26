@@ -81,6 +81,8 @@ async function copyPublicLink(value: string): Promise<void> {
 export default function PublicShareView({ token }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
+  const contributionValue = new URLSearchParams(window.location.search).get("contribute");
+  const requestedContribution = contributionValue === "photo" || contributionValue === "memory" ? contributionValue : null;
   const initialCache = requestedEdition === null ? readPublicShareCache(token) : null;
   // Cache is only used after the link has been authorized by the server.
   const [album, setAlbum] = useState<PublicShareAlbum | null>(null);
@@ -158,6 +160,13 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     setContributionAction(next.contributionAction);
     setNameAction(next.nameAction);
   };
+
+  useEffect(() => {
+    if (!requestedContribution || !album || loadedToken !== token) return;
+    const next = contributionPanelAction(contributionSession, requestedContribution);
+    setContributionAction(next.contributionAction);
+    setNameAction(next.nameAction);
+  }, [album, contributionSession, loadedToken, requestedContribution, token]);
 
   const scrollToAlbumStart = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -273,10 +282,11 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
     onShare: () => { void share(); },
+    onCreateAlbum: () => window.location.assign("/"),
   };
   const publicActions = (
     <div className="album-result__actions">
-      <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>공유하기</button>
+      <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>앨범 공유하기</button>
       <a className="btn btn--ghost" href="/">새 앨범 만들기</a>
     </div>
   );

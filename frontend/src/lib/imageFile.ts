@@ -1,7 +1,7 @@
 /** Mobile-safe image file helpers (iOS/Android often omit or mangle MIME). */
 
 export const IMAGE_ACCEPT =
-  "image/*,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif";
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif";
 
 const EXT_OK = new Set(["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"]);
 
@@ -57,6 +57,27 @@ export function filterImageFiles(files: FileList | File[] | null | undefined): {
  */
 export function snapshotSelectedFiles(files: FileList | null | undefined): File[] {
   return files ? Array.from(files) : [];
+}
+
+function photoIdentity(file: File): string {
+  return `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
+}
+
+/** Keep the first selected copy of a gallery asset across repeated picks. */
+export function dedupeSelectedPhotos(files: File[], existing: File[] = []): { accepted: File[]; duplicates: number } {
+  const seen = new Set(existing.map(photoIdentity));
+  const accepted: File[] = [];
+  let duplicates = 0;
+  for (const file of files) {
+    const identity = photoIdentity(file);
+    if (seen.has(identity)) {
+      duplicates += 1;
+      continue;
+    }
+    seen.add(identity);
+    accepted.push(file);
+  }
+  return { accepted, duplicates };
 }
 
 /** Keep picker order while reporting photo-limit overflow to the caller. */

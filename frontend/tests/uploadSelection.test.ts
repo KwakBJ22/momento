@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { filterImageFiles, limitSelectedPhotos, snapshotSelectedFiles } from "../src/lib/imageFile";
+import { dedupeSelectedPhotos, filterImageFiles, limitSelectedPhotos, snapshotSelectedFiles } from "../src/lib/imageFile";
 
 function image(name: string): File {
   return { name, type: "image/jpeg" } as File;
@@ -33,4 +33,17 @@ test("album selection keeps the first 30 photos and reports one skipped photo", 
   assert.equal(limited.accepted.length, 30);
   assert.equal(limited.skipped, 1);
   assert.equal(limited.accepted[29]?.name, "29.jpg");
+});
+
+test("reselecting mobile gallery files accumulates new files without duplicates", () => {
+  const first = image("first.jpg");
+  Object.assign(first, { size: 10, lastModified: 1 });
+  const second = image("second.jpg");
+  Object.assign(second, { size: 20, lastModified: 2 });
+  const repeated = image("first.jpg");
+  Object.assign(repeated, { size: 10, lastModified: 1 });
+
+  const next = dedupeSelectedPhotos([repeated, second], [first]);
+  assert.deepEqual(next.accepted.map((file) => file.name), ["second.jpg"]);
+  assert.equal(next.duplicates, 1);
 });
