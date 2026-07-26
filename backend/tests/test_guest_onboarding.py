@@ -73,7 +73,12 @@ class GuestOnboardingTests(TestCase):
         }, profile_id, family_id)
 
         self.assertEqual(claimed, album_id)
-        albums.update.assert_called_once_with({"owner_id": profile_id, "created_by": profile_id, "family_id": family_id})
+        albums.update.assert_called_once()
+        album_update = albums.update.call_args.args[0]
+        self.assertEqual(album_update["owner_id"], profile_id)
+        self.assertEqual(album_update["created_by"], profile_id)
+        self.assertEqual(album_update["family_id"], family_id)
+        self.assertTrue(album_update["updated_at"])
         sessions.update.assert_called_once()
         self.assertEqual(sessions.update.call_args.args[0]["status"], "claimed")
         self.assertEqual(sessions.update.call_args.args[0]["claimed_profile_id"], profile_id)

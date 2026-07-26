@@ -304,17 +304,47 @@ def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, 
 
 
 def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
-    """Return the minimal, newest-first fields needed by the customer album list."""
+    """Return the minimal, newest-first fields needed by the customer album list.
+
+    Older guest claims can have an owner membership even when the legacy
+    ``owner_id``/``created_by`` columns were not populated.  Keep that owner
+    relationship visible without exposing participant-only albums.
+    """
+    columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous"
     result = (
         client.table("albums")
-        .select("id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous")
+        .select(columns)
         .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
         .is_("deleted_at", "null")
+        .order("updated_at", desc=True)
         .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
     rows = result.data or []
+    known_ids = {str(row.get("id") or "") for row in rows}
+    membership_result = (
+        client.table("album_members")
+        .select("album_id")
+        .eq("profile_id", profile_id)
+        .eq("role", "owner")
+        .eq("status", "active")
+        .execute()
+    )
+    member_album_ids = [
+        str(row.get("album_id") or "")
+        for row in (membership_result.data or [])
+        if str(row.get("album_id") or "") and str(row.get("album_id")) not in known_ids
+    ]
+    if member_album_ids:
+        recovered = (
+            client.table("albums")
+            .select(columns)
+            .in_("id", member_album_ids)
+            .is_("deleted_at", "null")
+            .execute()
+        )
+        rows.extend(recovered.data or [])
     rows.sort(
         key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
         reverse=True,

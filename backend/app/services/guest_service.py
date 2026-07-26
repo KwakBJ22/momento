@@ -47,7 +47,14 @@ def _claim_session(client: Client, session: dict, profile_id: str, family_id: st
     session_id = session.get("id")
     if not session_id:
         raise HTTPException(status_code=409, detail="Guest album session is missing its session id.")
-    client.table("albums").update({"owner_id": profile_id, "created_by": profile_id, "family_id": family_id}).eq("id", album_id).execute()
+    client.table("albums").update({
+        "owner_id": profile_id,
+        "created_by": profile_id,
+        "family_id": family_id,
+        # Claimed albums must surface at the top of the owner's list even when
+        # the guest album itself was created earlier.
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", album_id).execute()
     client.table("guest_album_sessions").update(
         {"status": "claimed", "claimed_profile_id": profile_id, "claimed_at": datetime.now(timezone.utc).isoformat()}
     ).eq("id", session_id).execute()

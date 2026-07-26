@@ -7,11 +7,35 @@ from fastapi.testclient import TestClient
 
 from app.api.album import router
 from app.services.auth import require_authenticated_user
+from app.services.supabase import list_owned_album_list_records
 
 
 PROFILE_ID = "22222222-2222-2222-2222-222222222222"
 NEW_ALBUM_ID = "11111111-1111-1111-1111-111111111111"
 OLD_ALBUM_ID = "33333333-3333-3333-3333-333333333333"
+
+
+class _ListQuery:
+    def __init__(self, responses: list[list[dict]]) -> None:
+        self.responses = list(responses)
+
+    def select(self, *_args): return self
+    def or_(self, *_args): return self
+    def eq(self, *_args): return self
+    def is_(self, *_args): return self
+    def in_(self, *_args): return self
+    def order(self, *_args, **_kwargs): return self
+    def limit(self, *_args): return self
+    def execute(self): return SimpleNamespace(data=self.responses.pop(0) if self.responses else [])
+
+
+class _OwnedListClient:
+    def __init__(self, direct: list[dict], member_ids: list[dict], recovered: list[dict]) -> None:
+        self.albums = _ListQuery([direct, recovered])
+        self.members = _ListQuery([member_ids])
+
+    def table(self, name: str):
+        return self.members if name == "album_members" else self.albums
 
 
 class MyAlbumsApiTests(TestCase):
@@ -100,3 +124,14 @@ class MyAlbumsApiTests(TestCase):
         self.assertEqual(response.json()["covers"], {NEW_ALBUM_ID: "https://cdn.example/new/thumb.jpg"})
         cover_rows.assert_called_once()
         signed_urls.assert_called_once()
+
+    def test_owner_membership_recovers_legacy_claimed_album_and_sorts_it_first(self) -> None:
+        client = _OwnedListClient(
+            direct=[{"id": OLD_ALBUM_ID, "created_at": "2026-07-22T12:00:00+00:00", "updated_at": "2026-07-22T12:00:00+00:00"}],
+            member_ids=[{"album_id": NEW_ALBUM_ID}],
+            recovered=[{"id": NEW_ALBUM_ID, "created_at": "2026-07-23T12:00:00+00:00", "updated_at": "2026-07-24T12:00:00+00:00"}],
+        )
+
+        records = list_owned_album_list_records(client, PROFILE_ID)
+
+        self.assertEqual([record["id"] for record in records], [NEW_ALBUM_ID, OLD_ALBUM_ID])
