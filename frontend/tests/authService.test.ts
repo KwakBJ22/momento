@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { User } from "@supabase/supabase-js";
 
@@ -48,4 +49,12 @@ test("auth service maps the configured Naver custom provider without leaking Sup
 test("provider-specific Supabase identifiers stay inside the auth service", () => {
   assert.equal(oauthProviderFor("kakao"), "kakao");
   assert.equal(oauthProviderFor("naver"), "custom:naver");
+});
+
+test("Kakao OAuth uses Supabase provider defaults without forcing email consent scopes", () => {
+  const source = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
+  const oauthCall = source.slice(source.indexOf("signInWithOAuth"), source.indexOf("export async function signOut"));
+
+  assert.equal(/account_email|scope\s*:|scopes\s*:/.test(oauthCall), false);
+  assert.match(oauthCall, /redirectTo/);
 });

@@ -631,7 +631,7 @@ a.btn {
 }
 
 .public-share {
-  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
 }
 
 .public-share__bottom-nav {

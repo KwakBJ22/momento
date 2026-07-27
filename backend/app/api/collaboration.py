@@ -62,8 +62,8 @@ from app.services.collaboration_service import (
 from app.services.image_upload_service import process_upload
 from app.services.membership import get_album_access
 from app.services.supabase import (
+    get_album_photo_records,
     get_album_record,
-    get_result_signed_url,
     get_signed_url,
     get_supabase_client,
     save_album_photo_records,
@@ -146,9 +146,20 @@ async def join_preview(token: str) -> JoinPreviewResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     album, _invite = get_album_for_invite(client, token)
+    # A participation invitation should show an actual album photo, never the
+    # generated result preview. Prefer the owner's explicit cover selection and
+    # otherwise use the first available album photo without changing the public
+    # API response shape.
+    photos = get_album_photo_records(client, str(album["id"]))
+    cover_photo_id = str(album.get("cover_photo_id") or "")
+    cover_photo = next((photo for photo in photos if str(photo.get("id")) == cover_photo_id), None)
+    cover_photo = cover_photo or (photos[0] if photos else None)
     cover = None
-    if album.get("result_path"):
-        cover = get_result_signed_url(client, album, settings)
+    if cover_photo:
+        bucket = str(cover_photo.get("thumbnail_bucket") or cover_photo.get("storage_bucket") or "")
+        path = str(cover_photo.get("thumbnail_path") or cover_photo.get("storage_path") or "")
+        if bucket and path:
+            cover = get_signed_url(client, bucket, path, settings.signed_url_ttl_seconds) or None
     return JoinPreviewResponse(
         album_id=UUID(str(album["id"])),
         title=str(album.get("title") or "함께 만드는 앨범"),

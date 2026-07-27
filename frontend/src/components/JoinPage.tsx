@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getJoinPreview, joinCollaboration, saveCollabSession } from "../lib/api";
 import "./JoinPage.css";
 
-const RELATIONSHIPS = ["아빠", "엄마", "딸", "아들", "친구", "동료", "기타"] as const;
+const RELATIONSHIPS = ["가족", "친구", "연인", "지인", "기타"] as const;
 
 interface JoinPageProps {
   token: string;
@@ -28,9 +28,7 @@ export default function JoinPage({ token }: JoinPageProps) {
     void getJoinPreview(token)
       .then((data) => active && setPreview(data))
       .catch((err: Error) => active && setError(err.message));
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [token]);
 
   const onJoin = async () => {
@@ -53,74 +51,61 @@ export default function JoinPage({ token }: JoinPageProps) {
       });
       window.location.href = `/album/${result.album_id}/contribute`;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참여에 실패했어요.");
+      setError(err instanceof Error ? err.message : "참여하지 못했어요.");
     } finally {
       setBusy(false);
     }
   };
 
   if (error && !preview) {
-    return (
-      <section className="join-page">
-        <p className="join-page__error">{error}</p>
-      </section>
-    );
+    return <section className="join-page"><p className="join-page__error">{error}</p></section>;
   }
 
   if (!preview) {
-    return (
-      <section className="join-page">
-        <p className="join-page__loading">초대장을 확인하고 있어요…</p>
-      </section>
-    );
+    return <section className="join-page"><p className="join-page__loading">초대장을 확인하고 있어요.</p></section>;
   }
 
   return (
     <section className="join-page">
       <p className="join-page__eyebrow">함께 만드는 앨범</p>
-      <h2 className="join-page__title">함께 기억을 남겨주세요</h2>
       {preview.cover_image_url ? (
-        <img className="join-page__cover" src={preview.cover_image_url} alt="" />
+        <img className="join-page__cover" src={preview.cover_image_url} alt={`${preview.title} 대표사진`} />
       ) : (
-        <div className="join-page__cover join-page__cover--empty" />
+        <div className="join-page__cover join-page__cover--empty" aria-hidden="true" />
       )}
-      <h3 className="join-page__album">{preview.title}</h3>
-      {preview.owner_name ? <p className="join-page__owner">만든 사람 · {preview.owner_name}</p> : null}
-      <p className="join-page__meta">
-        참여 {preview.contributor_count}명 · 사진 {preview.photo_count}/{preview.photo_limit}
-      </p>
+
+      <div className="join-page__album-info">
+        <h2 className="join-page__album">{preview.title}</h2>
+        <p className="join-page__invite-copy">{preview.owner_name ? `${preview.owner_name}님이 함께 만들자고 초대했어요.` : "함께 만들자고 초대했어요."}</p>
+        <p className="join-page__meta">사진 {preview.photo_count}장 · 함께한 사람 {preview.contributor_count}명</p>
+        <p className="join-page__notice">사진과 기억을 함께 남길 수 있어요.</p>
+      </div>
 
       <label className="join-page__label">
-        이름
+        어떻게 불러드릴까요?
         <input
           className="join-page__input"
           value={name}
           maxLength={40}
+          autoComplete="name"
           onChange={(event) => setName(event.target.value)}
-          placeholder="어떻게 불러드릴까요?"
+          placeholder="이름을 입력해 주세요"
         />
       </label>
 
-      <label className="join-page__label">
-        관계 (선택)
-        <select
-          className="join-page__input"
-          value={relationship}
-          onChange={(event) => setRelationship(event.target.value)}
-        >
-          <option value="">선택 안 함</option>
+      <fieldset className="join-page__relationship">
+        <legend>관계 (선택)</legend>
+        <div className="join-page__relationship-chips" role="group" aria-label="관계 선택">
           {RELATIONSHIPS.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
+            <button key={item} type="button" className={relationship === item ? "is-selected" : ""} onClick={() => setRelationship((current) => current === item ? "" : item)}>{item}</button>
           ))}
-        </select>
-      </label>
+        </div>
+      </fieldset>
 
-      {error ? <p className="join-page__error">{error}</p> : null}
+      {error ? <p className="join-page__error" role="alert">{error}</p> : null}
 
       <button type="button" className="join-page__cta" disabled={busy} onClick={() => void onJoin()}>
-        {busy ? "참여 중…" : "참여하기"}
+        {busy ? "참여 중…" : "앨범에 참여하기"}
       </button>
     </section>
   );

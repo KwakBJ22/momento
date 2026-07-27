@@ -1,75 +1,122 @@
 .join-page {
-  max-width: 420px;
+  width: min(100%, 420px);
   margin: 0 auto;
   display: grid;
-  gap: 0.85rem;
-  padding: 0.5rem 0 2rem;
+  gap: 0.8rem;
+  padding: 0.25rem 0 calc(1.25rem + env(safe-area-inset-bottom));
 }
 
 .join-page__eyebrow {
   margin: 0;
   color: #9a9086;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
-.join-page__title {
-  margin: 0;
-  font-size: clamp(1.5rem, 5vw, 1.85rem);
-  letter-spacing: -0.03em;
-  color: #2f2f2f;
-}
-
 .join-page__cover {
+  display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
   object-fit: cover;
-  border-radius: 10px;
+  border: 1px solid #ebe2d8;
+  border-radius: 14px;
   background: #f3efe8;
+  box-shadow: 0 4px 14px rgba(61, 53, 48, 0.07);
 }
 
 .join-page__cover--empty {
   background: linear-gradient(160deg, #f6f1ea, #ebe4d8);
 }
 
-.join-page__album {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.join-page__owner,
-.join-page__meta {
-  margin: 0;
-  color: #7a7168;
-  font-size: 0.92rem;
-}
-
-.join-page__label {
+.join-page__album-info {
   display: grid;
   gap: 0.35rem;
+}
+
+.join-page__album {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 6vw, 1.7rem);
+  letter-spacing: -0.03em;
+  color: #2f2f2f;
+}
+
+.join-page__invite-copy,
+.join-page__meta,
+.join-page__notice {
+  margin: 0;
+  color: #6f655d;
+  font-size: 0.91rem;
+  line-height: 1.5;
+}
+
+.join-page__notice {
+  color: #80654f;
+}
+
+.join-page__label,
+.join-page__relationship {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
   color: #555;
   font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.join-page__relationship legend {
+  padding: 0;
 }
 
 .join-page__input {
+  min-height: 46px;
   border: 1px solid #e4ddd2;
-  border-radius: 8px;
-  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  padding: 0.58rem 0.75rem;
   font: inherit;
-  font-size: 16px; /* iOS zoom-on-focus 방지 */
+  font-size: 16px;
+  font-weight: 400;
   background: #fffdf8;
 }
 
+.join-page__relationship-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.join-page__relationship-chips button {
+  min-height: 36px;
+  padding: 0.38rem 0.72rem;
+  border: 1px solid #e4ddd2;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #62574f;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.join-page__relationship-chips button.is-selected {
+  border-color: #b48c6e;
+  background: #f4e8db;
+  color: #68482f;
+}
+
 .join-page__cta {
-  margin-top: 0.4rem;
+  margin-top: 0.15rem;
+  min-height: 48px;
   border: 0;
-  border-radius: 14px;
-  min-height: 52px;
-  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  padding: 0.72rem 1rem;
   background: #2f2f2f;
   color: #fff;
   font: inherit;
-  font-weight: 650;
+  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -89,4 +136,11 @@
   margin: 2rem 0;
   color: #7a7168;
   text-align: center;
+}
+
+@media (max-width: 390px) {
+  .join-page { gap: 0.7rem; }
+  .join-page__cover { max-height: 200px; }
+  .join-page__relationship-chips { gap: 0.35rem; }
+  .join-page__relationship-chips button { padding-inline: 0.62rem; }
 }

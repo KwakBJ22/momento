@@ -1,10 +1,12 @@
 .contribute {
   display: grid;
   gap: 1rem;
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
 }
 
 .contribute--embedded {
   margin-top: 0.25rem;
+  scroll-margin-top: 1rem;
 }
 
 .contribute__badge {
@@ -108,13 +110,13 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 52px;
-  padding: 0.95rem 1rem;
-  border-radius: 14px;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
   background: #b48c6e;
   color: #fff;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -135,21 +137,23 @@
 .contribute__tabs button,
 .contribute__memory-btn,
 .contribute__draft-actions button {
-  min-height: 44px;
+  min-height: 40px;
   touch-action: manipulation;
 }
 
 .contribute__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.65rem;
 }
 
-@media (max-width: 420px) {
+@media (min-width: 641px) {
   .contribute__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
+@media (max-width: 420px) {
   .contribute__tabs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -164,8 +168,8 @@
 .contribute__card,
 .contribute__memory {
   display: grid;
-  gap: 0.45rem;
-  padding: 0.5rem;
+  gap: 0.4rem;
+  padding: 0.45rem;
   border: 1px solid #ebe4d8;
   border-radius: 10px;
   background: #fffdf8;
@@ -178,7 +182,7 @@
 .contribute__pending-media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   border-radius: 8px;
   background: #eee6dd;
 }
@@ -239,10 +243,9 @@
 }
 
 .contribute__card img,
-.contribute__memory img,
 .contribute__added img {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 8px;
 }
@@ -268,6 +271,13 @@
   cursor: pointer;
 }
 
+.contribute__memory-btn {
+  justify-self: start;
+  min-height: 38px;
+  padding: 0.4rem 0.68rem;
+  font-size: 0.88rem;
+}
+
 .contribute__card-status,
 .contribute__fresh {
   margin: 0;
@@ -289,6 +299,10 @@
   gap: 0.4rem;
 }
 
+.contribute__photo-memories:empty {
+  display: none;
+}
+
 .contribute__photo-memory {
   display: grid;
   gap: 0.25rem;
@@ -308,7 +322,9 @@
   background: transparent;
   color: #7a6250;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
   cursor: pointer;
 }
 
@@ -320,13 +336,98 @@
 
 .contribute__draft textarea {
   width: 100%;
-  min-height: 90px;
+  min-height: 76px;
   border: 1px solid #e4ddd2;
   border-radius: 8px;
   padding: 0.55rem;
   font: inherit;
   font-size: 16px;
   box-sizing: border-box;
+}
+
+.contribute__completion {
+  position: fixed;
+  z-index: 85;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: calc(4.9rem + env(safe-area-inset-bottom));
+  left: max(0.75rem, env(safe-area-inset-left));
+  display: grid;
+  gap: 0.55rem;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 1rem;
+  border: 1px solid #e4d8ca;
+  border-radius: 16px;
+  background: #fffdf8;
+  box-shadow: 0 12px 28px rgba(61, 53, 48, 0.18);
+}
+
+.contribute__completion-title,
+.contribute__completion-copy {
+  margin: 0;
+}
+
+.contribute__completion-title {
+  padding-right: 1.5rem;
+  color: #3f332a;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.contribute__completion-copy {
+  color: #75685d;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.contribute__completion-close {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.6rem;
+  width: 2rem;
+  min-height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #75685d;
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.contribute__completion-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.contribute__completion-actions button {
+  min-height: 42px;
+  border-radius: 10px;
+  padding: 0.55rem;
+  font: inherit;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.contribute__completion-primary {
+  border: 1px solid #2f2f2f;
+  background: #2f2f2f;
+  color: #fff;
+}
+
+.contribute__completion-secondary {
+  border: 1px solid #dfd4c7;
+  background: #fff;
+  color: #5d5148;
+}
+
+@media (min-width: 641px) {
+  .contribute__completion {
+    bottom: calc(6.1rem + env(safe-area-inset-bottom));
+  }
 }
 
 .contribute__count {

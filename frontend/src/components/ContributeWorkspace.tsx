@@ -65,6 +65,11 @@ type PreviewSnapshot = {
   photos: WorkspacePhoto[];
 };
 
+type CompletionState = {
+  hasPhoto: boolean;
+  hasMemory: boolean;
+};
+
 function debugTiming(label: string, startedAt: number): void {
   if (import.meta.env.DEV && typeof performance !== "undefined") {
     console.debug(`[Momento] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
@@ -119,7 +124,11 @@ export default function ContributeWorkspace({
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [previewRevision, setPreviewRevision] = useState(-1);
   const [preview, setPreview] = useState<PreviewSnapshot | null>(null);
+  const [completion, setCompletion] = useState<CompletionState | null>(null);
+  const [latestPhotoId, setLatestPhotoId] = useState<string | null>(null);
   const latestPhotoRef = useRef<HTMLElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const freshTimerRef = useRef<number | null>(null);
   const pendingUploadsRef = useRef<PendingUpload[]>([]);
@@ -144,6 +153,13 @@ export default function ContributeWorkspace({
     setNewItemIds(ids);
     if (freshTimerRef.current) window.clearTimeout(freshTimerRef.current);
     freshTimerRef.current = window.setTimeout(() => setNewItemIds([]), 4500);
+  }, []);
+
+  const showCompletion = useCallback((next: CompletionState) => {
+    setCompletion((current) => ({
+      hasPhoto: Boolean(current?.hasPhoto || next.hasPhoto),
+      hasMemory: Boolean(current?.hasMemory || next.hasMemory),
+    }));
   }, []);
 
   const reload = useCallback(async () => {
@@ -194,6 +210,7 @@ export default function ContributeWorkspace({
         }
       : current);
     setWorkspaceRevision((revision) => revision + 1);
+    setLatestPhotoId(photos[0]?.id || null);
     markFresh(photos.map((photo) => photo.id));
     showToast("사진이 추가되었습니다.");
     onContributionAdded?.(photos.map((photo) => ({
@@ -204,7 +221,8 @@ export default function ContributeWorkspace({
       created_at: photo.created_at || new Date().toISOString(),
       thumbnail_url: photo.thumbnail_url || photo.original_url || null,
     })));
-  }, [markFresh, onContributionAdded, session?.displayName, showToast]);
+    showCompletion({ hasPhoto: true, hasMemory: false });
+  }, [markFresh, onContributionAdded, session?.displayName, showCompletion, showToast]);
 
   const uploadPending = useCallback(async (items: PendingUpload[]) => {
     if (!session || !items.length) return;
@@ -301,8 +319,10 @@ export default function ContributeWorkspace({
       setWorkspaceRevision((revision) => revision + 1);
       setDraftPhotoId(null);
       setDraftText("");
+      setLatestPhotoId(photoId);
       markFresh([memory.id]);
       showToast("기억이 저장되었습니다.");
+      showCompletion({ hasPhoto: false, hasMemory: true });
       onContributionAdded?.([{
         id: memory.id,
         type: "memory",
@@ -384,6 +404,37 @@ export default function ContributeWorkspace({
     setTab(nextTab);
   };
 
+  const openPhotoPicker = () => {
+    setCompletion(null);
+    setTab("photos");
+    window.requestAnimationFrame(() => uploadInputRef.current?.click());
+  };
+
+  const openMemoryEditor = () => {
+    setCompletion(null);
+    setTab("photos");
+    const photoId = latestPhotoId || workspace?.photos?.[0]?.id || null;
+    if (!photoId) {
+      setError("기억을 남길 사진을 먼저 추가해 주세요.");
+      return;
+    }
+    setDraftPhotoId(photoId);
+    setDraftText("");
+    window.requestAnimationFrame(() => draftInputRef.current?.focus());
+  };
+
+  const viewAddedItems = () => {
+    setCompletion(null);
+    if (embedded) {
+      document.querySelector<HTMLElement>(".album-screen__book")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setTab("photos");
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".contribute__card--fresh")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
   if (error && !workspace) {
     return <section className="contribute"><p className="contribute__error">{error}</p></section>;
   }
@@ -431,8 +482,9 @@ export default function ContributeWorkspace({
         <div className="contribute__panel">
           {requestedAction === "memory" ? <p className="contribute__notice">기억을 남길 사진을 골라 주세요.</p> : null}
           {requestedAction !== "memory" ? <label className="contribute__upload">
-            사진 추가
+            사진 추가하기
             <input
+              ref={uploadInputRef}
               className={FILE_INPUT_CLASS}
               type="file"
               accept={IMAGE_ACCEPT}
@@ -445,7 +497,7 @@ export default function ContributeWorkspace({
               }}
             />
           </label> : null}
-          {requestedAction !== "memory" ? <p className="contribute__limit">사진을 최대 {workspace.photo_limit}장까지 선택할 수 있습니다.</p> : null}
+          {requestedAction !== "memory" ? <p className="contribute__limit">사진은 한 번에 최대 {workspace.photo_limit}장까지 추가할 수 있어요.</p> : null}
           <div className="contribute__grid">
             {pendingUploads.map((pending) => (
               <article key={pending.id} className="contribute__card contribute__card--pending">
@@ -484,11 +536,11 @@ export default function ContributeWorkspace({
                   ))}
                 </div>
                 <button type="button" className="contribute__memory-btn" onClick={() => { setDraftPhotoId(photo.id); setDraftText(""); }}>
-                  기억 남기기
+                  이 사진에 기억 남기기
                 </button>
                 {draftPhotoId === photo.id ? (
                   <div className="contribute__draft">
-                    <textarea disabled={savingPhotoId === photo.id} maxLength={500} value={draftText} onChange={(event) => setDraftText(event.target.value)} placeholder="이 사진을 보며 떠오르는 순간을 적어 주세요." />
+                    <textarea ref={draftPhotoId === photo.id ? draftInputRef : undefined} disabled={savingPhotoId === photo.id} maxLength={500} value={draftText} onChange={(event) => setDraftText(event.target.value)} placeholder="이 사진을 보며 떠오르는 순간을 적어 주세요." />
                     <p className="contribute__count">{draftText.length}/500</p>
                     <div className="contribute__draft-actions">
                       <button type="button" disabled={savingPhotoId === photo.id || !draftText.trim()} onClick={() => void saveMemory(photo.id)}>
@@ -526,6 +578,26 @@ export default function ContributeWorkspace({
             </div>
           )}
         </div>
+      ) : null}
+
+      {completion ? (
+        <section className="contribute__completion" role="status" aria-live="polite">
+          <button type="button" className="contribute__completion-close" aria-label="완료 안내 닫기" onClick={() => setCompletion(null)}>×</button>
+          <p className="contribute__completion-title">
+            {completion.hasPhoto && completion.hasMemory
+              ? "사진과 기억이 추가되었습니다."
+              : completion.hasPhoto
+                ? "사진이 추가되었습니다."
+                : "기억이 저장되었습니다."}
+          </p>
+          <p className="contribute__completion-copy">방금 남긴 추억을 앨범에서 확인해 보세요.</p>
+          <div className="contribute__completion-actions">
+            <button type="button" className="contribute__completion-primary" onClick={viewAddedItems}>앨범에서 확인하기</button>
+            <button type="button" className="contribute__completion-secondary" onClick={completion.hasPhoto ? openPhotoPicker : openMemoryEditor}>
+              {completion.hasPhoto ? "사진 더 추가하기" : "기억 더 남기기"}
+            </button>
+          </div>
+        </section>
       ) : null}
     </section>
   );
