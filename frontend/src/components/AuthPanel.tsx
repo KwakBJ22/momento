@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { isAuthenticationConfigured, signIn, type AuthProvider } from "../services/authService";
 
-interface AuthPanelProps { returnTo?: string; }
+interface AuthPanelProps { returnTo?: string; titleId?: string; }
 
-export default function AuthPanel({ returnTo }: AuthPanelProps) {
+export default function AuthPanel({ returnTo, titleId }: AuthPanelProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,7 +22,7 @@ export default function AuthPanel({ returnTo }: AuthPanelProps) {
 
   return (
     <section className="auth-panel">
-      <h2>내 앨범 보관하기</h2>
+      <h2 id={titleId}>내 앨범 보관하기</h2>
       <p>로그인하면 언제든 내 앨범에서 다시 볼 수 있어요.</p>
       {message && <p className="auth-panel__notice" role="alert">{message}</p>}
       <button className="upload-form__submit" type="button" disabled={isSubmitting} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>

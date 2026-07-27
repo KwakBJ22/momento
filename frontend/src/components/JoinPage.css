@@ -1,9 +1,23 @@
 .join-page {
-  width: min(100%, 420px);
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
   margin: 0 auto;
   display: grid;
-  gap: 0.8rem;
-  padding: 0.25rem 0 calc(1.25rem + env(safe-area-inset-bottom));
+  gap: 0.75rem;
+  padding: 0.4rem 16px calc(1.5rem + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.join-page > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.join-page__eyebrow {
+  justify-self: center;
+  text-align: center;
 }
 
 .join-page__eyebrow {
@@ -17,8 +31,8 @@
 .join-page__cover {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 220px;
+  aspect-ratio: 3 / 2;
+  max-height: 240px;
   object-fit: cover;
   border: 1px solid #ebe2d8;
   border-radius: 14px;
@@ -32,13 +46,15 @@
 
 .join-page__album-info {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  padding: 0.15rem 0;
 }
 
 .join-page__album {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: clamp(1.35rem, 6vw, 1.7rem);
+  font-size: clamp(1.625rem, 7vw, 1.875rem);
+  line-height: 1.25;
   letter-spacing: -0.03em;
   color: #2f2f2f;
 }
@@ -48,8 +64,8 @@
 .join-page__notice {
   margin: 0;
   color: #6f655d;
-  font-size: 0.91rem;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 .join-page__notice {
@@ -59,12 +75,12 @@
 .join-page__label,
 .join-page__relationship {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
   border: 0;
   color: #555;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 650;
 }
 
@@ -73,12 +89,14 @@
 }
 
 .join-page__input {
-  min-height: 46px;
+  width: 100%;
+  min-height: 54px;
+  box-sizing: border-box;
   border: 1px solid #e4ddd2;
-  border-radius: 10px;
-  padding: 0.58rem 0.75rem;
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
   font: inherit;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 400;
   background: #fffdf8;
 }
@@ -86,18 +104,18 @@
 .join-page__relationship-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .join-page__relationship-chips button {
-  min-height: 36px;
-  padding: 0.38rem 0.72rem;
+  min-height: 42px;
+  padding: 0.42rem 0.78rem;
   border: 1px solid #e4ddd2;
   border-radius: 999px;
   background: #fffdf8;
   color: #62574f;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.94rem;
   cursor: pointer;
 }
 
@@ -108,14 +126,17 @@
 }
 
 .join-page__cta {
-  margin-top: 0.15rem;
-  min-height: 48px;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 0.3rem;
+  box-sizing: border-box;
   border: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 0.72rem 1rem;
   background: #2f2f2f;
   color: #fff;
   font: inherit;
+  font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -138,9 +159,25 @@
   text-align: center;
 }
 
+@media (max-width: 640px) {
+  .app--join .app__header {
+    margin-bottom: 0.15rem;
+    padding-top: 0.55rem;
+  }
+
+  .app--join .app__header h1 {
+    font-size: clamp(1.875rem, 9vw, 2.25rem);
+  }
+
+  .join-page__eyebrow {
+    font-size: 0.9rem;
+  }
+}
+
 @media (max-width: 390px) {
-  .join-page { gap: 0.7rem; }
-  .join-page__cover { max-height: 200px; }
-  .join-page__relationship-chips { gap: 0.35rem; }
-  .join-page__relationship-chips button { padding-inline: 0.62rem; }
+  .join-page { gap: 0.65rem; padding-inline: 16px; }
+  .join-page__cover { max-height: 210px; }
+  .join-page__album { font-size: 1.625rem; }
+  .join-page__relationship-chips { gap: 0.4rem; }
+  .join-page__relationship-chips button { min-height: 42px; padding-inline: 0.68rem; }
 }

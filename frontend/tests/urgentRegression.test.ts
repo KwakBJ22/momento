@@ -27,6 +27,30 @@ test("album deletion is guarded in the list and detail views", () => {
   assert.match(albumView, /await deleteAlbum\(albumId\);\s*window\.location\.assign/);
 });
 
+test("mobile collaboration invitation constrains its contents and keeps the cover reserved", () => {
+  const joinPage = component("JoinPage");
+  const css = readFileSync(new URL("../src/components/JoinPage.css", import.meta.url), "utf8");
+  assert.match(joinPage, /loading="eager" decoding="async" fetchPriority="high"/);
+  assert.match(css, /\.join-page \{[\s\S]*width: 100%;[\s\S]*max-width: 420px;[\s\S]*min-width: 0;[\s\S]*box-sizing: border-box;/);
+  assert.match(css, /\.join-page > \* \{[\s\S]*max-width: 100%;/);
+  assert.match(css, /\.join-page__cover \{[\s\S]*aspect-ratio: 3 \/ 2;[\s\S]*max-height: 240px;/);
+  assert.match(css, /\.join-page__relationship-chips \{[\s\S]*flex-wrap: wrap;/);
+  assert.match(css, /\.join-page__cta \{[\s\S]*width: 100%;[\s\S]*min-height: 56px;/);
+});
+
+test("login dialog uses one visual container with focus and scroll handling", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/App.css", import.meta.url), "utf8");
+  assert.match(app, /className="auth-modal"/);
+  assert.match(app, /className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"/);
+  assert.match(app, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(app, /event\.key === "Escape"/);
+  assert.match(app, /loginReturnFocusRef\.current\?\.focus\(\)/);
+  assert.match(app, /<AuthPanel titleId="auth-dialog-title" \/>/);
+  assert.match(css, /\.auth-modal \.auth-panel \{[\s\S]*padding: 0;[\s\S]*border: 0;/);
+  assert.match(css, /\.auth-modal__later \{[\s\S]*width: auto;[\s\S]*border: 0;/);
+});
+
 test("album navigation opens the existing contribution experience instead of only scrolling a panel", () => {
   const source = component("AlbumView");
   assert.match(source, /target\.searchParams\.set\("contribute", action\)/);

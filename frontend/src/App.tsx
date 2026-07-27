@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import AuthCallback from "./components/AuthCallback";
 import AuthPanel from "./components/AuthPanel";
 import AlbumResultView from "./components/AlbumResult";
@@ -51,6 +52,8 @@ function App() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const loginDialogRef = useRef<HTMLElement | null>(null);
+  const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const [category, setCategory] = useState<AlbumCategory | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
@@ -118,10 +121,51 @@ function App() {
     resetToStart();
     window.location.replace("/");
   };
-  const openLoginForCategory = (selected: AlbumCategory) => {
-    try { sessionStorage.setItem(PENDING_CATEGORY_KEY, selected); } catch { /* category can be selected again */ }
+  const openLogin = () => {
+    loginReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setShowLogin(true);
   };
+  const closeLogin = () => setShowLogin(false);
+  useEffect(() => {
+    if (!showLogin) return;
+    const previousOverflow = document.body.style.overflow;
+    const dialog = loginDialogRef.current;
+    const focusable = () => dialog
+      ? Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled])"))
+      : [];
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLogin();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    window.requestAnimationFrame(() => focusable()[0]?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.requestAnimationFrame(() => loginReturnFocusRef.current?.focus());
+    };
+  }, [showLogin]);
+  const openLoginForCategory = (selected: AlbumCategory) => {
+    try { sessionStorage.setItem(PENDING_CATEGORY_KEY, selected); } catch { /* category can be selected again */ }
+    openLogin();
+  };
+  const isJoinSurface = Boolean(joinToken);
   const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || result);
   const requiresLogin = (content: ReactNode) => {
     if (!authReady || user === undefined) return <p className="auth-panel__notice">잠시만 기다려 주세요.</p>;
@@ -133,8 +177,8 @@ function App() {
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
   return (
-    <div className={adminRoute ? "app app--album admin-app" : isAlbumSurface ? "app app--album" : "app"}>
-      {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user && shareToken ? <div className="app__account"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button></div> : null}</div> : user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}</header> : null}
+    <div className={adminRoute ? "app app--album admin-app" : isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}>
+      {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user && shareToken ? <div className="app__account"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button></div> : null}</div> : user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<AdminConsole route={adminRoute} />)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
@@ -149,7 +193,7 @@ function App() {
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
           ) : user && category ? <UploadForm category={category} onSuccess={setResult} />
-          : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setCategory(selected) : openLoginForCategory(selected)} onLogin={() => setShowLogin(true)} hideLogin={Boolean(user)} />{showLogin ? <div className="share-modal" role="dialog" aria-modal="true" aria-label="로그인"><section className="share-modal__card"><AuthPanel /><button type="button" className="btn btn--ghost" onClick={() => setShowLogin(false)}>닫기</button></section></div> : null}</>}
+          : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setCategory(selected) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
       </main>
     </div>
   );

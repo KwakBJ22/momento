@@ -69,7 +69,7 @@ export default function JoinPage({ token }: JoinPageProps) {
     <section className="join-page">
       <p className="join-page__eyebrow">함께 만드는 앨범</p>
       {preview.cover_image_url ? (
-        <img className="join-page__cover" src={preview.cover_image_url} alt={`${preview.title} 대표사진`} />
+        <img className="join-page__cover" src={preview.cover_image_url} alt={`${preview.title} 대표사진`} loading="eager" decoding="async" fetchPriority="high" />
       ) : (
         <div className="join-page__cover join-page__cover--empty" aria-hidden="true" />
       )}
