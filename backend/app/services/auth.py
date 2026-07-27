@@ -8,6 +8,7 @@ from gotrue.errors import (
 )
 
 from app.config import Settings, get_settings
+from app.models.current_user import CurrentUser
 from app.services.membership import get_user_email
 from app.services.supabase import get_supabase_client
 
@@ -15,10 +16,10 @@ from app.services.supabase import get_supabase_client
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def require_authenticated_user(
+def require_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-) -> str:
-    """Return the authenticated Supabase user id from a verified Bearer token."""
+) -> CurrentUser:
+    """Verify the bearer token once and return a provider-neutral identity."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,13 +49,26 @@ def require_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return str(user.id)
+    metadata = getattr(user, "app_metadata", None) or {}
+    return CurrentUser(
+        id=str(user.id),
+        provider=str(metadata.get("provider") or "") or None,
+        email=str(getattr(user, "email", "") or "") or None,
+        phone=str(getattr(user, "phone", "") or "") or None,
+    )
 
 
-def optional_authenticated_user(
+def require_authenticated_user(
+    current_user: CurrentUser = Depends(require_current_user),
+) -> str:
+    """Compatibility dependency for album services that only require user_id."""
+    return current_user.id
+
+
+def optional_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-) -> str | None:
-    """Return user id when Bearer token is valid; otherwise None (guest allowed)."""
+) -> CurrentUser | None:
+    """Return a verified identity when present; public routes remain anonymous."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         return None
     try:
@@ -69,7 +83,20 @@ def optional_authenticated_user(
         return None
     if user is None or not user.id:
         return None
-    return str(user.id)
+    metadata = getattr(user, "app_metadata", None) or {}
+    return CurrentUser(
+        id=str(user.id),
+        provider=str(metadata.get("provider") or "") or None,
+        email=str(getattr(user, "email", "") or "") or None,
+        phone=str(getattr(user, "phone", "") or "") or None,
+    )
+
+
+def optional_authenticated_user(
+    current_user: CurrentUser | None = Depends(optional_current_user),
+) -> str | None:
+    """Compatibility dependency for public business routes that only need an id."""
+    return current_user.id if current_user else None
 
 
 def require_platform_admin(

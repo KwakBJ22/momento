@@ -1,6 +1,5 @@
 import type { AlbumResult } from "../types";
-import { getAccessToken } from "./supabase";
-import type { GuestAlbumClaimInput } from "./guestAlbumClaim";
+import { getAccessToken } from "../services/authService";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -254,30 +253,9 @@ export async function startPublicContribution(token: string, guestId: string | n
   return response.json() as Promise<{ album_id: string; contributor_id: string; guest_id: string | null; display_name: string }>;
 }
 
-export async function submitGuestMemory(token: string, body: { name: string; memory: string; website: string }): Promise<{ claim_token: string }> {
-  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/guest-memories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as { claim_token: string };
-}
-
 export async function submitShareReaction(token: string, reaction: string, sessionKey: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reaction, session_key: sessionKey }) });
   if (!response.ok) throw new Error(await parseError(response));
-}
-
-export async function claimGuestMemory(claimToken: string): Promise<void> {
-  const response = await authenticatedFetch("/api/guest-memories/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ claim_token: claimToken }) });
-  if (!response.ok) throw new Error(await parseError(response));
-}
-
-export async function claimGuestAlbum(input: GuestAlbumClaimInput): Promise<{ album_id: string }> {
-  const response = await authenticatedFetch("/api/guest-albums/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guest_token: input.guestToken || null, album_id: input.albumId || null, share_token: input.shareToken || null }) });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as { album_id: string };
-}
-
-export function trackGuestEvent(eventName: "landing_viewed" | "primary_cta_clicked" | "preview_viewed" | "save_cta_clicked" | "login_started" | "enrichment_started"): void {
-  void fetch(`${API_BASE}/api/guest-analytics`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event_name: eventName }) }).catch(() => undefined);
 }
 
 export async function createAlbumShareLink(albumId: string, expiresAt?: string): Promise<{ share_url: string }> {

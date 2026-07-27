@@ -48,7 +48,6 @@ class MyAlbumsApiTests(TestCase):
         self.patches = [
             patch("app.api.album.get_settings", return_value=SimpleNamespace()),
             patch("app.api.album.get_supabase_client"),
-            patch("app.api.album.get_pending_guest_memory_counts", return_value={NEW_ALBUM_ID: 2}),
             patch("app.api.album.list_album_photo_list_summaries", return_value=[
                 {"album_id": NEW_ALBUM_ID, "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "sort_order": 0},
                 {"album_id": NEW_ALBUM_ID, "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "sort_order": 1},
@@ -76,7 +75,7 @@ class MyAlbumsApiTests(TestCase):
             item.start()
             self.addCleanup(item.stop)
 
-    def test_claimed_owner_album_is_returned_first_by_my_albums_api(self) -> None:
+    def test_authenticated_owner_album_is_returned_first_by_my_albums_api(self) -> None:
         with patch("app.api.album._attach_my_album_cover_urls", side_effect=lambda _client, _settings, _profile, items: items):
             response = self.client.get("/api/albums/mine")
 
@@ -86,7 +85,7 @@ class MyAlbumsApiTests(TestCase):
         body = response.json()
         self.assertEqual([album["album_id"] for album in body["albums"]], [NEW_ALBUM_ID, OLD_ALBUM_ID])
         self.assertEqual(body["albums"][0]["photo_count"], 2)
-        self.assertEqual(body["albums"][0]["new_memory_count"], 2)
+        self.assertEqual(body["albums"][0]["new_memory_count"], 0)
 
     def test_list_uses_one_batch_photo_query_not_per_album_photo_or_signed_url_calls(self) -> None:
         with patch("app.api.album.get_album_photo_records") as per_album_photos, patch(

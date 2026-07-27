@@ -240,37 +240,9 @@ class PublicShareAlbumResponse(BaseModel):
     og_description: str
 
 
-class GuestMemoryRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=50)
-    memory: str = Field(min_length=1, max_length=300)
-    website: str = Field(default="", max_length=200)
-
-
-class GuestMemoryResponse(BaseModel):
-    claim_token: str
-
-
-class GuestMemoryClaimRequest(BaseModel):
-    claim_token: str = Field(min_length=20, max_length=200)
-
-
 class ShareReactionRequest(BaseModel):
     reaction: Literal["remember", "warm", "smile"]
     session_key: str = Field(min_length=16, max_length=200)
-
-
-class GuestAlbumUploadResponse(AlbumUploadResponse):
-    guest_token: str
-
-
-class GuestAlbumClaimRequest(BaseModel):
-    guest_token: str | None = Field(default=None, min_length=20, max_length=200)
-    album_id: UUID | None = None
-    share_token: str | None = Field(default=None, min_length=16, max_length=200)
-
-
-class GuestAnalyticsEventRequest(BaseModel):
-    event_name: Literal["landing_viewed", "primary_cta_clicked", "preview_viewed", "save_cta_clicked", "login_started", "enrichment_started"]
 
 
 class AuthBootstrapResponse(BaseModel):

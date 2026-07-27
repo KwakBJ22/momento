@@ -475,29 +475,6 @@ def get_signed_urls_batch(client: Client, assets: list[dict[str, Any]], expires_
     return signed_urls
 
 
-def get_pending_guest_memory_counts(client: Client, album_ids: list[str]) -> dict[str, int]:
-    """Count submitted guest memories that have not yet been claimed."""
-    if not album_ids:
-        return {}
-    try:
-        result = (
-            client.table("guest_memory_submissions")
-            .select("album_id")
-            .in_("album_id", album_ids)
-            .eq("status", "pending")
-            .execute()
-        )
-    except Exception:
-        # Older deployments may not have guest submissions yet; the list still works.
-        return {}
-    counts: dict[str, int] = {}
-    for row in result.data or []:
-        album_id = str(row.get("album_id") or "")
-        if album_id:
-            counts[album_id] = counts.get(album_id, 0) + 1
-    return counts
-
-
 def update_album_narrative(client: Client, album_id: str, narrative: str) -> dict[str, Any] | None:
     """Legacy: writes epilogue (우리의 이야기). Does not touch chapter_stories."""
     result = (
@@ -673,10 +650,10 @@ def delete_album_record(client: Client, album_id: str) -> None:
 
 def cleanup_incomplete_album(client: Client, album_id: str) -> None:
     """Compensate a failed create in child-first order before removing assets."""
-    # These rows are created by both authenticated and guest creation routes.
+    # These rows are created by authenticated album creation routes.
     # Delete children first because album foreign keys intentionally restrict
     # deleting a completed album with dependent content.
-    for table in ("album_members", "album_media", "album_photos", "guest_album_sessions", "share_links"):
+    for table in ("album_members", "album_media", "album_photos", "share_links"):
         try:
             client.table(table).delete().eq("album_id", album_id).execute()
         except Exception:

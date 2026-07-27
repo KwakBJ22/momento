@@ -221,10 +221,6 @@ export interface LivingAppendPage {
   memories: LivingAppendMemory[];
 }
 
-export interface GuestAlbumResult extends AlbumResult {
-  guest_token: string;
-}
-
 export interface PublicShareAlbum {
   album_id: string;
   title: string;

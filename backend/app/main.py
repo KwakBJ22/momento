@@ -9,7 +9,6 @@ from app.api.album import router as album_router
 from app.api.auth import router as auth_router
 from app.api.collaboration import router as collaboration_router
 from app.api.family import album_members_router, invitations_router, router as family_router
-from app.api.guest import router as guest_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
 from app.config import get_settings
@@ -71,7 +70,6 @@ fastapi_app.include_router(invitations_router)
 fastapi_app.include_router(album_members_router)
 fastapi_app.include_router(memory_router)
 fastapi_app.include_router(share_router)
-fastapi_app.include_router(guest_router)
 fastapi_app.include_router(collaboration_router)
 fastapi_app.include_router(admin_router)
 

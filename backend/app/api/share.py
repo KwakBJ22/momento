@@ -9,15 +9,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
-    GuestMemoryClaimRequest, GuestMemoryRequest, GuestMemoryResponse, PublicContributionItem, PublicMediaItem,
+    PublicContributionItem, PublicMediaItem,
     PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
     AlbumPhotoUrlResponse,
 )
-from app.services.auth import require_authenticated_user
 from app.services.authorization import require_album_edit_settings
+from app.services.auth import require_authenticated_user
 from app.services.membership import get_album_access
 from app.services.share_service import (
-    add_reaction, claim_guest_memory, create_guest_memory, create_share_link, deactivate_share_link,
+    add_reaction, create_share_link, deactivate_share_link,
     get_active_share, increment_view, list_share_links, log_event,
 )
 from app.services.supabase import (
@@ -329,19 +329,6 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
     )
 
 
-@router.post("/public/shares/{token}/guest-memories", response_model=GuestMemoryResponse, status_code=status.HTTP_201_CREATED)
-async def submit_guest_memory(token: str, body: GuestMemoryRequest) -> GuestMemoryResponse:
-    _rate_limit(f"guest:{token}", _GUEST_LIMIT)
-    if body.website:
-        raise HTTPException(status_code=400, detail="요청을 처리할 수 없습니다.")
-    client = get_supabase_client()
-    share = get_active_share(client, token)
-    log_event(client, "guest_memory_started", album_id=str(share["album_id"]), share_link_id=str(share["id"]))
-    _, claim_token = create_guest_memory(client, share, body.name, body.memory)
-    log_event(client, "guest_memory_completed", album_id=str(share["album_id"]), share_link_id=str(share["id"]))
-    return GuestMemoryResponse(claim_token=claim_token)
-
-
 @router.post("/public/shares/{token}/contribute")
 async def start_public_contribution(token: str, body: dict[str, str] | None = None) -> dict[str, str | None]:
     """Create or restore an anonymous contributor session from an active share link."""
@@ -381,10 +368,3 @@ async def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
     share = get_active_share(client, token)
     add_reaction(client, str(share["id"]), body.reaction, body.session_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.post("/guest-memories/claim")
-async def claim_memory(body: GuestMemoryClaimRequest, authenticated_user_id: str = Depends(require_authenticated_user)) -> dict[str, str | None]:
-    client = get_supabase_client()
-    result = claim_guest_memory(client, body.claim_token, authenticated_user_id)
-    return {"album_id": str(result["album_id"]), "memory_answer_id": str(result["memory_answer_id"]) if result.get("memory_answer_id") else None}

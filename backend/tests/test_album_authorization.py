@@ -136,8 +136,6 @@ class AlbumAuthorizationTests(TestCase):
             "updated_at": created_at,
             "result_path": "result.png",
         }]) as list_owned, patch(
-            "app.api.album.get_pending_guest_memory_counts", return_value={ALBUM_ID: 2}
-        ) as memory_counts, patch(
             "app.api.album.list_album_photo_list_summaries",
             return_value=[
                 {"album_id": ALBUM_ID, "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "sort_order": 0},
@@ -148,9 +146,8 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["albums"][0]["album_id"], ALBUM_ID)
-        self.assertEqual(response.json()["albums"][0]["new_memory_count"], 2)
+        self.assertEqual(response.json()["albums"][0]["new_memory_count"], 0)
         list_owned.assert_called_once_with(self.supabase_client, OWNER_ID, limit=20)
-        memory_counts.assert_called_once_with(self.supabase_client, [ALBUM_ID])
 
     def test_owner_can_delete_album(self) -> None:
         self.as_user(OWNER_ID)

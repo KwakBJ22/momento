@@ -1,46 +1,32 @@
 import { useState } from "react";
-import { isSupabaseAuthConfigured, supabase } from "../lib/supabase";
+import { isAuthenticationConfigured, signIn, type AuthProvider } from "../services/authService";
 
-interface AuthPanelProps {
-  purpose?: "default" | "album-storage";
-  redirectTo?: string;
-}
+interface AuthPanelProps { returnTo?: string; }
 
-export default function AuthPanel({ purpose = "default", redirectTo }: AuthPanelProps) {
-  const [email, setEmail] = useState("");
+export default function AuthPanel({ returnTo }: AuthPanelProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const storingAlbum = purpose === "album-storage";
 
-  const sendMagicLink = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!supabase) return;
+  const continueWith = async (provider: AuthProvider) => {
     setMessage(null);
     setIsSubmitting(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: redirectTo || window.location.origin },
-    });
-    setIsSubmitting(false);
-    setMessage(error ? error.message : storingAlbum ? "이메일을 보냈습니다. 메일의 링크를 누르면 내 앨범에 보관됩니다." : "이메일로 받은 링크를 확인해 주세요.");
+    try {
+      await signIn(provider, returnTo);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "로그인을 시작하지 못했어요.");
+      setIsSubmitting(false);
+    }
   };
 
-  if (!isSupabaseAuthConfigured) {
-    return <p className="auth-panel__notice">이메일 연결을 준비하고 있어요.</p>;
-  }
+  if (!isAuthenticationConfigured) return <p className="auth-panel__notice">로그인 설정을 준비하고 있어요.</p>;
 
   return (
-    <form className="auth-panel" onSubmit={sendMagicLink}>
-      <h2>{storingAlbum ? "내 앨범 보관하기" : "추억을 이어서 보관하세요"}</h2>
-      <p>{storingAlbum ? "이메일로 연결하면 언제든 내 앨범에서 다시 볼 수 있어요." : "이메일로 받은 링크를 열어 내 앨범을 다시 볼 수 있어요."}</p>
-      <label className="field">
-        <span className="field__label">이메일</span>
-        <input className="field__input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required />
-      </label>
-      {message && <p className="auth-panel__notice">{message}</p>}
-      <button className="upload-form__submit" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "보내는 중..." : storingAlbum ? "보관 링크 받기" : "이메일 링크 받기"}
-      </button>
-    </form>
+    <section className="auth-panel">
+      <h2>내 앨범 보관하기</h2>
+      <p>로그인하면 언제든 내 앨범에서 다시 볼 수 있어요.</p>
+      {message && <p className="auth-panel__notice" role="alert">{message}</p>}
+      <button className="upload-form__submit" type="button" disabled={isSubmitting} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>
+      <button className="btn btn--secondary" type="button" disabled={isSubmitting} onClick={() => void continueWith("naver")}>네이버로 계속하기</button>
+    </section>
   );
 }

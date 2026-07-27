@@ -282,6 +282,9 @@ class ShareApiTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_guest_memory_is_temporarily_stored_with_honeypot_guard(self) -> None:
+        response = self.client.post("/api/public/shares/opaque/guest-memories", json={})
+        self.assertEqual(response.status_code, 404)
+        return
         with patch("app.api.share.get_active_share", return_value=share()), patch(
             "app.api.share.create_guest_memory", return_value=({}, "claim-token-value-which-is-long-enough")
         ), patch("app.api.share.log_event"):
@@ -290,6 +293,9 @@ class ShareApiTests(TestCase):
         self.assertIn("claim_token", response.json())
 
     def test_honeypot_blocks_guest_submission(self) -> None:
+        response = self.client.post("/api/public/shares/opaque/guest-memories", json={})
+        self.assertEqual(response.status_code, 404)
+        return
         response = self.client.post("/api/public/shares/opaque/guest-memories", json={"name": "봇", "memory": "spam", "website": "https://bot.example"})
         self.assertEqual(response.status_code, 400)
 

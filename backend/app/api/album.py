@@ -60,7 +60,6 @@ from app.services.supabase import (
     count_ready_album_photos,
     count_album_photo_memories,
     get_album_photo_records_by_ids,
-    get_pending_guest_memory_counts,
     get_album_story_inputs,
     get_album_photo_records,
     get_album_media_record,
@@ -1254,16 +1253,13 @@ async def get_my_albums(
     client = get_supabase_client(settings)
     records = list_owned_album_list_records(client, authenticated_user_id, limit=20)
     album_ids = [str(record["id"]) for record in records]
-    memory_counts, photo_rows = await asyncio.gather(
-        asyncio.to_thread(get_pending_guest_memory_counts, client, album_ids),
-        asyncio.to_thread(list_album_photo_list_summaries, client, album_ids),
-    )
+    photo_rows = await asyncio.to_thread(list_album_photo_list_summaries, client, album_ids)
     payload = MyAlbumsResponse(
         albums=_attach_my_album_cover_urls(
             client,
             settings,
             authenticated_user_id,
-            _my_album_list_items(client, settings, records, memory_counts, photo_rows),
+            _my_album_list_items(client, settings, records, {}, photo_rows),
         )
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000)

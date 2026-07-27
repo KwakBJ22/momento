@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { API_BASE, authenticatedFetch } from "../lib/api";
+import { authenticatedFetch } from "../lib/api";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
-import type { AlbumCategory, AlbumResult, GuestAlbumResult, PhotoItem, StoryPayload } from "../types";
+import type { AlbumCategory, AlbumResult, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
 import "./UploadForm.css";
@@ -15,8 +15,6 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 interface UploadFormProps {
   category: AlbumCategory;
   onSuccess: (result: AlbumResult) => void;
-  guestMode?: boolean;
-  onGuestCreated?: (token: string) => void;
   onCancel?: () => void;
 }
 
@@ -24,7 +22,7 @@ function createPhotoItem(file: File, capturedAt: string | null): PhotoItem {
   return { id: createId(), file, previewUrl: URL.createObjectURL(file), story: "", capturedAt };
 }
 
-export default function UploadForm({ category, onSuccess, guestMode = false, onGuestCreated }: UploadFormProps) {
+export default function UploadForm({ category, onSuccess }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,19 +141,16 @@ export default function UploadForm({ category, onSuccess, guestMode = false, onG
       const operationId = operationIdRef.current || crypto.randomUUID();
       operationIdRef.current = operationId;
       const headers = { "X-Momento-Operation-Id": operationId };
-      const response = guestMode
-        ? await fetch(`${API_BASE}/api/guest/upload-album`, { method: "POST", body: formData, signal: controller.signal, headers })
-        : await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal, headers });
+      const response = await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal, headers });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
       }
-      const created = (await response.json()) as AlbumResult | GuestAlbumResult;
-      if ("guest_token" in created) onGuestCreated?.(created.guest_token);
+      const created = (await response.json()) as AlbumResult;
       operationIdRef.current = null;
       onSuccess(created);
     } catch (cause: unknown) {
-      console.error("Album upload failed", { cause, guestMode, photoCount: photos.length });
+      console.error("Album upload failed", { cause, photoCount: photos.length });
       const reason = cause instanceof DOMException && cause.name === "AbortError"
         ? "요청 시간이 오래 걸리고 있습니다. 네트워크를 확인한 뒤 다시 시도해주세요."
         : cause instanceof TypeError
