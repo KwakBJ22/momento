@@ -9,6 +9,29 @@
   scroll-margin-top: 1rem;
 }
 
+.contribute--participant {
+  gap: 1.25rem;
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+}
+
+.contribute--participant .contribute__header,
+.contribute--participant .contribute__people,
+.contribute--participant .contribute__tabs {
+  display: none;
+}
+
+.contribute--participant .contribute__grid {
+  order: 1;
+}
+
+.contribute--participant .contribute__upload {
+  order: 2;
+}
+
+.contribute--participant .contribute__limit {
+  order: 3;
+}
+
 .contribute__badge {
   margin: 0;
   color: #b48c6e;

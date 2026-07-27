@@ -5,6 +5,7 @@ import AlbumScreen from "./AlbumScreen";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 import { createId } from "../lib/id";
+import type { AppUser } from "../services/authService";
 import {
   appendPendingContributions,
   clearPublicShareCache,
@@ -17,7 +18,12 @@ import {
 import type { AlbumPhoto, PublicContributionItem, PublicShareAlbum } from "../types";
 import "./AlbumResult.css";
 
-interface PublicShareViewProps { token: string }
+interface PublicShareViewProps {
+  token: string;
+  /** The entry router already verified this public token. */
+  initialAlbum?: PublicShareAlbum;
+  authenticatedUser?: AppUser | null;
+}
 
 function contributionGuestId(): string {
   const key = "momento-public-contribution-guest-id";
@@ -78,17 +84,17 @@ async function copyPublicLink(value: string): Promise<void> {
   if (!copied) throw new Error("Clipboard is unavailable.");
 }
 
-export default function PublicShareView({ token }: PublicShareViewProps) {
+export default function PublicShareView({ token, initialAlbum, authenticatedUser = null }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
   const contributionValue = new URLSearchParams(window.location.search).get("contribute");
   const requestedContribution = contributionValue === "photo" || contributionValue === "memory" ? contributionValue : null;
   const initialCache = requestedEdition === null ? readPublicShareCache(token) : null;
   // Cache is only used after the link has been authorized by the server.
-  const [album, setAlbum] = useState<PublicShareAlbum | null>(null);
-  const [albumLoading, setAlbumLoading] = useState(true);
+  const [album, setAlbum] = useState<PublicShareAlbum | null>(() => initialAlbum ?? null);
+  const [albumLoading, setAlbumLoading] = useState(() => !initialAlbum);
   const [error, setError] = useState<string | null>(null);
-  const [loadedToken, setLoadedToken] = useState<string | null>(null);
+  const [loadedToken, setLoadedToken] = useState<string | null>(() => initialAlbum ? token : null);
   const [retryKey, setRetryKey] = useState(0);
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
@@ -100,6 +106,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   const [shareLoading, setShareLoading] = useState(false);
   const contributionPanelRef = useRef<HTMLElement | null>(null);
   const rendererStartedAtRef = useRef<number | null>(null);
+  const authenticatedContributionKeyRef = useRef<string | null>(null);
   const photos = useMemo(() => mapSharePhotos(album?.photos), [album?.photos]);
   const { shareAlbum } = useKakaoSdk();
 
@@ -107,26 +114,35 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     const startedAt = performance.now();
     let active = true;
     const cached = requestedEdition === null ? readPublicShareCache(token) : null;
+    const seed = retryKey === 0 ? initialAlbum : undefined;
     setAlbumLoading(true);
-    setAlbum(null);
+    setAlbum(seed ?? null);
     setLoadedToken(null);
     setError(null);
-    const cachedSession = cached ? loadCollabSession(cached.album.album_id) : null;
+    const cachedSession = !authenticatedUser && cached ? loadCollabSession(cached.album.album_id) : null;
     const canRestoreContribution = Boolean(cachedSession && hasParticipantName(cachedSession.displayName));
     setContributionAction(canRestoreContribution ? cached?.contributionAction ?? null : null);
-    setContributionAlbumId(cached?.album.album_id ?? null);
+    setContributionAlbumId(seed?.album_id ?? cached?.album.album_id ?? null);
     setContributionSession(cachedSession && hasParticipantName(cachedSession.displayName) ? cachedSession : null);
     setNameAction(canRestoreContribution ? null : cached?.nameAction ?? null);
+    setParticipantName(authenticatedUser?.displayName || cachedSession?.displayName || "");
     setContributionError(null);
+    if (seed) {
+      setAlbumLoading(false);
+      setLoadedToken(token);
+      document.title = `${seed.og_title} | Momento`;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", seed.og_description);
+      return () => { active = false; };
+    }
     void getPublicShare(token, requestedEdition).then((data) => {
       if (!active) return;
       debugTiming("public album API response", startedAt);
       setAlbum((current) => reconcilePublicShareAlbum(current ?? cached?.album ?? null, data));
       setLoadedToken(token);
       setContributionAlbumId(data.album_id);
-      const savedSession = loadCollabSession(data.album_id);
+      const savedSession = authenticatedUser ? null : loadCollabSession(data.album_id);
       setContributionSession(savedSession && hasParticipantName(savedSession.displayName) ? savedSession : null);
-      setParticipantName(savedSession?.displayName || "");
+      setParticipantName(authenticatedUser?.displayName || savedSession?.displayName || "");
       setAlbumLoading(false);
       document.title = `${data.og_title} | Momento`;
       document.querySelector('meta[name="description"]')?.setAttribute("content", data.og_description);
@@ -140,7 +156,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
       setAlbumLoading(false);
     });
     return () => { active = false; };
-  }, [token, retryKey, requestedEdition]);
+  }, [token, retryKey, requestedEdition, initialAlbum, authenticatedUser]);
 
   useEffect(() => {
     if (!album || loadedToken !== token) return;
@@ -153,6 +169,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
   }, [contributionAction, contributionAlbumId, nameAction]);
 
   const openContribution = (action: "photo" | "memory") => {
+    if (authenticatedUser && !contributionSession) return;
     setContributionError(null);
     const next = contributionPanelAction(contributionSession, action);
     setContributionAction(next.contributionAction);
@@ -161,29 +178,59 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
 
   useEffect(() => {
     if (!requestedContribution || !album || loadedToken !== token) return;
+    if (authenticatedUser && !contributionSession) return;
     const next = contributionPanelAction(contributionSession, requestedContribution);
     setContributionAction(next.contributionAction);
     setNameAction(next.nameAction);
-  }, [album, contributionSession, loadedToken, requestedContribution, token]);
+  }, [album, contributionSession, loadedToken, requestedContribution, token, authenticatedUser]);
+
+  useEffect(() => {
+    if (!authenticatedUser || !album || loadedToken !== token || contributionSession || isStartingContribution) return;
+    const key = `${token}:${authenticatedUser.id}`;
+    if (authenticatedContributionKeyRef.current === key) return;
+    authenticatedContributionKeyRef.current = key;
+    setIsStartingContribution(true);
+    setContributionError(null);
+    void startPublicContribution(token, null, authenticatedUser.displayName)
+      .then((result) => {
+        const session = {
+          albumId: result.album_id,
+          contributorId: result.contributor_id,
+          guestId: result.guest_id,
+          displayName: result.display_name,
+        };
+        saveCollabSession(session);
+        setContributionAlbumId(result.album_id);
+        setContributionSession(session);
+        setParticipantName(result.display_name);
+        setContributionAction(requestedContribution);
+        setNameAction(null);
+      })
+      .catch((cause) => {
+        console.warn("[Momento] Authenticated contribution session start failed.", cause);
+        setContributionError(cause instanceof Error ? cause.message : "참여를 시작하지 못했어요.");
+      })
+      .finally(() => setIsStartingContribution(false));
+  }, [album, authenticatedUser, contributionSession, isStartingContribution, loadedToken, requestedContribution, token]);
 
   const scrollToAlbumStart = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const startContribution = async () => {
-    const displayName = participantName.trim();
-    if (!nameAction || !displayName) {
+    const displayName = (authenticatedUser?.displayName || participantName).trim();
+    if ((!nameAction && !authenticatedUser) || !displayName) {
       setContributionError("추억을 남긴 분의 이름을 입력해 주세요.");
       return;
     }
     setIsStartingContribution(true);
     try {
-      const result = await startPublicContribution(token, contributionGuestId(), displayName);
+      const result = await startPublicContribution(token, authenticatedUser ? null : contributionGuestId(), displayName);
       const session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
       saveCollabSession(session);
       setContributionAlbumId(result.album_id);
       setContributionSession(session);
-      setContributionAction(nameAction);
+      setContributionAction(nameAction ?? requestedContribution);
       setNameAction(null);
     } catch (cause) {
       console.warn("[Momento] Public contribution session start failed.", cause);
@@ -267,7 +314,17 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
       {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
     </>
   );
-  const publicNav = {
+  const isParticipantMode = Boolean(contributionSession);
+  const publicNav = isParticipantMode ? {
+    variant: "participant" as const,
+    activeItem: contributionAction === "photo" ? "photo" as const : contributionAction === "memory" ? "memory" as const : "album" as const,
+    onTop: scrollToAlbumStart,
+    onAddPhoto: () => openContribution("photo"),
+    onAddMemory: () => openContribution("memory"),
+    onShare: () => undefined,
+    canAddPhoto: !isStartingContribution,
+    canAddMemory: !isStartingContribution,
+  } : {
     onTop: scrollToAlbumStart,
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
@@ -281,7 +338,7 @@ export default function PublicShareView({ token }: PublicShareViewProps) {
     </div>
   );
   const editionLink = album.edition_is_latest === false ? <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p> : album.edition_previous ? <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p> : null;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} actionPanel={publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

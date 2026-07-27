@@ -1,5 +1,5 @@
 import type { AlbumResult } from "../types";
-import { getAccessToken } from "../services/authService";
+import { getAccessToken, getSession } from "../services/authService";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -244,9 +244,12 @@ export async function updateAlbumCoverPhoto(albumId: string, photoId: string): P
 }
 
 export async function startPublicContribution(token: string, guestId: string | null, displayName: string) {
+  const session = await getSession();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ guest_id: guestId, display_name: displayName }),
   });
   if (!response.ok) throw new Error(await parseError(response));
@@ -496,6 +499,15 @@ function collabHeaders(session: CollabSession | null): HeadersInit {
   return headers;
 }
 
+/** Keeps contributor identity and the signed-in identity together for collaboration calls. */
+async function collaborationFetch(path: string, init: RequestInit, session: CollabSession | null): Promise<Response> {
+  const headers = new Headers(init.headers);
+  for (const [key, value] of Object.entries(collabHeaders(session))) headers.set(key, value);
+  const authSession = await getSession();
+  if (authSession?.accessToken) headers.set("Authorization", `Bearer ${authSession.accessToken}`);
+  return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
+
 export async function getJoinPreview(token: string) {
   const response = await fetch(`${API_BASE}/api/join/${encodeURIComponent(token)}`);
   if (!response.ok) throw new Error(await parseError(response));
@@ -639,9 +651,7 @@ export async function closeCollaborationAlbum(albumId: string) {
 }
 
 export async function getContributeWorkspace(albumId: string, session: CollabSession) {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}/contribute/workspace`, {
-    headers: collabHeaders(session),
-  });
+  const response = await collaborationFetch(`/api/albums/${albumId}/contribute/workspace`, {}, session);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
@@ -652,11 +662,10 @@ export async function uploadContributePhotos(albumId: string, session: CollabSes
     form.append("photos", file, file.name || "photo.jpg");
     form.append("file_created_ats", String(file.lastModified));
   }
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}/contribute/photos`, {
+  const response = await collaborationFetch(`/api/albums/${albumId}/contribute/photos`, {
     method: "POST",
-    headers: collabHeaders(session),
     body: form,
-  });
+  }, session);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
@@ -667,15 +676,15 @@ export async function createPhotoMemory(
   session: CollabSession,
   comment: string,
 ) {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}/photos/${photoId}/memories`, {
+  const response = await collaborationFetch(`/api/albums/${albumId}/photos/${photoId}/memories`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...collabHeaders(session) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       comment,
       guest_id: session.guestId,
       contributor_id: session.contributorId,
     }),
-  });
+  }, session);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
@@ -686,15 +695,15 @@ export async function updatePhotoMemory(
   session: CollabSession,
   comment: string,
 ) {
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}/memories/${memoryId}`, {
+  const response = await collaborationFetch(`/api/albums/${albumId}/memories/${memoryId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...collabHeaders(session) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       comment,
       guest_id: session.guestId,
       contributor_id: session.contributorId,
     }),
-  });
+  }, session);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
@@ -703,9 +712,8 @@ export async function deletePhotoMemory(albumId: string, memoryId: string, sessi
   const params = new URLSearchParams();
   if (session.guestId) params.set("guest_id", session.guestId);
   params.set("contributor_id", session.contributorId);
-  const response = await fetch(`${API_BASE}/api/albums/${albumId}/memories/${memoryId}?${params}`, {
+  const response = await collaborationFetch(`/api/albums/${albumId}/memories/${memoryId}?${params}`, {
     method: "DELETE",
-    headers: collabHeaders(session),
-  });
+  }, session);
   if (!response.ok) throw new Error(await parseError(response));
 }

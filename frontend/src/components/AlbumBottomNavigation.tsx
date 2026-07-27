@@ -10,11 +10,14 @@ export interface AlbumBottomNavigationProps {
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
+  variant?: "default" | "participant";
+  activeItem?: "album" | "photo" | "memory";
 }
 
 /** One fixed navigation surface shared by every screen-mode album. */
 export default function AlbumBottomNavigation({
   onTop, onAddPhoto, onAddMemory, onShare, onCreateAlbum, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
+  variant = "default", activeItem,
 }: AlbumBottomNavigationProps) {
   const runIfEnabled = (enabled: boolean, action: () => void) => () => {
     if (enabled) action();
@@ -26,6 +29,16 @@ export default function AlbumBottomNavigation({
     }
     window.location.assign(newAlbumHref);
   };
+  if (variant === "participant") {
+    return (
+      <nav className="album-bottom-navigation album-bottom-navigation--participant" aria-label="앨범 참여 메뉴">
+        <button type="button" className={activeItem === "album" ? "is-active" : ""} onClick={onTop}><Home size={17} /><span>앨범</span></button>
+        <button type="button" className={activeItem === "photo" ? "is-active" : ""} onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
+        <button type="button" className={activeItem === "memory" ? "is-active" : ""} onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>기억</span></button>
+      </nav>
+    );
+  }
+
   return (
     <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
       <button type="button" onClick={onTop}><Home size={17} /><span>앨범 처음으로</span></button>

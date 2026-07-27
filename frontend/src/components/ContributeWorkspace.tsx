@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import type { PublicContributionItem } from "../types";
+import AlbumScreen from "./AlbumScreen";
 import "./ContributeWorkspace.css";
 
 interface ContributeWorkspaceProps {
@@ -126,7 +127,9 @@ export default function ContributeWorkspace({
   const [preview, setPreview] = useState<PreviewSnapshot | null>(null);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [latestPhotoId, setLatestPhotoId] = useState<string | null>(null);
+  const [activeParticipantItem, setActiveParticipantItem] = useState<"album" | "photo" | "memory">("album");
   const latestPhotoRef = useRef<HTMLElement | null>(null);
+  const participantRootRef = useRef<HTMLElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -254,6 +257,7 @@ export default function ContributeWorkspace({
   }, [addUploadedPhotos, albumId, session]);
 
   const onUpload = async (files: File[] | FileList | null) => {
+    setActiveParticipantItem("photo");
     const { accepted, rejected } = filterImageFiles(files);
     if (!accepted.length) {
       setError(rejected ? "선택한 파일을 사진으로 읽지 못했어요. JPG, PNG, WEBP, HEIC를 골라 주세요." : "사진을 선택해 주세요.");
@@ -407,13 +411,15 @@ export default function ContributeWorkspace({
   const openPhotoPicker = () => {
     setCompletion(null);
     setTab("photos");
+    setActiveParticipantItem("photo");
     window.requestAnimationFrame(() => uploadInputRef.current?.click());
   };
 
-  const openMemoryEditor = () => {
+  const openMemoryEditor = (targetPhotoId?: string) => {
     setCompletion(null);
     setTab("photos");
-    const photoId = latestPhotoId || workspace?.photos?.[0]?.id || null;
+    setActiveParticipantItem("memory");
+    const photoId = targetPhotoId || latestPhotoId || workspace?.photos?.[0]?.id || null;
     if (!photoId) {
       setError("기억을 남길 사진을 먼저 추가해 주세요.");
       return;
@@ -425,6 +431,7 @@ export default function ContributeWorkspace({
 
   const viewAddedItems = () => {
     setCompletion(null);
+    setActiveParticipantItem("album");
     if (embedded) {
       document.querySelector<HTMLElement>(".album-screen__book")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -433,6 +440,12 @@ export default function ContributeWorkspace({
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>(".contribute__card--fresh")?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+  };
+
+  const viewParticipantAlbum = () => {
+    setCompletion(null);
+    setActiveParticipantItem("album");
+    participantRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (error && !workspace) {
@@ -446,8 +459,8 @@ export default function ContributeWorkspace({
   const confirmedPhotoCount = workspace.photo_count;
   const standaloneMemories = workspace.memories || [];
 
-  return (
-    <section className={`contribute${embedded ? " contribute--embedded" : ""}`}>
+  const workspaceBody = (
+    <section ref={participantRootRef} className={`contribute${embedded ? " contribute--embedded" : " contribute--participant"}`}>
       {!embedded ? <header className="contribute__header">
         <div>
           <p className="contribute__badge">함께 만드는 중</p>
@@ -535,7 +548,7 @@ export default function ContributeWorkspace({
                     </div>
                   ))}
                 </div>
-                <button type="button" className="contribute__memory-btn" onClick={() => { setDraftPhotoId(photo.id); setDraftText(""); }}>
+                <button type="button" className="contribute__memory-btn" onClick={() => openMemoryEditor(photo.id)}>
                   이 사진에 기억 남기기
                 </button>
                 {draftPhotoId === photo.id ? (
@@ -593,12 +606,33 @@ export default function ContributeWorkspace({
           <p className="contribute__completion-copy">방금 남긴 추억을 앨범에서 확인해 보세요.</p>
           <div className="contribute__completion-actions">
             <button type="button" className="contribute__completion-primary" onClick={viewAddedItems}>앨범에서 확인하기</button>
-            <button type="button" className="contribute__completion-secondary" onClick={completion.hasPhoto ? openPhotoPicker : openMemoryEditor}>
+            <button type="button" className="contribute__completion-secondary" onClick={completion.hasPhoto ? openPhotoPicker : () => openMemoryEditor()}>
               {completion.hasPhoto ? "사진 더 추가하기" : "기억 더 남기기"}
             </button>
           </div>
         </section>
       ) : null}
     </section>
+  );
+
+  if (embedded) return workspaceBody;
+
+  return (
+    <AlbumScreen
+      title={workspace.title}
+      subtitle="함께 추억을 더해보세요."
+      body={workspaceBody}
+      bottomNavigation={{
+        variant: "participant",
+        activeItem: activeParticipantItem,
+        onTop: viewParticipantAlbum,
+        onAddPhoto: openPhotoPicker,
+        onAddMemory: openMemoryEditor,
+        onShare: () => undefined,
+        canAddPhoto: !isUploading,
+        canAddMemory: Boolean((workspace.photos || []).length),
+      }}
+      className="contribute-screen"
+    />
   );
 }

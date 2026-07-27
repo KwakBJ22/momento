@@ -12,7 +12,7 @@ import Landing from "./components/Landing";
 import MyAlbums from "./components/MyAlbums";
 import AdminConsole, { parseAdminRoute } from "./components/admin/AdminConsole";
 import QuestionFlow from "./components/QuestionFlow";
-import PublicShareView from "./components/PublicShareView";
+import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { authenticatedFetch, getAlbum, getAlbumPhotos } from "./lib/api";
@@ -44,6 +44,7 @@ function restorePendingCategory(): AlbumCategory | null {
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -100,10 +101,10 @@ function App() {
 
   return (
     <div className={adminRoute ? "app app--album admin-app" : isAlbumSurface ? "app app--album" : "app"}>
-      {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}</header> : null}
+      {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user && shareToken ? <div className="app__account"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button></div> : null}</div> : user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}</header> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<AdminConsole route={adminRoute} />)
-          : shareToken ? <PublicShareView token={shareToken} />
+          : shareToken ? <ShareEntryRouter token={shareToken} user={user} />
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)

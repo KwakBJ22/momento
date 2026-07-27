@@ -79,6 +79,7 @@ body {
 }
 
 .app__header {
+  position: relative;
   text-align: center;
   margin-bottom: 0.35rem;
   padding-top: 0.15rem;
@@ -114,6 +115,63 @@ body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.app__account {
+  position: absolute;
+  top: 0.1rem;
+  right: 0;
+  z-index: 4;
+}
+
+.app__account-trigger {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #e2d2c3;
+  border-radius: 50%;
+  background: #fffdfa;
+  color: #8d6a4f;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app__account-trigger img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.app__account-menu {
+  display: grid;
+  min-width: 108px;
+  margin-top: 0.45rem;
+  padding: 0.35rem;
+  border: 1px solid #e2d2c3;
+  border-radius: 10px;
+  background: #fffdfa;
+  box-shadow: 0 8px 20px rgba(86, 61, 44, 0.14);
+}
+
+.app__account-menu a,
+.app__account-menu button {
+  padding: 0.48rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5c4c40;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app__account-menu a:hover,
+.app__account-menu button:hover { background: #f7efe7; }
 
 .auth-panel {
   padding: 1.5rem;

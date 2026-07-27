@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.share import _rate_windows, router
-from app.services.auth import require_authenticated_user
+from app.services.auth import optional_authenticated_user, require_authenticated_user
 
 
 ALBUM_ID = "11111111-1111-1111-1111-111111111111"
@@ -77,6 +77,21 @@ class ShareApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["title"], album()["title"])
+
+    def test_authenticated_public_visitor_restores_an_account_contributor(self) -> None:
+        self.app.dependency_overrides[optional_authenticated_user] = lambda: OWNER_ID
+        contributor = {"id": "contributor-1", "display_name": "Owner name", "guest_id": None}
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album()
+        ), patch("app.api.share.join_as_contributor", return_value=contributor) as join, patch(
+            "app.api.share.log_event"
+        ):
+            response = self.client.post("/api/public/shares/opaque-token/contribute", json={"display_name": "Owner name"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["guest_id"])
+        self.assertEqual(join.call_args.kwargs["user_id"], OWNER_ID)
+        self.assertIsNone(join.call_args.kwargs["guest_id"])
 
     def test_public_share_can_read_an_older_edition_without_edit_access(self) -> None:
         old_photo_id = "44444444-4444-4444-4444-444444444444"

@@ -30,6 +30,24 @@ test("public album reads a requested contribution action without a second route 
   assert.match(source, /onCreateAlbum: \(\) => window\.location\.assign\("\/"\)/);
 });
 
+test("the share entry router decides owner versus public participation before rendering a view", () => {
+  const entry = component("ShareEntryRouter");
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /<ShareEntryRouter token=\{shareToken\} user=\{user\}/);
+  assert.match(entry, /getPublicShare\(token, edition\)/);
+  assert.match(entry, /getAlbum\(album\.album_id, edition\)/);
+  assert.match(entry, /privateAlbum\.can_edit/);
+  assert.match(entry, /<AlbumView albumId=\{state\.albumId\}/);
+  assert.match(entry, /<PublicShareView token=\{token\} initialAlbum=\{state\.album\} authenticatedUser=\{user \?\? null\}/);
+});
+
+test("authenticated share visitors use an account-backed contributor session instead of the name form", () => {
+  const source = component("PublicShareView");
+  assert.match(source, /authenticatedUser\?\.displayName/);
+  assert.match(source, /startPublicContribution\(token, null, authenticatedUser\.displayName\)/);
+  assert.match(source, /if \(authenticatedUser && !contributionSession\) return/);
+});
+
 test("new album gallery picker permits multiple supported images without capture mode", () => {
   const source = component("UploadForm");
   assert.match(source, /type="file" accept=\{IMAGE_ACCEPT\} multiple onChange=\{handlePickerChange\}/);

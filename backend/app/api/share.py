@@ -14,7 +14,7 @@ from app.models.schemas import (
     AlbumPhotoUrlResponse,
 )
 from app.services.authorization import require_album_edit_settings
-from app.services.auth import require_authenticated_user
+from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
 from app.services.share_service import (
     add_reaction, create_share_link, deactivate_share_link,
@@ -330,8 +330,12 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
 
 
 @router.post("/public/shares/{token}/contribute")
-async def start_public_contribution(token: str, body: dict[str, str] | None = None) -> dict[str, str | None]:
-    """Create or restore an anonymous contributor session from an active share link."""
+async def start_public_contribution(
+    token: str,
+    body: dict[str, str] | None = None,
+    authenticated_user_id: str | None = Depends(optional_authenticated_user),
+) -> dict[str, str | None]:
+    """Create or restore a contributor session from an active share link."""
     _rate_limit(f"contribute:{token}", _GUEST_LIMIT)
     client = get_supabase_client()
     share = get_active_share(client, token)
@@ -340,7 +344,9 @@ async def start_public_contribution(token: str, body: dict[str, str] | None = No
         raise HTTPException(status_code=404, detail="Album was not found.")
     if album.get("collaboration_status") == "closed":
         raise HTTPException(status_code=403, detail="This album is no longer accepting contributions.")
-    guest_id = (body or {}).get("guest_id") or new_guest_id()
+    # A signed-in visitor must be restored through their account, never silently
+    # converted into a new anonymous contributor for the same invitation.
+    guest_id = None if authenticated_user_id else ((body or {}).get("guest_id") or new_guest_id())
     display_name = str((body or {}).get("display_name") or "").strip()
     if not display_name:
         raise HTTPException(status_code=400, detail="추억을 남긴 분의 이름을 입력해 주세요.")
@@ -351,13 +357,13 @@ async def start_public_contribution(token: str, body: dict[str, str] | None = No
         display_name=display_name,
         relationship=None,
         guest_id=guest_id,
-        user_id=None,
+        user_id=authenticated_user_id,
     )
     log_event(client, "public_contribution_started", album_id=str(album["id"]), share_link_id=str(share["id"]))
     return {
         "album_id": str(album["id"]),
         "contributor_id": str(contributor["id"]),
-        "guest_id": str(contributor.get("guest_id") or guest_id),
+        "guest_id": str(contributor.get("guest_id")) if contributor.get("guest_id") else None,
         "display_name": str(contributor.get("display_name") or display_name),
     }
 
