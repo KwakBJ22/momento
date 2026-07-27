@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.services.storage_service import StorageService, album_pdf_path, album_photo_paths, album_result_path
-from app.services.supabase import cleanup_album_files
+from app.services.supabase import cleanup_album_files, get_signed_urls_batch
 
 
 class FakeProvider:
@@ -27,8 +27,9 @@ class FakeProvider:
 
 class StorageServiceTests(TestCase):
     def test_provider_neutral_paths_use_a_single_album_root(self) -> None:
-        original, thumbnail = album_photo_paths("unused", "album", "photo", "jpg")
+        original, display, thumbnail = album_photo_paths("unused", "album", "photo", "jpg")
         self.assertEqual(original, "albums/album/photos/photo/original.jpg")
+        self.assertEqual(display, "albums/album/photos/photo/display.webp")
         self.assertEqual(thumbnail, "albums/album/photos/photo/thumbnail.webp")
         self.assertEqual(album_result_path("album", "asset"), "albums/album/results/asset.png")
         self.assertEqual(album_pdf_path("album", "asset"), "albums/album/pdf/asset.pdf")
@@ -38,15 +39,33 @@ class StorageServiceTests(TestCase):
         service = StorageService(provider, 300)
         self.assertEqual(service.create_signed_url("private", "albums/a/results/r.png"), "signed://private/albums/a/results/r.png?ttl=300")
 
+    def test_batch_signed_urls_deduplicates_identical_storage_paths(self) -> None:
+        service = MagicMock()
+        service.create_signed_urls.side_effect = lambda bucket, paths, _ttl: [
+            {"path": path, "signedURL": f"signed://{bucket}/{path}"} for path in paths
+        ]
+        assets = [
+            {"bucket": "private", "path": "albums/a/photos/p/display.webp"},
+            {"bucket": "private", "path": "albums/a/photos/p/display.webp"},
+        ]
+
+        with patch("app.services.supabase.StorageService.for_supabase", return_value=service):
+            urls = get_signed_urls_batch(MagicMock(), assets, 300)
+
+        service.create_signed_urls.assert_called_once_with(
+            "private", ["albums/a/photos/p/display.webp"], 300
+        )
+        self.assertEqual(urls[("private", "albums/a/photos/p/display.webp")], "signed://private/albums/a/photos/p/display.webp")
+
     def test_cleanup_album_files_is_dry_run_then_idempotently_deletes(self) -> None:
         client = MagicMock()
         settings = SimpleNamespace(supabase_private_storage_bucket="private", supabase_storage_bucket="legacy", signed_url_ttl_seconds=300)
         album = {"id": "album", "result_path": "albums/album/results/result.png", "result_bucket": "private", "pdf_cache": {"1": {"path": "albums/album/pdf/one.pdf"}}}
-        photos = [{"storage_bucket": "private", "storage_path": "albums/album/photos/p/original.jpg", "thumbnail_bucket": "private", "thumbnail_path": "albums/album/photos/p/thumbnail.webp"}]
+        photos = [{"storage_bucket": "private", "storage_path": "albums/album/photos/p/original.jpg", "display_bucket": "private", "display_path": "albums/album/photos/p/display.webp", "thumbnail_bucket": "private", "thumbnail_path": "albums/album/photos/p/thumbnail.webp"}]
         media = [{"original_path": "albums/album/media/m/original", "preview_path": None, "thumbnail_path": "albums/album/media/m/thumbnail.webp"}]
 
         plan = cleanup_album_files(client, settings, album, photo_rows=photos, media_rows=media, dry_run=True)
-        self.assertEqual(len(plan["private"]), 6)
+        self.assertEqual(len(plan["private"]), 7)
         cleanup_album_files(client, settings, album, photo_rows=photos, media_rows=media, dry_run=False)
         client.storage.from_.return_value.remove.assert_called()
 

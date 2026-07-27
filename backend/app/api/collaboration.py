@@ -603,7 +603,7 @@ async def contribute_workspace(
     photos = (
         client.table("album_photos")
         .select(
-            "id, sort_order, status, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, "
+            "id, sort_order, status, storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path, "
             "taken_at, orientation, width, height, uploaded_by_contributor_id, original_filename"
         )
         .eq("album_id", album_id)
@@ -628,6 +628,12 @@ async def contribute_workspace(
                 "mine": str(photo.get("uploaded_by_contributor_id") or "") == str(contributor["id"]),
                 "original_url": get_signed_url(
                     client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
+                ),
+                "display_url": get_signed_url(
+                    client,
+                    str(photo.get("display_bucket") or photo["storage_bucket"]),
+                    str(photo.get("display_path") or photo["storage_path"]),
+                    settings.signed_url_ttl_seconds,
                 ),
                 "thumbnail_url": get_signed_url(
                     client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
@@ -719,15 +725,20 @@ async def contribute_upload_photos(
             continue
         known_hashes.add(processed.checksum_sha256)
         photo_id = str(uuid.uuid4())
-        original_path, thumbnail_path = upload_album_photo_assets(
-            client, family_id, album_id, photo_id, processed, settings
-        )
+        asset_paths = upload_album_photo_assets(client, family_id, album_id, photo_id, processed, settings)
+        if len(asset_paths) == 2:
+            original_path, thumbnail_path = asset_paths
+            display_path = original_path
+        else:
+            original_path, display_path, thumbnail_path = asset_paths
         created_at = datetime.now(timezone.utc).isoformat()
         record = {
             "id": photo_id,
             "album_id": album_id,
             "storage_bucket": settings.supabase_private_storage_bucket,
             "storage_path": original_path,
+            "display_bucket": settings.supabase_private_storage_bucket,
+            "display_path": display_path,
             "thumbnail_bucket": settings.supabase_private_storage_bucket,
             "thumbnail_path": thumbnail_path,
             "original_filename": photo.filename,
@@ -769,6 +780,12 @@ async def contribute_upload_photos(
                     client,
                     str(record["storage_bucket"]),
                     str(record["storage_path"]),
+                    settings.signed_url_ttl_seconds,
+                ),
+                "display_url": get_signed_url(
+                    client,
+                    str(record["display_bucket"]),
+                    str(record["display_path"]),
                     settings.signed_url_ttl_seconds,
                 ),
                 "thumbnail_url": get_signed_url(

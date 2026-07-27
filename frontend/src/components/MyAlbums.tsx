@@ -89,7 +89,7 @@ export default function MyAlbums() {
         <div className="my-albums__empty"><p>아직 만든 앨범이 없어요.</p><a className="landing__cta my-albums__empty-cta" href="/">첫 앨범 만들기</a></div>
       ) : (
         <div className="my-albums__list">
-          {albums.map((album) => {
+          {albums.map((album, index) => {
             const imageUrl = myAlbumCardImageUrl(album);
             const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
             return (
@@ -101,7 +101,7 @@ export default function MyAlbums() {
                         className="my-albums__image"
                         src={imageUrl}
                         alt=""
-                        loading="lazy"
+                        loading={index < 2 ? "eager" : "lazy"}
                         decoding="async"
                         onError={() => setFailedImageUrls((current) => new Set(current).add(imageUrl))}
                       />

@@ -40,6 +40,7 @@ class ImageUploadServiceTests(TestCase):
         self.assertEqual(processed.height, 10)
         self.assertNotIn(b"Exif", processed.original_bytes)
         self.assertTrue(processed.thumbnail_bytes.startswith(b"RIFF"))
+        self.assertTrue(processed.display_bytes.startswith(b"RIFF"))
 
     def test_gif_original_is_preserved_and_thumbnail_is_webp(self) -> None:
         raw = io.BytesIO()
@@ -49,7 +50,17 @@ class ImageUploadServiceTests(TestCase):
 
         self.assertEqual(processed.original_bytes, raw.getvalue())
         self.assertEqual(processed.original_mime_type, "image/gif")
+        self.assertEqual(processed.display_bytes, raw.getvalue())
         self.assertTrue(processed.thumbnail_bytes.startswith(b"RIFF"))
+
+    def test_display_derivative_is_bounded_for_web_album_delivery(self) -> None:
+        raw = io.BytesIO()
+        Image.new("RGB", (2400, 1600), "purple").save(raw, format="JPEG")
+
+        processed = process_upload(upload_file("large.jpg", "image/jpeg", raw.getvalue()), settings())
+
+        with Image.open(io.BytesIO(processed.display_bytes)) as display:
+            self.assertLessEqual(max(display.size), 1280)
 
     def test_extension_and_real_content_mismatch_is_rejected(self) -> None:
         raw = io.BytesIO()
@@ -102,10 +113,10 @@ class ImageUploadServiceTests(TestCase):
     def test_asset_upload_failure_removes_any_partial_private_objects(self) -> None:
         client = MagicMock()
         bucket = client.storage.from_.return_value
-        bucket.upload.side_effect = [None, RuntimeError("thumbnail failed")]
+        bucket.upload.side_effect = [None, RuntimeError("display failed")]
         photo = ProcessedPhoto(b"original", "jpg", "image/jpeg", b"thumbnail", b"original", "checksum")
 
-        with self.assertRaisesRegex(RuntimeError, "thumbnail failed"):
+        with self.assertRaisesRegex(RuntimeError, "display failed"):
             upload_album_photo_assets(client, "family", "album", "photo", photo, SimpleNamespace(supabase_private_storage_bucket="private"))
 
         bucket.remove.assert_called_once()

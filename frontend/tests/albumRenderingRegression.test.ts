@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { buildPhotoCaptionSegments } from "../src/album-engine/components/photoCaptionSegments";
 import { myAlbumCardImageUrl } from "../src/lib/myAlbumCardImage";
+import { selectAlbumPhotoUrl } from "../src/lib/imageUrls";
 
 test("saved photo comments and participant memories survive renderer normalization", () => {
   const segments = buildPhotoCaptionSegments({
@@ -24,4 +25,22 @@ test("saved photo comments and participant memories survive renderer normalizati
 test("my album cards never use the generated PDF/result image as a fallback", () => {
   assert.equal(myAlbumCardImageUrl({ cover_image_url: null }), "");
   assert.equal(myAlbumCardImageUrl({ cover_image_url: " https://cdn.example/cover.jpg " }), "https://cdn.example/cover.jpg");
+});
+
+test("screen albums use a bounded display image while print keeps the original", () => {
+  const photo = {
+    original_url: "https://assets.example/original.jpg",
+    display_url: "https://assets.example/display.webp",
+    thumbnail_url: "https://assets.example/thumbnail.webp",
+  };
+  assert.equal(selectAlbumPhotoUrl(photo, "screen"), photo.display_url);
+  assert.equal(selectAlbumPhotoUrl(photo, "thumbnail"), photo.thumbnail_url);
+  assert.equal(selectAlbumPhotoUrl(photo, "print"), photo.original_url);
+});
+
+test("legacy photos without a display derivative remain visible through their original URL", () => {
+  assert.equal(
+    selectAlbumPhotoUrl({ original_url: "https://assets.example/legacy.jpg", thumbnail_url: "https://assets.example/legacy-thumb.webp" }, "screen"),
+    "https://assets.example/legacy.jpg",
+  );
 });

@@ -38,7 +38,7 @@ function contributionGuestId(): string {
 function mapSharePhotos(photos: AlbumPhoto[] | undefined): AlbumPhoto[] {
   return (photos ?? []).map((photo) => ({
     id: String(photo.id), sort_order: photo.sort_order, comment: photo.comment,
-    comments: photo.comments ?? undefined, author_label: null, original_url: photo.original_url,
+    comments: photo.comments ?? undefined, author_label: null, original_url: photo.original_url, display_url: photo.display_url,
     thumbnail_url: photo.thumbnail_url, width: photo.width, height: photo.height, taken_at: photo.taken_at,
     latitude: photo.latitude, longitude: photo.longitude, location_name: photo.location_name,
     location_source: photo.location_source, orientation: photo.orientation,

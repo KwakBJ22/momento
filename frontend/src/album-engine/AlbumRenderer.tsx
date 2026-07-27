@@ -8,6 +8,7 @@ import ChapterHeader from "./blocks/ChapterHeader";
 import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
+import { selectAlbumPhotoUrl } from "../lib/imageUrls";
 import "./AlbumRenderer.css";
 
 export type AlbumRendererMode = "screen" | "print";
@@ -35,9 +36,7 @@ export interface AlbumRendererProps {
 function toEnginePhoto(photo: AlbumPhoto, preferOriginal: boolean): EnginePhoto {
   const width = photo.width ?? null;
   const height = photo.height ?? null;
-  const src = preferOriginal
-    ? photo.original_url || photo.thumbnail_url
-    : photo.original_url || photo.thumbnail_url;
+  const src = selectAlbumPhotoUrl(photo, preferOriginal ? "print" : "screen");
   return {
     id: photo.id,
     src,
@@ -116,7 +115,11 @@ export default function AlbumRenderer({
       };
     }
     const base = photos.map((photo) => toEnginePhoto(photo, preferOriginal));
-    void Promise.all(base.map(resolveDimensions)).then((resolved) => {
+    // The web album can render safely with the metadata it has. Preloading every
+    // legacy image just to discover dimensions delayed the entire first screen.
+    // Print keeps the dimension pass so PDF layout retains its existing quality.
+    const prepared = preferOriginal ? Promise.all(base.map(resolveDimensions)) : Promise.resolve(base);
+    void prepared.then((resolved) => {
       if (!active) return;
       const built = buildAlbum(resolved, {
         title,
@@ -229,8 +232,8 @@ export default function AlbumRenderer({
   const heroSrc = useMemo(() => {
     if (!photos.length) return fallbackImageUrl ?? null;
     const hero = photos.find((photo) => photo.id === coverPhotoId) ?? photos.find((p) => p.original_url) ?? photos[0];
-    return hero.original_url || hero.thumbnail_url || fallbackImageUrl || null;
-  }, [photos, fallbackImageUrl, coverPhotoId]);
+    return selectAlbumPhotoUrl(hero, mode === "print" ? "print" : "screen") || fallbackImageUrl || null;
+  }, [photos, fallbackImageUrl, coverPhotoId, mode]);
 
   const livingPages = livingAppendPages.map((page, index) => {
     const pageIndex = (album?.elements.length ?? 0) + index;
@@ -252,7 +255,7 @@ export default function AlbumRenderer({
           <div className="album-living-page__photos">
             {page.photos.map((photo) => (
               <figure key={photo.id}>
-                <img src={photo.original_url || photo.thumbnail_url} alt="새롭게 더해진 추억" loading="lazy" />
+                <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading="lazy" decoding="async" />
                 {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
               </figure>
             ))}
@@ -308,6 +311,7 @@ export default function AlbumRenderer({
               albumKey={albumId || title || "album"}
               index={photoIndex + 1}
               frameClassName="album-screen-photo-card__frame"
+              priority={chapterIndex === 0 && photoIndex < 2}
             />
           ))}
         </div>
@@ -404,7 +408,7 @@ export default function AlbumRenderer({
                 <div className="album-living-page__photos">
                   {page.photos.map((photo) => (
                     <figure key={photo.id}>
-                      <img src={photo.original_url || photo.thumbnail_url} alt="새롭게 더해진 추억" loading="lazy" />
+                      <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading="lazy" decoding="async" />
                       {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
                     </figure>
                   ))}

@@ -27,6 +27,7 @@ from app.services.supabase import (
     get_result_signed_url,
     get_public_url,  # compatibility import for legacy integration mocks; never returned directly
     get_signed_url,
+    get_signed_urls_batch,
     get_supabase_client,
 )
 from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, unpack_edition_snapshot
@@ -205,6 +206,27 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
     for mem in shared_memories:
         all_memories_by_photo.setdefault(str(mem.get("photo_id") or ""), []).append(mem)
 
+    # Public album rendering can include the same photo in the album, a Living
+    # page and pending content. Create each signed URL once per response rather
+    # than signing it again for every representation.
+    photo_assets: list[dict[str, str]] = []
+    for photo in photo_records:
+        for bucket_key, path_key in (
+            ("storage_bucket", "storage_path"),
+            ("display_bucket", "display_path"),
+            ("thumbnail_bucket", "thumbnail_path"),
+        ):
+            bucket = str(photo.get(bucket_key) or photo.get("storage_bucket") or "")
+            path = str(photo.get(path_key) or (photo.get("storage_path") if path_key == "display_path" else "") or "")
+            if bucket and path:
+                photo_assets.append({"bucket": bucket, "path": path})
+    photo_signed_urls = get_signed_urls_batch(client, photo_assets, settings.signed_url_ttl_seconds)
+
+    def signed_photo_url(photo: dict, bucket_key: str, path_key: str, *, fallback_to_original: bool = False) -> str:
+        bucket = str(photo.get(bucket_key) or photo.get("storage_bucket") or "")
+        path = str(photo.get(path_key) or (photo.get("storage_path") if fallback_to_original else "") or "")
+        return photo_signed_urls.get((bucket, path)) or get_signed_url(client, bucket, path, settings.signed_url_ttl_seconds)
+
     def to_public_photo(photo: dict) -> AlbumPhotoUrlResponse:
         pid = str(photo["id"])
         mems = all_memories_by_photo.get(pid, [])
@@ -217,8 +239,9 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
                 for m in mems
                 if str(m.get("comment") or "").strip()
             ] or None,
-            original_url=get_signed_url(client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds),
-            thumbnail_url=get_signed_url(client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds),
+            original_url=signed_photo_url(photo, "storage_bucket", "storage_path"),
+            display_url=signed_photo_url(photo, "display_bucket", "display_path", fallback_to_original=True),
+            thumbnail_url=signed_photo_url(photo, "thumbnail_bucket", "thumbnail_path"),
             width=photo.get("width"), height=photo.get("height"), taken_at=photo.get("taken_at"),
             latitude=photo.get("latitude"), longitude=photo.get("longitude"),
             location_name=photo.get("location_name"), location_source=photo.get("location_source"),
@@ -264,12 +287,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
                 actor_name=author_name,
                 author_name=author_name,
                 created_at=photo.get("created_at"),
-                thumbnail_url=get_signed_url(
-                    client,
-                    str(photo["thumbnail_bucket"]),
-                    str(photo["thumbnail_path"]),
-                    settings.signed_url_ttl_seconds,
-                ),
+                thumbnail_url=signed_photo_url(photo, "thumbnail_bucket", "thumbnail_path"),
                 comment=str(photo.get("comment") or "").strip() or None,
             )
         )

@@ -109,6 +109,14 @@ def _thumbnail_bytes(image: Image.Image, max_side: int) -> bytes:
     return output.getvalue()
 
 
+def _display_bytes(image: Image.Image, max_side: int = 1280) -> bytes:
+    frame = ImageOps.exif_transpose(image).convert("RGB")
+    frame.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    output = io.BytesIO()
+    frame.save(output, format="WEBP", quality=80, method=6)
+    return output.getvalue()
+
+
 def parse_file_created_at(raw: Any) -> datetime | None:
     """Accept unix ms/seconds or ISO string from the client File.lastModified."""
     if raw is None or raw == "":
@@ -214,7 +222,9 @@ def process_upload(
             file_created_at=file_created_at,
         )
         thumbnail_bytes = _thumbnail_bytes(image, settings.thumbnail_max_side)
-        display_bytes = original_bytes if mime_type != "image/gif" else content
+        # The web album uses this bounded derivative. The original remains for
+        # PDF/print and is never fetched by normal screen rendering.
+        display_bytes = _display_bytes(image) if mime_type != "image/gif" else content
     finally:
         image.close()
 

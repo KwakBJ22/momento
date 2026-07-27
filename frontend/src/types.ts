@@ -195,6 +195,7 @@ export interface AlbumPhoto {
   comments?: Array<{ author?: string | null; text: string }> | null;
   author_label?: string | null;
   original_url: string;
+  display_url?: string | null;
   thumbnail_url: string;
   width?: number | null;
   height?: number | null;

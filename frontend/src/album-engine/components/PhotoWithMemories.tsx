@@ -15,6 +15,7 @@ interface PhotoWithMemoriesProps {
   index: number;
   isHero?: boolean;
   frameClassName?: string;
+  priority?: boolean;
 }
 
 /** 사진 + 바로 아래 코멘트/기억 (페이지 분할 시 함께 이동) */
@@ -25,6 +26,7 @@ export default function PhotoWithMemories({
   index,
   isHero = false,
   frameClassName = "",
+  priority = false,
 }: PhotoWithMemoriesProps) {
   const edit = usePhotoCommentEdit();
   void flowPlan;
@@ -42,6 +44,10 @@ export default function PhotoWithMemories({
         src={photo.src}
         alt={photo.alt || ""}
         className={frameClassName}
+        width={photo.width ?? undefined}
+        height={photo.height ?? undefined}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
       />
       {showCaption ? (
         <PhotoMemoryLines

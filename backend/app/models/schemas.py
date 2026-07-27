@@ -39,6 +39,7 @@ class AlbumPhotoUrlResponse(BaseModel):
     comment: str | None = None
     comments: list[AlbumPhotoCommentItem] | None = None
     original_url: str
+    display_url: str | None = None
     thumbnail_url: str
     width: int | None = None
     height: int | None = None

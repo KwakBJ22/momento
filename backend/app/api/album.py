@@ -423,10 +423,16 @@ async def upload_album(
             story = entry["story"]
             upload = entry["upload"]
             photo_id = str(uuid4())
-            original_path, thumbnail_path = upload_album_photo_assets(
-                client, family_id, album_id, photo_id, processed, settings
-            )
-            uploaded_private_paths.extend([original_path, thumbnail_path])
+            asset_paths = upload_album_photo_assets(client, family_id, album_id, photo_id, processed, settings)
+            # Accept the former original/thumbnail tuple during a rolling
+            # deployment; those rows still render through the original as their
+            # display fallback.
+            if len(asset_paths) == 2:
+                original_path, thumbnail_path = asset_paths
+                display_path = original_path
+            else:
+                original_path, display_path, thumbnail_path = asset_paths
+            uploaded_private_paths.extend([original_path, display_path, thumbnail_path])
             photo_paths.append(original_path)
             story["_path"] = original_path
             story["order"] = sort_order
@@ -439,6 +445,8 @@ async def upload_album(
                     "album_id": album_id,
                     "storage_bucket": settings.supabase_private_storage_bucket,
                     "storage_path": original_path,
+                    "display_bucket": settings.supabase_private_storage_bucket,
+                    "display_path": display_path,
                     "thumbnail_bucket": settings.supabase_private_storage_bucket,
                     "thumbnail_path": thumbnail_path,
                     "original_filename": upload.filename,
@@ -623,6 +631,9 @@ async def upload_album(
             original_url=get_signed_url(
                 client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),
+            display_url=get_signed_url(
+                client, str(photo.get("display_bucket") or photo["storage_bucket"]), str(photo.get("display_path") or photo["storage_path"]), settings.signed_url_ttl_seconds
+            ),
             thumbnail_url=get_signed_url(
                 client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
             ),
@@ -774,6 +785,12 @@ async def update_photo_location(
         comment=str(photo.get("comment") or "").strip() or None,
         original_url=get_signed_url(
             client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
+        ),
+        display_url=get_signed_url(
+            client,
+            str(photo.get("display_bucket") or photo["storage_bucket"]),
+            str(photo.get("display_path") or photo["storage_path"]),
+            settings.signed_url_ttl_seconds,
         ),
         thumbnail_url=get_signed_url(
             client, str(photo["thumbnail_bucket"]), str(photo["thumbnail_path"]), settings.signed_url_ttl_seconds
@@ -1016,11 +1033,15 @@ def _batch_signed_urls_for_photos(
         storage_bucket = str(photo.get("storage_bucket") or "")
         storage_path = str(photo.get("storage_path") or "")
         if storage_bucket and storage_path:
-            assets.append({"storage_bucket": storage_bucket, "storage_path": storage_path})
+            assets.append({"bucket": storage_bucket, "path": storage_path})
+        display_bucket = str(photo.get("display_bucket") or storage_bucket)
+        display_path = str(photo.get("display_path") or "")
+        if display_bucket and display_path:
+            assets.append({"bucket": display_bucket, "path": display_path})
         thumb_bucket = str(photo.get("thumbnail_bucket") or "")
         thumb_path = str(photo.get("thumbnail_path") or "")
         if thumb_bucket and thumb_path:
-            assets.append({"thumbnail_bucket": thumb_bucket, "thumbnail_path": thumb_path})
+            assets.append({"bucket": thumb_bucket, "path": thumb_path})
     if not assets:
         return {}
     return get_signed_urls_batch(client, assets, settings.signed_url_ttl_seconds)
@@ -1046,11 +1067,15 @@ def _album_photo_response(
     storage_path = str(photo["storage_path"])
     thumb_bucket = str(photo["thumbnail_bucket"])
     thumb_path = str(photo["thumbnail_path"])
+    display_bucket = str(photo.get("display_bucket") or storage_bucket)
+    display_path = str(photo.get("display_path") or storage_path)
     if signed_urls is not None:
         original_url = signed_urls.get((storage_bucket, storage_path), "")
+        display_url = signed_urls.get((display_bucket, display_path), original_url)
         thumbnail_url = signed_urls.get((thumb_bucket, thumb_path), "")
     else:
         original_url = get_signed_url(client, storage_bucket, storage_path, settings.signed_url_ttl_seconds)
+        display_url = get_signed_url(client, display_bucket, display_path, settings.signed_url_ttl_seconds)
         thumbnail_url = get_signed_url(client, thumb_bucket, thumb_path, settings.signed_url_ttl_seconds)
     return AlbumPhotoUrlResponse(
         id=UUID(photo_id),
@@ -1058,6 +1083,7 @@ def _album_photo_response(
         comment=photo_comment,
         comments=memory_comments,
         original_url=original_url,
+        display_url=display_url or original_url,
         thumbnail_url=thumbnail_url,
         width=photo.get("width"),
         height=photo.get("height"),

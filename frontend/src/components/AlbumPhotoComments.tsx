@@ -61,7 +61,7 @@ export default function AlbumPhotoComments({
           const source = photo.location_source ?? "unknown";
           return (
             <li key={photo.id} className="album-photo-comments__item">
-              <img src={photo.thumbnail_url} alt={`사진 ${index + 1}`} />
+              <img src={photo.thumbnail_url || photo.display_url || photo.original_url} alt={`사진 ${index + 1}`} loading="lazy" decoding="async" />
               {onSaveLocation ? (
                 <label className="album-photo-comments__place">
                   <span>

@@ -121,9 +121,9 @@ class StorageService:
         self.provider.copy(bucket, source, destination)
 
 
-def album_photo_paths(family_scope_id: str, album_id: str, photo_id: str, extension: str) -> tuple[str, str]:
+def album_photo_paths(family_scope_id: str, album_id: str, photo_id: str, extension: str) -> tuple[str, str, str]:
     base = f"albums/{album_id}/photos/{photo_id}"
-    return f"{base}/original.{extension}", f"{base}/thumbnail.webp"
+    return f"{base}/original.{extension}", f"{base}/display.webp", f"{base}/thumbnail.webp"
 
 
 def album_media_paths(album_id: str, media_id: str, has_preview: bool, has_thumbnail: bool) -> tuple[str, str | None, str | None]:

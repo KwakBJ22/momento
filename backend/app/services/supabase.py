@@ -42,17 +42,38 @@ def upload_album_photo_assets(
     photo_id: str,
     photo: ProcessedPhoto,
     settings: Settings,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     del family_id  # Album paths are provider-neutral and no longer family-shaped.
-    original_path, thumbnail_path = album_photo_paths("", album_id, photo_id, photo.original_extension)
+    original_path, display_path, thumbnail_path = album_photo_paths("", album_id, photo_id, photo.original_extension)
+    # GIF display files must retain animation. Reuse the original instead of
+    # writing GIF bytes to a misleading .webp path.
+    if photo.original_mime_type == "image/gif":
+        display_path = original_path
     storage = StorageService.for_supabase(client, settings)
     try:
-        storage.upload(settings.supabase_private_storage_bucket, original_path, photo.original_bytes, content_type=photo.original_mime_type)
-        storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, photo.thumbnail_bytes, content_type="image/webp")
+        storage.upload(
+            settings.supabase_private_storage_bucket,
+            original_path,
+            photo.original_bytes,
+            content_type=photo.original_mime_type,
+        )
+        if display_path != original_path:
+            storage.upload(
+                settings.supabase_private_storage_bucket,
+                display_path,
+                photo.display_bytes,
+                content_type="image/webp",
+            )
+        storage.upload(
+            settings.supabase_private_storage_bucket,
+            thumbnail_path,
+            photo.thumbnail_bytes,
+            content_type="image/webp",
+        )
     except Exception:
-        delete_storage_paths(client, settings.supabase_private_storage_bucket, [original_path, thumbnail_path])
+        delete_storage_paths(client, settings.supabase_private_storage_bucket, list({original_path, display_path, thumbnail_path}))
         raise
-    return original_path, thumbnail_path
+    return original_path, display_path, thumbnail_path
 
 
 def upload_album_media_assets(
@@ -315,7 +336,7 @@ def get_album_photo_records_by_ids(
     result = (
         client.table("album_photos")
         .select(
-            "id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, "
+            "id, storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path, sort_order, "
             "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height, "
             "uploaded_by_contributor_id, created_at"
         )
@@ -440,7 +461,7 @@ def list_album_photo_cover_records(client: Client, album_ids: list[str], photo_i
         return []
     result = (
         client.table("album_photos")
-        .select("album_id, id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path")
+        .select("album_id, id, storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path")
         .in_("album_id", album_ids)
         .in_("id", photo_ids)
         .is_("deleted_at", "null")
@@ -454,15 +475,19 @@ def get_signed_urls_batch(client: Client, assets: list[dict[str, Any]], expires_
     """Create cover URLs per storage bucket instead of one storage request per album."""
     paths_by_bucket: dict[str, list[str]] = {}
     for asset in assets:
-        bucket = str(asset.get("thumbnail_bucket") or asset.get("storage_bucket") or "").strip()
-        path = str(asset.get("thumbnail_path") or asset.get("storage_path") or "").strip()
+        bucket = str(asset.get("bucket") or asset.get("thumbnail_bucket") or asset.get("storage_bucket") or "").strip()
+        path = str(asset.get("path") or asset.get("thumbnail_path") or asset.get("storage_path") or "").strip()
         if bucket and path:
             paths_by_bucket.setdefault(bucket, []).append(path)
 
     signed_urls: dict[tuple[str, str], str] = {}
     for bucket, paths in paths_by_bucket.items():
         try:
-            rows = StorageService.for_supabase(client, get_settings()).create_signed_urls(bucket, paths, expires_in)
+            rows = StorageService.for_supabase(client, get_settings()).create_signed_urls(
+                bucket,
+                list(dict.fromkeys(paths)),
+                expires_in,
+            )
         except Exception:
             continue
         for row in rows or []:
@@ -543,7 +568,7 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
     result = (
         client.table("album_photos")
         .select(
-            "id, storage_bucket, storage_path, thumbnail_bucket, thumbnail_path, sort_order, "
+            "id, storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path, sort_order, "
             "comment, caption, taken_at, latitude, longitude, location_name, location_source, orientation, width, height, "
             "uploaded_by_contributor_id, created_at"
         )
@@ -696,6 +721,7 @@ def cleanup_album_files(
             by_bucket.setdefault(str(bucket), []).append(str(path))
     for row in photos:
         add(row.get("storage_bucket"), row.get("storage_path"))
+        add(row.get("display_bucket"), row.get("display_path"))
         add(row.get("thumbnail_bucket"), row.get("thumbnail_path"))
     for row in media:
         for key in ("original_path", "preview_path", "thumbnail_path"):

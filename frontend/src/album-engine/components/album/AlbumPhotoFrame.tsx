@@ -7,6 +7,10 @@ interface AlbumPhotoFrameProps {
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
+  width?: number;
+  height?: number;
+  loading?: "eager" | "lazy";
+  fetchPriority?: "high" | "auto";
 }
 
 /**
@@ -19,10 +23,23 @@ export default function AlbumPhotoFrame({
   className = "",
   style,
   children,
+  width,
+  height,
+  loading = "lazy",
+  fetchPriority = "auto",
 }: AlbumPhotoFrameProps) {
   return (
     <figure className={`album-photo-frame ${className}`.trim()} style={style}>
-      <img src={src} alt={alt} className="album-photo-frame__img" />
+      <img
+        src={src}
+        alt={alt}
+        className="album-photo-frame__img"
+        width={width}
+        height={height}
+        loading={loading}
+        decoding="async"
+        fetchPriority={fetchPriority}
+      />
       {children}
     </figure>
   );
