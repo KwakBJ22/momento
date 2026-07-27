@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
@@ -38,6 +38,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [photosReady, setPhotosReady] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deletingRef = useRef(false);
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [publicShareUrl, setPublicShareUrl] = useState("");
@@ -219,7 +220,9 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
 
 
   const handleDeleteAlbum = async () => {
+    if (deletingRef.current) return;
     if (!window.confirm("이 앨범을 삭제할까요? 삭제한 앨범은 복구할 수 없습니다.")) return;
+    deletingRef.current = true;
     setIsDeleting(true);
     try {
       await deleteAlbum(albumId);
@@ -227,6 +230,7 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "앨범을 삭제하지 못했어요.");
       setIsDeleting(false);
+      deletingRef.current = false;
     }
   };
 

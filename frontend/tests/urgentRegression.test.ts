@@ -16,6 +16,17 @@ test("bottom navigation uses executable button actions and guards disabled contr
   assert.doesNotMatch(source, /<a href=\{newAlbumHref\}/);
 });
 
+test("album deletion is guarded in the list and detail views", () => {
+  const myAlbums = component("MyAlbums");
+  const albumView = component("AlbumView");
+  assert.match(myAlbums, /const deletingIdsRef = useRef<Set<string>>\(new Set\(\)\)/);
+  assert.match(myAlbums, /if \(deletingIdsRef\.current\.has\(album\.album_id\)\) return/);
+  assert.match(myAlbums, /await deleteAlbum\(album\.album_id\);\s*setAlbums/);
+  assert.match(albumView, /const deletingRef = useRef\(false\)/);
+  assert.match(albumView, /if \(deletingRef\.current\) return/);
+  assert.match(albumView, /await deleteAlbum\(albumId\);\s*window\.location\.assign/);
+});
+
 test("album navigation opens the existing contribution experience instead of only scrolling a panel", () => {
   const source = component("AlbumView");
   assert.match(source, /target\.searchParams\.set\("contribute", action\)/);

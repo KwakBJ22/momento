@@ -590,6 +590,22 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
     return rows
 
 
+def get_album_photo_asset_records(client: Client, album_id: str) -> list[dict[str, Any]]:
+    """Return every stored photo path, including failed and legacy rows.
+
+    Album deletion must not rely on the screen-query filter (``ready`` and
+    ``deleted_at IS NULL``), otherwise failed uploads and soft-deleted photos
+    become permanent Storage orphans.
+    """
+    result = (
+        client.table("album_photos")
+        .select("storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path")
+        .eq("album_id", album_id)
+        .execute()
+    )
+    return result.data or []
+
+
 def update_album_photo_comment(
     client: Client, *, album_id: str, photo_id: str, comment: str | None
 ) -> dict[str, Any] | None:
@@ -618,6 +634,17 @@ def get_album_media_records(client: Client, album_id: str) -> list[dict[str, Any
         .eq("album_id", album_id)
         .is_("deleted_at", "null")
         .order("sort_order")
+        .execute()
+    )
+    return result.data or []
+
+
+def get_album_media_asset_records(client: Client, album_id: str) -> list[dict[str, Any]]:
+    """Return every media asset path for destructive cleanup only."""
+    result = (
+        client.table("album_media")
+        .select("original_path, preview_path, thumbnail_path")
+        .eq("album_id", album_id)
         .execute()
     )
     return result.data or []
@@ -673,6 +700,22 @@ def delete_album_record(client: Client, album_id: str) -> None:
     client.table("albums").delete().eq("id", album_id).execute()
 
 
+def delete_album_cascade(client: Client, album_id: str, actor_id: str) -> bool:
+    """Atomically remove one authorized album and its RESTRICT children.
+
+    Storage is intentionally outside this transaction; callers must collect
+    the asset paths first and clean them up after a successful DB deletion.
+    """
+    result = client.rpc(
+        "delete_album_cascade",
+        {"p_album_id": album_id, "p_actor_id": actor_id},
+    ).execute()
+    data = result.data
+    if isinstance(data, list):
+        return bool(data[0]) if data else False
+    return bool(data)
+
+
 def cleanup_incomplete_album(client: Client, album_id: str) -> None:
     """Compensate a failed create in child-first order before removing assets."""
     # These rows are created by authenticated album creation routes.
@@ -707,18 +750,24 @@ def cleanup_album_files(
     photo_rows: list[dict[str, Any]] | None = None,
     media_rows: list[dict[str, Any]] | None = None,
     dry_run: bool = True,
+    remove_album_prefix: bool = False,
 ) -> dict[str, list[str]]:
     """Collect, and optionally remove, every known asset for one album.
 
     This is idempotent: repeated calls only attempt the same paths, allowing an
     operations job to retry cleanup after a storage failure.
     """
-    photos = photo_rows if photo_rows is not None else get_album_photo_records(client, str(album["id"]))
-    media = media_rows if media_rows is not None else get_album_media_records(client, str(album["id"]))
+    photos = photo_rows if photo_rows is not None else get_album_photo_asset_records(client, str(album["id"]))
+    media = media_rows if media_rows is not None else get_album_media_asset_records(client, str(album["id"]))
     by_bucket: dict[str, list[str]] = {}
     def add(bucket: str | None, path: str | None) -> None:
-        if bucket and path:
-            by_bucket.setdefault(str(bucket), []).append(str(path))
+        normalized_bucket = str(bucket or "").strip()
+        normalized_path = str(path or "").strip().lstrip("/")
+        # Database rows contain object paths, never signed/public URLs.  Do
+        # not accidentally feed a URL or query string to Storage.remove.
+        if not normalized_bucket or not normalized_path or "://" in normalized_path or "?" in normalized_path:
+            return
+        by_bucket.setdefault(normalized_bucket, []).append(normalized_path)
     for row in photos:
         add(row.get("storage_bucket"), row.get("storage_path"))
         add(row.get("display_bucket"), row.get("display_path"))
@@ -734,9 +783,48 @@ def cleanup_album_files(
     for bucket, paths in by_bucket.items():
         by_bucket[bucket] = sorted(set(paths))
     if not dry_run:
-        storage = StorageService.for_supabase(client, settings)
+        try:
+            storage = StorageService.for_supabase(client, settings)
+        except Exception as exc:
+            logger.warning(
+                "album_asset_cleanup_unavailable bucket_count=%s error_type=%s",
+                len(by_bucket),
+                type(exc).__name__,
+            )
+            return by_bucket
         for bucket, paths in by_bucket.items():
-            storage.delete(bucket, paths)
+            try:
+                # Supabase remove is idempotent for already-missing objects.
+                # A bucket outage must not undo a committed album deletion.
+                storage.delete(bucket, paths)
+            except Exception as exc:
+                logger.warning(
+                    "album_asset_cleanup_failed bucket=%s path_count=%s error_type=%s",
+                    bucket,
+                    len(paths),
+                    type(exc).__name__,
+                )
+        if remove_album_prefix:
+            # DB paths cover current assets.  A deleted album also needs any
+            # abandoned temp uploads and superseded generated files below its
+            # own canonical root, without ever scanning another album.
+            prefix = f"albums/{album['id']}"
+            for bucket in sorted(set(by_bucket) | {getattr(settings, "supabase_private_storage_bucket", "momento-private")}):
+                try:
+                    leftovers = [
+                        str(item["path"])
+                        for item in storage.list_recursive(bucket, prefix)
+                        if item.get("path")
+                    ]
+                    if leftovers:
+                        storage.delete(bucket, sorted(set(leftovers)))
+                except Exception as exc:
+                    logger.warning(
+                        "album_asset_prefix_cleanup_failed bucket=%s album_id=%s error_type=%s",
+                        bucket,
+                        str(album["id"])[:6],
+                        type(exc).__name__,
+                    )
     return by_bucket
 
 

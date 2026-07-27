@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
 import { deleteAlbum, getMyAlbums, type MyAlbum } from "../lib/api";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
@@ -36,6 +36,7 @@ export default function MyAlbums() {
   const [error, setError] = useState<string | null>(null);
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deletingIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -54,7 +55,9 @@ export default function MyAlbums() {
   }, []);
 
   const handleDelete = async (album: MyAlbum) => {
+    if (deletingIdsRef.current.has(album.album_id)) return;
     if (!window.confirm(`"${album.title}" 앨범을 삭제할까요?`)) return;
+    deletingIdsRef.current.add(album.album_id);
     setDeletingId(album.album_id);
     try {
       await deleteAlbum(album.album_id);
@@ -62,6 +65,7 @@ export default function MyAlbums() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "앨범을 삭제하지 못했어요.");
     } finally {
+      deletingIdsRef.current.delete(album.album_id);
       setDeletingId(null);
     }
   };

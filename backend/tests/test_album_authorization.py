@@ -46,6 +46,8 @@ class AlbumAuthorizationTests(TestCase):
         self.get_public_url = patch("app.api.album.get_public_url", return_value="https://cdn.example/album.png")
         self.get_album_media_records = patch("app.api.album.get_album_media_records", return_value=[])
         self.get_album_photo_records = patch("app.api.album.get_album_photo_records", return_value=[])
+        self.get_album_photo_asset_records = patch("app.api.album.get_album_photo_asset_records", return_value=[])
+        self.get_album_media_asset_records = patch("app.api.album.get_album_media_asset_records", return_value=[])
         self.get_album_access = patch(
             "app.api.album.get_album_access",
             side_effect=lambda client, album, user_id: resolve_album_access(album, user_id, None, None),
@@ -55,12 +57,16 @@ class AlbumAuthorizationTests(TestCase):
         self.get_public_url.start()
         self.get_album_media_records.start()
         self.get_album_photo_records.start()
+        self.get_album_photo_asset_records.start()
+        self.get_album_media_asset_records.start()
         self.get_album_access.start()
         self.addCleanup(self.get_settings.stop)
         self.addCleanup(self.get_supabase_client.stop)
         self.addCleanup(self.get_public_url.stop)
         self.addCleanup(self.get_album_media_records.stop)
         self.addCleanup(self.get_album_photo_records.stop)
+        self.addCleanup(self.get_album_photo_asset_records.stop)
+        self.addCleanup(self.get_album_media_asset_records.stop)
         self.addCleanup(self.get_album_access.stop)
 
     def tearDown(self) -> None:
@@ -152,12 +158,26 @@ class AlbumAuthorizationTests(TestCase):
     def test_owner_can_delete_album(self) -> None:
         self.as_user(OWNER_ID)
         with patch("app.api.album.get_album_record", return_value=album_record()), patch(
-            "app.api.album.delete_album_record"
-        ) as delete_album_record:
+            "app.api.album.delete_album_cascade", return_value=True
+        ) as delete_album_cascade, patch("app.api.album.cleanup_album_files", return_value={}) as cleanup:
             response = self.client.delete(f"/api/albums/{ALBUM_ID}")
 
         self.assertEqual(response.status_code, 204)
-        delete_album_record.assert_called_once()
+        delete_album_cascade.assert_called_once_with(self.supabase_client, ALBUM_ID, OWNER_ID)
+        self.assertEqual(cleanup.call_count, 2)
+        self.assertTrue(cleanup.call_args_list[0].kwargs["dry_run"])
+        self.assertFalse(cleanup.call_args_list[1].kwargs["dry_run"])
+
+    def test_delete_does_not_remove_storage_when_atomic_db_delete_fails(self) -> None:
+        self.as_user(OWNER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.delete_album_cascade", return_value=False
+        ), patch("app.api.album.cleanup_album_files", return_value={}) as cleanup:
+            response = self.client.delete(f"/api/albums/{ALBUM_ID}")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(cleanup.call_count, 1)
+        self.assertTrue(cleanup.call_args.kwargs["dry_run"])
 
     def test_owner_can_change_cover_photo_without_rebuilding_album(self) -> None:
         self.as_user(OWNER_ID)

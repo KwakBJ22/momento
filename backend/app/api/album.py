@@ -50,6 +50,7 @@ from app.services.supabase import (
     create_album_id,
     cleanup_incomplete_album,
     cleanup_album_files,
+    delete_album_cascade,
     delete_album_record,
     delete_album_media_record,
     delete_storage_paths,
@@ -62,8 +63,10 @@ from app.services.supabase import (
     get_album_photo_records_by_ids,
     get_album_story_inputs,
     get_album_photo_records,
+    get_album_photo_asset_records,
     get_album_media_record,
     get_album_media_records,
+    get_album_media_asset_records,
     get_result_signed_url,
     get_public_url,  # compatibility import for legacy integration mocks; not used for assets
     get_signed_urls_batch,
@@ -99,6 +102,7 @@ from app.services.authorization import (
     require_album_owner_story,
     require_album_read,
 )
+from app.services.operations import get_operation_id
 from app.services.membership import (
     get_album_access,
     get_family_membership,
@@ -1702,13 +1706,39 @@ async def delete_album(
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, record, authenticated_user_id)
     require_album_delete(access)
+    if not access.is_album_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this album.")
 
-    # Delete the database record first. If that fails, assets remain intact;
-    # if storage cleanup fails, cleanup_album_files can be retried idempotently.
-    cleanup_plan = cleanup_album_files(client, settings, record, dry_run=True)
-    delete_album_record(client, album_id)
-    try:
-        cleanup_album_files(client, settings, record, dry_run=False)
-    except Exception:
-        logger.exception("album_asset_cleanup_failed album_id=%s plan=%s", album_id, cleanup_plan)
+    # Snapshot every object path before the DB transaction.  The delete RPC
+    # removes photo/media rows, so querying after it would leak all assets.
+    photo_assets = get_album_photo_asset_records(client, album_id)
+    media_assets = get_album_media_asset_records(client, album_id)
+    cleanup_plan = cleanup_album_files(
+        client,
+        settings,
+        record,
+        photo_rows=photo_assets,
+        media_rows=media_assets,
+        dry_run=True,
+    )
+    logger.info(
+        "album_delete_db_start album_id=%s operation_id=%s storage_paths=%s",
+        album_id[:6],
+        get_operation_id(),
+        sum(len(paths) for paths in cleanup_plan.values()),
+    )
+    if not delete_album_cascade(client, album_id, authenticated_user_id):
+        # The album vanished or its owner changed between the initial lookup
+        # and the transaction.  Do not delete any Storage objects.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Album not found.")
+    cleanup_album_files(
+        client,
+        settings,
+        record,
+        photo_rows=photo_assets,
+        media_rows=media_assets,
+        dry_run=False,
+        remove_album_prefix=True,
+    )
+    logger.info("album_delete_completed album_id=%s operation_id=%s", album_id[:6], get_operation_id())
     return Response(status_code=status.HTTP_204_NO_CONTENT)

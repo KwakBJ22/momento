@@ -69,6 +69,74 @@ class StorageServiceTests(TestCase):
         cleanup_album_files(client, settings, album, photo_rows=photos, media_rows=media, dry_run=False)
         client.storage.from_.return_value.remove.assert_called()
 
+    def test_cleanup_skips_null_urls_and_deduplicates_gif_display_path(self) -> None:
+        client = MagicMock()
+        settings = SimpleNamespace(supabase_private_storage_bucket="private", supabase_storage_bucket="legacy", signed_url_ttl_seconds=300)
+        album = {"id": "album"}
+        photos = [{
+            "storage_bucket": "private",
+            "storage_path": "albums/album/photos/gif/original.gif",
+            "display_bucket": "private",
+            "display_path": "albums/album/photos/gif/original.gif",
+            "thumbnail_bucket": "private",
+            "thumbnail_path": "",
+        }, {
+            "storage_bucket": "private",
+            "storage_path": "https://storage.example/should-not-delete?token=secret",
+            "display_bucket": None,
+            "display_path": None,
+            "thumbnail_bucket": "private",
+            "thumbnail_path": None,
+        }]
+
+        plan = cleanup_album_files(client, settings, album, photo_rows=photos, media_rows=[], dry_run=True)
+
+        self.assertEqual(plan, {"private": ["albums/album/photos/gif/original.gif"]})
+
+    def test_cleanup_storage_failure_does_not_abort_other_buckets(self) -> None:
+        class FailingProvider(FakeProvider):
+            def delete(self, bucket, paths):
+                super().delete(bucket, paths)
+                if bucket == "first":
+                    raise RuntimeError("storage unavailable")
+
+        provider = FailingProvider()
+        service = StorageService(provider, 300)
+        client = MagicMock()
+        settings = SimpleNamespace(supabase_private_storage_bucket="private", supabase_storage_bucket="legacy", signed_url_ttl_seconds=300)
+        photos = [
+            {"storage_bucket": "first", "storage_path": "albums/a/one.jpg", "display_bucket": None, "display_path": None, "thumbnail_bucket": None, "thumbnail_path": None},
+            {"storage_bucket": "second", "storage_path": "albums/a/two.jpg", "display_bucket": None, "display_path": None, "thumbnail_bucket": None, "thumbnail_path": None},
+        ]
+
+        with patch("app.services.supabase.StorageService.for_supabase", return_value=service):
+            cleanup_album_files(client, settings, {"id": "album"}, photo_rows=photos, media_rows=[], dry_run=False)
+
+        self.assertEqual([bucket for bucket, _paths in provider.deletes], ["first", "second"])
+
+    def test_deleted_album_prefix_cleanup_removes_temp_and_superseded_assets(self) -> None:
+        class PrefixProvider(FakeProvider):
+            def list(self, bucket, prefix):
+                if bucket == "private" and prefix == "albums/album":
+                    return [
+                        {"name": "temp", "id": None},
+                        {"name": "old-result.png", "id": "old-result"},
+                    ]
+                if bucket == "private" and prefix == "albums/album/temp":
+                    return [{"name": "upload.jpg", "id": "temp-file"}]
+                return []
+
+        provider = PrefixProvider()
+        service = StorageService(provider, 300)
+        settings = SimpleNamespace(supabase_private_storage_bucket="private", supabase_storage_bucket="legacy", signed_url_ttl_seconds=300)
+        with patch("app.services.supabase.StorageService.for_supabase", return_value=service):
+            cleanup_album_files(MagicMock(), settings, {"id": "album"}, photo_rows=[], media_rows=[], dry_run=False, remove_album_prefix=True)
+
+        self.assertIn(
+            ("private", ["albums/album/old-result.png", "albums/album/temp/upload.jpg"]),
+            provider.deletes,
+        )
+
     def test_recursive_listing_and_exists_do_not_treat_folders_as_files(self) -> None:
         class TreeProvider(FakeProvider):
             def list(self, bucket, prefix):
