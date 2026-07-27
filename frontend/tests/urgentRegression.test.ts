@@ -39,6 +39,8 @@ test("the share entry router decides owner versus public participation before re
   assert.match(entry, /privateAlbum\.can_edit/);
   assert.match(entry, /<AlbumView albumId=\{state\.albumId\}/);
   assert.match(entry, /<PublicShareView token=\{token\} initialAlbum=\{state\.album\} authenticatedUser=\{user \?\? null\}/);
+  assert.match(entry, /if \(!authReady\)/);
+  assert.match(entry, /authTimedOut/);
 });
 
 test("authenticated share visitors use an account-backed contributor session instead of the name form", () => {
@@ -46,6 +48,38 @@ test("authenticated share visitors use an account-backed contributor session ins
   assert.match(source, /authenticatedUser\?\.displayName/);
   assert.match(source, /startPublicContribution\(token, null, authenticatedUser\.displayName\)/);
   assert.match(source, /if \(authenticatedUser && !contributionSession\) return/);
+});
+
+test("app authentication bootstrap completes before the share entry router can select Guest", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /const \[authReady, setAuthReady\] = useState\(false\)/);
+  assert.match(app, /initializeAuth\(\)\.then/);
+  assert.match(app, /event === "INITIAL_SESSION" && !initialSessionChecked/);
+  assert.match(app, /<ShareEntryRouter token=\{shareToken\} user=\{user\} authReady=\{authReady\}/);
+  assert.match(app, /if \(shareToken\)\s*\{/);
+  const entry = component("ShareEntryRouter");
+  assert.match(entry, /state\.kind === "owner" && !user/);
+});
+
+test("authenticated requests refresh a rejected bearer once instead of falling back to Guest", () => {
+  const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
+  assert.match(api, /response\.status !== 401/);
+  assert.match(api, /refreshSession\(\)/);
+  assert.match(api, /authDebug\("API_401"/);
+  assert.match(api, /API_RETRY_SUCCESS/);
+  assert.match(api, /API_RETRY_FAILED/);
+});
+
+test("share entry and callback keep authentication diagnostics scoped to safe route metadata", () => {
+  const entry = component("ShareEntryRouter");
+  const callback = component("AuthCallback");
+  const authService = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
+  assert.match(entry, /logOnce\("ROUTE_OWNER"/);
+  assert.match(entry, /logOnce\("ROUTE_ACCOUNT_PARTICIPANT"/);
+  assert.match(entry, /logOnce\("ROUTE_GUEST"/);
+  assert.match(entry, /logOnce\("AUTH_TIMEOUT"/);
+  assert.match(authService, /authDebug\("SESSION_CONFIRMED"/);
+  assert.match(callback, /authDebug\("CALLBACK_SUCCESS"/);
 });
 
 test("new album gallery picker permits multiple supported images without capture mode", () => {

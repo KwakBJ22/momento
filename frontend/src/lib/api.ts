@@ -1,5 +1,6 @@
 import type { AlbumResult } from "../types";
-import { getAccessToken, getSession } from "../services/authService";
+import { getAccessToken, getSession, refreshSession } from "../services/authService";
+import { authDebug } from "./authDebug";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -41,10 +42,19 @@ export function resetInFlightRequestsForTest(): void {
 }
 
 export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = await getAccessToken();
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-  return fetch(`${API_BASE}${path}`, { ...init, headers });
+  const request = async (token: string) => {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    return fetch(`${API_BASE}${path}`, { ...init, headers });
+  };
+  const response = await request(await getAccessToken());
+  if (response.status !== 401) return response;
+  authDebug("API_401", { source: "authenticatedFetch", endpoint: path });
+  const refreshed = await refreshSession();
+  if (!refreshed) return response;
+  const retried = await request(refreshed.accessToken);
+  authDebug(retried.ok ? "API_RETRY_SUCCESS" : "API_RETRY_FAILED", { source: "authenticatedFetch", endpoint: path });
+  return retried;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -501,11 +511,21 @@ function collabHeaders(session: CollabSession | null): HeadersInit {
 
 /** Keeps contributor identity and the signed-in identity together for collaboration calls. */
 async function collaborationFetch(path: string, init: RequestInit, session: CollabSession | null): Promise<Response> {
-  const headers = new Headers(init.headers);
-  for (const [key, value] of Object.entries(collabHeaders(session))) headers.set(key, value);
+  const request = async (accessToken?: string) => {
+    const headers = new Headers(init.headers);
+    for (const [key, value] of Object.entries(collabHeaders(session))) headers.set(key, value);
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+    return fetch(`${API_BASE}${path}`, { ...init, headers });
+  };
   const authSession = await getSession();
-  if (authSession?.accessToken) headers.set("Authorization", `Bearer ${authSession.accessToken}`);
-  return fetch(`${API_BASE}${path}`, { ...init, headers });
+  const response = await request(authSession?.accessToken);
+  if (response.status !== 401 || !authSession) return response;
+  authDebug("API_401", { source: "collaborationFetch", endpoint: path });
+  const refreshed = await refreshSession();
+  if (!refreshed) return response;
+  const retried = await request(refreshed.accessToken);
+  authDebug(retried.ok ? "API_RETRY_SUCCESS" : "API_RETRY_FAILED", { source: "collaborationFetch", endpoint: path });
+  return retried;
 }
 
 export async function getJoinPreview(token: string) {

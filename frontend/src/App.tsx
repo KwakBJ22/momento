@@ -16,7 +16,8 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { authenticatedFetch, getAlbum, getAlbumPhotos } from "./lib/api";
-import { getCurrentUser, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
+import { authDebug } from "./lib/authDebug";
+import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
 
@@ -44,6 +45,8 @@ function restorePendingCategory(): AlbumCategory | null {
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
@@ -61,8 +64,27 @@ function App() {
   const adminRoute = parseAdminRoute(window.location.pathname);
 
   useEffect(() => {
-    void getCurrentUser().then(setUser).catch(() => setUser(null));
-    return onAuthStateChange((nextUser) => setUser(nextUser));
+    let active = true;
+    let initialSessionChecked = false;
+    const unsubscribe = onAuthStateChange((nextUser, event) => {
+      if (!active) return;
+      // getSession is the single authoritative initial restore. Supabase also
+      // emits INITIAL_SESSION; ignoring that duplicate avoids a transient
+      // null user being treated as a guest before storage restoration ends.
+      if (event === "INITIAL_SESSION" && !initialSessionChecked) return;
+      setUser(nextUser);
+      setAuthError(null);
+      setAuthReady(true);
+      authDebug("AUTH_READY", { source: event, authReady: true, hasSession: Boolean(nextUser), hasUser: Boolean(nextUser) });
+    });
+    void initializeAuth().then((state) => {
+      if (!active) return;
+      initialSessionChecked = true;
+      setUser(state.user);
+      setAuthError(state.error);
+      setAuthReady(true);
+    });
+    return () => { active = false; unsubscribe(); };
   }, []);
 
   useEffect(() => {
@@ -84,14 +106,25 @@ function App() {
   }, [user?.id]);
 
   const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(null); };
-  const logout = async () => { await signOut(); setUser(null); resetToStart(); window.location.replace("/"); };
+  const logout = async () => {
+    await signOut();
+    setUser(null);
+    setAccountMenuOpen(false);
+    // A public share link stays open after logout and re-enters Guest mode.
+    if (shareToken) {
+      authDebug("ROUTE_GUEST", { source: "logout", routeRole: "guest", reason: "sign_out" });
+      return;
+    }
+    resetToStart();
+    window.location.replace("/");
+  };
   const openLoginForCategory = (selected: AlbumCategory) => {
     try { sessionStorage.setItem(PENDING_CATEGORY_KEY, selected); } catch { /* category can be selected again */ }
     setShowLogin(true);
   };
   const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || result);
   const requiresLogin = (content: ReactNode) => {
-    if (user === undefined) return <p className="auth-panel__notice">로그인 상태를 확인하고 있어요.</p>;
+    if (!authReady || user === undefined) return <p className="auth-panel__notice">잠시만 기다려 주세요.</p>;
     if (!isAuthenticationConfigured || !user) return <AuthPanel returnTo={`${window.location.pathname}${window.location.search}`} />;
     if (bootstrapError) return <p className="auth-panel__notice">{bootstrapError}</p>;
     return content;
@@ -104,7 +137,7 @@ function App() {
       {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user && shareToken ? <div className="app__account"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button></div> : null}</div> : user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={() => setShowLogin(true)}>로그인</button> : null}</header> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<AdminConsole route={adminRoute} />)
-          : shareToken ? <ShareEntryRouter token={shareToken} user={user} />
+          : shareToken ? <ShareEntryRouter token={shareToken} user={user} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)

@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, Provider, Session, User } from "@supabase/supabase-js";
 import { isSupabaseAuthConfigured, supabase } from "../lib/supabase";
+import { authDebug } from "../lib/authDebug";
 
 export type AuthProvider = "kakao" | "naver";
 
@@ -13,6 +14,12 @@ export interface AppUser {
 }
 
 export interface AppSession { user: AppUser; accessToken: string; }
+
+export interface AuthInitialization {
+  session: AppSession | null;
+  user: AppUser | null;
+  error: string | null;
+}
 
 /** Provider-neutral availability check for UI routes. */
 export const isAuthenticationConfigured = isSupabaseAuthConfigured;
@@ -80,32 +87,72 @@ export function consumeReturnTo(): string {
   try {
     const value = sessionStorage.getItem(RETURN_TO_KEY);
     sessionStorage.removeItem(RETURN_TO_KEY);
-    return safeReturnTo(value);
-  } catch { return "/"; }
+    return safeReturnTo(value || new URLSearchParams(window.location.search).get("returnTo"));
+  } catch {
+    return safeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
+  }
 }
 
 export async function signIn(provider: AuthProvider, returnTo?: string): Promise<void> {
   if (!supabase || !isSupabaseAuthConfigured) throw new Error("로그인 설정이 필요합니다.");
   persistReturnTo(returnTo);
   const oauthProvider = oauthProviderFor(provider);
+  const callbackReturnTo = safeReturnTo(returnTo || `${window.location.pathname}${window.location.search}${window.location.hash}`);
   const { error } = await supabase.auth.signInWithOAuth({
     provider: oauthProvider,
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: { redirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(callbackReturnTo)}` },
   });
   if (error) throw error;
 }
 
 export async function signOut(): Promise<void> {
   if (!supabase) return;
+  authDebug("SIGN_OUT_START", { source: "authService" });
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  authDebug("SIGN_OUT_SUCCESS", { source: "authService" });
+  authDebug("SESSION_CLEARED", { source: "authService", hasSession: false });
 }
 
-export async function getSession(): Promise<AppSession | null> {
+export async function getSession(source?: string): Promise<AppSession | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  return toAppSession(data.session);
+  const session = toAppSession(data.session);
+  if (source) authDebug(session ? "SESSION_FOUND" : "SESSION_EMPTY", { source, hasSession: Boolean(session), hasUser: Boolean(session?.user) });
+  return session;
+}
+
+/** Complete the initial restore before a route decides that a visitor is a guest. */
+export async function initializeAuth(): Promise<AuthInitialization> {
+  authDebug("INIT_START", { source: "getSession", authReady: false });
+  authDebug("SESSION_RESTORE_START", { source: "getSession" });
+  try {
+    const session = await getSession("getSession");
+    authDebug("AUTH_READY", { source: "getSession", authReady: true, hasSession: Boolean(session), hasUser: Boolean(session?.user) });
+    return { session, user: session?.user ?? null, error: null };
+  } catch (cause) {
+    authDebug("AUTH_READY", { source: "getSession", authReady: true, hasSession: false, hasUser: false, errorName: cause instanceof Error ? cause.name : "Error" });
+    return {
+      session: null,
+      user: null,
+      error: cause instanceof Error ? cause.message : "로그인 상태를 복원하지 못했어요.",
+    };
+  }
+}
+
+/** Retry an expired bearer once without changing a public route into a guest route. */
+export async function refreshSession(): Promise<AppSession | null> {
+  if (!supabase) return null;
+  authDebug("TOKEN_REFRESH_START", { source: "refreshSession" });
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) {
+    authDebug("TOKEN_REFRESH_FAILED", { source: "refreshSession", errorName: error.name });
+    return null;
+  }
+  const session = toAppSession(data.session);
+  authDebug(session ? "TOKEN_REFRESH_SUCCESS" : "TOKEN_REFRESH_FAILED", { source: "refreshSession", hasSession: Boolean(session) });
+  return session;
 }
 
 export async function getCurrentUser(): Promise<AppUser | null> { return (await getSession())?.user ?? null; }
@@ -118,18 +165,48 @@ export async function getAccessToken(): Promise<string> {
 
 export function onAuthStateChange(listener: (user: AppUser | null, event: AuthChangeEvent) => void): () => void {
   if (!supabase) return () => undefined;
-  const { data } = supabase.auth.onAuthStateChange((event, session) => listener(toAppSession(session)?.user ?? null, event));
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const appSession = toAppSession(session);
+    authDebug(event === "INITIAL_SESSION" ? "INITIAL_SESSION" : "AUTH_STATE_CHANGE", {
+      source: event,
+      event,
+      hasSession: Boolean(appSession),
+      hasUser: Boolean(appSession?.user),
+    });
+    listener(appSession?.user ?? null, event);
+  });
   return () => data.subscription.unsubscribe();
 }
 
 export async function completeOAuthCallback(): Promise<void> {
   if (!supabase) throw new Error("로그인 설정이 필요합니다.");
+  authDebug("CALLBACK_START", { source: "callback" });
   const code = new URLSearchParams(window.location.search).get("code");
-  if (!code) return;
+  if (!code) {
+    const session = await getSession();
+    if (!session) throw new Error("로그인 세션을 찾지 못했어요.");
+    authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
+    return;
+  }
   try {
     if (sessionStorage.getItem(CALLBACK_CODE_KEY) === code) return;
     sessionStorage.setItem(CALLBACK_CODE_KEY, code);
   } catch { /* duplicate guard is best effort only */ }
+  authDebug("CODE_EXCHANGE_START", { source: "callback" });
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) throw error;
+  // detectSessionInUrl may finish the same exchange first in some WebViews.
+  // In that case only accept the error when there still is no persisted session.
+  if (error) {
+    const existing = await getSession();
+    if (!existing) {
+      authDebug("CALLBACK_FAILED", { source: "callback", errorName: error.name });
+      throw error;
+    }
+    authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
+    return;
+  }
+  // Do not navigate away until Supabase has written and re-read the session.
+  const session = await getSession();
+  if (!session) throw new Error("로그인 세션을 저장하지 못했어요.");
+  authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
 }

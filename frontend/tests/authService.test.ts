@@ -4,6 +4,7 @@ import test from "node:test";
 import type { User } from "@supabase/supabase-js";
 
 import { oauthProviderFor, toAppUser } from "../src/services/authService";
+import { createAuthDebugLogger } from "../src/lib/authDebug";
 
 function supabaseUser(overrides: Partial<User>): User {
   return {
@@ -57,4 +58,41 @@ test("Kakao OAuth uses Supabase provider defaults without forcing email consent 
 
   assert.equal(/account_email|scope\s*:|scopes\s*:/.test(oauthCall), false);
   assert.match(oauthCall, /redirectTo/);
+});
+
+test("Supabase auth persists and restores sessions through a storage-safe client configuration", () => {
+  const source = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
+  assert.match(source, /persistSession:\s*true/);
+  assert.match(source, /autoRefreshToken:\s*true/);
+  assert.match(source, /detectSessionInUrl:\s*true/);
+  assert.match(source, /storage:\s*safeAuthStorage/);
+  assert.match(source, /JSON\.parse\(value\)/);
+});
+
+test("OAuth callback waits for a persisted session before restoring the original internal path", () => {
+  const source = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
+  const callback = source.slice(source.indexOf("export async function completeOAuthCallback"));
+  assert.match(callback, /await supabase\.auth\.exchangeCodeForSession\(code\)/);
+  assert.match(callback, /const session = await getSession\(\)/);
+  assert.match(callback, /if \(!existing\) \{/);
+  assert.match(source, /returnTo=/);
+  assert.match(source, /target\.origin === window\.location\.origin/);
+});
+
+test("auth debug logging is disabled in production by default and strips sensitive metadata", () => {
+  const records: Array<[string, Record<string, unknown> | undefined]> = [];
+  const writer = (message: string, metadata?: Record<string, unknown>) => records.push([message, metadata]);
+  createAuthDebugLogger({ DEV: false }, writer)("ROUTE_OWNER", { userId: "abcdef123456", email: "family@example.com", token: "secret", authorization: "Bearer secret" });
+  assert.equal(records.length, 0);
+
+  createAuthDebugLogger({ DEV: false, VITE_AUTH_DEBUG: "true" }, writer)("ROUTE_OWNER", { userId: "abcdef123456", email: "family@example.com", token: "secret" });
+  assert.deepEqual(records, [["[AUTH] ROUTE_OWNER", { userId: "abcdef" }]]);
+});
+
+test("auth debug logging is active in development without exposing full identifiers", () => {
+  const records: Array<[string, Record<string, unknown> | undefined]> = [];
+  createAuthDebugLogger({ DEV: true }, (message, metadata) => records.push([message, metadata]))(
+    "ROUTE_GUEST", { reason: "no_session", hasSession: false, shareToken: "never-logged" },
+  );
+  assert.deepEqual(records, [["[AUTH] ROUTE_GUEST", { reason: "no_session", hasSession: false }]]);
 });

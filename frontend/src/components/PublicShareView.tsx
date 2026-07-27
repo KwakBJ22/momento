@@ -5,6 +5,7 @@ import AlbumScreen from "./AlbumScreen";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 import { createId } from "../lib/id";
+import { authDebug } from "../lib/authDebug";
 import type { AppUser } from "../services/authService";
 import {
   appendPendingContributions,
@@ -205,6 +206,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         setParticipantName(result.display_name);
         setContributionAction(requestedContribution);
         setNameAction(null);
+        authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
       })
       .catch((cause) => {
         console.warn("[Momento] Authenticated contribution session start failed.", cause);
@@ -232,6 +234,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       setContributionSession(session);
       setContributionAction(nameAction ?? requestedContribution);
       setNameAction(null);
+      if (authenticatedUser) authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
     } catch (cause) {
       console.warn("[Momento] Public contribution session start failed.", cause);
       setContributionError(cause instanceof Error ? cause.message : "참여를 시작하지 못했어요.");
