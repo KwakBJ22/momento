@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
-from app.services.image_upload_service import ProcessedPhoto, process_upload
+from app.services.image_upload_service import ProcessedPhoto, build_derived_image_bytes, process_upload
 from app.services.supabase import upload_album_photo_assets
 
 
@@ -61,6 +61,24 @@ class ImageUploadServiceTests(TestCase):
 
         with Image.open(io.BytesIO(processed.display_bytes)) as display:
             self.assertLessEqual(max(display.size), 1280)
+
+    def test_original_upload_can_return_before_web_derivatives_are_built(self) -> None:
+        raw = io.BytesIO()
+        Image.new("RGB", (1600, 1200), "purple").save(raw, format="JPEG")
+
+        uploaded = process_upload(
+            upload_file("large.jpg", "image/jpeg", raw.getvalue()), settings(), generate_derivatives=False,
+        )
+
+        self.assertIsNone(uploaded.display_bytes)
+        self.assertIsNone(uploaded.thumbnail_bytes)
+        display, thumbnail = build_derived_image_bytes(
+            uploaded.original_bytes, original_mime_type=uploaded.original_mime_type, settings=settings(),
+        )
+        self.assertIsNotNone(display)
+        self.assertTrue(thumbnail.startswith(b"RIFF"))
+        with Image.open(io.BytesIO(display)) as rendered:
+            self.assertLessEqual(max(rendered.size), 1280)
 
     def test_extension_and_real_content_mismatch_is_rejected(self) -> None:
         raw = io.BytesIO()

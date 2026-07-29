@@ -1,0 +1,11 @@
+.album-creating { display: grid; min-height: min(68vh, 620px); place-items: center; padding: 24px 16px; }
+.album-creating__card { width: min(100%, 420px); box-sizing: border-box; padding: 32px 28px; border: 1px solid #e7ddd4; border-radius: 18px; background: #fffdf9; text-align: center; box-shadow: 0 12px 30px rgba(76, 54, 39, .08); }
+.album-creating__eyebrow { margin: 0 0 8px; color: #9d7960; font-size: .86rem; font-weight: 700; }
+.album-creating h2 { margin: 0; color: #402f26; font-size: clamp(1.45rem, 5vw, 1.9rem); }
+.album-creating__card > p:not(.album-creating__eyebrow):not(.album-creating__error) { margin: 12px 0 22px; color: #66554b; line-height: 1.55; }
+.album-creating__progress { overflow: hidden; height: 8px; border-radius: 999px; background: #eee5dc; }
+.album-creating__progress span { display: block; height: 100%; border-radius: inherit; background: #af8468; transition: width .35s ease; }
+.album-creating__error { color: #a84135; font-size: .9rem; }
+.album-creating__actions { display: grid; gap: 10px; margin-top: 22px; }
+.album-creating__actions button, .album-creating__actions a { min-height: 48px; border: 0; border-radius: 12px; background: #af8468; color: #fff; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.album-creating__actions a { display: grid; place-items: center; background: transparent; color: #705a4b; font-weight: 600; }

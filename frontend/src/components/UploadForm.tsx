@@ -4,7 +4,7 @@ import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
-import type { AlbumCategory, AlbumResult, PhotoItem, StoryPayload } from "../types";
+import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
 import "./UploadForm.css";
@@ -14,7 +14,7 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 
 interface UploadFormProps {
   category: AlbumCategory;
-  onSuccess: (result: AlbumResult) => void;
+  onSuccess: (result: { albumId: string; generationJobId: string | null }) => void;
   onCancel?: () => void;
 }
 
@@ -31,6 +31,12 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const operationIdRef = useRef<string | null>(null);
+  const photosRef = useRef<PhotoItem[]>([]);
+
+  useEffect(() => { photosRef.current = photos; }, [photos]);
+  useEffect(() => () => {
+    for (const photo of photosRef.current) URL.revokeObjectURL(photo.previewUrl);
+  }, []);
 
   useEffect(() => {
     setCoverPhotoId((current) => (
@@ -146,9 +152,9 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
         const body = await response.json().catch(() => null);
         throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
       }
-      const created = (await response.json()) as AlbumResult;
+      const created = (await response.json()) as { album_id: string; generation_job_id?: string | null };
       operationIdRef.current = null;
-      onSuccess(created);
+      onSuccess({ albumId: created.album_id, generationJobId: created.generation_job_id ?? null });
     } catch (cause: unknown) {
       console.error("Album upload failed", { cause, photoCount: photos.length });
       const reason = cause instanceof DOMException && cause.name === "AbortError"

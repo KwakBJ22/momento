@@ -65,8 +65,8 @@ class ProcessedPhoto:
     original_bytes: bytes
     original_extension: str
     original_mime_type: str
-    thumbnail_bytes: bytes
-    display_bytes: bytes
+    thumbnail_bytes: bytes | None
+    display_bytes: bytes | None
     checksum_sha256: str
     width: int = 0
     height: int = 0
@@ -115,6 +115,32 @@ def _display_bytes(image: Image.Image, max_side: int = 1280) -> bytes:
     output = io.BytesIO()
     frame.save(output, format="WEBP", quality=80, method=6)
     return output.getvalue()
+
+
+def build_derived_image_bytes(
+    original_bytes: bytes,
+    *,
+    original_mime_type: str,
+    settings: Settings,
+) -> tuple[bytes | None, bytes]:
+    """Build bounded web assets from a stored original.
+
+    This intentionally runs after the upload response. GIF display keeps the
+    original animation; only its representative thumbnail is generated.
+    """
+    try:
+        image = Image.open(io.BytesIO(original_bytes))
+        image.load()
+        thumbnail = _thumbnail_bytes(image, settings.thumbnail_max_side)
+        display = None if original_mime_type == "image/gif" else _display_bytes(image)
+        return display, thumbnail
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise _http_unsupported("사진을 화면용 크기로 준비하지 못했습니다.") from exc
+    finally:
+        try:
+            image.close()
+        except UnboundLocalError:
+            pass
 
 
 def parse_file_created_at(raw: Any) -> datetime | None:
@@ -169,6 +195,7 @@ def process_upload(
     *,
     file_created_at: datetime | None = None,
     captured_at: datetime | None = None,
+    generate_derivatives: bool = True,
 ) -> ProcessedPhoto:
     """Decode, validate and sanitize a user upload before it reaches Storage."""
     filename_extension = Path(file.filename or "").suffix.lower()
@@ -221,10 +248,14 @@ def process_upload(
             height=int(height),
             file_created_at=file_created_at,
         )
-        thumbnail_bytes = _thumbnail_bytes(image, settings.thumbnail_max_side)
-        # The web album uses this bounded derivative. The original remains for
-        # PDF/print and is never fetched by normal screen rendering.
-        display_bytes = _display_bytes(image) if mime_type != "image/gif" else content
+        if generate_derivatives:
+            thumbnail_bytes = _thumbnail_bytes(image, settings.thumbnail_max_side)
+            # The web album uses this bounded derivative. The original remains
+            # for PDF/print and is never fetched by normal screen rendering.
+            display_bytes = _display_bytes(image) if mime_type != "image/gif" else content
+        else:
+            thumbnail_bytes = None
+            display_bytes = None
     finally:
         image.close()
 

@@ -98,7 +98,7 @@ export default function MyAlbums() {
             const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
             return (
               <div key={album.album_id} className="my-albums__card">
-                <a className="my-albums__card-link" href={`/album/${album.album_id}`}>
+                <a className="my-albums__card-link" href={album.status === "processing" || album.status === "failed" ? `/album/${album.album_id}/creating` : `/album/${album.album_id}`}>
                   <div className="my-albums__image-wrap">
                     {imageUrl && !imageFailed ? (
                       <img

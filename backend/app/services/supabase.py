@@ -76,6 +76,54 @@ def upload_album_photo_assets(
     return original_path, display_path, thumbnail_path
 
 
+def upload_album_photo_original(
+    client: Client,
+    *,
+    album_id: str,
+    photo_id: str,
+    photo: ProcessedPhoto,
+    settings: Settings,
+) -> str:
+    """Persist the only asset required before returning a creation response."""
+    original_path, _, _ = album_photo_paths("", album_id, photo_id, photo.original_extension)
+    StorageService.for_supabase(client, settings).upload(
+        settings.supabase_private_storage_bucket,
+        original_path,
+        photo.original_bytes,
+        content_type=photo.original_mime_type,
+    )
+    return original_path
+
+
+def upload_album_photo_derivatives(
+    client: Client,
+    *,
+    album_id: str,
+    photo_id: str,
+    original_extension: str,
+    original_mime_type: str,
+    display_bytes: bytes | None,
+    thumbnail_bytes: bytes,
+    settings: Settings,
+) -> tuple[str, str]:
+    """Upload derived web assets without replacing the durable original."""
+    original_path, display_path, thumbnail_path = album_photo_paths("", album_id, photo_id, original_extension)
+    if original_mime_type == "image/gif":
+        display_path = original_path
+    storage = StorageService.for_supabase(client, settings)
+    try:
+        if display_bytes is not None and display_path != original_path:
+            storage.upload(settings.supabase_private_storage_bucket, display_path, display_bytes, content_type="image/webp")
+        storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, thumbnail_bytes, content_type="image/webp")
+    except Exception:
+        # The original is durable; only clean up partially written derivatives.
+        delete_storage_paths(client, settings.supabase_private_storage_bucket, [
+            path for path in (display_path if display_path != original_path else None, thumbnail_path) if path
+        ])
+        raise
+    return display_path, thumbnail_path
+
+
 def upload_album_media_assets(
     client: Client,
     family_id: str,
@@ -377,7 +425,7 @@ def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int
     ``owner_id``/``created_by`` columns were not populated.  Keep that owner
     relationship visible without exposing participant-only albums.
     """
-    columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous"
+    columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous, status"
     result = (
         client.table("albums")
         .select(columns)

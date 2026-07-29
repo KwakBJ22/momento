@@ -6,7 +6,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 
 from app.config import Settings, get_settings
 from app.models.album_styles import layout_for_template_type, normalize_template_type
@@ -33,6 +33,7 @@ from app.models.schemas import (
     PhotoCommentResponse,
     PhotoCommentUpdate,
     AlbumUploadResponse,
+    AlbumGenerationStatusResponse,
     MeetingType,
     NarrativeUpdate,
     StoryInputResponse,
@@ -88,10 +89,17 @@ from app.services.supabase import (
     bump_album_version,
     upsert_album_story_input,
     upload_album_photo_assets,
+    upload_album_photo_original,
     upload_album_media_assets,
     upload_result_image,
 )
 from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
+from app.services.album_generation_service import (
+    create_generation_job,
+    generation_status,
+    get_generation_job_for_album,
+    run_initial_album_generation,
+)
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.media_upload_service import process_media_upload
 from app.services.auth import require_authenticated_user
@@ -246,6 +254,7 @@ def _my_album_list_items(
                 photo_count=len(photos),
                 new_memory_count=int(memory_counts.get(album_id, 0)),
                 is_latest_edition=True,
+                status=str(record.get("status") or "active"),
             )
         )
     return items
@@ -308,9 +317,10 @@ def _owned_cover_urls(
     return covers
 
 
-@router.post("/upload-album", response_model=AlbumUploadResponse)
+@router.post("/upload-album", response_model=AlbumUploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_album(
     request: Request,
+    background_tasks: BackgroundTasks,
     photos: list[UploadFile] = File(..., description="최대 30장의 사진"),
     stories: str = Form(..., description='JSON 배열: [{"order":0,"user":"","text":"..."}, ...]'),
     meeting_type: str = Form("friend", description="family/friend/work/university"),
@@ -388,9 +398,21 @@ async def upload_album(
         album_id = str(UUID(operation_id)) if operation_id else create_album_id()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid album creation operation.")
-    if get_album_record(client, album_id):
-        # A retried request cannot create a second album. The client preserves
-        # this key until it receives a completed response.
+    existing_album = get_album_record(client, album_id)
+    if existing_album:
+        existing_job = get_generation_job_for_album(client, album_id)
+        if existing_job:
+            return AlbumUploadResponse(
+                album_id=UUID(album_id), meeting_type=str(existing_album.get("meeting_type") or meeting_type),
+                category=existing_album.get("category"), template=str(existing_album.get("template") or layout),
+                template_type=existing_album.get("template_type"), title=str(existing_album.get("title") or title),
+                date=str(existing_album.get("event_date") or ""), narrative=str(existing_album.get("narrative") or ""),
+                epilogue=existing_album.get("epilogue"), chapter_stories=existing_album.get("chapter_stories") or {},
+                image_url="", cover_photo_id=UUID(str(existing_album["cover_photo_id"])) if existing_album.get("cover_photo_id") else None,
+                share_url="", created_at=datetime.now(timezone.utc), saved=False, photos=[],
+                generation_job_id=UUID(str(existing_job["id"])), generation_status=str(existing_job.get("status") or "pending"),
+                progress=int(existing_job.get("progress") or 20),
+            )
         raise HTTPException(status_code=409, detail="This album creation request is already being processed.")
 
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
@@ -398,7 +420,9 @@ async def upload_album(
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
         captured_at = parse_captured_at(raw_meta.get("captured_at"))
-        processed = process_upload(photo, settings, captured_at=captured_at)
+        # Originals and basic metadata are the only synchronous work. Web
+        # derivatives and album storytelling run from the persisted job.
+        processed = process_upload(photo, settings, captured_at=captured_at, generate_derivatives=False)
         entries.append(
             {
                 "processed": processed,
@@ -411,7 +435,106 @@ async def upload_album(
     _day_groups = group_photos_by_taken_date(entries)  # structure for future day UI
     event_date = cover_date_from_processed([entry["processed"] for entry in entries])
 
+    # Persist the original upload and a minimal draft before scheduling the
+    # slower work. This is deliberately kept separate from the legacy block
+    # below so in-flight deployments retain a narrow, recoverable boundary.
     uploaded_private_paths: list[str] = []
+    upload_started = time.perf_counter()
+    album_saved = False
+    try:
+        photo_records: list[dict[str, Any]] = []
+        media_records: list[dict[str, Any]] = []
+        photo_paths: list[str] = []
+        ordered_stories: list[dict[str, Any]] = []
+        selected_cover_photo_id: str | None = None
+        for entry in entries:
+            processed = entry["processed"]
+            upload = entry["upload"]
+            story = dict(entry["story"])
+            sort_order = int(entry["sort_order"])
+            photo_id = str(uuid4())
+            original_path = upload_album_photo_original(
+                client, album_id=album_id, photo_id=photo_id, photo=processed, settings=settings,
+            )
+            uploaded_private_paths.append(original_path)
+            story["_path"] = original_path
+            story["order"] = sort_order
+            ordered_stories.append(story)
+            photo_paths.append(original_path)
+            taken_at_iso = processed.taken_at.isoformat() if processed.taken_at else None
+            photo_records.append({
+                "id": photo_id, "album_id": album_id,
+                "storage_bucket": settings.supabase_private_storage_bucket, "storage_path": original_path,
+                "display_bucket": settings.supabase_private_storage_bucket, "display_path": original_path,
+                "thumbnail_bucket": None, "thumbnail_path": None,
+                "original_filename": upload.filename, "mime_type": processed.original_mime_type,
+                "byte_size": len(processed.original_bytes), "checksum_sha256": processed.checksum_sha256,
+                "sort_order": sort_order, "caption": story["text"], "comment": story["text"].strip() or None,
+                "contributor_profile_id": authenticated_user_id, "legacy_author_label": story["user"] or None,
+                "status": "uploading", "taken_at": taken_at_iso, "latitude": processed.latitude,
+                "longitude": processed.longitude, "location_name": None,
+                "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown",
+                "orientation": processed.orientation, "width": processed.width or None, "height": processed.height or None,
+            })
+            if int(entry["upload_order"]) == cover_photo_order:
+                selected_cover_photo_id = photo_id
+            media_records.append({
+                "id": photo_id, "album_id": album_id, "uploader_id": authenticated_user_id,
+                "media_type": "gif" if processed.original_mime_type == "image/gif" else "image",
+                "mime_type": processed.original_mime_type, "original_filename": upload.filename,
+                "original_path": original_path, "thumbnail_path": None, "file_size": len(processed.original_bytes),
+                "width": processed.width or None, "height": processed.height or None, "sort_order": sort_order,
+                "processing_status": "processing", "taken_at": taken_at_iso, "latitude": processed.latitude,
+                "longitude": processed.longitude, "orientation": processed.orientation,
+                "metadata": {"source": "album_photos", "datetime_original": processed.datetime_original,
+                             "create_date": processed.create_date, "upload_order": entry["upload_order"],
+                             "day_group_count": len(_day_groups),
+                             "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown"},
+            })
+        originals_uploaded_at = time.perf_counter()
+        cover_photo_id = selected_cover_photo_id or str(photo_records[0]["id"])
+        photo_meta = [{"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"],
+                       "taken_at": next((photo.get("taken_at") for photo in photo_records if int(photo["sort_order"]) == int(item["order"])), None)}
+                      for item in ordered_stories]
+        save_album_record(
+            client, album_id=album_id, owner_id=authenticated_user_id, family_id=family_id,
+            meeting_type=meeting_type, template=layout, title=title, event_date=event_date,
+            narrative="", epilogue="", chapter_stories={}, photo_paths=photo_paths, photo_meta=photo_meta,
+            result_path="", result_bucket=settings.supabase_private_storage_bucket, creation_status="processing",
+            category=album_category, template_type=album_template_type, cover_photo_id=cover_photo_id,
+        )
+        album_saved = True
+        save_album_photo_records(client, photo_records)
+        save_album_media_records(client, media_records)
+        save_album_member(client, album_id=album_id, profile_id=authenticated_user_id, role="owner", invited_by=authenticated_user_id)
+        _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
+        job = create_generation_job(client, album_id)
+    except Exception:
+        try:
+            if album_saved:
+                cleanup_incomplete_album(client, album_id)
+        finally:
+            delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_private_paths)
+        raise
+
+    background_tasks.add_task(run_initial_album_generation, str(job["id"]))
+    logger.info(
+        "album_generation_started job_id=%s album_id=%s photo_count=%s upload_originals_ms=%s create_records_ms=%s",
+        str(job["id"])[:6], album_id[:6], len(photo_records),
+        round((originals_uploaded_at - upload_started) * 1000),
+        round((time.perf_counter() - originals_uploaded_at) * 1000),
+    )
+    return AlbumUploadResponse(
+        album_id=UUID(album_id), meeting_type=meeting_type, category=album_category, template=layout,
+        template_type=album_template_type, title=title, date=event_date, narrative="", epilogue="", chapter_stories={},
+        image_url="", cover_photo_id=UUID(cover_photo_id), cover_image_url=None,
+        share_url=f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}", created_at=datetime.now(timezone.utc),
+        saved=True, photos=[], generation_job_id=UUID(str(job["id"])), generation_status=str(job.get("status") or "pending"),
+        progress=int(job.get("progress") or 20),
+    )
+
+    # Kept below only for source-history context during the rollout. The
+    # return above is the active creation path.
     result_path = ""
     album_saved = False
 
@@ -674,6 +797,67 @@ async def upload_album(
         saved=True,
         photos=photo_urls,
     )
+
+
+def _generation_status_response(album_id: str, job: dict[str, Any]) -> AlbumGenerationStatusResponse:
+    state = str(job.get("status") or "pending")
+    return AlbumGenerationStatusResponse(
+        album_id=UUID(album_id), generation_job_id=UUID(str(job["id"])), status=state,
+        progress=int(job.get("progress") or 0), current_step=str(job.get("current_step") or "upload_completed"),
+        ready=state == "completed", error_code=str(job["error_code"]) if job.get("error_code") else None,
+    )
+
+
+@router.get("/albums/{album_id}/generation-status", response_model=AlbumGenerationStatusResponse)
+async def get_album_generation_status(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumGenerationStatusResponse:
+    client = get_supabase_client(get_settings())
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_owner_story(access)
+    job = generation_status(client, album_id)
+    if not job:
+        # Existing completed albums predate persisted jobs. They are already
+        # safe to open and should never be stranded on a creation route.
+        return AlbumGenerationStatusResponse(
+            album_id=UUID(album_id), generation_job_id=UUID(int=0), status="completed", progress=100,
+            current_step="completed", ready=True,
+        )
+    return _generation_status_response(album_id, job)
+
+
+@router.post("/albums/{album_id}/generation-retry", response_model=AlbumGenerationStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+async def retry_album_generation(
+    album_id: str,
+    background_tasks: BackgroundTasks,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumGenerationStatusResponse:
+    client = get_supabase_client(get_settings())
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_owner_story(access)
+    job = generation_status(client, album_id)
+    if not job:
+        raise HTTPException(status_code=409, detail="다시 시작할 작업이 없습니다.")
+    state = str(job.get("status") or "pending")
+    if state == "completed":
+        return _generation_status_response(album_id, job)
+    if state == "processing":
+        return _generation_status_response(album_id, job)
+    client.table("album_generation_jobs").update({
+        "status": "pending", "progress": 20, "current_step": "upload_completed", "error_code": None,
+        "retry_count": int(job.get("retry_count") or 0) + 1,
+    }).eq("id", job["id"]).execute()
+    client.table("albums").update({"status": "processing"}).eq("id", album_id).execute()
+    background_tasks.add_task(run_initial_album_generation, str(job["id"]))
+    refreshed = generation_status(client, album_id) or job
+    return _generation_status_response(album_id, refreshed)
 
 
 @router.get("/albums/{album_id}/photos", response_model=AlbumPhotoUrlsResponse)

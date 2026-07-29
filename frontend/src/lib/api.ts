@@ -86,6 +86,7 @@ export type MyAlbum = {
   photo_count: number;
   new_memory_count: number;
   is_latest_edition?: boolean;
+  status?: "processing" | "active" | "failed" | string;
 };
 
 export async function getMyAlbums(): Promise<MyAlbum[]> {
@@ -183,6 +184,28 @@ export async function saveAlbumPhotoComment(albumId: string, photoId: string, co
   const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { id: string; comment: string | null };
+}
+
+export type AlbumGenerationStatus = {
+  album_id: string;
+  generation_job_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  progress: number;
+  current_step: string;
+  ready: boolean;
+  error_code?: string | null;
+};
+
+export async function getAlbumGenerationStatus(albumId: string, signal?: AbortSignal): Promise<AlbumGenerationStatus> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-status`, { cache: "no-store", signal });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<AlbumGenerationStatus>;
+}
+
+export async function retryAlbumGeneration(albumId: string): Promise<AlbumGenerationStatus> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-retry`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<AlbumGenerationStatus>;
 }
 
 export async function getAlbumPdfUrl(

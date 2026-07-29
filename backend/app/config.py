@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     max_document_file_size_mb: int = 50
     max_image_pixels: int = 40_000_000
     thumbnail_max_side: int = 640
+    image_processing_concurrency: int = 4
     signed_url_ttl_seconds: int = 300
     allowed_image_types: tuple[str, ...] = (
         "image/jpeg",

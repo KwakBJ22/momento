@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import AuthCallback from "./components/AuthCallback";
 import AuthPanel from "./components/AuthPanel";
 import AlbumResultView from "./components/AlbumResult";
+import AlbumCreating from "./components/AlbumCreating";
 import AlbumView from "./components/AlbumView";
 import CollaborationPanel from "./components/CollaborationPanel";
 import ContributeWorkspace from "./components/ContributeWorkspace";
@@ -26,6 +27,7 @@ const PENDING_CATEGORY_KEY = "momento-pending-album-category";
 
 function routeId(pattern: RegExp): string | null { return window.location.pathname.match(pattern)?.[1] || null; }
 function getAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})$/); }
+function getCreatingAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/creating$/); }
 function getContributeAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/contribute$/); }
 function getJoinTokenFromPath() { return routeId(/^\/join\/([^/]+)$/); }
 function getInviteTokenFromPath() { return routeId(/^\/invite\/([^/]+)$/); }
@@ -57,6 +59,7 @@ function App() {
   const [category, setCategory] = useState<AlbumCategory | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
+  const creatingAlbumId = getCreatingAlbumIdFromPath();
   const contributeAlbumId = getContributeAlbumIdFromPath();
   const joinToken = getJoinTokenFromPath();
   const questionsAlbumId = getQuestionsAlbumIdFromPath();
@@ -166,7 +169,7 @@ function App() {
     openLogin();
   };
   const isJoinSurface = Boolean(joinToken);
-  const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || result);
+  const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || creatingAlbumId || result);
   const requiresLogin = (content: ReactNode) => {
     if (!authReady || user === undefined) return <p className="auth-panel__notice">잠시만 기다려 주세요.</p>;
     if (!isAuthenticationConfigured || !user) return <AuthPanel returnTo={`${window.location.pathname}${window.location.search}`} />;
@@ -185,6 +188,7 @@ function App() {
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
+          : creatingAlbumId ? requiresLogin(<AlbumCreating albumId={creatingAlbumId} />)
           : sharedAlbumId ? requiresLogin(<AlbumView albumId={sharedAlbumId} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
@@ -192,7 +196,7 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : user && category ? <UploadForm category={category} onSuccess={setResult} />
+          ) : user && category ? <UploadForm category={category} onSuccess={({ albumId }) => window.location.assign(`/album/${albumId}/creating`)} />
           : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setCategory(selected) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
       </main>
     </div>

@@ -125,6 +125,19 @@ test("new album gallery picker permits multiple supported images without capture
   assert.match(source, /dedupeSelectedPhotos\(accepted, photos\.map\(\(photo\) => photo\.file\)\)/);
 });
 
+test("initial album creation moves to the persisted progress screen instead of waiting for a final album payload", () => {
+  const upload = component("UploadForm");
+  const creating = component("AlbumCreating");
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(upload, /generation_job_id/);
+  assert.match(upload, /onSuccess\(\{ albumId: created\.album_id/);
+  assert.match(app, /getCreatingAlbumIdFromPath/);
+  assert.match(app, /<AlbumCreating albumId=\{creatingAlbumId\}/);
+  assert.match(app, /\/creating/);
+  assert.match(creating, /getAlbumGenerationStatus/);
+  assert.match(creating, /window\.location\.replace\(`\/album\/\$\{albumId\}`\)/);
+});
+
 test("album viewing and collaboration invitation use distinct URLs and Kakao payloads", () => {
   const source = component("CollaborationPanel");
   assert.match(source, /rotateCollaborationInvite/);

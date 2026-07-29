@@ -85,6 +85,19 @@ class AlbumUploadResponse(BaseModel):
     created_at: datetime
     saved: bool = True
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
+    generation_job_id: UUID | None = None
+    generation_status: Literal["pending", "processing", "completed", "failed"] | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
+
+
+class AlbumGenerationStatusResponse(BaseModel):
+    album_id: UUID
+    generation_job_id: UUID
+    status: Literal["pending", "processing", "completed", "failed"]
+    progress: int = Field(ge=0, le=100)
+    current_step: str
+    ready: bool
+    error_code: str | None = None
 
 
 class CurrentEditionSummary(BaseModel):
@@ -139,6 +152,7 @@ class MyAlbumListItem(BaseModel):
     photo_count: int = 0
     new_memory_count: int = 0
     is_latest_edition: bool = True
+    status: str = "active"
 
 
 class MyAlbumsResponse(BaseModel):
