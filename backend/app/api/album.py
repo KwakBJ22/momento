@@ -473,7 +473,10 @@ async def upload_album(
                 "id": photo_id, "album_id": album_id,
                 "storage_bucket": settings.supabase_private_storage_bucket, "storage_path": original_path,
                 "display_bucket": settings.supabase_private_storage_bucket, "display_path": original_path,
-                "thumbnail_bucket": None, "thumbnail_path": None,
+                # The worker replaces this original fallback with WebP. Keeping
+                # a valid path here also supports databases that have not yet
+                # applied the nullable-derivative migration.
+                "thumbnail_bucket": settings.supabase_private_storage_bucket, "thumbnail_path": original_path,
                 "original_filename": upload.filename, "mime_type": processed.original_mime_type,
                 "byte_size": len(processed.original_bytes), "checksum_sha256": processed.checksum_sha256,
                 "sort_order": sort_order, "caption": story["text"], "comment": story["text"].strip() or None,

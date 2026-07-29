@@ -115,3 +115,7 @@ class AlbumGenerationJobContractTests(TestCase):
         self.assertIn("if not has_current_generation_photos(client, album_id):", source)
         self.assertIn("사진을 추가한 뒤 앨범을 만들어주세요.", source)
         self.assertIn('error_code = "no_current_photos"', (Path(__file__).resolve().parents[1] / "app" / "services" / "album_generation_service.py").read_text(encoding="utf-8"))
+
+    def test_initial_upload_persists_an_original_thumbnail_fallback(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "app" / "api" / "album.py").read_text(encoding="utf-8")
+        self.assertIn('"thumbnail_bucket": settings.supabase_private_storage_bucket, "thumbnail_path": original_path', source)
