@@ -1,5 +1,6 @@
 const MAX_EDGE = 2560;
-export const MAX_ORIGINAL_IMAGE_BYTES = 25 * 1024 * 1024;
+// Must match the private Supabase Storage bucket's per-object limit.
+export const MAX_ORIGINAL_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 function isGif(file: File): boolean {

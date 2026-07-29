@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 import time
 from datetime import datetime, timedelta, timezone
@@ -60,6 +61,7 @@ from app.services.collaboration_service import (
     update_photo_memory,
 )
 from app.services.image_upload_service import process_upload
+from app.services.storage_service import StorageService
 from app.services.membership import get_album_access
 from app.services.supabase import (
     get_album_photo_records,
@@ -72,6 +74,7 @@ from app.services.supabase import (
 from app.services.share_service import log_event
 
 router = APIRouter(tags=["collaboration"])
+logger = logging.getLogger(__name__)
 
 
 def _parse_uuid_header(value: str | None) -> str | None:
@@ -799,6 +802,13 @@ async def contribute_upload_photos(
         )
 
     if uploaded:
+        current_cover_id = str(album.get("cover_photo_id") or "")
+        valid_cover = (
+            client.table("album_photos").select("id").eq("album_id", album_id)
+            .eq("id", current_cover_id).eq("status", "ready").is_("deleted_at", "null").limit(1).execute().data or []
+        ) if current_cover_id else []
+        if not valid_cover:
+            client.table("albums").update({"cover_photo_id": uploaded[0]["id"]}).eq("id", album_id).execute()
         mark_album_dirty(client, album_id)
 
     return {"photos": uploaded, "uploaded": uploaded, "photo_count": current + len(uploaded), "photo_limit": limit}
@@ -946,9 +956,13 @@ async def rebuild_collaboration_album(
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
     require_album_edit_settings(access)
+    if count_ready_photos(client, album_id) == 0:
+        raise HTTPException(status_code=422, detail="사진을 추가한 뒤 앨범을 만들어주세요.")
     # Default: reuse existing narrative (no AI). regenerate_story reserved for later.
     _ = body.regenerate_story
-    result = rebuild_album(client, album, album_json=body.album_json, force=body.force)
+    # A client can hold an old document after deleting photos. Rebuild from the
+    # current DB rows only; never accept stale photo/media IDs from that body.
+    result = rebuild_album(client, album, album_json=None, force=body.force)
     return CollaborationRebuildResponse(
         album_version=int(result["album_version"]),
         dirty=False,
@@ -987,5 +1001,15 @@ async def owner_delete_photo(
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
     require_album_edit_settings(access)
+    photo_rows = (
+        client.table("album_photos").select("storage_path,display_path,thumbnail_path")
+        .eq("id", photo_id).eq("album_id", album_id).is_("deleted_at", "null").limit(1).execute().data or []
+    )
     soft_delete_photo(client, album_id, photo_id)
+    paths = sorted({str(path) for path in (photo_rows[0].values() if photo_rows else ()) if path})
+    if paths:
+        try:
+            StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, paths)
+        except Exception as exc:
+            logger.warning("collaboration_photo_storage_cleanup_failed album_id=%s photo_id=%s error_type=%s", album_id[:8], photo_id[:8], type(exc).__name__)
     return {"status": "deleted"}

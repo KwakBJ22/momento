@@ -12,8 +12,9 @@ from fastapi import HTTPException
 from supabase import Client
 
 from app.services.share_service import create_token, hash_token
+from app.services.supabase import soft_delete_album_photo_with_references
 
-RELATIONSHIP_OPTIONS = frozenset({"아빠", "엄마", "딸", "아들", "친구", "동료", "기타"})
+RELATIONSHIP_OPTIONS = frozenset({"가족", "친구", "연인", "지인", "기타"})
 MAX_COMMENT_LEN = 500
 MAX_BATCH_UPLOAD = 30
 # Small collaboration updates keep the existing album intact and are attached
@@ -282,7 +283,7 @@ def join_as_contributor(
         raise HTTPException(status_code=400, detail="이름은 1~40자로 입력해 주세요.")
     rel = (relationship or "").strip() or None
     if rel and rel not in RELATIONSHIP_OPTIONS:
-        raise HTTPException(status_code=400, detail="관계를 다시 선택해 주세요.")
+        raise HTTPException(status_code=400, detail="관계를 선택해주세요.")
 
     if not guest_id and not user_id:
         guest_id = str(uuid.uuid4())
@@ -532,24 +533,8 @@ def delete_photo_memory(
 
 
 def soft_delete_photo(client: Client, album_id: str, photo_id: str) -> None:
-    client.table("album_photos").update(
-        {"status": "deleted", "deleted_at": _iso()}
-    ).eq("id", photo_id).eq("album_id", album_id).execute()
-    album_result = client.table("albums").select("cover_photo_id").eq("id", album_id).limit(1).execute()
-    album_rows = album_result.data or []
-    if album_rows and str(album_rows[0].get("cover_photo_id") or "") == photo_id:
-        replacement = (
-            client.table("album_photos")
-            .select("id")
-            .eq("album_id", album_id)
-            .eq("status", "ready")
-            .is_("deleted_at", "null")
-            .order("sort_order")
-            .limit(1)
-            .execute()
-        ).data or []
-        client.table("albums").update({"cover_photo_id": str(replacement[0]["id"]) if replacement else None}).eq("id", album_id).execute()
-    mark_album_dirty(client, album_id)
+    if not soft_delete_album_photo_with_references(client, album_id, photo_id):
+        raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
 
 
 def build_album_document_from_records(

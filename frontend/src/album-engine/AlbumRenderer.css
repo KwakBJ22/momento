@@ -9,6 +9,12 @@
   width: 100%;
 }
 
+.album-renderer--screen .album-renderer__empty {
+  margin: 48px auto;
+  color: #6c5b50;
+  text-align: center;
+}
+
 .album-renderer__blocks {
   display: grid;
   gap: 2rem;

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from app.services.supabase import get_result_signed_url, get_signed_url, save_album_record
 from app.services.event_logger import EventLogger
@@ -64,6 +65,21 @@ class StorageAndMigrationResilienceTests(TestCase):
 
 
 class ApiOperationHeaderTests(TestCase):
+    def test_request_validation_uses_a_safe_korean_message(self) -> None:
+        from app.main import app, fastapi_app
+
+        class _ValidationPayload(BaseModel):
+            relationship: str
+
+        @fastapi_app.post("/__test-safe-validation")
+        async def _safe_validation(payload: _ValidationPayload) -> dict[str, str]:
+            return {"relationship": payload.relationship}
+
+        response = TestClient(app, raise_server_exceptions=False).post("/__test-safe-validation", json={})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "입력 내용을 확인해주세요.")
+        self.assertNotIn("Field required", response.text)
+
     def test_health_is_available_with_an_operation_id(self) -> None:
         from app.main import app
 

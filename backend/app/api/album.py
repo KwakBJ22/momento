@@ -56,6 +56,7 @@ from app.services.supabase import (
     delete_album_cascade,
     delete_album_record,
     delete_album_media_record,
+    soft_delete_album_photo_with_references,
     delete_storage_paths,
     ensure_default_family,
     get_album_record,
@@ -100,6 +101,7 @@ from app.services.album_generation_service import (
     create_generation_job,
     generation_status,
     get_generation_job_for_album,
+    has_current_generation_photos,
     run_initial_album_generation,
 )
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
@@ -906,6 +908,8 @@ async def retry_album_generation(
         return _generation_status_response(album_id, job)
     if state == "processing":
         return _generation_status_response(album_id, job)
+    if not has_current_generation_photos(client, album_id):
+        raise HTTPException(status_code=422, detail="사진을 추가한 뒤 앨범을 만들어주세요.")
     client.table("album_generation_jobs").update({
         "status": "pending", "progress": 20, "current_step": "upload_completed", "error_code": None,
         "retry_count": int(job.get("retry_count") or 0) + 1,
@@ -1226,10 +1230,23 @@ async def delete_media(
     if not media:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
     _require_media_mutation_access(media, access, authenticated_user_id)
-    paths = [path for path in (media.get("original_path"), media.get("preview_path"), media.get("thumbnail_path")) if path]
-    StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, paths)
-    if not delete_album_media_record(client, album_id, media_id):
+    photo_rows = (
+        client.table("album_photos").select("storage_path,display_path,thumbnail_path")
+        .eq("id", media_id).eq("album_id", album_id).is_("deleted_at", "null").limit(1).execute().data or []
+    )
+    paths = {
+        str(path) for path in (
+            media.get("original_path"), media.get("preview_path"), media.get("thumbnail_path"),
+            *(photo_rows[0].values() if photo_rows else ()),
+        ) if path
+    }
+    deleted = soft_delete_album_photo_with_references(client, album_id, media_id) if photo_rows else delete_album_media_record(client, album_id, media_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
+    try:
+        StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, sorted(paths))
+    except Exception as exc:
+        logger.warning("media_storage_cleanup_failed album_id=%s media_id=%s error_type=%s", album_id[:8], media_id[:8], type(exc).__name__)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -75,7 +75,7 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
     try {
       for (const file of limited) {
         if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
-          failures.push(`${file.name}: 이 사진은 용량이 너무 큽니다. 25MB 이하의 사진을 선택해주세요.`);
+          failures.push(`${file.name}: 이 사진은 용량이 너무 큽니다. 10MB 이하의 사진을 선택해주세요.`);
           continue;
         }
         try {

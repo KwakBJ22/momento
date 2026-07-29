@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { buildPhotoCaptionSegments } from "../src/album-engine/components/photoCaptionSegments";
@@ -43,4 +44,10 @@ test("legacy photos without a display derivative remain visible through their or
     selectAlbumPhotoUrl({ original_url: "https://assets.example/legacy.jpg", thumbnail_url: "https://assets.example/legacy-thumb.webp" }, "screen"),
     "https://assets.example/legacy.jpg",
   );
+});
+
+test("an empty album uses a safe screen state instead of attempting to render deleted photos", () => {
+  const source = readFileSync(new URL("../src/album-engine/AlbumRenderer.tsx", import.meta.url), "utf8");
+  assert.match(source, /사진을 추가해 새 앨범을 만들어보세요/);
+  assert.match(source, /mode === "screen"/);
 });

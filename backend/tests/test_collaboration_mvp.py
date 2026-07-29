@@ -15,6 +15,7 @@ from app.services.collaboration_service import (
     rebuild_album,
     sanitize_memory_comment,
 )
+from app.models.schemas import CollaborationJoinRequest
 
 
 class _Query:
@@ -52,8 +53,18 @@ class _RebuildClient:
 
 
 class CollaborationServiceTests(unittest.TestCase):
+    def test_join_relationships_match_the_invitation_chips(self) -> None:
+        for relationship in ("가족", "친구", "연인", "지인", "기타"):
+            request = CollaborationJoinRequest(display_name="테스트", relationship=relationship)
+            self.assertEqual(request.relationship, relationship)
+
     def test_batch_limit(self) -> None:
         self.assertEqual(MAX_BATCH_UPLOAD, 30)
+
+    def test_rebuild_uses_current_database_photos_when_no_document_is_supplied(self) -> None:
+        source = (__import__("pathlib").Path(__file__).resolve().parents[1] / "app" / "api" / "collaboration.py").read_text(encoding="utf-8")
+        self.assertIn("result = rebuild_album(client, album, album_json=None, force=body.force)", source)
+        self.assertIn("사진을 추가한 뒤 앨범을 만들어주세요.", source)
 
     def test_rebuild_has_no_quota_and_preserves_the_previous_document(self) -> None:
         client = _RebuildClient(lock_rows=[{"id": "a1"}])

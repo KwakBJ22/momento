@@ -728,6 +728,76 @@ def delete_album_media_record(client: Client, album_id: str, media_id: str) -> b
     return bool(result.data)
 
 
+def soft_delete_album_photo_with_references(client: Client, album_id: str, photo_id: str) -> bool:
+    """Atomically retire a photo and every current-album reference to it.
+
+    The RPC is the normal path. The narrow fallback keeps deployments safe when
+    code arrives before the additive migration; it intentionally rebuilds from
+    DB rows rather than retaining an old album document.
+    """
+    try:
+        result = client.rpc(
+            "soft_delete_album_photo",
+            {"p_album_id": album_id, "p_photo_id": photo_id},
+        ).execute()
+        data = result.data
+        if isinstance(data, list):
+            return bool(data[0]) if data else False
+        return bool(data)
+    except Exception as exc:
+        logger.warning(
+            "photo_delete_rpc_fallback album_id=%s photo_id=%s error_type=%s",
+            album_id[:8], photo_id[:8], type(exc).__name__,
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    photo_result = (
+        client.table("album_photos")
+        .update({"status": "deleted", "deleted_at": now})
+        .eq("id", photo_id).eq("album_id", album_id).is_("deleted_at", "null")
+        .execute()
+    )
+    if not photo_result.data:
+        return False
+    deleted_memory_rows = (
+        client.table("photo_memories").select("id").eq("album_id", album_id)
+        .eq("photo_id", photo_id).is_("deleted_at", "null").execute().data or []
+    )
+    deleted_memory_ids = {str(row.get("id")) for row in deleted_memory_rows if row.get("id")}
+    client.table("album_media").update({"deleted_at": now}).eq("id", photo_id).eq("album_id", album_id).is_("deleted_at", "null").execute()
+    client.table("photo_memories").update({"deleted_at": now}).eq("album_id", album_id).eq("photo_id", photo_id).is_("deleted_at", "null").execute()
+    current_album = (
+        client.table("albums").select(
+            "cover_photo_id,applied_contribution_photo_ids,applied_contribution_memory_ids"
+        ).eq("id", album_id).limit(1).execute().data or []
+    )
+    album_row = current_album[0] if current_album else {}
+    current_cover_id = str(album_row.get("cover_photo_id") or "")
+    remaining = (
+        client.table("album_photos").select("id").eq("album_id", album_id)
+        .eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+    )
+    remaining_ids = {str(row.get("id")) for row in remaining}
+    next_cover_id = current_cover_id if current_cover_id in remaining_ids else (str(remaining[0]["id"]) if remaining else None)
+    client.table("albums").update({
+        "cover_photo_id": next_cover_id,
+        "album_json": None,
+        "living_append_pages": [],
+        "pdf_cache": {},
+        "applied_contribution_photo_ids": [
+            str(value) for value in (album_row.get("applied_contribution_photo_ids") or [])
+            if str(value) != photo_id
+        ],
+        "applied_contribution_memory_ids": [
+            str(value) for value in (album_row.get("applied_contribution_memory_ids") or [])
+            if str(value) not in deleted_memory_ids
+        ],
+        "dirty": True,
+        "last_rebuild_started_at": None,
+    }).eq("id", album_id).execute()
+    return True
+
+
 def get_signed_url(client: Client, bucket_name: str, path: str, expires_in: int) -> str:
     try:
         return StorageService.for_supabase(client, get_settings()).create_signed_url(bucket_name, path, expires_in)

@@ -128,9 +128,20 @@ def _generation_photos(client: Any, album_id: str) -> list[dict[str, Any]]:
         client.table("album_photos").select(
             "id,storage_bucket,storage_path,display_bucket,display_path,thumbnail_bucket,thumbnail_path,"
             "mime_type,sort_order,comment,caption,legacy_author_label,taken_at,latitude,longitude,orientation,width,height"
-        ).eq("album_id", album_id).is_("deleted_at", "null").order("sort_order").execute().data or []
+        ).eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
     )
-    return list(rows)
+    # album_media and album_photos are dual-written. Exclude legacy rows whose
+    # media record was already deleted by an older endpoint implementation.
+    media_rows = client.table("album_media").select("id,deleted_at").eq("album_id", album_id).execute().data or []
+    media_deleted = {str(row.get("id")) for row in media_rows if row.get("id") and row.get("deleted_at")}
+    # Collaboration uploads predate album_media and therefore have no media
+    # row. Keep those valid photo rows, but reject a legacy photo whose paired
+    # media record was explicitly deleted by the old media endpoint.
+    return [row for row in rows if str(row.get("id")) not in media_deleted]
+
+
+def has_current_generation_photos(client: Any, album_id: str) -> bool:
+    return bool(_generation_photos(client, album_id))
 
 
 def _process_single_photo(client: Any, settings: Settings, album_id: str, photo: dict[str, Any]) -> DerivativeResult:
@@ -203,7 +214,7 @@ async def run_initial_album_generation(job_id: str) -> None:
             raise RuntimeError("album_missing")
         photos = _generation_photos(client, album_id)
         if not photos:
-            raise RuntimeError("photos_missing")
+            raise RuntimeError("no_current_photos")
         concurrency = max(1, min(6, int(getattr(settings, "image_processing_concurrency", 4))))
         display_bytes: dict[str, bytes] = {}
         derivative_results: list[DerivativeResult] = []
@@ -311,10 +322,11 @@ async def run_initial_album_generation(job_id: str) -> None:
             "building_story": "story_generation_failed",
             "building_album": "album_build_failed",
         }.get(current_step, "album_generation_failed")
-        logger.exception("event=%s album_id=%s job_id=%s current_step=%s photo_count=%s elapsed_ms=%s error_code=generation_failed retry_count=%s error_type=%s",
-                         failure_event, _short(album_id), _short(job_id), current_step, len(locals().get("photos", [])), _milliseconds(started), int(job.get("retry_count") or 0), type(exc).__name__)
+        error_code = "no_current_photos" if str(exc) == "no_current_photos" else "generation_failed"
+        logger.exception("event=%s album_id=%s job_id=%s current_step=%s photo_count=%s elapsed_ms=%s error_code=%s retry_count=%s error_type=%s",
+                         failure_event, _short(album_id), _short(job_id), current_step, len(locals().get("photos", [])), _milliseconds(started), error_code, int(job.get("retry_count") or 0), type(exc).__name__)
         try:
-            update_generation_job(client, job_id, status="failed", current_step="failed", error_code="generation_failed", completed=True)
+            update_generation_job(client, job_id, status="failed", current_step="failed", error_code=error_code, completed=True)
             client.table("albums").update({"status": "failed"}).eq("id", album_id).execute()
         except Exception:
             logger.exception("album_generation_failure_state_update_failed job_id=%s", job_id[:6])

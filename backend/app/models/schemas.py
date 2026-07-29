@@ -471,7 +471,7 @@ class UpdateMemoryAnswerRequest(BaseModel):
 # --- Collaborative album MVP ---
 
 CollaborationStatus = Literal["draft", "collecting", "ready", "published", "closed"]
-ContributorRelationship = Literal["아빠", "엄마", "딸", "아들", "친구", "동료", "기타"]
+ContributorRelationship = Literal["가족", "친구", "연인", "지인", "기타"]
 
 
 class CollaborationInviteStartResponse(BaseModel):

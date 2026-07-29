@@ -1,8 +1,10 @@
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from app.api.admin import router as admin_router
 from app.api.album import router as album_router
@@ -23,11 +25,33 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+def _validation_error_response(request: Request, error_count: int) -> JSONResponse:
+    """Keep validation internals out of user-facing API responses."""
+    logger.warning(
+        "request_validation_failed method=%s path=%s operation_id=%s error_count=%s",
+        request.method,
+        request.url.path,
+        get_operation_id(),
+        error_count,
+    )
+    return JSONResponse(status_code=422, content={"detail": "입력 내용을 확인해주세요."})
+
 fastapi_app = FastAPI(
     title="Momento API",
     description="카카오톡 웹뷰 기반 모임 앨범 생성 서비스",
     version="0.1.0",
 )
+
+
+@fastapi_app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    return _validation_error_response(request, len(exc.errors()))
+
+
+@fastapi_app.exception_handler(ValidationError)
+async def pydantic_validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
+    return _validation_error_response(request, len(exc.errors()))
 
 
 @fastapi_app.middleware("http")

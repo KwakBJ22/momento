@@ -60,9 +60,13 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}): 
 async function parseError(response: Response): Promise<string> {
   const body = await response.json().catch(() => null);
   const detail = body?.detail;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail.map((d: { msg?: string }) => d.msg).join(", ");
-  return "요청을 처리하지 못했어요.";
+  if (Array.isArray(detail) || response.status === 422) return "입력 내용을 확인해주세요.";
+  if (response.status >= 500) return "잠시 후 다시 시도해주세요.";
+  if (typeof detail === "string") {
+    const looksTechnical = /validationerror|validation error|field required|input should|type_error|pydantic/i.test(detail);
+    return looksTechnical ? "입력 내용을 확인해주세요." : detail;
+  }
+  return "잠시 후 다시 시도해주세요.";
 }
 
 export async function getAlbum(albumId: string, edition?: number | null, signal?: AbortSignal): Promise<AlbumResult> {

@@ -339,7 +339,13 @@ export default function AlbumRenderer({
         </div>
       );
     }
-    if (!fallbackImageUrl) return null;
+    if (!fallbackImageUrl) {
+      return mode === "screen" ? (
+        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+          <p className="album-renderer__empty">사진을 추가해 새 앨범을 만들어보세요.</p>
+        </div>
+      ) : null;
+    }
     return (
       <div className={`album-renderer album-renderer--${mode} ${className}`.trim()}>
         <img src={fallbackImageUrl} alt={title || "앨범"} className="album-renderer__fallback-image" />

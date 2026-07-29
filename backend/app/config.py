@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     prompt_hot_reload: bool | None = None
 
     max_photos: int = 30
-    max_file_size_mb: int = 25
+    max_file_size_mb: int = 10
     max_total_upload_size_mb: int = 100
 
     @field_validator("max_photos", mode="after")

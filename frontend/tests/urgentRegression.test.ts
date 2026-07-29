@@ -38,6 +38,15 @@ test("mobile collaboration invitation constrains its contents and keeps the cove
   assert.match(css, /\.join-page__cta \{[\s\S]*width: 100%;[\s\S]*min-height: 56px;/);
 });
 
+test("collaboration relationship chips match the backend contract and validation details stay hidden", () => {
+  const joinPage = component("JoinPage");
+  const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
+  assert.match(joinPage, /RELATIONSHIPS = \["가족", "친구", "연인", "지인", "기타"\]/);
+  assert.match(api, /Array\.isArray\(detail\) \|\| response\.status === 422/);
+  assert.match(api, /"입력 내용을 확인해주세요\."/);
+  assert.doesNotMatch(api, /detail\.map\(\(d/);
+});
+
 test("login dialog uses one visual container with focus and scroll handling", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../src/App.css", import.meta.url), "utf8");

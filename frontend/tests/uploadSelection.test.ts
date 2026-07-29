@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { dedupeSelectedPhotos, filterImageFiles, limitSelectedPhotos, snapshotSelectedFiles } from "../src/lib/imageFile";
+import { MAX_ORIGINAL_IMAGE_BYTES } from "../src/lib/optimizeImageFile";
+
+test("album picker matches the 10MB private Storage object limit", () => {
+  assert.equal(MAX_ORIGINAL_IMAGE_BYTES, 10 * 1024 * 1024);
+});
 
 function image(name: string): File {
   return { name, type: "image/jpeg" } as File;
