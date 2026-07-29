@@ -202,6 +202,12 @@ export async function getAlbumGenerationStatus(albumId: string, signal?: AbortSi
   return response.json() as Promise<AlbumGenerationStatus>;
 }
 
+export async function getAlbumGenerationPreview(albumId: string): Promise<Array<{ photo_id: string; url: string | null }>> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-preview`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return ((await response.json()) as { previews?: Array<{ photo_id: string; url: string | null }> }).previews ?? [];
+}
+
 export async function retryAlbumGeneration(albumId: string): Promise<AlbumGenerationStatus> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/generation-retry`, { method: "POST" });
   if (!response.ok) throw new Error(await parseError(response));

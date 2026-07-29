@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { authenticatedFetch } from "../lib/api";
+import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
@@ -14,7 +15,7 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 
 interface UploadFormProps {
   category: AlbumCategory;
-  onSuccess: (result: { albumId: string; generationJobId: string | null }) => void;
+  onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number }) => void;
   onCancel?: () => void;
 }
 
@@ -32,10 +33,13 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
   const abortRef = useRef<AbortController | null>(null);
   const operationIdRef = useRef<string | null>(null);
   const photosRef = useRef<PhotoItem[]>([]);
+  const previewsTransferredRef = useRef(false);
 
   useEffect(() => { photosRef.current = photos; }, [photos]);
   useEffect(() => () => {
-    for (const photo of photosRef.current) URL.revokeObjectURL(photo.previewUrl);
+    if (!previewsTransferredRef.current) {
+      for (const photo of photosRef.current) URL.revokeObjectURL(photo.previewUrl);
+    }
   }, []);
 
   useEffect(() => {
@@ -126,6 +130,8 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
       return;
     }
     uploadInFlightRef.current = true;
+    const submittedAt = performance.now();
+    albumCreationTiming("SUBMIT", { photo_count: photos.length });
     setIsSubmitting(true);
     setError(null);
     setProgressStep(0);
@@ -147,14 +153,23 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
       const operationId = operationIdRef.current || crypto.randomUUID();
       operationIdRef.current = operationId;
       const headers = { "X-Momento-Operation-Id": operationId };
+      albumCreationTiming("UPLOAD_REQUEST_STARTED", { photo_count: photos.length });
       const response = await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal, headers });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
       }
       const created = (await response.json()) as { album_id: string; generation_job_id?: string | null };
+      const responseAt = performance.now();
       operationIdRef.current = null;
-      onSuccess({ albumId: created.album_id, generationJobId: created.generation_job_id ?? null });
+      previewsTransferredRef.current = true;
+      onSuccess({
+        albumId: created.album_id,
+        generationJobId: created.generation_job_id ?? null,
+        previewUrls: photos.slice(0, 5).map((photo) => photo.previewUrl),
+        submittedAt,
+        responseAt,
+      });
     } catch (cause: unknown) {
       console.error("Album upload failed", { cause, photoCount: photos.length });
       const reason = cause instanceof DOMException && cause.name === "AbortError"

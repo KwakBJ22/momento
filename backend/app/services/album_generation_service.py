@@ -9,10 +9,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from app.config import Settings, get_settings
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
@@ -30,6 +30,26 @@ from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key
 
 logger = logging.getLogger(__name__)
 _STALE_AFTER = timedelta(minutes=30)
+
+
+def _short(value: Any) -> str:
+    return str(value or "")[:8]
+
+
+def _milliseconds(started_at: float) -> int:
+    return round((time.perf_counter() - started_at) * 1000)
+
+
+@dataclass(frozen=True)
+class DerivativeResult:
+    content: bytes
+    fallback_used: bool
+    display_ready: bool
+    thumbnail_ready: bool
+    original_bytes: int
+    display_bytes: int
+    thumbnail_bytes: int
+    elapsed_ms: int
 
 
 def _job_row(client: Any, job_id: str) -> dict[str, Any] | None:
@@ -76,7 +96,8 @@ def update_generation_job(client: Any, job_id: str, *, status: str | None = None
 
 
 def recover_stale_generation_job(client: Any, job: dict[str, Any]) -> dict[str, Any]:
-    if str(job.get("status")) != "processing":
+    status = str(job.get("status"))
+    if status not in {"pending", "processing"}:
         return job
     raw = str(job.get("updated_at") or "")
     try:
@@ -87,11 +108,12 @@ def recover_stale_generation_job(client: Any, job: dict[str, Any]) -> dict[str, 
         return job
     if datetime.now(timezone.utc) - updated_at <= _STALE_AFTER:
         return job
+    stale_code = "stale_pending" if status == "pending" else "stale_processing"
     client.table("album_generation_jobs").update({
-        "status": "failed", "error_code": "stale_processing", "current_step": "upload_completed",
+        "status": "failed", "error_code": stale_code, "current_step": "upload_completed",
         "retry_count": int(job.get("retry_count") or 0) + 1,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", job["id"]).eq("status", "processing").execute()
+    }).eq("id", job["id"]).eq("status", status).execute()
     client.table("albums").update({"status": "failed"}).eq("id", job["album_id"]).execute()
     return _job_row(client, str(job["id"])) or job
 
@@ -111,7 +133,8 @@ def _generation_photos(client: Any, album_id: str) -> list[dict[str, Any]]:
     return list(rows)
 
 
-def _process_single_photo(client: Any, settings: Settings, album_id: str, photo: dict[str, Any]) -> bytes:
+def _process_single_photo(client: Any, settings: Settings, album_id: str, photo: dict[str, Any]) -> DerivativeResult:
+    started_at = time.perf_counter()
     bucket = str(photo.get("storage_bucket") or settings.supabase_private_storage_bucket)
     path = str(photo.get("storage_path") or "")
     if not path:
@@ -125,12 +148,17 @@ def _process_single_photo(client: Any, settings: Settings, album_id: str, photo:
             client, album_id=album_id, photo_id=str(photo["id"]), original_extension=extension,
             original_mime_type=mime_type, display_bytes=display, thumbnail_bytes=thumbnail, settings=settings,
         )
-    except Exception as exc:
+        display_size = len(display or original)
+        thumbnail_size = len(thumbnail)
+        fallback_used = False
+    except Exception:
         # A web derivative must never discard a successfully uploaded original.
-        logger.warning("album_derivative_failed album_id=%s photo_id=%s error_type=%s", album_id[:6], str(photo["id"])[:6], type(exc).__name__)
         display_path = path
         thumbnail_path = path
         display = None
+        display_size = 0
+        thumbnail_size = 0
+        fallback_used = True
     client.table("album_photos").update({
         "display_bucket": bucket, "display_path": display_path,
         "thumbnail_bucket": bucket, "thumbnail_path": thumbnail_path, "status": "ready",
@@ -138,7 +166,16 @@ def _process_single_photo(client: Any, settings: Settings, album_id: str, photo:
     client.table("album_media").update({
         "thumbnail_path": thumbnail_path, "processing_status": "ready",
     }).eq("id", photo["id"]).eq("album_id", album_id).execute()
-    return display if display is not None else original
+    return DerivativeResult(
+        content=display if display is not None else original,
+        fallback_used=fallback_used,
+        display_ready=not fallback_used,
+        thumbnail_ready=not fallback_used,
+        original_bytes=len(original),
+        display_bytes=display_size,
+        thumbnail_bytes=thumbnail_size,
+        elapsed_ms=_milliseconds(started_at),
+    )
 
 
 async def run_initial_album_generation(job_id: str) -> None:
@@ -149,8 +186,18 @@ async def run_initial_album_generation(job_id: str) -> None:
         return
     album_id = str(job["album_id"])
     started = time.perf_counter()
+    current_step = "background_start"
     try:
+        try:
+            created_at = datetime.fromisoformat(str(job.get("created_at") or "").replace("Z", "+00:00"))
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            background_start_delay_ms = max(0, round((datetime.now(timezone.utc) - created_at).total_seconds() * 1000))
+        except ValueError:
+            background_start_delay_ms = 0
+        logger.info("event=album_generation_background_started album_id=%s job_id=%s background_start_delay_ms=%s", _short(album_id), _short(job_id), background_start_delay_ms)
         update_generation_job(client, job_id, status="processing", progress=25, current_step="processing_images")
+        current_step = "processing_images"
         album = get_album_record(client, album_id)
         if not album:
             raise RuntimeError("album_missing")
@@ -159,19 +206,43 @@ async def run_initial_album_generation(job_id: str) -> None:
             raise RuntimeError("photos_missing")
         concurrency = max(1, min(6, int(getattr(settings, "image_processing_concurrency", 4))))
         display_bytes: dict[str, bytes] = {}
+        derivative_results: list[DerivativeResult] = []
         image_started = time.perf_counter()
+        logger.info("event=image_processing_started album_id=%s job_id=%s photo_count=%s concurrency=%s", _short(album_id), _short(job_id), len(photos), concurrency)
+        last_persisted_progress = 25
         for start in range(0, len(photos), concurrency):
             batch = photos[start:start + concurrency]
             results = await asyncio.gather(*[
                 asyncio.to_thread(_process_single_photo, client, settings, album_id, photo) for photo in batch
             ])
-            for photo, content in zip(batch, results):
-                display_bytes[str(photo["id"])] = content
+            for photo, result in zip(batch, results):
+                display_bytes[str(photo["id"])] = result.content
+                derivative_results.append(result)
             processed_count = min(len(photos), start + len(batch))
-            update_generation_job(client, job_id, progress=25 + int((processed_count / len(photos)) * 30), current_step="processing_images")
+            next_progress = 25 + int((processed_count / len(photos)) * 30)
+            if next_progress - last_persisted_progress >= 3 or processed_count == len(photos):
+                update_generation_job(client, job_id, progress=next_progress, current_step="processing_images")
+                last_persisted_progress = next_progress
         image_ms = round((time.perf_counter() - image_started) * 1000)
+        fallback_count = sum(1 for result in derivative_results if result.fallback_used)
+        display_success_count = sum(1 for result in derivative_results if result.display_ready)
+        thumbnail_success_count = sum(1 for result in derivative_results if result.thumbnail_ready)
+        total_original_bytes = sum(result.original_bytes for result in derivative_results)
+        total_display_bytes = sum(result.display_bytes for result in derivative_results)
+        total_thumbnail_bytes = sum(result.thumbnail_bytes for result in derivative_results)
+        max_photo_ms = max((result.elapsed_ms for result in derivative_results), default=0)
+        average_photo_ms = round(sum(result.elapsed_ms for result in derivative_results) / len(derivative_results)) if derivative_results else 0
+        if fallback_count:
+            logger.warning("event=image_derivative_failed album_id=%s job_id=%s photo_count=%s fallback_count=%s", _short(album_id), _short(job_id), len(photos), fallback_count)
+        logger.info(
+            "event=image_processing_completed%s album_id=%s job_id=%s photo_count=%s display_success_count=%s thumbnail_success_count=%s fallback_count=%s concurrency=%s average_photo_ms=%s max_photo_ms=%s image_processing_ms=%s original_avg_bytes=%s display_avg_bytes=%s thumbnail_avg_bytes=%s",
+            "_with_fallback" if fallback_count else "", _short(album_id), _short(job_id), len(photos), display_success_count,
+            thumbnail_success_count, fallback_count, concurrency, average_photo_ms, max_photo_ms, image_ms,
+            round(total_original_bytes / len(photos)), round(total_display_bytes / len(photos)), round(total_thumbnail_bytes / len(photos)),
+        )
 
         update_generation_job(client, job_id, progress=60, current_step="arranging_photos")
+        current_step = "arranging_photos"
         stories = [
             {"order": int(photo.get("sort_order") or 0), "user": str(photo.get("legacy_author_label") or ""),
              "text": str(photo.get("comment") or photo.get("caption") or ""), "_path": str(photo.get("storage_path") or "")}
@@ -180,7 +251,9 @@ async def run_initial_album_generation(job_id: str) -> None:
         media_records = [{"id": str(photo["id"]), "width": photo.get("width"), "height": photo.get("height"),
                           "taken_at": photo.get("taken_at"), "orientation": photo.get("orientation")} for photo in photos]
         update_generation_job(client, job_id, progress=65, current_step="building_story")
+        current_step = "building_story"
         story_started = time.perf_counter()
+        logger.info("event=story_generation_started album_id=%s job_id=%s photo_count=%s", _short(album_id), _short(job_id), len(photos))
         narrative = await generate_narrative(
             stories, str(album.get("meeting_type") or "friend"), str(album.get("title") or "우리의 추억"), settings,
             event_date=str(album.get("event_date") or ""), description="Create the album's closing story from the uploaded photos and captions.",
@@ -203,8 +276,11 @@ async def run_initial_album_generation(job_id: str) -> None:
                     client=client, album_id=album_id, family_id=album.get("family_id"), actor_profile_id=album.get("owner_id"),
                 )
         story_ms = round((time.perf_counter() - story_started) * 1000)
+        logger.info("event=story_generation_completed album_id=%s job_id=%s photo_count=%s story_generation_ms=%s", _short(album_id), _short(job_id), len(photos), story_ms)
         update_generation_job(client, job_id, progress=85, current_step="building_album")
+        current_step = "building_album"
         build_started = time.perf_counter()
+        logger.info("event=album_build_started album_id=%s job_id=%s photo_count=%s", _short(album_id), _short(job_id), len(photos))
         image = generate_album(
             str(album.get("template") or "A"),
             photos=bytes_to_images([display_bytes[str(photo["id"])] for photo in photos]), stories=stories,
@@ -226,11 +302,17 @@ async def run_initial_album_generation(job_id: str) -> None:
         except Exception:
             logger.info("album_questions_deferred album_id=%s", album_id[:6])
         build_ms = round((time.perf_counter() - build_started) * 1000)
+        logger.info("event=album_build_completed album_id=%s job_id=%s photo_count=%s album_build_ms=%s", _short(album_id), _short(job_id), len(photos), build_ms)
         update_generation_job(client, job_id, status="completed", progress=100, current_step="completed", completed=True)
-        logger.info("album_generation_completed job_id=%s album_id=%s photo_count=%s image_processing_ms=%s story_generation_ms=%s album_build_ms=%s total_generation_ms=%s",
-                    job_id[:6], album_id[:6], len(photos), image_ms, story_ms, build_ms, round((time.perf_counter() - started) * 1000))
+        logger.info("event=album_generation_completed album_id=%s job_id=%s photo_count=%s background_start_delay_ms=%s image_processing_ms=%s story_generation_ms=%s album_build_ms=%s total_generation_ms=%s status=completed",
+                    _short(album_id), _short(job_id), len(photos), background_start_delay_ms, image_ms, story_ms, build_ms, _milliseconds(started))
     except Exception as exc:
-        logger.exception("album_generation_failed job_id=%s album_id=%s error_type=%s", job_id[:6], album_id[:6], type(exc).__name__)
+        failure_event = {
+            "building_story": "story_generation_failed",
+            "building_album": "album_build_failed",
+        }.get(current_step, "album_generation_failed")
+        logger.exception("event=%s album_id=%s job_id=%s current_step=%s photo_count=%s elapsed_ms=%s error_code=generation_failed retry_count=%s error_type=%s",
+                         failure_event, _short(album_id), _short(job_id), current_step, len(locals().get("photos", [])), _milliseconds(started), int(job.get("retry_count") or 0), type(exc).__name__)
         try:
             update_generation_job(client, job_id, status="failed", current_step="failed", error_code="generation_failed", completed=True)
             client.table("albums").update({"status": "failed"}).eq("id", album_id).execute()

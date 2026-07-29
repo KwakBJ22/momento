@@ -66,6 +66,7 @@ yarn-error.log*
 !docs/SOCIAL_AUTH_SETUP.md
 !docs/PRODUCT_BACKLOG.md
 !docs/LAUNCH_CHECKLIST.md
+!docs/ALBUM_GENERATION_MEASUREMENT.md
 coverage/
 .coverage
 htmlcov/

@@ -18,6 +18,7 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { authenticatedFetch, getAlbum, getAlbumPhotos } from "./lib/api";
+import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
@@ -54,6 +55,7 @@ function App() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [, setRouteVersion] = useState(0);
   const loginDialogRef = useRef<HTMLElement | null>(null);
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const [category, setCategory] = useState<AlbumCategory | null>(null);
@@ -196,7 +198,11 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : user && category ? <UploadForm category={category} onSuccess={({ albumId }) => window.location.assign(`/album/${albumId}/creating`)} />
+          ) : user && category ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
+            saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt });
+            window.history.pushState({}, "", `/album/${albumId}/creating`);
+            setRouteVersion((version) => version + 1);
+          }} />
           : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setCategory(selected) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
       </main>
     </div>

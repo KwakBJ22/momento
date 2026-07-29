@@ -2,10 +2,19 @@
 .album-creating__card { width: min(100%, 420px); box-sizing: border-box; padding: 32px 28px; border: 1px solid #e7ddd4; border-radius: 18px; background: #fffdf9; text-align: center; box-shadow: 0 12px 30px rgba(76, 54, 39, .08); }
 .album-creating__eyebrow { margin: 0 0 8px; color: #9d7960; font-size: .86rem; font-weight: 700; }
 .album-creating h2 { margin: 0; color: #402f26; font-size: clamp(1.45rem, 5vw, 1.9rem); }
+.album-creating__previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 14px; }
+.album-creating__previews img, .album-creating__previews span { width: 100%; aspect-ratio: 1; border-radius: 10px; background: #eee5dc; object-fit: cover; }
+.album-creating__previews img { animation: album-creating-pulse 2.4s ease-in-out infinite; }
 .album-creating__card > p:not(.album-creating__eyebrow):not(.album-creating__error) { margin: 12px 0 22px; color: #66554b; line-height: 1.55; }
 .album-creating__progress { overflow: hidden; height: 8px; border-radius: 999px; background: #eee5dc; }
 .album-creating__progress span { display: block; height: 100%; border-radius: inherit; background: #af8468; transition: width .35s ease; }
+.album-creating__working { display: block; min-height: 1.2rem; margin: 8px 0 2px; color: #af8468; font-size: 1.25rem; letter-spacing: .2em; animation: album-creating-dots 1.2s ease-in-out infinite; }
+.album-creating small { color: #84736a; line-height: 1.5; }
 .album-creating__error { color: #a84135; font-size: .9rem; }
 .album-creating__actions { display: grid; gap: 10px; margin-top: 22px; }
 .album-creating__actions button, .album-creating__actions a { min-height: 48px; border: 0; border-radius: 12px; background: #af8468; color: #fff; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
 .album-creating__actions a { display: grid; place-items: center; background: transparent; color: #705a4b; font-weight: 600; }
+@keyframes album-creating-pulse { 50% { opacity: .78; } }
+@keyframes album-creating-dots { 50% { opacity: .35; transform: translateY(1px); } }
+@media (min-width: 540px) { .album-creating__previews { grid-template-columns: repeat(5, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .album-creating__previews img, .album-creating__working { animation: none; } .album-creating__progress span { transition: none; } }

@@ -130,12 +130,38 @@ test("initial album creation moves to the persisted progress screen instead of w
   const creating = component("AlbumCreating");
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(upload, /generation_job_id/);
-  assert.match(upload, /onSuccess\(\{ albumId: created\.album_id/);
+  assert.match(upload, /onSuccess\(\{\s*albumId: created\.album_id/);
   assert.match(app, /getCreatingAlbumIdFromPath/);
   assert.match(app, /<AlbumCreating albumId=\{creatingAlbumId\}/);
   assert.match(app, /\/creating/);
   assert.match(creating, /getAlbumGenerationStatus/);
   assert.match(creating, /window\.location\.replace\(`\/album\/\$\{albumId\}`\)/);
+});
+
+test("creating screen reuses at most five local previews, falls back after refresh, and polls without a fake progress timer", () => {
+  const creating = component("AlbumCreating");
+  const upload = component("UploadForm");
+  const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
+  assert.match(upload, /previewUrls: photos\.slice\(0, 5\)\.map/);
+  assert.match(creating, /getAlbumCreationPreview\(albumId\)/);
+  assert.match(creating, /getAlbumGenerationPreview\(albumId\)/);
+  assert.match(creating, /\.slice\(0, 5\)/);
+  assert.match(creating, /document\.hidden\) return 5000/);
+  assert.match(creating, /visibilitychange/);
+  assert.match(creating, /await getAlbum\(albumId\)/);
+  assert.match(creating, /releaseAlbumCreationPreview\(albumId\)/);
+  assert.match(api, /generation-preview/);
+  assert.doesNotMatch(creating, /setInterval\(/);
+});
+
+test("creation timing keeps object URLs in memory only and logs no file paths or signed urls", () => {
+  const timing = readFileSync(new URL("../src/lib/albumCreation.ts", import.meta.url), "utf8");
+  assert.match(timing, /const previewState = new Map/);
+  assert.match(timing, /previewUrls\.slice\(0, 5\)/);
+  assert.match(timing, /URL\.revokeObjectURL/);
+  assert.doesNotMatch(timing, /sessionStorage/);
+  assert.doesNotMatch(timing, /storage_path/);
+  assert.doesNotMatch(timing, /signedUrl/);
 });
 
 test("album viewing and collaboration invitation use distinct URLs and Kakao payloads", () => {

@@ -100,6 +100,15 @@ class AlbumGenerationStatusResponse(BaseModel):
     error_code: str | None = None
 
 
+class AlbumGenerationPreviewItem(BaseModel):
+    photo_id: UUID
+    url: str | None = None
+
+
+class AlbumGenerationPreviewResponse(BaseModel):
+    previews: list[AlbumGenerationPreviewItem] = Field(default_factory=list)
+
+
 class CurrentEditionSummary(BaseModel):
     photo_count: int = 0
     memory_count: int = 0

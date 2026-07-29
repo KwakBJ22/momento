@@ -34,6 +34,8 @@ from app.models.schemas import (
     PhotoCommentUpdate,
     AlbumUploadResponse,
     AlbumGenerationStatusResponse,
+    AlbumGenerationPreviewItem,
+    AlbumGenerationPreviewResponse,
     MeetingType,
     NarrativeUpdate,
     StoryInputResponse,
@@ -334,6 +336,7 @@ async def upload_album(
     cover_photo_order: int = Form(-1),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumUploadResponse:
+    request_started = time.perf_counter()
     settings = get_settings()
 
     if not photos:
@@ -398,6 +401,7 @@ async def upload_album(
         album_id = str(UUID(operation_id)) if operation_id else create_album_id()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid album creation operation.")
+    logger.info("event=album_generation_request_received album_id=%s photo_count=%s", album_id[:8], len(photos))
     existing_album = get_album_record(client, album_id)
     if existing_album:
         existing_job = get_generation_job_for_album(client, album_id)
@@ -417,6 +421,8 @@ async def upload_album(
 
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
     entries: list[dict[str, Any]] = []
+    original_upload_started = time.perf_counter()
+    logger.info("event=album_generation_original_upload_started album_id=%s photo_count=%s", album_id[:8], len(photos))
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
         captured_at = parse_captured_at(raw_meta.get("captured_at"))
@@ -439,7 +445,6 @@ async def upload_album(
     # slower work. This is deliberately kept separate from the legacy block
     # below so in-flight deployments retain a narrow, recoverable boundary.
     uploaded_private_paths: list[str] = []
-    upload_started = time.perf_counter()
     album_saved = False
     try:
         photo_records: list[dict[str, Any]] = []
@@ -492,6 +497,10 @@ async def upload_album(
                              "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown"},
             })
         originals_uploaded_at = time.perf_counter()
+        logger.info(
+            "event=album_generation_original_upload_completed album_id=%s photo_count=%s upload_originals_ms=%s",
+            album_id[:8], len(entries), round((originals_uploaded_at - original_upload_started) * 1000),
+        )
         cover_photo_id = selected_cover_photo_id or str(photo_records[0]["id"])
         photo_meta = [{"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"],
                        "taken_at": next((photo.get("taken_at") for photo in photo_records if int(photo["sort_order"]) == int(item["order"])), None)}
@@ -509,6 +518,11 @@ async def upload_album(
         save_album_member(client, album_id=album_id, profile_id=authenticated_user_id, role="owner", invited_by=authenticated_user_id)
         _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
         job = create_generation_job(client, album_id)
+        records_created_at = time.perf_counter()
+        logger.info(
+            "event=album_generation_photo_records_created album_id=%s job_id=%s photo_count=%s create_records_ms=%s",
+            album_id[:8], str(job["id"])[:8], len(photo_records), round((records_created_at - originals_uploaded_at) * 1000),
+        )
     except Exception:
         try:
             if album_saved:
@@ -517,12 +531,21 @@ async def upload_album(
             delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_private_paths)
         raise
 
-    background_tasks.add_task(run_initial_album_generation, str(job["id"]))
+    try:
+        background_tasks.add_task(run_initial_album_generation, str(job["id"]))
+    except Exception as exc:
+        logger.exception(
+            "event=album_generation_schedule_failed album_id=%s job_id=%s error_type=%s",
+            album_id[:8], str(job["id"])[:8], type(exc).__name__,
+        )
+        client.table("album_generation_jobs").update({"status": "failed", "error_code": "schedule_failed"}).eq("id", job["id"]).execute()
+        client.table("albums").update({"status": "failed"}).eq("id", album_id).execute()
+        raise HTTPException(status_code=500, detail="앨범 만들기를 시작하지 못했습니다. 다시 시도해주세요.") from exc
     logger.info(
-        "album_generation_started job_id=%s album_id=%s photo_count=%s upload_originals_ms=%s create_records_ms=%s",
-        str(job["id"])[:6], album_id[:6], len(photo_records),
-        round((originals_uploaded_at - upload_started) * 1000),
-        round((time.perf_counter() - originals_uploaded_at) * 1000),
+        "event=album_generation_accepted_response_ready album_id=%s job_id=%s photo_count=%s request_to_accepted_ms=%s upload_originals_ms=%s create_records_ms=%s status=accepted",
+        album_id[:8], str(job["id"])[:8], len(photo_records), round((time.perf_counter() - request_started) * 1000),
+        round((originals_uploaded_at - original_upload_started) * 1000),
+        round((records_created_at - originals_uploaded_at) * 1000),
     )
     return AlbumUploadResponse(
         album_id=UUID(album_id), meeting_type=meeting_type, category=album_category, template=layout,
@@ -806,6 +829,39 @@ def _generation_status_response(album_id: str, job: dict[str, Any]) -> AlbumGene
         progress=int(job.get("progress") or 0), current_step=str(job.get("current_step") or "upload_completed"),
         ready=state == "completed", error_code=str(job["error_code"]) if job.get("error_code") else None,
     )
+
+
+@router.get("/albums/{album_id}/generation-preview", response_model=AlbumGenerationPreviewResponse)
+async def get_album_generation_preview(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumGenerationPreviewResponse:
+    """Return at most five existing assets for a creation-screen preview."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    album = get_album_record(client, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, album, authenticated_user_id)
+    require_album_owner_story(access)
+    rows = (
+        client.table("album_photos")
+        .select("id,storage_bucket,storage_path,display_bucket,display_path,thumbnail_bucket,thumbnail_path")
+        .eq("album_id", album_id).is_("deleted_at", "null").order("sort_order").limit(5).execute().data or []
+    )
+    assets: list[dict[str, str]] = []
+    selected: list[tuple[str, str, str]] = []
+    for row in rows:
+        bucket = str(row.get("thumbnail_bucket") or row.get("display_bucket") or row.get("storage_bucket") or "")
+        path = str(row.get("thumbnail_path") or row.get("display_path") or row.get("storage_path") or "")
+        if bucket and path:
+            assets.append({"bucket": bucket, "path": path})
+            selected.append((str(row["id"]), bucket, path))
+    signed = get_signed_urls_batch(client, assets, settings.signed_url_ttl_seconds)
+    return AlbumGenerationPreviewResponse(previews=[
+        AlbumGenerationPreviewItem(photo_id=UUID(photo_id), url=signed.get((bucket, path)) or None)
+        for photo_id, bucket, path in selected
+    ])
 
 
 @router.get("/albums/{album_id}/generation-status", response_model=AlbumGenerationStatusResponse)

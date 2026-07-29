@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest import TestCase
 
-from app.models.schemas import AlbumGenerationStatusResponse
+from app.models.schemas import AlbumGenerationPreviewItem, AlbumGenerationPreviewResponse, AlbumGenerationStatusResponse
 
 
 class AlbumGenerationJobContractTests(TestCase):
@@ -21,3 +21,24 @@ class AlbumGenerationJobContractTests(TestCase):
         self.assertIn("album_generation_jobs", source)
         self.assertIn("WHERE status IN ('pending', 'processing')", source)
         self.assertIn("ALTER COLUMN thumbnail_path DROP NOT NULL", source)
+
+    def test_generation_preview_contract_limits_the_response_to_safe_urls(self) -> None:
+        payload = AlbumGenerationPreviewResponse(previews=[
+            AlbumGenerationPreviewItem(photo_id="00000000-0000-0000-0000-000000000003", url="https://signed.example/image"),
+        ]).model_dump()
+        self.assertEqual(len(payload["previews"]), 1)
+        self.assertNotIn("storage_path", payload["previews"][0])
+
+    def test_generation_service_uses_aggregated_safe_timing_events(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "app" / "services" / "album_generation_service.py").read_text(encoding="utf-8")
+        for event in (
+            "event=album_generation_background_started",
+            "event=image_processing_started",
+            "event=image_processing_completed",
+            "event=story_generation_started",
+            "event=album_build_completed",
+            "event=album_generation_completed",
+        ):
+            self.assertIn(event, source)
+        self.assertIn("_short(album_id)", source)
+        self.assertNotIn("logger.info(\"event=image_processing_photo", source)
