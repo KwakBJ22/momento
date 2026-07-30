@@ -7,6 +7,7 @@ from typing import Any
 
 from supabase import Client
 
+from app.models.album_photo_status import ALBUM_PHOTO_READY
 from app.services.admin_kpi_service import (
     _days_ago,
     _month_start_utc,
@@ -319,7 +320,7 @@ def _batch_album_cover_photos(client: Client, album_ids: list[str]) -> dict[str,
             .select("id,album_id,storage_path,sort_order,taken_at")
             .in_("album_id", subset)
             .is_("deleted_at", "null")
-            .eq("status", "ready")
+            .eq("status", ALBUM_PHOTO_READY)
             .order("sort_order")
             .limit(5000)
             .execute()

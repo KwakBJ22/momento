@@ -13,6 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Response, UploadFile
 
 from app.config import get_settings
+from app.models.album_photo_status import ALBUM_PHOTO_READY, ready_album_photo_query
 from app.models.schemas import (
     CollaborationContributorResponse,
     CollaborationInviteStartResponse,
@@ -118,7 +119,7 @@ def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) ->
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     owners = {str(row["id"]) for row in list_contributors(client, album_id) if row.get("role") == "owner"}
     contributors = {str(row["id"]): str(row.get("display_name") or "참여자") for row in list_contributors(client, album_id)}
-    photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").execute().data or []
+    photos = ready_album_photo_query(client.table("album_photos").select("*").eq("album_id", album_id)).is_("deleted_at", "null").execute().data or []
     memories = list_photo_memories(client, album_id)
     pending_photos = [
         row
@@ -297,10 +298,10 @@ async def publish_album_collaboration(
 
 def _list_ready_photo_refs(client: Any, album_id: str) -> list[dict[str, Any]]:
     return (
-        client.table("album_photos")
+        ready_album_photo_query(client.table("album_photos")
         .select("id, uploaded_by_contributor_id, created_at")
         .eq("album_id", album_id)
-        .eq("status", "ready")
+        )
         .is_("deleted_at", "null")
         .execute()
         .data
@@ -604,13 +605,13 @@ async def contribute_workspace(
     )
 
     photos = (
-        client.table("album_photos")
+        ready_album_photo_query(client.table("album_photos")
         .select(
             "id, sort_order, status, storage_bucket, storage_path, display_bucket, display_path, thumbnail_bucket, thumbnail_path, "
             "taken_at, orientation, width, height, uploaded_by_contributor_id, original_filename"
         )
         .eq("album_id", album_id)
-        .eq("status", "ready")
+        )
         .is_("deleted_at", "null")
         .order("sort_order")
         .execute()
@@ -749,7 +750,7 @@ async def contribute_upload_photos(
             "byte_size": len(processed.original_bytes),
             "checksum_sha256": processed.checksum_sha256,
             "sort_order": next_order,
-            "status": "ready",
+            "status": ALBUM_PHOTO_READY,
             "uploaded_by_contributor_id": contributor["id"],
             "width": processed.width or None,
             "height": processed.height or None,
@@ -804,8 +805,8 @@ async def contribute_upload_photos(
     if uploaded:
         current_cover_id = str(album.get("cover_photo_id") or "")
         valid_cover = (
-            client.table("album_photos").select("id").eq("album_id", album_id)
-            .eq("id", current_cover_id).eq("status", "ready").is_("deleted_at", "null").limit(1).execute().data or []
+            ready_album_photo_query(client.table("album_photos").select("id").eq("album_id", album_id)
+            .eq("id", current_cover_id)).is_("deleted_at", "null").limit(1).execute().data or []
         ) if current_cover_id else []
         if not valid_cover:
             client.table("albums").update({"cover_photo_id": uploaded[0]["id"]}).eq("id", album_id).execute()

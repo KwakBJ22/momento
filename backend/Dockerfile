@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY prompts ./prompts
 
+RUN python -c "from app.brand.generator import get_generator; g=get_generator(); g.ensure_built(); print('brand_pool', g.pool_size)"
+
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000

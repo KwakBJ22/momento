@@ -95,7 +95,7 @@ export default function Landing({
           disabled={!category}
           onClick={() => category && onStart(category)}
         >
-          사진 선택
+          앨범 만들기
         </button>
       </div>
 

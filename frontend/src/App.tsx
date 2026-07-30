@@ -5,6 +5,7 @@ import AuthPanel from "./components/AuthPanel";
 import AlbumResultView from "./components/AlbumResult";
 import AlbumCreating from "./components/AlbumCreating";
 import AlbumView from "./components/AlbumView";
+import BrandFinder from "./components/BrandFinder";
 import CollaborationPanel from "./components/CollaborationPanel";
 import ContributeWorkspace from "./components/ContributeWorkspace";
 import ParticipantsPage from "./components/ParticipantsPage";
@@ -35,6 +36,7 @@ function getInviteTokenFromPath() { return routeId(/^\/invite\/([^/]+)$/); }
 function getQuestionsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/questions$/); }
 function getShareTokenFromPath() { return routeId(/^\/s\/([^/]+)$/); }
 function getParticipantsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/participants$/); }
+function isBrandPage() { return window.location.pathname === "/brand"; }
 function isMyAlbumsPage() { return window.location.pathname === "/my-albums"; }
 function isAuthCallbackPage() { return window.location.pathname === "/auth/callback"; }
 
@@ -59,6 +61,7 @@ function App() {
   const loginDialogRef = useRef<HTMLElement | null>(null);
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const [category, setCategory] = useState<AlbumCategory | null>(null);
+  const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(false);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const creatingAlbumId = getCreatingAlbumIdFromPath();
@@ -69,6 +72,7 @@ function App() {
   const shareToken = getShareTokenFromPath();
   const participantsAlbumId = getParticipantsAlbumIdFromPath();
   const myAlbumsPage = isMyAlbumsPage();
+  const brandPage = isBrandPage();
   const adminRoute = parseAdminRoute(window.location.pathname);
 
   useEffect(() => {
@@ -113,7 +117,7 @@ function App() {
     return () => { active = false; };
   }, [user?.id]);
 
-  const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(null); };
+  const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(null); setIsPhotoSelectionStep(false); };
   const logout = async () => {
     await signOut();
     setUser(null);
@@ -180,6 +184,7 @@ function App() {
   };
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
+  if (brandPage) return <BrandFinder />;
 
   return (
     <div className={adminRoute ? "app app--album admin-app" : isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}>
@@ -198,12 +203,12 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : user && category ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
+          ) : user && category && isPhotoSelectionStep ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
             saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt });
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setCategory(selected) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
+          : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setIsPhotoSelectionStep(true) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
       </main>
     </div>
   );

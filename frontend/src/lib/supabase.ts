@@ -58,6 +58,10 @@ export const supabase = isSupabaseAuthConfigured
       auth: {
         autoRefreshToken: true,
         persistSession: true,
+        // Kakao's configured OAuth callback returns #access_token (implicit
+        // flow). Keep this explicit so the client owns the one-time fragment
+        // parsing and session persistence.
+        flowType: "implicit",
         detectSessionInUrl: true,
         storage: safeAuthStorage,
       },

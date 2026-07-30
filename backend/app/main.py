@@ -9,12 +9,14 @@ from pydantic import ValidationError
 from app.api.admin import router as admin_router
 from app.api.album import router as album_router
 from app.api.auth import router as auth_router
+from app.api.brand import router as brand_router
 from app.api.collaboration import router as collaboration_router
 from app.api.family import album_members_router, invitations_router, router as family_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
 from app.config import get_settings
-from app.services.operations import get_operation_id, operation_context
+from app.brand.generator import get_generator
+from app.services.operations import get_operation_id, get_operation_stage, operation_context
 from app.services.storage_service import StorageService
 from app.services.supabase import get_supabase_client
 
@@ -22,6 +24,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+# Uvicorn may install handlers before this module is imported, in which case
+# basicConfig intentionally does not alter the root level. Keep application
+# phase diagnostics visible in Railway without changing their destination.
+logging.getLogger().setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +68,13 @@ async def add_operation_id(request: Request, call_next):
             response = await call_next(request)
         except Exception as exc:
             logger.exception(
-                "api_request_failed method=%s path=%s operation_id=%s exception_type=%s",
+                "api_request_failed method=%s path=%s operation_id=%s stage=%s exception_type=%s exception_message=%s",
                 request.method,
                 request.url.path,
                 operation_id,
+                get_operation_stage() or "unknown",
                 type(exc).__name__,
+                str(exc)[:240],
             )
             response = JSONResponse(
                 status_code=500,
@@ -79,11 +87,13 @@ async def add_operation_id(request: Request, call_next):
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return a JSON 500 inside the CORS middleware instead of hiding it as a browser CORS error."""
     logger.exception(
-        "unhandled_api_error method=%s path=%s operation_id=%s exception_type=%s",
+        "unhandled_api_error method=%s path=%s operation_id=%s stage=%s exception_type=%s exception_message=%s",
         request.method,
         request.url.path,
         get_operation_id(),
+        get_operation_stage() or "unknown",
         type(exc).__name__,
+        str(exc)[:240],
     )
     return JSONResponse(status_code=500, content={"detail": "앨범 생성 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요."})
 
@@ -96,6 +106,15 @@ fastapi_app.include_router(memory_router)
 fastapi_app.include_router(share_router)
 fastapi_app.include_router(collaboration_router)
 fastapi_app.include_router(admin_router)
+fastapi_app.include_router(brand_router)
+
+
+@fastapi_app.on_event("startup")
+async def warm_brand_pool() -> None:
+    """Pre-build the brand candidate pool so the first request is fast."""
+    generator = get_generator()
+    generator.ensure_built()
+    logger.info("brand_pool_ready size=%s", generator.pool_size)
 
 
 @fastapi_app.get("/health")

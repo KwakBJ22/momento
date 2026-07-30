@@ -147,6 +147,17 @@ test("initial album creation moves to the persisted progress screen instead of w
   assert.match(creating, /window\.location\.replace\(`\/album\/\$\{albumId\}`\)/);
 });
 
+test("landing category selection stays on the landing screen until the album CTA is pressed", () => {
+  const landing = component("Landing");
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(landing, /onClick=\{\(\) => onSelectCategory\?\.\(option\.value\)\}/);
+  assert.match(landing, /앨범 만들기/);
+  assert.match(landing, /disabled=\{!category\}/);
+  assert.match(app, /const \[isPhotoSelectionStep, setIsPhotoSelectionStep\] = useState\(false\)/);
+  assert.match(app, /user && category && isPhotoSelectionStep \? <UploadForm/);
+  assert.match(app, /onStart=\{\(selected\) => user \? setIsPhotoSelectionStep\(true\)/);
+});
+
 test("creating screen reuses at most five local previews, falls back after refresh, and polls without a fake progress timer", () => {
   const creating = component("AlbumCreating");
   const upload = component("UploadForm");

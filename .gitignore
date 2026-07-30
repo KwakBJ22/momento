@@ -72,3 +72,5 @@ coverage/
 htmlcov/
 .turbo/
 .cache/
+/backend/app/brand/data/pool_cache.txt
+/backend/app/brand/data/pool_cache.v2.txt

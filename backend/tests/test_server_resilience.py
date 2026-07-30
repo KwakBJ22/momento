@@ -1,4 +1,6 @@
+import io
 from types import SimpleNamespace
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +10,8 @@ from pydantic import BaseModel
 
 from app.services.supabase import get_result_signed_url, get_signed_url, save_album_record
 from app.services.event_logger import EventLogger
+from app.services.auth import require_authenticated_user
+from PIL import Image
 
 
 class MissingResultBucketColumn(Exception):
@@ -110,3 +114,56 @@ class ApiOperationHeaderTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["storage"], "ok")
         self.assertTrue(response.headers.get("x-operation-id"))
+
+    def test_upload_album_accepts_one_and_many_files_with_phase_logging_boundaries(self) -> None:
+        """Exercise the active upload route without a live Supabase project."""
+        from app.main import app
+
+        settings = SimpleNamespace(
+            max_photos=30,
+            max_file_size_mb=10,
+            max_image_pixels=100_000_000,
+            allowed_image_types=frozenset({"image/png"}),
+            supabase_private_storage_bucket="momento-private",
+            frontend_base_url="https://momento.test",
+        )
+        png_buffer = io.BytesIO()
+        Image.new("RGB", (2, 2), "white").save(png_buffer, format="PNG")
+        png_bytes = png_buffer.getvalue()
+        patches = [
+            patch("app.api.album.get_settings", return_value=settings),
+            patch("app.api.album.get_supabase_client", return_value=MagicMock()),
+            patch("app.api.album.ensure_default_family", return_value="family-1"),
+            patch("app.api.album.get_family_membership", return_value={"role": "owner"}),
+            patch("app.api.album.get_album_record", return_value=None),
+            patch("app.api.album.upload_album_photo_original", side_effect=lambda _client, album_id, photo_id, photo, settings: f"albums/{album_id}/photos/{photo_id}/original.jpg"),
+            patch("app.api.album.save_album_record"),
+            patch("app.api.album.save_album_photo_records"),
+            patch("app.api.album.save_album_media_records"),
+            patch("app.api.album.save_album_member"),
+            patch("app.api.album.create_share_link", return_value=({}, "share-token")),
+            patch("app.api.album.create_generation_job", return_value={"id": "00000000-0000-0000-0000-000000000123", "status": "pending", "progress": 20}),
+            patch("app.api.album.run_initial_album_generation"),
+        ]
+        app.app.dependency_overrides[require_authenticated_user] = lambda: "00000000-0000-0000-0000-000000000111"
+        try:
+            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9], patches[10], patches[11], patches[12]:
+                for photo_count in (1, 3):
+                    files = [("photos", (f"photo-{index}.png", png_bytes, "image/png")) for index in range(photo_count)]
+                    response = TestClient(app, raise_server_exceptions=False).post(
+                        "/api/upload-album",
+                        files=files,
+                        data={
+                            "stories": "[" + ",".join(f'{{\"order\":{index},\"user\":\"\",\"text\":\"\"}}' for index in range(photo_count)) + "]",
+                            "meeting_type": "friend",
+                            "file_meta": "[]",
+                        },
+                    )
+                    self.assertEqual(response.status_code, 202, response.text)
+                    self.assertEqual(response.json()["generation_status"], "pending")
+        finally:
+            app.app.dependency_overrides.pop(require_authenticated_user, None)
+
+        source = (Path(__file__).resolve().parents[1] / "app" / "api" / "album.py").read_text(encoding="utf-8")
+        for stage in ("storage_original_upload", "photo_db_insert", "media_db_insert", "album_db_insert", "response_serialization"):
+            self.assertIn(f'"{stage}"', source)

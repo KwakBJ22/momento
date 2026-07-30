@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from supabase import Client, create_client
 
 from app.config import Settings, get_settings
+from app.models.album_photo_status import ALBUM_PHOTO_DELETED, ALBUM_PHOTO_READY
 from app.services.image_upload_service import ProcessedPhoto
 from app.services.media_upload_service import ProcessedMedia
 from app.services.storage_service import (
@@ -356,7 +357,7 @@ def count_ready_album_photos(client: Client, album_id: str) -> int:
         .select("id", count="exact")
         .eq("album_id", album_id)
         .is_("deleted_at", "null")
-        .eq("status", "ready")
+        .eq("status", ALBUM_PHOTO_READY)
         .limit(0)
         .execute()
     )
@@ -391,7 +392,7 @@ def get_album_photo_records_by_ids(
         .eq("album_id", album_id)
         .in_("id", unique_ids)
         .is_("deleted_at", "null")
-        .eq("status", "ready")
+        .eq("status", ALBUM_PHOTO_READY)
         .execute()
     )
     rows = result.data or []
@@ -476,7 +477,7 @@ def list_album_photo_list_summaries(client: Client, album_ids: list[str]) -> lis
         .select("album_id, id, sort_order")
         .in_("album_id", album_ids)
         .is_("deleted_at", "null")
-        .eq("status", "ready")
+        .eq("status", ALBUM_PHOTO_READY)
         .order("album_id")
         .order("sort_order")
         .execute()
@@ -513,7 +514,7 @@ def list_album_photo_cover_records(client: Client, album_ids: list[str], photo_i
         .in_("album_id", album_ids)
         .in_("id", photo_ids)
         .is_("deleted_at", "null")
-        .eq("status", "ready")
+        .eq("status", ALBUM_PHOTO_READY)
         .execute()
     )
     return result.data or []
@@ -622,7 +623,7 @@ def get_album_photo_records(client: Client, album_id: str) -> list[dict[str, Any
         )
         .eq("album_id", album_id)
         .is_("deleted_at", "null")
-        .eq("status", "ready")
+        .eq("status", ALBUM_PHOTO_READY)
         .order("sort_order")
         .execute()
     )
@@ -753,7 +754,7 @@ def soft_delete_album_photo_with_references(client: Client, album_id: str, photo
     now = datetime.now(timezone.utc).isoformat()
     photo_result = (
         client.table("album_photos")
-        .update({"status": "deleted", "deleted_at": now})
+        .update({"status": ALBUM_PHOTO_DELETED, "deleted_at": now})
         .eq("id", photo_id).eq("album_id", album_id).is_("deleted_at", "null")
         .execute()
     )
@@ -775,7 +776,7 @@ def soft_delete_album_photo_with_references(client: Client, album_id: str, photo
     current_cover_id = str(album_row.get("cover_photo_id") or "")
     remaining = (
         client.table("album_photos").select("id").eq("album_id", album_id)
-        .eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+        .eq("status", ALBUM_PHOTO_READY).is_("deleted_at", "null").order("sort_order").execute().data or []
     )
     remaining_ids = {str(row.get("id")) for row in remaining}
     next_cover_id = current_cover_id if current_cover_id in remaining_ids else (str(remaining[0]["id"]) if remaining else None)

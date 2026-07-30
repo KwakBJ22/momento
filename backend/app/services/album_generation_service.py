@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.models.album_photo_status import promote_legacy_uploading_album_photos, ready_album_photo_query
 from app.services.image_service import bytes_to_images, generate_album, image_to_png_bytes
 from app.services.image_upload_service import build_derived_image_bytes
 from app.services.openai_service import generate_narrative
@@ -124,11 +125,14 @@ def generation_status(client: Any, album_id: str) -> dict[str, Any] | None:
 
 
 def _generation_photos(client: Any, album_id: str) -> list[dict[str, Any]]:
+    # Creation, retry, and background generation share the same ready-only
+    # input rule. Recover the narrow legacy state before applying it.
+    promote_legacy_uploading_album_photos(client, album_id)
     rows = (
-        client.table("album_photos").select(
+        ready_album_photo_query(client.table("album_photos").select(
             "id,storage_bucket,storage_path,display_bucket,display_path,thumbnail_bucket,thumbnail_path,"
             "mime_type,sort_order,comment,caption,legacy_author_label,taken_at,latitude,longitude,orientation,width,height"
-        ).eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+        )).eq("album_id", album_id).is_("deleted_at", "null").order("sort_order").execute().data or []
     )
     # album_media and album_photos are dual-written. Exclude legacy rows whose
     # media record was already deleted by an older endpoint implementation.

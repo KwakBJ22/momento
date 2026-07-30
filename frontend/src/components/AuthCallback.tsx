@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { completeOAuthCallback, consumeReturnTo, getCurrentUser } from "../services/authService";
+import { completeOAuthCallback, consumeReturnTo } from "../services/authService";
 import { authDebug } from "../lib/authDebug";
 
 export default function AuthCallback() {
@@ -7,8 +7,7 @@ export default function AuthCallback() {
 
   useEffect(() => {
     let active = true;
-    void completeOAuthCallback().then(getCurrentUser).then((user) => {
-      if (!user) throw new Error("로그인 세션을 저장하지 못했어요.");
+    void completeOAuthCallback().then(() => {
       const returnPath = consumeReturnTo();
       authDebug("RETURN_PATH_CONFIRMED", { source: "callback", endpoint: returnPath });
       authDebug("CALLBACK_SUCCESS", { source: "callback" });

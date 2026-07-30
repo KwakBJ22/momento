@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { User } from "@supabase/supabase-js";
 
-import { oauthProviderFor, toAppUser } from "../src/services/authService";
+import { oauthCallbackRedirectUrl, oauthProviderFor, toAppUser } from "../src/services/authService";
 import { createAuthDebugLogger } from "../src/lib/authDebug";
 
 function supabaseUser(overrides: Partial<User>): User {
@@ -58,25 +58,51 @@ test("Kakao OAuth uses Supabase provider defaults without forcing email consent 
 
   assert.equal(/account_email|scope\s*:|scopes\s*:/.test(oauthCall), false);
   assert.match(oauthCall, /redirectTo/);
+  assert.match(oauthCall, /oauthCallbackRedirectUrl/);
+  assert.equal(/VITE_(APP_URL|SITE_URL)|vercel\.app|railway\.app/.test(oauthCall), false);
+});
+
+test("OAuth callback redirect uses the current browser origin and preserves an internal return path", () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { location: { origin: "http://localhost:5173" } },
+  });
+  try {
+    assert.equal(
+      oauthCallbackRedirectUrl("/album/local-album?tab=photos"),
+      "http://localhost:5173/auth/callback?returnTo=%2Falbum%2Flocal-album%3Ftab%3Dphotos",
+    );
+  } finally {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
 });
 
 test("Supabase auth persists and restores sessions through a storage-safe client configuration", () => {
   const source = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
   assert.match(source, /persistSession:\s*true/);
   assert.match(source, /autoRefreshToken:\s*true/);
+  assert.match(source, /flowType:\s*"implicit"/);
   assert.match(source, /detectSessionInUrl:\s*true/);
   assert.match(source, /storage:\s*safeAuthStorage/);
   assert.match(source, /JSON\.parse\(value\)/);
 });
 
-test("OAuth callback waits for a persisted session before restoring the original internal path", () => {
+test("OAuth callback uses the configured implicit flow and waits for the fragment session before restoring the original internal path", () => {
   const source = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
   const callback = source.slice(source.indexOf("export async function completeOAuthCallback"));
-  assert.match(callback, /await supabase\.auth\.exchangeCodeForSession\(code\)/);
-  assert.match(callback, /const session = await getSession\(\)/);
-  assert.match(callback, /if \(!existing\) \{/);
-  assert.match(source, /returnTo=/);
+  assert.match(callback, /hashParams\.get\("access_token"\)/);
+  assert.match(callback, /await getSession\(hasImplicitTokens/);
+  assert.match(callback, /oauthCallbackError\(params\)/);
+  assert.match(source, /searchParams\.set\("returnTo"/);
   assert.match(source, /target\.origin === window\.location\.origin/);
+  assert.equal(/exchangeCodeForSession|flowType:\s*["']pkce/.test(callback), false);
+});
+
+test("OAuth callback cannot redirect to an external returnTo URL", () => {
+  const source = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
+  assert.match(source, /target\.origin === window\.location\.origin/);
+  assert.match(source, /target\.pathname !== "\/auth\/callback"/);
 });
 
 test("auth debug logging is disabled in production by default and strips sensitive metadata", () => {

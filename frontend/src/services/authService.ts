@@ -25,8 +25,6 @@ export interface AuthInitialization {
 export const isAuthenticationConfigured = isSupabaseAuthConfigured;
 
 const RETURN_TO_KEY = "momento-auth-return-to";
-const CALLBACK_CODE_KEY = "momento-auth-callback-code";
-
 function text(value: unknown): string | null {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;
@@ -93,6 +91,17 @@ export function consumeReturnTo(): string {
   }
 }
 
+/**
+ * OAuth must always return to the browser that initiated it.  Do not use an
+ * environment-provided site URL here: a local Vite session must not be sent to
+ * the production host.
+ */
+export function oauthCallbackRedirectUrl(returnTo: string): string {
+  const callback = new URL("/auth/callback", window.location.origin);
+  callback.searchParams.set("returnTo", safeReturnTo(returnTo));
+  return callback.toString();
+}
+
 export async function signIn(provider: AuthProvider, returnTo?: string): Promise<void> {
   if (!supabase || !isSupabaseAuthConfigured) throw new Error("로그인 설정이 필요합니다.");
   persistReturnTo(returnTo);
@@ -100,7 +109,7 @@ export async function signIn(provider: AuthProvider, returnTo?: string): Promise
   const callbackReturnTo = safeReturnTo(returnTo || `${window.location.pathname}${window.location.search}${window.location.hash}`);
   const { error } = await supabase.auth.signInWithOAuth({
     provider: oauthProvider,
-    options: { redirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(callbackReturnTo)}` },
+    options: { redirectTo: oauthCallbackRedirectUrl(callbackReturnTo) },
   });
   if (error) throw error;
 }
@@ -178,35 +187,26 @@ export function onAuthStateChange(listener: (user: AppUser | null, event: AuthCh
   return () => data.subscription.unsubscribe();
 }
 
-export async function completeOAuthCallback(): Promise<void> {
+function oauthCallbackError(params: URLSearchParams): Error | null {
+  const error = params.get("error");
+  if (!error) return null;
+  const description = params.get("error_description");
+  return new Error(description ? `${error}: ${description}` : error);
+}
+
+export async function completeOAuthCallback(): Promise<AppSession> {
   if (!supabase) throw new Error("로그인 설정이 필요합니다.");
   authDebug("CALLBACK_START", { source: "callback" });
-  const code = new URLSearchParams(window.location.search).get("code");
-  if (!code) {
-    const session = await getSession();
-    if (!session) throw new Error("로그인 세션을 찾지 못했어요.");
-    authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
-    return;
-  }
-  try {
-    if (sessionStorage.getItem(CALLBACK_CODE_KEY) === code) return;
-    sessionStorage.setItem(CALLBACK_CODE_KEY, code);
-  } catch { /* duplicate guard is best effort only */ }
-  authDebug("CODE_EXCHANGE_START", { source: "callback" });
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  // detectSessionInUrl may finish the same exchange first in some WebViews.
-  // In that case only accept the error when there still is no persisted session.
-  if (error) {
-    const existing = await getSession();
-    if (!existing) {
-      authDebug("CALLBACK_FAILED", { source: "callback", errorName: error.name });
-      throw error;
-    }
-    authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
-    return;
-  }
-  // Do not navigate away until Supabase has written and re-read the session.
-  const session = await getSession();
-  if (!session) throw new Error("로그인 세션을 저장하지 못했어요.");
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const callbackError = oauthCallbackError(params) || oauthCallbackError(hashParams);
+  if (callbackError) throw callbackError;
+  // Implicit OAuth is parsed once by the singleton client's
+  // detectSessionInUrl initialization. getSession waits for that initialization
+  // before returning the persisted session, including under StrictMode.
+  const hasImplicitTokens = Boolean(hashParams.get("access_token"));
+  const session = await getSession(hasImplicitTokens ? "callback_implicit" : "callback_without_tokens");
+  if (!session) throw new Error("로그인 세션을 찾지 못했어요.");
   authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
+  return session;
 }

@@ -9,6 +9,7 @@ import time
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 
 from app.config import Settings, get_settings
+from app.models.album_photo_status import ALBUM_PHOTO_READY
 from app.models.album_styles import layout_for_template_type, normalize_template_type
 from app.models.categories import ALBUM_CATEGORIES, meeting_type_for_category, normalize_category
 from app.models.schemas import (
@@ -114,7 +115,7 @@ from app.services.authorization import (
     require_album_owner_story,
     require_album_read,
 )
-from app.services.operations import get_operation_id
+from app.services.operations import get_operation_id, get_operation_stage, set_operation_stage
 from app.services.membership import (
     get_album_access,
     get_family_membership,
@@ -143,6 +144,41 @@ logger = logging.getLogger(__name__)
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
 _VALID_CATEGORIES = set(ALBUM_CATEGORIES)
+
+
+def _upload_file_diagnostics(photos: list[UploadFile]) -> dict[str, object]:
+    """Collect only safe multipart diagnostics without consuming uploads."""
+    extensions: set[str] = set()
+    mime_types: set[str] = set()
+    sizes: list[int] = []
+    for photo in photos:
+        filename = photo.filename or ""
+        extensions.add(filename.rsplit(".", 1)[-1].lower() if "." in filename else "none")
+        mime_types.add((photo.content_type or "unknown").lower())
+        try:
+            current = photo.file.tell()
+            photo.file.seek(0, 2)
+            sizes.append(int(photo.file.tell()))
+            photo.file.seek(current)
+        except (AttributeError, OSError):
+            sizes.append(-1)
+    return {
+        "photo_count": len(photos),
+        "extensions": ",".join(sorted(extensions)) or "none",
+        "mime_types": ",".join(sorted(mime_types)) or "unknown",
+        "total_bytes": sum(size for size in sizes if size >= 0),
+        "file_sizes": ",".join(str(size) for size in sizes),
+    }
+
+
+def _log_upload_stage(stage: str, status_value: str, *, album_id: str | None = None, **details: object) -> None:
+    """Emit one searchable, privacy-safe line for the upload request path."""
+    set_operation_stage(stage)
+    fields = [f"stage={stage}", f"status={status_value}"]
+    if album_id:
+        fields.append(f"album_id={album_id[:8]}")
+    fields.extend(f"{key}={value}" for key, value in details.items() if value is not None)
+    logger.info("event=album_upload_stage %s", " ".join(fields))
 
 
 def _require_photo_mutation_access(
@@ -340,13 +376,22 @@ async def upload_album(
 ) -> AlbumUploadResponse:
     request_started = time.perf_counter()
     settings = get_settings()
+    upload_diagnostics = _upload_file_diagnostics(photos)
+    # FastAPI has completed multipart parsing before this handler is entered.
+    # Do not log filenames, paths, captions, or identities here.
+    _log_upload_stage("request_authentication", "started")
+    _log_upload_stage("request_authentication", "completed", authenticated=True, guest_token_check="not_applicable")
+    _log_upload_stage("multipart_parsing", "started")
+    _log_upload_stage("multipart_parsing", "completed", **upload_diagnostics)
 
     if not photos:
         raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")
     if len(photos) > settings.max_photos:
         raise HTTPException(status_code=400, detail=f"사진은 최대 {settings.max_photos}장까지 업로드할 수 있습니다.")
 
+    _log_upload_stage("file_validation", "started", **upload_diagnostics)
     validate_upload_limits(photos, settings)
+    _log_upload_stage("file_validation", "completed", **upload_diagnostics)
 
     album_category = normalize_category(category) if category.strip() else None
     if category.strip() and album_category not in _VALID_CATEGORIES:
@@ -375,6 +420,7 @@ async def upload_album(
     # date Form은 하위 호환용으로만 받고, 커버 날짜는 EXIF taken_at으로 덮어쓴다.
     _ = date
 
+    _log_upload_stage("request_payload_validation", "started", photo_count=len(photos))
     story_items = parse_stories_json(stories)
     if len(story_items) != len(photos):
         raise HTTPException(status_code=400, detail="사진 수와 스토리 수가 일치해야 합니다.")
@@ -386,6 +432,7 @@ async def upload_album(
         raise HTTPException(status_code=400, detail="story order는 0부터 연속된 정수여야 합니다.")
     for item in story_items:
         item["text"] = str(item.get("text", "")).strip()
+    _log_upload_stage("request_payload_validation", "completed", photo_count=len(photos))
 
     try:
         meta_list = json.loads(file_meta) if file_meta.strip() else []
@@ -394,6 +441,7 @@ async def upload_album(
     except json.JSONDecodeError:
         meta_list = []
 
+    _log_upload_stage("supabase_client", "started", photo_count=len(photos))
     client = get_supabase_client(settings)
     family_id = ensure_default_family(client, authenticated_user_id)
     family_membership = get_family_membership(client, family_id, authenticated_user_id)
@@ -403,6 +451,7 @@ async def upload_album(
         album_id = str(UUID(operation_id)) if operation_id else create_album_id()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid album creation operation.")
+    _log_upload_stage("album_id_allocation", "completed", album_id=album_id, photo_count=len(photos))
     logger.info("event=album_generation_request_received album_id=%s photo_count=%s", album_id[:8], len(photos))
     existing_album = get_album_record(client, album_id)
     if existing_album:
@@ -424,6 +473,7 @@ async def upload_album(
     items_by_order: dict[int, dict[str, Any]] = {int(item["order"]): item for item in story_items}
     entries: list[dict[str, Any]] = []
     original_upload_started = time.perf_counter()
+    _log_upload_stage("image_preparation", "started", album_id=album_id, **upload_diagnostics)
     logger.info("event=album_generation_original_upload_started album_id=%s photo_count=%s", album_id[:8], len(photos))
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
@@ -442,6 +492,7 @@ async def upload_album(
     entries = sort_photo_entries(entries)
     _day_groups = group_photos_by_taken_date(entries)  # structure for future day UI
     event_date = cover_date_from_processed([entry["processed"] for entry in entries])
+    _log_upload_stage("image_preparation", "completed", album_id=album_id, photo_count=len(entries))
 
     # Persist the original upload and a minimal draft before scheduling the
     # slower work. This is deliberately kept separate from the legacy block
@@ -454,6 +505,7 @@ async def upload_album(
         photo_paths: list[str] = []
         ordered_stories: list[dict[str, Any]] = []
         selected_cover_photo_id: str | None = None
+        _log_upload_stage("storage_original_upload", "started", album_id=album_id, photo_count=len(entries))
         for entry in entries:
             processed = entry["processed"]
             upload = entry["upload"]
@@ -481,7 +533,11 @@ async def upload_album(
                 "byte_size": len(processed.original_bytes), "checksum_sha256": processed.checksum_sha256,
                 "sort_order": sort_order, "caption": story["text"], "comment": story["text"].strip() or None,
                 "contributor_profile_id": authenticated_user_id, "legacy_author_label": story["user"] or None,
-                "status": "uploading", "taken_at": taken_at_iso, "latitude": processed.latitude,
+                # This row is inserted only after its original object upload
+                # has succeeded.  It is therefore a valid generation input;
+                # ``uploading`` would make the retry path incorrectly treat
+                # it as absent before derivatives are created.
+                "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso, "latitude": processed.latitude,
                 "longitude": processed.longitude, "location_name": None,
                 "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown",
                 "orientation": processed.orientation, "width": processed.width or None, "height": processed.height or None,
@@ -502,6 +558,10 @@ async def upload_album(
                              "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown"},
             })
         originals_uploaded_at = time.perf_counter()
+        _log_upload_stage(
+            "storage_original_upload", "completed", album_id=album_id, photo_count=len(photo_records),
+            photo_ids=",".join(str(record["id"])[:8] for record in photo_records),
+        )
         logger.info(
             "event=album_generation_original_upload_completed album_id=%s photo_count=%s upload_originals_ms=%s",
             album_id[:8], len(entries), round((originals_uploaded_at - original_upload_started) * 1000),
@@ -510,6 +570,7 @@ async def upload_album(
         photo_meta = [{"order": item["order"], "user": item["user"], "text": item["text"], "path": item["_path"],
                        "taken_at": next((photo.get("taken_at") for photo in photo_records if int(photo["sort_order"]) == int(item["order"])), None)}
                       for item in ordered_stories]
+        _log_upload_stage("album_db_insert", "started", album_id=album_id)
         save_album_record(
             client, album_id=album_id, owner_id=authenticated_user_id, family_id=family_id,
             meeting_type=meeting_type, template=layout, title=title, event_date=event_date,
@@ -518,25 +579,52 @@ async def upload_album(
             category=album_category, template_type=album_template_type, cover_photo_id=cover_photo_id,
         )
         album_saved = True
+        _log_upload_stage("album_db_insert", "completed", album_id=album_id)
+        _log_upload_stage("photo_db_insert", "started", album_id=album_id, photo_count=len(photo_records))
         save_album_photo_records(client, photo_records)
+        _log_upload_stage(
+            "photo_db_insert", "completed", album_id=album_id, photo_count=len(photo_records),
+            photo_ids=",".join(str(record["id"])[:8] for record in photo_records),
+        )
+        _log_upload_stage("media_db_insert", "started", album_id=album_id, media_count=len(media_records))
         save_album_media_records(client, media_records)
+        _log_upload_stage("media_db_insert", "completed", album_id=album_id, media_count=len(media_records))
         save_album_member(client, album_id=album_id, profile_id=authenticated_user_id, role="owner", invited_by=authenticated_user_id)
         _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
+        _log_upload_stage("album_json_generation", "deferred", album_id=album_id)
+        _log_upload_stage("cover_photo_assignment", "completed", album_id=album_id, photo_id=cover_photo_id[:8])
+        _log_upload_stage("generation_job_create", "started", album_id=album_id)
         job = create_generation_job(client, album_id)
+        _log_upload_stage("generation_job_create", "completed", album_id=album_id, job_id=str(job["id"])[:8])
         records_created_at = time.perf_counter()
         logger.info(
             "event=album_generation_photo_records_created album_id=%s job_id=%s photo_count=%s create_records_ms=%s",
             album_id[:8], str(job["id"])[:8], len(photo_records), round((records_created_at - originals_uploaded_at) * 1000),
         )
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "event=album_upload_failed stage=%s album_id=%s photo_count=%s error_type=%s error_message=%s",
+            get_operation_stage() or "unknown", album_id[:8], len(entries), type(exc).__name__, str(exc)[:240],
+        )
         try:
             if album_saved:
                 cleanup_incomplete_album(client, album_id)
-        finally:
+        except Exception as cleanup_exc:
+            logger.exception(
+                "event=album_upload_db_cleanup_failed album_id=%s error_type=%s",
+                album_id[:8], type(cleanup_exc).__name__,
+            )
+        try:
             delete_storage_paths(client, settings.supabase_private_storage_bucket, uploaded_private_paths)
+        except Exception as cleanup_exc:
+            logger.exception(
+                "event=album_upload_storage_cleanup_failed album_id=%s path_count=%s error_type=%s",
+                album_id[:8], len(uploaded_private_paths), type(cleanup_exc).__name__,
+            )
         raise
 
     try:
+        _log_upload_stage("background_schedule", "started", album_id=album_id, job_id=str(job["id"])[:8])
         background_tasks.add_task(run_initial_album_generation, str(job["id"]))
     except Exception as exc:
         logger.exception(
@@ -546,13 +634,15 @@ async def upload_album(
         client.table("album_generation_jobs").update({"status": "failed", "error_code": "schedule_failed"}).eq("id", job["id"]).execute()
         client.table("albums").update({"status": "failed"}).eq("id", album_id).execute()
         raise HTTPException(status_code=500, detail="앨범 만들기를 시작하지 못했습니다. 다시 시도해주세요.") from exc
+    _log_upload_stage("background_schedule", "completed", album_id=album_id, job_id=str(job["id"])[:8])
     logger.info(
         "event=album_generation_accepted_response_ready album_id=%s job_id=%s photo_count=%s request_to_accepted_ms=%s upload_originals_ms=%s create_records_ms=%s status=accepted",
         album_id[:8], str(job["id"])[:8], len(photo_records), round((time.perf_counter() - request_started) * 1000),
         round((originals_uploaded_at - original_upload_started) * 1000),
         round((records_created_at - originals_uploaded_at) * 1000),
     )
-    return AlbumUploadResponse(
+    _log_upload_stage("response_serialization", "started", album_id=album_id, job_id=str(job["id"])[:8])
+    response_payload = AlbumUploadResponse(
         album_id=UUID(album_id), meeting_type=meeting_type, category=album_category, template=layout,
         template_type=album_template_type, title=title, date=event_date, narrative="", epilogue="", chapter_stories={},
         image_url="", cover_photo_id=UUID(cover_photo_id), cover_image_url=None,
@@ -560,6 +650,8 @@ async def upload_album(
         saved=True, photos=[], generation_job_id=UUID(str(job["id"])), generation_status=str(job.get("status") or "pending"),
         progress=int(job.get("progress") or 20),
     )
+    _log_upload_stage("response_serialization", "completed", album_id=album_id, job_id=str(job["id"])[:8])
+    return response_payload
 
     # Kept below only for source-history context during the rollout. The
     # return above is the active creation path.
@@ -613,7 +705,7 @@ async def upload_album(
                     "comment": story["text"].strip() or None,
                     "contributor_profile_id": authenticated_user_id,
                     "legacy_author_label": story["user"] or None,
-                    "status": "ready",
+                    "status": ALBUM_PHOTO_READY,
                     "taken_at": taken_at_iso,
                     "latitude": processed.latitude,
                     "longitude": processed.longitude,

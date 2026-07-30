@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException
 from supabase import Client
 
+from app.models.album_photo_status import is_deleted_album_photo, is_ready_album_photo, ready_album_photo_query
 from app.services.share_service import create_token, hash_token
 from app.services.supabase import soft_delete_album_photo_with_references
 
@@ -257,10 +258,10 @@ def count_active_contributors(client: Client, album_id: str) -> int:
 
 def count_ready_photos(client: Client, album_id: str) -> int:
     result = (
-        client.table("album_photos")
+        ready_album_photo_query(client.table("album_photos")
         .select("id", count="exact")
         .eq("album_id", album_id)
-        .eq("status", "ready")
+        )
         .is_("deleted_at", "null")
         .execute()
     )
@@ -454,7 +455,7 @@ def create_photo_memory(
         .limit(1)
         .execute()
     )
-    if not photo.data or photo.data[0].get("deleted_at") or photo.data[0].get("status") == "deleted":
+    if not photo.data or is_deleted_album_photo(photo.data[0]):
         raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
 
     row = {
@@ -543,7 +544,7 @@ def build_album_document_from_records(
     memories: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Server-side Album JSON (no AI). Mirrors chapter + memory flow structure."""
-    ready = [p for p in photos if p.get("status") == "ready" and not p.get("deleted_at")]
+    ready = [photo for photo in photos if is_ready_album_photo(photo)]
     ready.sort(
         key=lambda p: (
             str(p.get("taken_at") or "9999"),
@@ -794,7 +795,7 @@ def rebuild_album(
         raise HTTPException(status_code=409, detail="앨범을 다시 만드는 작업이 이미 진행 중입니다.")
 
     try:
-        photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+        photos = ready_album_photo_query(client.table("album_photos").select("*").eq("album_id", album_id)).is_("deleted_at", "null").order("sort_order").execute().data or []
         memories = list_photo_memories(client, album_id)
         document = album_json or build_album_document_from_records(album, photos, memories)
         next_version = int(album.get("album_version") or 0) + 1
@@ -840,7 +841,7 @@ def apply_selected_contributions(
     applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     contributors = list_contributors(client, album_id)
     owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
-    photos = client.table("album_photos").select("*").eq("album_id", album_id).eq("status", "ready").is_("deleted_at", "null").order("sort_order").execute().data or []
+    photos = ready_album_photo_query(client.table("album_photos").select("*").eq("album_id", album_id)).is_("deleted_at", "null").order("sort_order").execute().data or []
     memories = list_photo_memories(client, album_id)
     pending_photos = {
         str(row["id"])
