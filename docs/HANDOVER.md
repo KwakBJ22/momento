@@ -3,7 +3,26 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 참여 설계 §2: 반응)
+## 최신 세션 요약 (2026-08-01, 참여 설계 §9: 측정)
+
+출시 판단 5개 지표를 하나도 못 계산하던 문제 해결. 원인은 스키마가 아니라 `log_event` 부재.
+
+- **최소 이벤트 계측** (`3934f65`). `EventLogger`(best-effort, 실패해도 기능 안 깨짐) +
+  `ALLOWED_METADATA_KEYS`(PII 차단) 정책 그대로 사용.
+  - `upload_started`(upload_album) / `album_created`(생성 job 완료 `run_initial_album_generation`)
+    → 완료율. **기존 album_created 호출은 line 655 이후 dead code라 안 찍혔음.**
+  - `invitation_opened`(신규, /join GET) / `invitation_accepted`(/join POST) → 초대 참여율.
+  - `photo_added`/`memory_added`(참여자 contribute 경로) → 협업 비율.
+  - `album_revisited`(신규, get_album 소유자·최신본) → D7 재방문율.
+  - 공유는 기존 `share_link_created` 로 계산(신규 없음).
+  - CHECK 확장 migration `20260801120000_analytics_metric_events.sql`(+rollback):
+    `invitation_opened`·`album_revisited` **2개만** 추가(나머진 이미 허용). **프로덕션 적용 완료.**
+  - 회귀 테스트: 참여자 photo/memory 이벤트 발화, **코드가 쓰는 모든 이벤트명이 CHECK 허용 목록에 있음**
+    (`test_analytics_event_names.py` — §9의 이름 불일치 버그 재발 방지).
+- **지표 SQL·이름 통일** (`db07aa1`). `docs/METRICS.md`(신규, 5개 지표 계산 SQL),
+  `docs/TODO.md` 이벤트 이름을 DB 허용 목록 기준으로 통일, `.gitignore` METRICS 예외.
+
+## 이전 세션 요약 (2026-08-01, 참여 설계 §2: 반응)
 
 `docs/PARTICIPATION_DESIGN.md` §2(반응)만 구현. 방명록(§3)은 다음 단계.
 
@@ -349,6 +368,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 제목 편집 UI 크기 축소 세션 재확인: frontend **90 passed**, build 통과, backend **210 passed**.
 참여 설계 §1 세션 재확인: frontend **90 passed**, build 통과, backend **212 passed**(share kind 회귀 2건 추가).
 참여 설계 §2(반응) 세션 재확인: frontend **95 passed**, build 통과, backend **214 passed**(반응 회귀 2건 추가).
+참여 설계 §9(측정) 세션 재확인: frontend **95 passed**, build 통과, backend **217 passed**(계측 회귀 3건 추가).
 
 # 다음 할 일
 
