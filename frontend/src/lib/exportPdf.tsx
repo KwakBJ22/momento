@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
+import { printPageStraddleGap } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
   albumId: string;
@@ -66,8 +67,10 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   try {
     const element = await waitForRenderer(host);
     // 폰트·이미지 대기는 waitForAlbumAssets 가 상한 시간과 함께 처리한다 (무한 대기 방지).
+    // 이미지 로드가 끝나 높이가 확정된 뒤에 페이지 나눔을 계산해야 한다.
     await waitForAlbumAssets(element);
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
+    alignBlocksToPrintPages(element);
 
     const { default: html2pdf } = await import("html2pdf.js");
     const blob = await html2pdf()
@@ -83,9 +86,11 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
           logging: false,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        // avoid 셀렉터는 실제 렌더 클래스와 일치해야 페이지 경계에서 잘리지 않는다.
-        // .grid6-block__cell 은 사진+캡션 한 칸을 통째로 유지한다.
-        pagebreak: { mode: ["css", "legacy"], avoid: [".photo-block", ".grid6-block__cell", ".date-header", ".album-epilogue", ".album-cover"] },
+        // html2pdf 의 pagebreak.avoid 는 이 레이아웃에서 안 통한다: getBoundingClientRect 가
+        // 컨테이너 오프셋만큼 어긋나고(소스에 // TODO 로 남아있음), grid 아이템 앞에 패딩 div 를
+        // 끼우면 grid 가 깨진다. 그래서 위에서 우리가 직접 margin 으로 페이지에 맞춰 두고,
+        // 여기서는 html2pdf 의 자동 나눔만 쓴다.
+        pagebreak: { mode: [] },
       } as Record<string, unknown>)
       .from(element)
       .outputPdf("blob");
@@ -94,6 +99,42 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   } finally {
     root.unmount();
     host.remove();
+  }
+}
+
+/**
+ * Push any top-level block that would straddle an A4 page boundary down to the next
+ * page, so a photo + its caption never gets sliced in half.
+ *
+ * html2canvas rasterizes the whole page into one canvas and slices it every page
+ * height, ignoring CSS break rules; html2pdf's own `avoid` is unreliable here
+ * (viewport-offset bug + it breaks the CSS grid). We instead measure on our own
+ * host — where the top is at y=0 — and add margin-top to straddling blocks. A grid
+ * item's margin-top pushes its following siblings down, so this works inside the
+ * blocks grid too.
+ */
+export function alignBlocksToPrintPages(element: HTMLElement): void {
+  // Margin [0,0,0,0] + a 210mm-wide host: one page is (297/210) × width in source px.
+  const pageHeightPx = element.getBoundingClientRect().width * (297 / 210);
+  if (!(pageHeightPx > 0)) return;
+  const selector = ".album-cover, .album-renderer__block, .album-epilogue, .album-living-page, .album-renderer__brand-footer";
+  for (let guard = 0; guard < 500; guard += 1) {
+    const hostTop = element.getBoundingClientRect().top;
+    const units = Array.from(element.querySelectorAll<HTMLElement>(selector));
+    let pushed = false;
+    for (const unit of units) {
+      if (unit.dataset.pdfPaged === "1") continue;
+      unit.dataset.pdfPaged = "1";
+      const rect = unit.getBoundingClientRect();
+      const gap = printPageStraddleGap(rect.top - hostTop, rect.height, pageHeightPx);
+      if (gap !== null) {
+        const current = parseFloat(getComputedStyle(unit).marginTop) || 0;
+        unit.style.marginTop = `${current + gap}px`;
+        pushed = true;
+        break; // re-measure after every change (a push shifts everything below)
+      }
+    }
+    if (!pushed) break;
   }
 }
 
