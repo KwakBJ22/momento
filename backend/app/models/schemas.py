@@ -584,6 +584,8 @@ class CollaborationStatusResponse(BaseModel):
     contributor_count: int
     contributor_limit: int
     memory_count: int
+    # Sum of view_count across all of the album's share links (owner only, 0 otherwise).
+    visitor_count: int = 0
     invite_active: bool
     invite_url: str | None = None
     contributors: list[CollaborationContributorResponse] = Field(default_factory=list)

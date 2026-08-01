@@ -97,6 +97,17 @@
   font-size: 0.9rem;
 }
 
+.collab-panel__visitors {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: #fbf1dd;
+  color: #7a5a1f;
+  font-size: 0.92rem;
+  text-align: center;
+}
+.collab-panel__visitors strong { font-weight: 800; }
+
 .collab-panel__share-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

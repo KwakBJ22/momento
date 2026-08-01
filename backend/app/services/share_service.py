@@ -109,6 +109,13 @@ def reaction_counts(client: Client, album_id: str) -> dict[str, int]:
     return counts
 
 
+def album_visitor_count(client: Client, album_id: str) -> int:
+    """Sum view_count over every share link of an album (active or not), so a
+    re-issued link never splits the "누가 다녀갔다" count."""
+    result = client.table("share_links").select("view_count").eq("album_id", album_id).execute()
+    return sum(int(row.get("view_count") or 0) for row in (result.data or []))
+
+
 GUESTBOOK_NAME_MAX = 40
 GUESTBOOK_MESSAGE_MAX = 200
 

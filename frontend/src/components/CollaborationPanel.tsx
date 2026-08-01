@@ -24,6 +24,7 @@ type CollaborationStatus = {
   photo_limit: number;
   contributor_count: number;
   memory_count: number;
+  visitor_count?: number;
 };
 
 type Participation = NonNullable<Awaited<ReturnType<typeof getCollaborationStatus>>["participation"]>;
@@ -337,6 +338,7 @@ export default function CollaborationPanel({
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
           <button type="button" className="collab-panel__stop" disabled={busy !== null} onClick={() => void stop()}>{busy === "stop" ? "중단하는 중..." : "참여 중단"}</button>
         </> : null}
+        {canManage && (status.visitor_count ?? 0) > 0 ? <p className="collab-panel__visitors">✨ 지금까지 <strong>{status.visitor_count}</strong>명이 다녀갔어요.</p> : null}
         <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
         {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
       </>

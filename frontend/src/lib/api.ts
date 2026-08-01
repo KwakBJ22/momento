@@ -632,6 +632,7 @@ export async function getCollaborationStatus(albumId: string, signal?: AbortSign
       photo_limit: number;
       contributor_count: number;
       memory_count: number;
+      visitor_count?: number;
       participation?: Awaited<ReturnType<typeof getAlbumParticipation>>;
     }>;
   };

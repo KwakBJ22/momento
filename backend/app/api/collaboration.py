@@ -72,7 +72,7 @@ from app.services.supabase import (
     save_album_photo_records,
     upload_album_photo_assets,
 )
-from app.services.share_service import log_event
+from app.services.share_service import album_visitor_count, log_event
 
 router = APIRouter(tags=["collaboration"])
 logger = logging.getLogger(__name__)
@@ -421,6 +421,8 @@ async def get_collaboration_status(
     )
     participation_payload = build_participation_payload(album, contributors, photos, memories)
     active_contributors = [row for row in contributors if row.get("status") == "active"]
+    # "누가 다녀갔다" counter — owners only (§10). Non-owners never see it.
+    visitor_count = await asyncio.to_thread(album_visitor_count, client, album_id) if access.can_edit_settings else 0
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Server-Timing"] = f"collaboration;dur={duration_ms}"
 
@@ -438,6 +440,7 @@ async def get_collaboration_status(
         contributor_count=len(active_contributors),
         contributor_limit=int(album.get("contributor_limit") or 10),
         memory_count=len(memories),
+        visitor_count=visitor_count,
         invite_active=invite_active,
         invite_url=None,
         contributors=[
