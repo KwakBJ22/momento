@@ -3,6 +3,26 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
+## 최신 세션 요약 (2026-08-01, PDF 저장 멈춤 수정)
+
+- **PDF 저장 무한 멈춤 버그 수정 완료** (`8350b48`). "PDF 만드는 중..."에서 영구히
+  멈추던 원인은 `waitForAlbumAssets`가 `document.fonts.ready`·이미지 load/error 를
+  타임아웃 없이 무한 대기한 것. 이미지 요청이 pending 이면 promise 가 영원히
+  resolve 안 돼 `handlePdf`의 `finally`도 안 돌아 버튼이 박혔다.
+  - `waitForAlbumAssets`를 CSS·React 의존 없는 `src/album-engine/waitForAlbumAssets.ts`로
+    분리(단위 테스트 가능), `AlbumRenderer`에서 재export 해 기존 import 경로 호환.
+  - 전체 타임아웃(15s) + 이미지별 타임아웃(6s) + `fonts.ready` race(4s) 추가.
+    이미지 한 장이 실패·미응답이어도 건너뛰고 PDF 생성을 계속한다. 무한 대기 없음.
+  - `exportPdf.tsx`의 중복 `await document.fonts.ready`(상한 없음) 제거.
+  - 회귀 테스트 `frontend/tests/albumAssetTimeout.test.ts` 추가.
+  - **html2pdf 동적 import 는 원인이 아니라고 판단해 정적으로 되돌리지 않음**(코드 분할 유지,
+    html2pdf 985KB 별도 청크). 화면 렌더러(onReady) 경로는 그대로 동작 확인.
+- **로컬 main 을 origin/main 에 push 함** (`d278acc..8350b48`, 8커밋). 이전 세션의
+  push 보류를 사용자 지시로 해제. Vercel(프론트)·Railway(백엔드) 자동 배포 트리거됨.
+- ⚠️ **`20260801090000_account_withdrawal.sql` migration 은 아직 프로덕션 미적용.**
+  회원 탈퇴 기능이 이제 프로덕션에 배포됐으므로 **migration 을 적용하기 전까지 실제 탈퇴는 실패한다.**
+  Supabase SQL Editor 에서 즉시 실행 필요.
+
 ## 저장소
 
 - 경로: `D:\Momento` (Windows), 브랜치 `main`
@@ -14,16 +34,20 @@ Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이
   - `9e584c5 feat(frontend): 전역 네비·인라인 참여·회원 탈퇴·번들 코드 분할`
   - `f237186 docs: track CLAUDE.md, HANDOVER, 약관 2종 (gitignore 예외 추가)`
 - **`feature/withdrawal-and-nav` 브랜치를 origin에 push함** (`f237186`까지 포함).
-  Vercel Preview용. main은 아직 push하지 않음 — 아래 push 보류 사유 참고.
+  Vercel Preview용.
 - brand 폴더(`backend/app/brand/`)의 추적 안 되던 `__pycache__`·`data/pool_cache.txt`
   잔여물까지 삭제 완료.
+- **main 은 2026-08-01 세션에서 `8350b48`까지 origin 에 push 완료** (위 최신 세션 요약 참고).
 
-### main push를 보류한 이유
+### (해소됨) main push 보류 사유 — 배포 후 남은 위험
+
+아래 두 가지 때문에 이전 세션은 main push 를 보류했으나, 사용자 지시로 push 를 진행했다.
+push 후에도 다음 위험은 남아 있으니 반드시 챙긴다.
 
 - 전역 하단 네비게이션·인라인 참여는 **화면 구조를 바꾸는 변경**인데
-  카카오톡 인앱 웹뷰에서 검증하지 않았다.
-- `20260801090000_account_withdrawal.sql` migration이 아직 프로덕션에 적용 전이라
-  **회원 탈퇴는 프로덕션에서 실패한다.** migration 적용 + 인앱 웹뷰 QA 후 main 반영.
+  카카오톡 인앱 웹뷰 QA 가 아직 안 됐다. → 실기기에서 확인.
+- `20260801090000_account_withdrawal.sql` migration 미적용 → **회원 탈퇴가 프로덕션에서 실패한다.**
+  즉시 Supabase 에 적용할 것.
 
 ## 스택 / 명령어
 
@@ -147,13 +171,13 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 
 # 검증 결과 (2026-08-01, 최신 재확인)
 
-`f237186` 기준. 백엔드는 `backend/.venv` python으로 실행(시스템 `C:\Python313` 혼용 방지).
+`8350b48` 기준. 백엔드는 `backend/.venv` python으로 실행(시스템 `C:\Python313` 혼용 방지).
 
 | 항목 | 결과 |
 | --- | --- |
-| `npm run test:frontend` | **59 passed / 0 failed** |
-| `npm run build` | 통과, 첫 화면 gzip 166KB |
-| `.venv python -m pytest -q` | **210 passed / 0 failed** (brand 테스트 삭제 반영됨) |
+| `npm run test:frontend` | **62 passed / 0 failed** (PDF 타임아웃 회귀 3건 추가) |
+| `npm run build` | 통과, 첫 화면 gzip 166KB, html2pdf 985KB 별도 청크 유지 |
+| `.venv python -m pytest -q` | **210 passed / 0 failed** |
 
 # 다음 할 일
 
@@ -162,14 +186,15 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 2. ~~미커밋 변경을 의미 단위로 나눠 커밋~~ ✅ 완료 (5개 커밋). App.tsx가 A/B/D를
    동시에 건드려 프론트는 파일 단위 분리가 불가능해 하나의 프론트 커밋으로 묶음.
    문서 5종(gitignore 예외 + CLAUDE.md·HANDOVER·약관 2종)은 `f237186`로 별도 커밋.
-3. ~~`feature/withdrawal-and-nav` push~~ ✅ 완료 (Vercel Preview용). **main은 미push.**
-4. Supabase에서 `20260801090000_account_withdrawal.sql` 실행 (프로덕션 미적용 상태)
-5. **수동 QA** — 자동 테스트가 못 잡는 것들 (Vercel Preview에서)
+3. ~~`feature/withdrawal-and-nav` push~~ ✅ 완료 (Vercel Preview용).
+   ~~**main은 미push.**~~ → **main push 완료** (`8350b48`, 2026-08-01).
+4. ⚠️ **[최우선] Supabase에서 `20260801090000_account_withdrawal.sql` 실행** (프로덕션 미적용 상태).
+   회원 탈퇴가 프로덕션에 배포됐으므로 적용 전까지 실제 탈퇴 실패.
+5. **수동 QA** — 자동 테스트가 못 잡는 것들 (프로덕션에서)
    - 회원 탈퇴 (migration 적용 후, 실제 Supabase에서)
-   - PDF 저장 (html2pdf 지연 로딩 후 첫 클릭)
+   - PDF 저장 (html2pdf 지연 로딩 후 첫 클릭 — 이번 세션 멈춤 버그 수정 검증)
    - `/admin` 진입 (lazy + Suspense)
    - **카카오톡 인앱 웹뷰**에서 하단 네비게이션·앨범 내 인라인 사진·기억 추가
-6. 위 QA + migration 적용 완료 후 **main에 반영**(merge/push)
 7. `docs/LAUNCH_CHECKLIST.md` P0: migration `20260727090000_social_auth_profiles.sql`,
    Kakao/Naver Provider 콘솔 설정 + Redirect URL, Vercel/Railway 환경변수, 실기기 검증
 8. 약관 `{{ }}` 채우고 법무 검토 → 프런트에 링크 노출
