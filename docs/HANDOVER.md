@@ -3,7 +3,28 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, PDF 출력 품질 수정)
+## 최신 세션 요약 (2026-08-01, PDF print 레이아웃 수정)
+
+- **PDF print 레이아웃 수정 완료** (`349e0af`). lazy 로딩 수정 이후에도 남은
+  "작게 배치·비율 왜곡·캡션 누락"을 **print 스코프**로 고침. 실제 PDF 픽셀 측정 기반.
+  - **정사각 강제 제거**: `Grid6Block.css` print 셀의 `aspect-ratio:1`+`overflow:hidden`
+    이 원인. html2canvas 는 object-fit 을 무시해 정사각 셀이 비정사각 사진을 찌그러뜨렸다
+    (0.563/0.75 사진이 ~1.0 으로 측정됨). 박스를 사진 실제 비율(`width:100%; height:auto`)로
+    두어 object-fit 을 no-op 화.
+  - **캡션 노출**: 사진 아래 캡션이 정사각 `overflow:hidden` 셀에 잘려 PDF 에 안 나오던 것도
+    같은 수정으로 해소(셀을 자연 높이로).
+  - **1장 열 수 보정**: 날짜별 1장이 3열 그리드 왼쪽에 놓여 오른쪽 2/3 가 비던 문제.
+    `grid6-block--n{count}` modifier 로 print 열 수 조정(n1=1열, n2=2열). n1 은 폭 제한
+    (135mm)+가운데 정렬로 날짜 헤더와 맞추고 페이지 넘침 방지.
+  - **페이지 잘림 대비**: `exportPdf` pagebreak.avoid 에 `.grid6-block__cell` 추가.
+    기존 셀렉터(`.photo-block`/`.date-header`/`.album-epilogue`/`.album-cover`)는 실제 클래스와
+    일치함을 확인(오탐 아님).
+  - `layoutSelector`/`deterministicLayout` 은 print 전용 분기가 없고(회전만) 정상 — 미변경.
+    screen/공유 레이아웃·html2canvas scale 미변경. 회귀 테스트 `albumPrintGridLayout.test.ts` 추가.
+  - ⚠️ CRLF 주의: `Grid6Block.tsx` 원본 blob 이 깨진 `\r\r\n` EOL 이라 표준 EOL 로 정규화됨.
+    실제 로직 변경은 `grid6-block--n{count}` 한 줄. (`git add -A` 아니라 파일 명시 커밋.)
+
+## 이전 세션 요약 (2026-08-01, PDF 출력 품질 수정)
 
 - **PDF 사진 왜곡·흐림 버그 수정 완료.**
   - (B) 뒤/아래 사진이 작고 흐리게 나오던 원인: 본문 사진(`AlbumPhotoFrame`)이
@@ -200,6 +221,7 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 | `.venv python -m pytest -q` | **210 passed / 0 failed** |
 
 PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과, backend **210 passed**.
+PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build 통과, backend **210 passed**.
 
 # 다음 할 일
 
@@ -213,7 +235,7 @@ PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과,
 4. ~~Supabase에서 `20260801090000_account_withdrawal.sql` 실행~~ ✅ 프로덕션 적용 완료 확인(2026-08-01).
 5. **수동 QA** — 자동 테스트가 못 잡는 것들 (프로덕션에서)
    - 회원 탈퇴 (실제 Supabase에서)
-   - PDF 저장 (멈춤 없이 완료되는지 + 뒤/아래 사진이 선명하고 비율이 맞는지)
+   - PDF 저장 (멈춤 없이 완료 + 사진 비율 정상 + 1장 날짜가 폭을 채우는지 + 사진 아래 캡션 노출 + 페이지 경계 안 잘림)
    - `/admin` 진입 (lazy + Suspense)
    - **카카오톡 인앱 웹뷰**에서 하단 네비게이션·앨범 내 인라인 사진·기억 추가
 7. `docs/LAUNCH_CHECKLIST.md` P0: migration `20260727090000_social_auth_profiles.sql`,
