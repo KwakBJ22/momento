@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import {
   applyContributions,
+  closeCollaborationAlbum,
   getCollaborationStatus,
   getPendingContributions,
   isPublicShareUrl,
   rotateCollaborationInvite,
-  startCollaboration,
   updateAlbumCoverPhoto,
   type PendingContributionItem,
 } from "../lib/api";
@@ -97,7 +97,7 @@ export default function CollaborationPanel({
   ));
   const [inviteUrl, setInviteUrl] = useState<string | null>(() => readStoredInviteUrl(albumId));
   const [statusLoading, setStatusLoading] = useState(true);
-  const [busy, setBusy] = useState<"start" | "apply" | null>(null);
+  const [busy, setBusy] = useState<"apply" | "stop" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Awaited<ReturnType<typeof getPendingContributions>> | null>(null);
@@ -201,20 +201,23 @@ export default function CollaborationPanel({
 
   const ensureInviteUrl = useCallback(async () => {
     if (isContributionInviteUrl(inviteUrl)) return inviteUrl || "";
+    // Requesting the first invite link IS the intent to collaborate — the backend
+    // enables collaboration here, so no separate "start" button is needed.
     const created = await rotateCollaborationInvite(albumId);
     rememberInviteUrl(created.invite_url);
+    void refresh(); // enabling collaboration changes status → surface the stop control
     return created.invite_url;
-  }, [albumId, inviteUrl, rememberInviteUrl]);
+  }, [albumId, inviteUrl, rememberInviteUrl, refresh]);
 
-  const start = async () => {
-    setBusy("start"); setMessage(null); setError(null);
+  const stop = async () => {
+    setBusy("stop"); setMessage(null); setError(null);
     try {
-      const created = await startCollaboration(albumId);
-      rememberInviteUrl(created.invite_url);
-      setMessage("함께 사진과 기억을 모을 준비가 되었습니다.");
+      await closeCollaborationAlbum(albumId);
+      rememberInviteUrl(null);
+      setMessage("참여를 중단했어요. 기존 초대 링크로는 더 이상 사진·기억을 남길 수 없어요.");
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "함께 만들기를 시작하지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "참여 중단에 실패했어요. 다시 시도해 주세요.");
     } finally { setBusy(null); }
   };
 
@@ -328,11 +331,11 @@ export default function CollaborationPanel({
       </div>
     ) : (
       <>
-        {!started && canManage ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void start()}>{busy === "start" ? "시작하는 중..." : "함께 만들기 시작"}</button> : null}
+        {canManage ? <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>초대 링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>함께 만들도록 초대</button></div> : null}
         {started && canManage ? <>
-          <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>초대 링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>함께 만들도록 초대</button></div>
           <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
+          <button type="button" className="collab-panel__stop" disabled={busy !== null} onClick={() => void stop()}>{busy === "stop" ? "중단하는 중..." : "참여 중단"}</button>
         </> : null}
         <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
         {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
