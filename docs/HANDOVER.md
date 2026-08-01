@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 제목 편집 UI 크기 축소)
+## 최신 세션 요약 (2026-08-01, 참여 설계 §1: 역할 규칙)
+
+`docs/PARTICIPATION_DESIGN.md` §1(역할 규칙)만 구현. 반응·방명록(§2·§3)은 다음 단계.
+
+- **share_links.kind 로 백엔드가 링크 권한 판단** (`60dbfbf`). 기존엔 프런트가 URL 패턴
+  (`isContributionInviteUrl`, /join/ vs /s/)으로 추측 → 권한 판단이 프런트에 있었음.
+  - migration `20260801100000_share_link_kind.sql`(+`_rollback`): `kind`('view'|'contribute')
+    추가, DEFAULT 'contribute', 기존 backfill 'contribute'. **프로덕션 적용 완료**(기존 14행 contribute 확인).
+  - `start_public_contribution`(/s/ 참여 세션 생성)에서 `kind='view'` → **403 거부**. view=열람만.
+    tolerant 기본값(`share.get("kind") or "contribute"`)이라 컬럼 없거나 값 없어도 안전.
+  - `create_share_link` 은 kind 를 **DB DEFAULT 에 위임**(insert 에 안 씀) → 마이그레이션
+    적용 전/후 모두 링크 생성 안 깨짐. view 링크 생성은 감상-링크 UX(반응/방명록 단계)에서 추가.
+  - 회귀 테스트: view 링크 참여 403, contribute 허용(`test_share_api.py`, backend 212).
+- **"함께 만들기 시작" 버튼 제거·초대 시 자동 활성화·참여 중단 유지** (`5ba0783`).
+  `CollaborationPanel` 에서 앞단계 버튼 삭제. 초대 링크 요청(`ensureInviteUrl`→rotate-invite)이
+  collaboration 을 자동 활성화(+refresh). **"참여 중단" 버튼 추가**(`closeCollaborationAlbum`) —
+  링크 오배포 시 되돌릴 수단 유지.
+- 주의: /s/ 공유 링크는 현재도 kind='contribute'(기존 동작 유지). 설계상 /s/=감상(view)로의
+  전환은 반응/방명록 UX 와 함께 하는 게 맞아 이번엔 안 함(참여 capability 회귀 방지).
+
+## 이전 세션 요약 (2026-08-01, 제목 편집 UI 크기 축소)
 
 - **제목 편집 UI 모바일 과대 크기 수정** (`f130624`). 카톡 웹뷰에서 편집 UI가 화면
   세로 ~1/3 차지(저장/취소가 `flex:1 1 auto` grow 로 각 ~45% 폭). 브라우저 실측으로 검증:
@@ -306,6 +326,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 실사용 테스트 4건 수정 세션 재확인: frontend **84 passed**, build 통과, backend **210 passed**.
 제목수정 레이아웃·성능 연구 세션 재확인: frontend **86 passed**, build 통과, backend **210 passed**.
 제목 편집 UI 크기 축소 세션 재확인: frontend **90 passed**, build 통과, backend **210 passed**.
+참여 설계 §1 세션 재확인: frontend **90 passed**, build 통과, backend **212 passed**(share kind 회귀 2건 추가).
 
 # 다음 할 일
 
