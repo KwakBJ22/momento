@@ -7,11 +7,23 @@ Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이
 
 - 경로: `D:\Momento` (Windows), 브랜치 `main`
 - 이관 시점 최신 커밋: `df7b27c fix(auth): stabilize local OAuth flow and restore login callback`
-- **미커밋 작업은 아래 4개 커밋으로 정리됨 (2026-08-01, 로컬 main, 아직 push 안 함):**
+- **로컬 main 커밋 정리 완료 (2026-08-01). `df7b27c` 포함 아래 커밋은 origin에 미반영:**
   - `ebcc050 chore: remove brand name generator tool (backend)`
   - `7e01b32 feat(account): 회원 탈퇴 및 데이터 삭제 (백엔드)`
   - `a1fdb5a fix(album): job 없는 legacy creating 앨범 무한 폴링 해소`
   - `9e584c5 feat(frontend): 전역 네비·인라인 참여·회원 탈퇴·번들 코드 분할`
+  - `f237186 docs: track CLAUDE.md, HANDOVER, 약관 2종 (gitignore 예외 추가)`
+- **`feature/withdrawal-and-nav` 브랜치를 origin에 push함** (`f237186`까지 포함).
+  Vercel Preview용. main은 아직 push하지 않음 — 아래 push 보류 사유 참고.
+- brand 폴더(`backend/app/brand/`)의 추적 안 되던 `__pycache__`·`data/pool_cache.txt`
+  잔여물까지 삭제 완료.
+
+### main push를 보류한 이유
+
+- 전역 하단 네비게이션·인라인 참여는 **화면 구조를 바꾸는 변경**인데
+  카카오톡 인앱 웹뷰에서 검증하지 않았다.
+- `20260801090000_account_withdrawal.sql` migration이 아직 프로덕션에 적용 전이라
+  **회원 탈퇴는 프로덕션에서 실패한다.** migration 적용 + 인앱 웹뷰 QA 후 main 반영.
 
 ## 스택 / 명령어
 
@@ -133,30 +145,35 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 
 ---
 
-# 검증 결과 (2026-08-01)
+# 검증 결과 (2026-08-01, 최신 재확인)
+
+`f237186` 기준. 백엔드는 `backend/.venv` python으로 실행(시스템 `C:\Python313` 혼용 방지).
 
 | 항목 | 결과 |
 | --- | --- |
 | `npm run test:frontend` | **59 passed / 0 failed** |
 | `npm run build` | 통과, 첫 화면 gzip 166KB |
-| `python -m pytest -q` | **228 passed / 2 failed** (brand 테스트 파일만, 삭제 대기) |
+| `.venv python -m pytest -q` | **210 passed / 0 failed** (brand 테스트 삭제 반영됨) |
 
 # 다음 할 일
 
 1. ~~brand 파일 `git rm` → pytest 재실행~~ ✅ 완료 (`ebcc050`, backend 210 passed)
    - 프론트 `BrandFinder.tsx/.css` 삭제는 App.tsx `/brand` 라우트 제거와 함께 `9e584c5`에 포함.
-2. ~~미커밋 변경을 의미 단위로 나눠 커밋~~ ✅ 완료 (위 4개 커밋). App.tsx가 A/B/D를
-   동시에 건드려 프론트는 파일 단위 분리가 불가능해 하나의 프론트 커밋으로 묶음. **아직 push 안 함.**
-3. Supabase에서 `20260801090000_account_withdrawal.sql` 실행
-4. **수동 QA** — 자동 테스트가 못 잡는 것들
+2. ~~미커밋 변경을 의미 단위로 나눠 커밋~~ ✅ 완료 (5개 커밋). App.tsx가 A/B/D를
+   동시에 건드려 프론트는 파일 단위 분리가 불가능해 하나의 프론트 커밋으로 묶음.
+   문서 5종(gitignore 예외 + CLAUDE.md·HANDOVER·약관 2종)은 `f237186`로 별도 커밋.
+3. ~~`feature/withdrawal-and-nav` push~~ ✅ 완료 (Vercel Preview용). **main은 미push.**
+4. Supabase에서 `20260801090000_account_withdrawal.sql` 실행 (프로덕션 미적용 상태)
+5. **수동 QA** — 자동 테스트가 못 잡는 것들 (Vercel Preview에서)
    - 회원 탈퇴 (migration 적용 후, 실제 Supabase에서)
    - PDF 저장 (html2pdf 지연 로딩 후 첫 클릭)
    - `/admin` 진입 (lazy + Suspense)
-   - 하단 네비게이션, 앨범 내 인라인 사진·기억 추가
-5. `docs/LAUNCH_CHECKLIST.md` P0: migration `20260727090000_social_auth_profiles.sql`,
+   - **카카오톡 인앱 웹뷰**에서 하단 네비게이션·앨범 내 인라인 사진·기억 추가
+6. 위 QA + migration 적용 완료 후 **main에 반영**(merge/push)
+7. `docs/LAUNCH_CHECKLIST.md` P0: migration `20260727090000_social_auth_profiles.sql`,
    Kakao/Naver Provider 콘솔 설정 + Redirect URL, Vercel/Railway 환경변수, 실기기 검증
-6. 약관 `{{ }}` 채우고 법무 검토 → 프런트에 링크 노출
-7. (출시 직후) `.gitattributes` 도입
+8. 약관 `{{ }}` 채우고 법무 검토 → 프런트에 링크 노출
+9. (출시 직후) `.gitattributes` 도입
 
 # 출시 후로 미룬 리팩터링
 
