@@ -76,6 +76,24 @@ export async function optimizeImageFile(file: File): Promise<File> {
   }
 }
 
+/**
+ * Prepares a file for upload, never dropping a usable photo.
+ * If in-browser optimization fails (HEIC decode, canvas limits, encode null, ...),
+ * fall back to the original file — the backend re-encodes it (including HEIC).
+ * Only rethrows when the original itself is unusable (over the per-object limit).
+ */
+export async function prepareForUpload(
+  file: File,
+  optimize: (input: File) => Promise<File> = optimizeImageFile,
+): Promise<File> {
+  try {
+    return await optimize(file);
+  } catch (cause) {
+    if (file.size <= MAX_ORIGINAL_IMAGE_BYTES) return file;
+    throw cause;
+  }
+}
+
 export function formatUploadSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }

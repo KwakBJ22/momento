@@ -3,7 +3,7 @@ import { authenticatedFetch } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
-import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, optimizeImageFile } from "../lib/optimizeImageFile";
+import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -69,7 +69,6 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
 
     setIsPreparing(true);
     setError(null);
-    const added: PhotoItem[] = [];
     const failures: string[] = [];
     let nextTotal = totalUploadBytes;
     try {
@@ -78,25 +77,29 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
           failures.push(`${file.name}: 이 사진은 용량이 너무 큽니다. 10MB 이하의 사진을 선택해주세요.`);
           continue;
         }
+        // EXIF failure must not drop the photo — capture date is optional.
+        let capturedAt: string | null = null;
         try {
-          const capturedAt = await extractOriginalCaptureDate(file);
-          const optimized = await optimizeImageFile(file);
-          if (nextTotal + optimized.size > MAX_TOTAL_UPLOAD_BYTES) {
-            failures.push("선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.");
-            continue;
-          }
-          added.push(createPhotoItem(optimized, capturedAt));
-          nextTotal += optimized.size;
+          capturedAt = await extractOriginalCaptureDate(file);
         } catch (cause) {
-          console.error("Photo preparation failed", { cause, fileName: file.name });
-          failures.push(`${file.name}: 이 사진을 준비하지 못했습니다. 다른 사진을 선택해주세요.`);
+          console.warn("Capture date extraction failed", { cause, fileName: file.name });
         }
+        // Optimization failure falls back to the original file so no photo is lost.
+        const prepared = await prepareForUpload(file);
+        if (nextTotal + prepared.size > MAX_TOTAL_UPLOAD_BYTES) {
+          failures.push("선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.");
+          continue;
+        }
+        const item = createPhotoItem(prepared, capturedAt);
+        nextTotal += prepared.size;
+        // Reflect the real count immediately, one photo at a time, instead of
+        // staying at 0 until every image finishes resizing.
+        setPhotos((previous) => [...previous, item]);
+        setCoverPhotoId((current) => current || item.id);
       }
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
       if (rejected > 0) failures.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
-      setPhotos((previous) => [...previous, ...added]);
-      setCoverPhotoId((current) => current || added[0]?.id || null);
       setError(failures.length ? failures.join(" ") : null);
     } finally {
       setIsPreparing(false);
