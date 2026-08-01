@@ -3,7 +3,30 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 공유 페이지 로그인 모달 수정)
+## 최신 세션 요약 (2026-08-01, 실사용 테스트 4건 수정)
+
+- **[1] 사진 선택 갯수 0장 표시** (`76e022e`). `UploadForm.addFiles` 가 리사이즈를
+  다 끝낸 뒤 `setPhotos` 를 한 번만 호출해 준비 중엔 "30장 중 0장"으로 남았다.
+  → 사진을 한 장씩 증분 `setPhotos` 해 선택 직후부터 실제 장수가 보인다.
+- **[3] '이 사진을 준비하지 못했습니다' 누락** (`76e022e`). `optimizeImageFile` 이
+  던지면 사진을 버렸다(안드로이드 갤러리 JPEG 등). `prepareForUpload` 추가 —
+  최적화 실패 시 원본 파일로 폴백(10MB 이하면 그대로, 백엔드가 HEIC 포함 재인코딩),
+  원본이 per-object 한도 초과일 때만 rethrow. EXIF 추출 실패도 사진 안 버리고
+  `capturedAt=null` 로 진행. **사용자 데이터 손실 없음.**
+- **[2] 로그인 참여자 사진/기억 클릭 무반응** (`44ac72e`, 최우선). `PublicShareView`
+  `openContribution` 이 `if (authenticatedUser && !contributionSession) return;` 로
+  클릭을 삼켰고, 세션 생성 effect 는 `토큰:사용자ID` 키로 한 번만 시도해 실패 시
+  ref 가 설정된 채 재시도 경로가 없었다. → 클릭 의도를 `pendingContributionActionRef`
+  에 기록+세션 (재)시작, 조용히 무시하는 경로 제거. 세션 키에 `contributionRetry`
+  포함해 재시도 가능(영구 잠금 없음, 자동 루프 없음). 준비 중 상태 + 실패 시
+  오류·"다시 시도" 노출. **게스트 경로 불변.**
+- **[4] 미완성 앨범이 목록에 그대로 노출** (`19eccf0`). 확인 결과: `MyAlbums` 카드가
+  이미 `status` 로 `/creating`(이어서 생성) 라우팅을 하므로 목록 포함은 **의도된 동작**
+  (job 재개용). 다만 완성본과 시각 구분이 없어 혼란 소지 → 목록 쿼리·라우팅은 두고
+  카드 제목 옆 상태 배지("생성 중"/"생성 실패")만 최소 추가.
+- 회귀 테스트: `uploadPreparation.test.ts`, `publicShareContribution.test.ts`.
+
+## 이전 세션 요약 (2026-08-01, 공유 페이지 로그인 모달 수정)
 
 - **공유 페이지에서 로그인 모달이 안 뜨던 버그 수정 완료** (`58a5166`).
   공유 페이지(`/s/:token`, shareToken)에서 "로그인"을 누르면 body 스크롤만 잠기고
@@ -237,6 +260,7 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과, backend **210 passed**.
 PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build 통과, backend **210 passed**.
 공유 페이지 로그인 모달 수정 세션 재확인: frontend **75 passed**, build 통과, backend **210 passed**.
+실사용 테스트 4건 수정 세션 재확인: frontend **84 passed**, build 통과, backend **210 passed**.
 
 # 다음 할 일
 
