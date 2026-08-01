@@ -360,6 +360,9 @@ async def start_public_contribution(
     album = get_album_record(client, str(share["album_id"]))
     if not album:
         raise HTTPException(status_code=404, detail="Album was not found.")
+    # The link's kind — not a frontend URL guess — decides whether contribution is allowed.
+    if str(share.get("kind") or "contribute") == "view":
+        raise HTTPException(status_code=403, detail="이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요.")
     if album.get("collaboration_status") == "closed":
         raise HTTPException(status_code=403, detail="This album is no longer accepting contributions.")
     # A signed-in visitor must be restored through their account, never silently

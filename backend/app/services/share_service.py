@@ -48,6 +48,9 @@ def create_share_link(
     expires_at: datetime | None,
 ) -> tuple[dict[str, Any], str]:
     token = create_token()
+    # `kind` is intentionally left to the DB default ('contribute') so link creation
+    # keeps working whether or not the kind migration has been applied yet. View-link
+    # creation is added with the 감상-링크 UX (reactions/guestbook step).
     record = {
         "album_id": album_id,
         "token_hash": hash_token(token),
