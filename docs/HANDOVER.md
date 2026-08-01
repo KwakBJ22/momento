@@ -3,7 +3,18 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 제목수정 레이아웃·성능 연구)
+## 최신 세션 요약 (2026-08-01, 제목 편집 UI 크기 축소)
+
+- **제목 편집 UI 모바일 과대 크기 수정** (`f130624`). 카톡 웹뷰에서 편집 UI가 화면
+  세로 ~1/3 차지(저장/취소가 `flex:1 1 auto` grow 로 각 ~45% 폭). 브라우저 실측으로 검증:
+  - 저장/취소 `flex:0 0 auto`(내용 폭, grow 없음, min-height 40px 유지).
+  - 입력창 `flex:1 1 7rem` 로 버튼과 **한 줄** 배치 → 편집 UI 높이 **93px→46px**(절반↓).
+  - 편집 중 `subtitle` 숨김(`subtitle && !editing`), 입력 글자 `clamp(1.5rem,4vw,2.1rem)`(제목급).
+  - **헤더 grid 열 `minmax(0,1fr)` clamp** — 기본 `auto` 열이 버튼 min-content 로 부풀어
+    좁은 웹뷰에서 카드를 뚫던 오버플로의 근본 원인이었음(이전 세션 `73d28a7` 로도 안 잡힘).
+  - 편집 플로우·비편집 모양·타 화면(AlbumResult/PublicShareView) 공유 불변. 회귀 테스트 갱신.
+
+## 이전 세션 요약 (2026-08-01, 제목수정 레이아웃·성능 연구)
 
 - **제목 수정 버튼 화면 밖 넘침 수정** (`73d28a7`). `AlbumScreenHeader` 편집기 입력창이
   `flex: 1 1 220px` 로 커지며 좁은 화면(카톡 웹뷰)에서 저장 버튼이 화면 밖으로 넘치고
@@ -294,6 +305,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 공유 페이지 로그인 모달 수정 세션 재확인: frontend **75 passed**, build 통과, backend **210 passed**.
 실사용 테스트 4건 수정 세션 재확인: frontend **84 passed**, build 통과, backend **210 passed**.
 제목수정 레이아웃·성능 연구 세션 재확인: frontend **86 passed**, build 통과, backend **210 passed**.
+제목 편집 UI 크기 축소 세션 재확인: frontend **90 passed**, build 통과, backend **210 passed**.
 
 # 다음 할 일
 
