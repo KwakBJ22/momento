@@ -3,7 +3,35 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 실사용 테스트 4건 수정)
+## 최신 세션 요약 (2026-08-01, 제목수정 레이아웃·성능 연구)
+
+- **제목 수정 버튼 화면 밖 넘침 수정** (`73d28a7`). `AlbumScreenHeader` 편집기 입력창이
+  `flex: 1 1 220px` 로 커지며 좁은 화면(카톡 웹뷰)에서 저장 버튼이 화면 밖으로 넘치고
+  취소만 다음 줄에 놓였다. → 입력창을 한 줄 전체(`flex: 1 1 100%`)로, editor 에
+  `max-width:100%` 추가해 저장·취소가 항상 다음 줄에 함께. 회귀 테스트 추가.
+- **앨범 이미지/인증 지연 단축 (1차)** (`7bd5e8a`). Supabase origin preconnect 를
+  `index.html` 에 추가(사진 서명 URL·토큰 갱신 커넥션 사전 워밍).
+
+### 성능 연구 결과 (앨범 생성/목록/열기 느림) — 코드 기준 진단
+
+프런트는 이미 대체로 최적화됨: my-albums 는 1요청(커버 서버측 batch 서명 포함),
+앨범 열기는 `getAlbum`+`getAlbumPhotos` 병렬 + 스켈레톤, 사진 서명은 버킷당 1 batch 콜,
+생성 폴링은 1s→2s→3s 백오프. 따라서 지연의 주범은 **인프라·왕복**으로 판단:
+
+1. **[최유력] Railway 백엔드 콜드스타트** — 유휴 시 슬립하면 첫 요청이 수초. "가끔/처음에
+   유독 느림"과 일치. → keep-warm(수 분 간격 `/health` 핑) 또는 슬립 없는 플랜. **사용자 결정 필요.**
+2. **Vercel `/api/*` 프록시 홉** — 프런트→Vercel 함수→Railway→Supabase. Vercel 함수도
+   콜드스타트 가능. → 자주 쓰는 GET 응답에 짧은 캐시 헤더(예: `s-maxage=30`) 제안.
+3. **`signed_url_ttl_seconds=300`(5분)** (`app/config.py:51`) — 서명 URL 이 짧아 매 열기마다
+   재서명, 응답 캐시도 무의미. → TTL 상향(예: 1h)으로 재서명·왕복 절감. **정책(보안) 결정 필요.**
+4. **앨범 열기 3번째 콜(living append pages)이 순차** — `photosReady` 후 별도 호출.
+   대개 페이지 없음이면 스킵되나, 있을 때 순차. 병합/선반영 검토 여지.
+5. **클라이언트 캐시 확장** — 공유뷰(`readPublicShareCache`)처럼 AlbumView/MyAlbums 도
+   최근 응답을 캐시→재방문 즉시 렌더 후 갱신(stale-while-revalidate). 기능 변경이라 **제안**.
+
+→ 즉시 적용(저위험): preconnect(완료). 나머지 1~5 는 인프라/정책/구조 변경이라 사용자 승인 후 진행.
+
+## 이전 세션 요약 (2026-08-01, 실사용 테스트 4건 수정)
 
 - **[1] 사진 선택 갯수 0장 표시** (`76e022e`). `UploadForm.addFiles` 가 리사이즈를
   다 끝낸 뒤 `setPhotos` 를 한 번만 호출해 준비 중엔 "30장 중 0장"으로 남았다.
@@ -261,6 +289,7 @@ PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과,
 PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build 통과, backend **210 passed**.
 공유 페이지 로그인 모달 수정 세션 재확인: frontend **75 passed**, build 통과, backend **210 passed**.
 실사용 테스트 4건 수정 세션 재확인: frontend **84 passed**, build 통과, backend **210 passed**.
+제목수정 레이아웃·성능 연구 세션 재확인: frontend **86 passed**, build 통과, backend **210 passed**.
 
 # 다음 할 일
 
