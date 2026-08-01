@@ -73,6 +73,7 @@ yarn-error.log*
 !docs/TERMS_OF_SERVICE.md
 !docs/HANDOVER.md
 !docs/PARTICIPATION_DESIGN.md
+!docs/METRICS.md
 coverage/
 .coverage
 htmlcov/
