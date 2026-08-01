@@ -65,8 +65,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
 
   try {
     const element = await waitForRenderer(host);
+    // 폰트·이미지 대기는 waitForAlbumAssets 가 상한 시간과 함께 처리한다 (무한 대기 방지).
     await waitForAlbumAssets(element);
-    await document.fonts.ready;
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
 
     const { default: html2pdf } = await import("html2pdf.js");

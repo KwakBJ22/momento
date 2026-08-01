@@ -9,7 +9,11 @@ import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
+import { waitForAlbumAssets } from "./waitForAlbumAssets";
 import "./AlbumRenderer.css";
+
+// 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
+export { waitForAlbumAssets } from "./waitForAlbumAssets";
 
 export type AlbumRendererMode = "screen" | "print";
 
@@ -439,24 +443,5 @@ export default function AlbumRenderer({
         </div>
       </PhotoCommentEditProvider>
     </div>
-  );
-}
-
-/** PDF 생성 전 폰트·이미지 준비 */
-export async function waitForAlbumAssets(root: ParentNode): Promise<void> {
-  await document.fonts.ready;
-  const images = Array.from(root.querySelectorAll("img"));
-  await Promise.all(
-    images.map(async (img) => {
-      if (img.complete && img.naturalWidth > 0) {
-        await img.decode?.().catch(() => undefined);
-        return;
-      }
-      await new Promise<void>((resolve, reject) => {
-        img.addEventListener("load", () => resolve(), { once: true });
-        img.addEventListener("error", () => reject(new Error("image failed")), { once: true });
-      });
-      await img.decode?.().catch(() => undefined);
-    }),
   );
 }
