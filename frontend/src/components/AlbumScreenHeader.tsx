@@ -53,7 +53,7 @@ export default function AlbumScreenHeader({ title, subtitle, canEdit = false, on
           {canEdit ? <button type="button" className="album-screen-header__edit" aria-label="앨범 제목 수정" onClick={() => setEditing(true)}><Pencil size={15} /></button> : null}
         </div>
       )}
-      {subtitle ? <p className="album-screen-header__subtitle">{subtitle}</p> : null}
+      {subtitle && !editing ? <p className="album-screen-header__subtitle">{subtitle}</p> : null}
       {error ? <p className="album-screen-header__error" role="alert">{error}</p> : null}
     </header>
   );
