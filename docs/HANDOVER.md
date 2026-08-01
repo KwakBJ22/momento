@@ -3,7 +3,26 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 참여 설계 §9: 측정)
+## 최신 세션 요약 (2026-08-02, 참여 설계 §3: 방명록)
+
+앨범 전체에 남기는 짧은 글(사진별 기억과 별개 테이블).
+
+- **테이블·API** (`ababfb3`). `album_guestbook_entries`(album_id CASCADE, contributor_id
+  nullable SET NULL, author_name 40자, message 200자, session_hash, deleted_at).
+  **프로덕션 적용 완료.** FK 확인: album_id=CASCADE, contributor_id=SET NULL.
+  - `delete_album_cascade` 에 방명록 삭제 추가(+album_id CASCADE backstop) → 앨범 삭제·회원
+    탈퇴가 RESTRICT 로 안 막힘. `delete_profile_cascade` 는 방명록이 profiles 참조 안 해 무변경(점검 완료).
+  - **소유권=세션 해시**(반응과 동일). 감상 링크 방문자도 작성 가능(contributor 시스템 미사용 →
+    contributor_limit 10·협업 종료에 안 막힘). 본인 글만 삭제.
+  - API: `POST /public/shares/{token}/guestbook`, `POST .../{id}/delete`(body에 session_key),
+    get_public_share 응답에 익명 guestbook 목록.
+- **UI** (`22439f9`). PublicShareView: "우리의 이야기" → 반응 → **방명록**. 이름(participantName
+  재사용, 필수)+메시지 폼, 목록, 본인 글 삭제. **AlbumRenderer 미변경 → PDF 제외.**
+  `CLAUDE.md §6` 앨범 구조에 반응·방명록(웹/공유 전용, PDF 제외) 추가.
+- 회귀 테스트: 작성/본인만 삭제/타인 403, delete_album_cascade에 방명록 삭제 존재, FK CASCADE/SET NULL,
+  방명록이 반응 다음 렌더, PDF 렌더러에 guestbook/reaction 없음.
+
+## 이전 세션 요약 (2026-08-01, 참여 설계 §9: 측정)
 
 출시 판단 5개 지표를 하나도 못 계산하던 문제 해결. 원인은 스키마가 아니라 `log_event` 부재.
 
@@ -369,6 +388,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 참여 설계 §1 세션 재확인: frontend **90 passed**, build 통과, backend **212 passed**(share kind 회귀 2건 추가).
 참여 설계 §2(반응) 세션 재확인: frontend **95 passed**, build 통과, backend **214 passed**(반응 회귀 2건 추가).
 참여 설계 §9(측정) 세션 재확인: frontend **95 passed**, build 통과, backend **217 passed**(계측 회귀 3건 추가).
+참여 설계 §3(방명록) 세션 재확인: frontend **100 passed**, build 통과, backend **223 passed**(방명록 회귀 6건 추가).
 
 # 다음 할 일
 
