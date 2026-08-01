@@ -336,6 +336,8 @@ body {
 .my-albums__card h3 { overflow: hidden; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
 .my-albums__card p { margin-top: 0.35rem; color: #8a7a6e; font-size: 0.84rem; }
 .my-albums__memory-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: #efe0d1; color: #8d6a4f; font-size: 0.72rem; font-weight: 700; }
+.my-albums__status-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: #e7ddd2; color: #7a6a5c; font-size: 0.72rem; font-weight: 700; }
+.my-albums__status-badge--failed { background: #f3dcd6; color: #a5503c; }
 .my-albums__empty { display: grid; justify-items: center; gap: 0.45rem; padding: 2rem 1rem; border: 1px dashed #ddcbbb; border-radius: 14px; color: #8a7a6e; text-align: center; }
 .my-albums__empty p { margin: 0; }
 .my-albums__empty-cta { display: grid; place-items: center; margin-top: 0.5rem; text-decoration: none; }
