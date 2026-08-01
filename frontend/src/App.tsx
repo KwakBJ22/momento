@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import AuthCallback from "./components/AuthCallback";
 import AuthPanel from "./components/AuthPanel";
 import AlbumResultView from "./components/AlbumResult";
 import AlbumCreating from "./components/AlbumCreating";
 import AlbumView from "./components/AlbumView";
-import BrandFinder from "./components/BrandFinder";
 import CollaborationPanel from "./components/CollaborationPanel";
 import ContributeWorkspace from "./components/ContributeWorkspace";
 import ParticipantsPage from "./components/ParticipantsPage";
@@ -13,17 +12,20 @@ import InviteAccept from "./components/InviteAccept";
 import JoinPage from "./components/JoinPage";
 import Landing from "./components/Landing";
 import MyAlbums from "./components/MyAlbums";
-import AdminConsole, { parseAdminRoute } from "./components/admin/AdminConsole";
+import { parseAdminRoute } from "./components/admin/adminRoute";
 import QuestionFlow from "./components/QuestionFlow";
 import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
+import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
-import { authenticatedFetch, getAlbum, getAlbumPhotos } from "./lib/api";
+import { authenticatedFetch, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
+
+const AdminConsole = lazy(() => import("./components/admin/AdminConsole"));
 
 const PENDING_CATEGORY_KEY = "momento-pending-album-category";
 
@@ -36,7 +38,6 @@ function getInviteTokenFromPath() { return routeId(/^\/invite\/([^/]+)$/); }
 function getQuestionsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/questions$/); }
 function getShareTokenFromPath() { return routeId(/^\/s\/([^/]+)$/); }
 function getParticipantsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/participants$/); }
-function isBrandPage() { return window.location.pathname === "/brand"; }
 function isMyAlbumsPage() { return window.location.pathname === "/my-albums"; }
 function isAuthCallbackPage() { return window.location.pathname === "/auth/callback"; }
 
@@ -62,6 +63,9 @@ function App() {
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const [category, setCategory] = useState<AlbumCategory | null>(null);
   const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const creatingAlbumId = getCreatingAlbumIdFromPath();
@@ -72,8 +76,14 @@ function App() {
   const shareToken = getShareTokenFromPath();
   const participantsAlbumId = getParticipantsAlbumIdFromPath();
   const myAlbumsPage = isMyAlbumsPage();
-  const brandPage = isBrandPage();
   const adminRoute = parseAdminRoute(window.location.pathname);
+  const showGlobalBottomNavigation = !adminRoute && !isAuthCallbackPage() && Boolean(user) && !joinToken && !inviteToken && !shareToken;
+  const appNavigation = (sharedAlbumId || contributeAlbumId || participantsAlbumId || result)
+    ? "album"
+    : myAlbumsPage ? "my-albums" : category && isPhotoSelectionStep ? "new-album" : "home";
+  const dispatchAlbumAction = (action: "top" | "photo" | "memory" | "share") => {
+    window.dispatchEvent(new CustomEvent("momento:album-action", { detail: { action } }));
+  };
 
   useEffect(() => {
     let active = true;
@@ -130,6 +140,28 @@ function App() {
     resetToStart();
     window.location.replace("/");
   };
+  const openWithdraw = () => {
+    setWithdrawError(null);
+    setAccountMenuOpen(false);
+    setWithdrawOpen(true);
+  };
+  const withdraw = async () => {
+    if (withdrawing) return;
+    setWithdrawing(true);
+    setWithdrawError(null);
+    try {
+      await deleteAccount();
+      await signOut();
+      setUser(null);
+      setWithdrawOpen(false);
+      resetToStart();
+      window.location.replace("/");
+    } catch (cause) {
+      setWithdrawError(cause instanceof Error ? cause.message : "탈퇴를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
   const openLogin = () => {
     loginReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setShowLogin(true);
@@ -170,6 +202,18 @@ function App() {
       window.requestAnimationFrame(() => loginReturnFocusRef.current?.focus());
     };
   }, [showLogin]);
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest(".app__account")) setAccountMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("mousedown", closeOnOutside); document.removeEventListener("keydown", closeOnEscape); };
+  }, [accountMenuOpen]);
   const openLoginForCategory = (selected: AlbumCategory) => {
     try { sessionStorage.setItem(PENDING_CATEGORY_KEY, selected); } catch { /* category can be selected again */ }
     openLogin();
@@ -184,13 +228,14 @@ function App() {
   };
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
-  if (brandPage) return <BrandFinder />;
 
   return (
-    <div className={adminRoute ? "app app--album admin-app" : isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}>
-      {!adminRoute ? <header className="app__header"><h1>Momento</h1>{user && shareToken ? <div className="app__account"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button></div> : null}</div> : user ? <div className="app__header-actions">{sharedAlbumId ? <a className="app__nav-link" href={`/album/${sharedAlbumId}/participants`}>참여자</a> : null}{!sharedAlbumId && !participantsAlbumId && !inviteToken && !contributeAlbumId && !joinToken ? <a className="app__nav-link" href="/my-albums">내 앨범</a> : null}<button type="button" className="app__logout" onClick={() => void logout()}>로그아웃</button></div> : !isAlbumSurface ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
+    <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
+      {!adminRoute ? <header className="app__header"><h1><a href="/">Momento</a></h1>{!user && !shareToken ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
+      {!adminRoute && user ? <div className="app__account app__account--global"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}</div> : null}
+      {!adminRoute && !user && shareToken ? <button type="button" className="app__login-global" onClick={openLogin}>로그인</button> : null}
       <main className="app__main">
-        {adminRoute ? requiresLogin(<AdminConsole route={adminRoute} />)
+        {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
@@ -210,6 +255,26 @@ function App() {
           }} />
           : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setIsPhotoSelectionStep(true) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
       </main>
+      {showGlobalBottomNavigation ? (
+        appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
+          : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} onAccount={() => setAccountMenuOpen(true)} />
+      ) : null}
+      {withdrawOpen ? (
+        <div className="app__withdraw">
+          <section className="app__withdraw-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
+            <h2 id="withdraw-title">정말 떠나시겠어요?</h2>
+            <p>탈퇴하면 내가 만든 앨범과 사진이 모두 사라지고, 다시 되돌릴 수 없어요.</p>
+            <p className="app__withdraw-hint">남기고 싶은 앨범이 있다면 먼저 PDF로 저장해 주세요. 함께 만든 앨범에 남긴 사진과 기억은 이름 없이 그 앨범에 남아요.</p>
+            {withdrawError ? <p className="app__withdraw-error">{withdrawError}</p> : null}
+            <div className="app__withdraw-actions">
+              <button type="button" disabled={withdrawing} onClick={() => setWithdrawOpen(false)}>더 써볼게요</button>
+              <button type="button" className="app__withdraw-confirm" disabled={withdrawing} onClick={() => void withdraw()}>
+                {withdrawing ? "정리하는 중..." : "탈퇴할게요"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

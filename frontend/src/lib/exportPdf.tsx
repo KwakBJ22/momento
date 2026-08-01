@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import html2pdf from "html2pdf.js";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
@@ -70,6 +69,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
     await document.fonts.ready;
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
 
+    const { default: html2pdf } = await import("html2pdf.js");
     const blob = await html2pdf()
       .set({
         margin: [0, 0, 0, 0],

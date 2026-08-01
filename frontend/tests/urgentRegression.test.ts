@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { isRequestAborted } from "../src/lib/requestAbort";
 
 const component = (name: string) => readFileSync(
   new URL(`../src/components/${name}.tsx`, import.meta.url),
   "utf8",
 );
+
+test("collaboration request cancellations stay silent and isolated from the next request", () => {
+  const panel = component("CollaborationPanel");
+  const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
+  const abortedController = new AbortController();
+  abortedController.abort();
+
+  assert.equal(isRequestAborted(new DOMException("Aborted", "AbortError")), true);
+  assert.equal(isRequestAborted(new Error("signal is aborted without reason")), true);
+  assert.equal(isRequestAborted(new Error("network aborted"), abortedController.signal), true);
+  assert.equal(isRequestAborted(new Error("server error")), false);
+  assert.match(panel, /requestId !== refreshRequestId\.current/);
+  assert.match(panel, /isRequestAborted\(cause, signal\)/);
+  assert.match(panel, /함께 만들기 정보를 불러오지 못했어요\. 다시 시도해 주세요\./);
+  assert.match(panel, /const controller = new AbortController\(\);\s*void refresh\(controller\.signal\)/);
+  assert.match(panel, /retryControllerRef\.current\?\.abort\(\);\s*const controller = new AbortController\(\);/);
+  assert.match(api, /return signal \? load\(\) : dedupeRequest\(`collaboration:\$\{albumId\}`, load\)/);
+});
 
 test("bottom navigation uses executable button actions and guards disabled contribution actions", () => {
   const source = component("AlbumBottomNavigation");
@@ -60,11 +79,12 @@ test("login dialog uses one visual container with focus and scroll handling", ()
   assert.match(css, /\.auth-modal__later \{[\s\S]*width: auto;[\s\S]*border: 0;/);
 });
 
-test("album navigation opens the existing contribution experience instead of only scrolling a panel", () => {
+test("album navigation opens the contribution panel without replacing the album route", () => {
   const source = component("AlbumView");
-  assert.match(source, /target\.searchParams\.set\("contribute", action\)/);
-  assert.match(source, /onAddPhoto: \(\) => \{ void openContribution\("photo"\); \}/);
-  assert.match(source, /onAddMemory: \(\) => \{ void openContribution\("memory"\); \}/);
+  assert.match(source, /setActiveAction\(action\)/);
+  assert.match(source, /window\.history\.pushState/);
+  assert.match(source, /<ContributeWorkspace albumId=\{albumId\} embedded/);
+  assert.doesNotMatch(source, /window\.location\.assign\(target\.toString\(\)\)/);
 });
 
 test("public album reads a requested contribution action without a second route or album reload", () => {

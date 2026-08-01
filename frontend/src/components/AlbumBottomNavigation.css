@@ -3,7 +3,11 @@
 .album-bottom-navigation__new-album { background: #f7eee3 !important; color: #76573f !important; }
 .album-bottom-navigation button:disabled { opacity: 0.42; cursor: default; }
 .album-bottom-navigation--participant { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.album-bottom-navigation--participant button.is-active { background: #f7eee3; color: #76573f; }
+.album-bottom-navigation button.is-active { background: #f7eee3; color: #76573f; }
+.album-bottom-navigation--app { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (min-width: 769px) {
+  .album-bottom-navigation { right: auto; left: 50%; width: min(100%, 900px); transform: translateX(-50%); border: 1px solid #e4dbd0; border-bottom: 0; border-radius: 16px 16px 0 0; }
+}
 @media (max-width: 640px) {
   .album-bottom-navigation { min-height: calc(68px + env(safe-area-inset-bottom)); }
   .album-bottom-navigation button, .album-bottom-navigation a { min-height: 68px; padding: 0.28rem 0.12rem; font-size: 0.62rem; }

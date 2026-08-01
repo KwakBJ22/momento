@@ -166,29 +166,39 @@
 
 .collab-panel__cover-modal {
   position: fixed;
-  z-index: 30;
+  z-index: 1200;
   inset: 0;
-  display: grid;
-  place-items: end center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 1rem;
   background: rgba(38, 32, 27, 0.42);
 }
 
 .collab-panel__cover-modal > section {
   width: min(100%, 540px);
-  max-height: min(74vh, 620px);
-  overflow: auto;
+  max-height: calc(100dvh - 32px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 1rem;
   border-radius: 16px;
   background: #fffdf9;
 }
 
 .collab-panel__cover-modal h4 { margin: 0 0 0.85rem; color: #3e342d; }
+.collab-panel__cover-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex: 0 0 auto; }
+.collab-panel__cover-modal-header h4 { margin: 0 0 0.85rem; }
+.collab-panel__cover-close { display: grid; width: 34px; min-width: 34px !important; min-height: 34px !important; height: 34px; place-items: center; padding: 0 !important; border: 0 !important; background: transparent !important; }
 
 .collab-panel__cover-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.15rem;
 }
 
 .collab-panel__cover-grid button {
@@ -201,7 +211,7 @@
 
 .collab-panel__cover-grid button.is-selected { border-color: #604938; box-shadow: 0 0 0 2px #e9d4bf; }
 .collab-panel__cover-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.collab-panel__cover-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 1rem; }
+.collab-panel__cover-actions { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; flex: 0 0 auto; gap: 0.5rem; margin-top: 1rem; padding: 0.75rem 0 calc(0.1rem + env(safe-area-inset-bottom)); background: #fffdf9; }
 
 .collab-panel__picker-copy { margin: -0.25rem 0 0.75rem; color: #6d6259; font-size: 0.88rem; }
 .collab-panel__living-modes { display: grid; gap: 0.5rem; margin: 0 0 0.85rem; }
@@ -225,4 +235,6 @@
 
 @media (max-width: 768px) {
   .collab-panel { padding: 1rem; }
+  .collab-panel__cover-modal { align-items: flex-end; padding: 0; }
+  .collab-panel__cover-modal > section { width: 100%; max-height: calc(100dvh - 16px); border-radius: 18px 18px 0 0; }
 }

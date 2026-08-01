@@ -23,12 +23,11 @@ import {
   type AdminTrendPoint,
   type AdminUserListItem,
 } from "../../lib/adminApi";
+import type { AdminRoute } from "./adminRoute";
 import "./AdminConsole.css";
 
-export type AdminRoute = {
-  section: string;
-  resourceId: string | null;
-};
+export type { AdminRoute } from "./adminRoute";
+export { parseAdminRoute } from "./adminRoute";
 
 const NAV: { href: string; label: string; section: string }[] = [
   { href: "/admin", label: "운영", section: "dashboard" },
@@ -646,13 +645,4 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
       </div>
     </section>
   );
-}
-
-export function parseAdminRoute(pathname: string): AdminRoute | null {
-  if (!pathname.startsWith("/admin")) return null;
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "admin") return null;
-  const section = parts[1] || "dashboard";
-  const resourceId = parts[2] || null;
-  return { section, resourceId };
 }

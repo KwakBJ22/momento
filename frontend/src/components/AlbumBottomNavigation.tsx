@@ -1,22 +1,24 @@
-import { Home, ImagePlus, PencilLine, PlusSquare, Share2 } from "lucide-react";
+import { CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
-  onTop: () => void;
-  onAddPhoto: () => void;
-  onAddMemory: () => void;
-  onShare: () => void;
+  onTop?: () => void;
+  onAddPhoto?: () => void;
+  onAddMemory?: () => void;
+  onShare?: () => void;
   onCreateAlbum?: () => void;
+  onMyAlbums?: () => void;
+  onAccount?: () => void;
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
-  variant?: "default" | "participant";
-  activeItem?: "album" | "photo" | "memory";
+  variant?: "default" | "participant" | "app";
+  activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album" | "account";
 }
 
 /** One fixed navigation surface shared by every screen-mode album. */
 export default function AlbumBottomNavigation({
-  onTop, onAddPhoto, onAddMemory, onShare, onCreateAlbum, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
+  onTop = () => undefined, onAddPhoto = () => undefined, onAddMemory = () => undefined, onShare = () => undefined, onCreateAlbum, onMyAlbums, onAccount, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
   variant = "default", activeItem,
 }: AlbumBottomNavigationProps) {
   const runIfEnabled = (enabled: boolean, action: () => void) => () => {
@@ -29,6 +31,16 @@ export default function AlbumBottomNavigation({
     }
     window.location.assign(newAlbumHref);
   };
+  if (variant === "app") {
+    return (
+      <nav className="album-bottom-navigation album-bottom-navigation--app" aria-label="주요 메뉴">
+        <button type="button" className={activeItem === "home" ? "is-active" : ""} onClick={onTop}><Home size={17} /><span>처음으로</span></button>
+        <button type="button" className={activeItem === "my-albums" ? "is-active" : ""} onClick={onMyAlbums}><Images size={17} /><span>내 앨범</span></button>
+        <button type="button" className={activeItem === "new-album" ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>새 앨범</span></button>
+        <button type="button" className={activeItem === "account" ? "is-active" : ""} onClick={onAccount}><CircleUserRound size={17} /><span>내 설정</span></button>
+      </nav>
+    );
+  }
   if (variant === "participant") {
     return (
       <nav className="album-bottom-navigation album-bottom-navigation--participant" aria-label="앨범 참여 메뉴">

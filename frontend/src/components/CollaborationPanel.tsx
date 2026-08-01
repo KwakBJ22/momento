@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import {
   applyContributions,
   getCollaborationStatus,
@@ -11,6 +12,7 @@ import {
 } from "../lib/api";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { updatePublicShareCoverCache } from "../lib/publicShareFlow";
+import { isRequestAborted } from "../lib/requestAbort";
 import type { AlbumPhoto } from "../types";
 import "./CollaborationPanel.css";
 
@@ -104,6 +106,9 @@ export default function CollaborationPanel({
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [selectedCoverId, setSelectedCoverId] = useState<string | null>(coverPhotoId || null);
   const [savingCover, setSavingCover] = useState(false);
+  const refreshRequestId = useRef(0);
+  const retryControllerRef = useRef<AbortController | null>(null);
+  const coverReturnFocusRef = useRef<HTMLElement | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const inviteDescription = title
     ? `${title}에 사진이나 기억을 남기면 함께 만든 앨범에 담을 수 있어요.`
@@ -139,29 +144,60 @@ export default function CollaborationPanel({
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!albumId) return;
+    const requestId = ++refreshRequestId.current;
     setStatusLoading(true);
     try {
       const payload = await getCollaborationStatus(albumId, signal);
+      if (signal?.aborted || requestId !== refreshRequestId.current) return;
       setStatus(payload);
       setParticipation(payload.participation ?? null);
       setError(null);
     } catch (cause) {
-      if (signal?.aborted) return;
-      setError(cause instanceof Error ? cause.message : "함께 만들기 정보를 불러오지 못했습니다.");
+      if (isRequestAborted(cause, signal) || requestId !== refreshRequestId.current) return;
+      setError("함께 만들기 정보를 불러오지 못했어요. 다시 시도해 주세요.");
     } finally {
-      if (!signal?.aborted) setStatusLoading(false);
+      if (!signal?.aborted && requestId === refreshRequestId.current) setStatusLoading(false);
     }
   }, [albumId]);
 
   useEffect(() => {
     const controller = new AbortController();
     void refresh(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      retryControllerRef.current?.abort();
+      retryControllerRef.current = null;
+    };
+  }, [refresh]);
+  const retryRefresh = useCallback(() => {
+    retryControllerRef.current?.abort();
+    const controller = new AbortController();
+    retryControllerRef.current = controller;
+    void refresh(controller.signal);
   }, [refresh]);
   useEffect(() => {
     if (isPublicShareUrl(initialShareUrl)) rememberShareUrl(initialShareUrl || null);
   }, [initialShareUrl, rememberShareUrl]);
   useEffect(() => setSelectedCoverId(coverPhotoId || photos[0]?.id || null), [coverPhotoId, photos]);
+  useEffect(() => {
+    if (!coverPickerOpen) return;
+    coverReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCoverPickerOpen(false);
+      }
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".collab-panel__cover-grid .is-selected")?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.requestAnimationFrame(() => coverReturnFocusRef.current?.focus());
+    };
+  }, [coverPickerOpen]);
 
   const ensureInviteUrl = useCallback(async () => {
     if (isContributionInviteUrl(inviteUrl)) return inviteUrl || "";
@@ -288,7 +324,7 @@ export default function CollaborationPanel({
     ) : !status ? (
       <div className="collab-panel__error-block">
         <p className="collab-panel__error">{error || "함께 만들기 정보를 불러오지 못했습니다."}</p>
-        <button type="button" onClick={() => void refresh()}>다시 시도</button>
+        <button type="button" onClick={retryRefresh}>다시 시도</button>
       </div>
     ) : (
       <>
@@ -307,7 +343,11 @@ export default function CollaborationPanel({
     {error && status ? <p className="collab-panel__error">{error}</p> : null}
 
     {pending ? <LivingPicker pending={pending} selectedIds={selectedIds} setSelectedIds={setSelectedIds} mode={livingMode} setMode={setLivingMode} busy={busy === "apply"} onCancel={() => setPending(null)} onApply={() => void applySelected()} /> : null}
-    {coverPickerOpen ? <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-label="대표사진 변경"><section><h4>대표사진 바꾸기</h4><div className="collab-panel__cover-grid">{photos.map((photo) => <button type="button" key={photo.id} className={selectedCoverId === photo.id ? "is-selected" : ""} onClick={() => setSelectedCoverId(photo.id)}><img src={photo.thumbnail_url || photo.original_url} alt="대표사진 후보" loading="lazy" /></button>)}</div><div className="collab-panel__cover-actions"><button type="button" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}>취소</button><button type="button" className="collab-panel__primary" disabled={savingCover || !selectedCoverId} onClick={() => void saveCover()}>{savingCover ? "저장 중..." : "저장"}</button></div></section></div> : null}
+    {coverPickerOpen ? <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title"><section>
+      <header className="collab-panel__cover-modal-header"><h4 id="cover-picker-title">대표사진 바꾸기</h4><button type="button" className="collab-panel__cover-close" aria-label="대표사진 변경 닫기" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}><X size={18} aria-hidden="true" /></button></header>
+      <div className="collab-panel__cover-grid">{photos.map((photo) => <button type="button" key={photo.id} className={selectedCoverId === photo.id ? "is-selected" : ""} onClick={() => setSelectedCoverId(photo.id)} aria-pressed={selectedCoverId === photo.id}><img src={photo.thumbnail_url || photo.original_url} alt="대표사진 후보" loading="lazy" /></button>)}</div>
+      <div className="collab-panel__cover-actions"><button type="button" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}>취소</button><button type="button" className="collab-panel__primary" disabled={savingCover || !selectedCoverId} onClick={() => void saveCover()}>{savingCover ? "저장 중..." : "저장"}</button></div>
+    </section></div> : null}
   </section>;
 }
 

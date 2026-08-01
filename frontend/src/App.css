@@ -116,6 +116,8 @@ body {
   cursor: pointer;
 }
 
+.app__header h1 a { color: inherit; text-decoration: none; }
+
 .app__account {
   position: absolute;
   top: 0.1rem;
@@ -172,6 +174,16 @@ body {
 
 .app__account-menu a:hover,
 .app__account-menu button:hover { background: #f7efe7; }
+.app__account-name,
+.app__account-email { margin: 0; padding: 0.35rem 0.55rem; color: #5c4c40; font-size: 0.8rem; overflow-wrap: anywhere; }
+.app__account-name { font-weight: 700; }
+.app__account-email { color: #8a7a6e; font-size: 0.72rem; }
+.app__header-actions { display: none; }
+.app__account--global { position: absolute; top: 1.25rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; width: 34px; height: 34px; }
+.app__account--global .app__account-menu { position: absolute; top: calc(100% + 0.45rem); right: 0; margin-top: 0; }
+.app__login-global { position: absolute; top: 1.4rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; border: 0; background: transparent; color: #8a7a6e; font: inherit; text-decoration: underline; cursor: pointer; }
+@media (max-width: 768px) { .app__account--global { top: 0.15rem; right: 16px; } }
+@media (max-width: 768px) { .app__login-global { top: 0.35rem; right: 16px; } }
 
 .auth-panel {
   padding: 1.5rem;
@@ -330,6 +342,14 @@ body {
 
 .app__main {
   width: 100%;
+}
+
+.app--with-bottom-navigation {
+  padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.app--with-bottom-navigation .album-screen > .album-bottom-navigation {
+  display: none;
 }
 
 .landing {
@@ -546,3 +566,45 @@ body {
 .admin-app .app__main {
   max-width: none;
 }
+
+.app__account-withdraw { color: #b4544a; }
+.app__account-menu .app__account-withdraw:hover { background: #fbeeec; }
+
+.app__withdraw {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(45, 34, 27, 0.5);
+}
+
+.app__withdraw-dialog {
+  width: min(340px, 100%);
+  padding: 1.5rem 1.35rem 1.25rem;
+  border-radius: 18px;
+  background: #fffaf5;
+  box-shadow: 0 18px 44px rgba(45, 34, 27, 0.22);
+}
+
+.app__withdraw-dialog h2 { margin: 0 0 0.7rem; font-size: 1.05rem; color: #3b2d24; }
+.app__withdraw-dialog p { margin: 0 0 0.55rem; font-size: 0.86rem; line-height: 1.6; color: #5c4c40; }
+.app__withdraw-hint { color: #8a7a6e; font-size: 0.79rem; }
+.app__withdraw-error { color: #b4544a; font-size: 0.82rem; }
+
+.app__withdraw-actions { display: flex; gap: 0.5rem; margin-top: 1.1rem; }
+.app__withdraw-actions button {
+  flex: 1;
+  padding: 0.7rem 0.5rem;
+  border: 0;
+  border-radius: 12px;
+  background: #efe4d9;
+  color: #5c4c40;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.app__withdraw-actions button:disabled { opacity: 0.6; cursor: default; }
+.app__withdraw-confirm { background: #b4544a; color: #fffaf5; }

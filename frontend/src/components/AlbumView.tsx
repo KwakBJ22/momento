@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, isPublicShareUrl, patchAlbumTitle, patchEpilogue, saveAlbumPhotoComment } from "../lib/api";
+import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchEpilogue, saveAlbumPhotoComment, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 
 import CollaborationPanel from "./CollaborationPanel";
+import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
 
 import type { AlbumPhoto, AlbumResult } from "../types";
@@ -42,6 +43,10 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [publicShareUrl, setPublicShareUrl] = useState("");
+  const [activeAction, setActiveAction] = useState<"photo" | "memory" | null>(null);
+  const [contributionSession, setContributionSession] = useState<CollabSession | null>(() => loadCollabSession(albumId));
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isEditingEpilogue, setIsEditingEpilogue] = useState(false);
@@ -292,17 +297,53 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   };
 
   const openContribution = async (action: "photo" | "memory") => {
+    if (actionLoading) return;
+    setActionError(null);
+    setActionLoading(true);
     try {
       const shareUrl = await resolvePublicShareUrl();
-      const target = new URL(shareUrl, window.location.origin);
-      target.searchParams.set("contribute", action);
-      window.location.assign(target.toString());
+      const token = new URL(shareUrl, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
+      if (!token) throw new Error("공유 링크를 준비하지 못했습니다.");
+      let session = contributionSession ?? loadCollabSession(albumId);
+      if (!session) {
+        const started = await startPublicContribution(token, null, "앨범지기");
+        session = { albumId: started.album_id, contributorId: started.contributor_id, guestId: started.guest_id, displayName: started.display_name };
+        saveCollabSession(session);
+        setContributionSession(session);
+      }
+      setActiveAction(action);
+      const next = new URL(window.location.href);
+      next.searchParams.set("action", action);
+      window.history.pushState({}, "", next);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
+      setActionError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
+    } finally {
+      setActionLoading(false);
     }
   };
+  const closeContribution = () => {
+    setActiveAction(null);
+    setActionError(null);
+    const next = new URL(window.location.href);
+    next.searchParams.delete("action");
+    window.history.replaceState({}, "", next);
+  };
 
-
+  useEffect(() => {
+    const onAction = (event: Event) => {
+      const action = (event as CustomEvent<{ action?: string }>).detail?.action;
+      if (action === "photo" || action === "memory") void openContribution(action);
+      if (action === "share") void handleKakaoShare();
+      if (action === "top") window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    const onPopState = () => {
+      const action = new URLSearchParams(window.location.search).get("action");
+      setActiveAction(action === "photo" || action === "memory" ? action : null);
+    };
+    window.addEventListener("momento:album-action", onAction);
+    window.addEventListener("popstate", onPopState);
+    return () => { window.removeEventListener("momento:album-action", onAction); window.removeEventListener("popstate", onPopState); };
+  });
 
   if (error) {
 
@@ -377,8 +418,16 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
   const category = displayAlbum?.category;
   const canEdit = requestedEdition === null && displayAlbum?.can_edit === true;
 
+  const contributionWorkspace: WorkspaceState = {
+    title: displayTitle,
+    photo_count: photos.length,
+    photo_limit: 30,
+    photos: photos.map((photo) => ({ id: photo.id, thumbnail_url: photo.thumbnail_url, original_url: photo.original_url, memories: [] })),
+  };
   const albumBody = (
     <>
+      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></section> : null}
+      {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
       <div className="album-result__stage album-result__stage--web">
         <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={canEdit ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } } : null} />
       </div>

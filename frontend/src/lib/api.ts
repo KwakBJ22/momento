@@ -104,6 +104,11 @@ export async function deleteAlbum(albumId: string): Promise<void> {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+export async function deleteAccount(): Promise<void> {
+  const response = await authenticatedFetch("/api/auth/account", { method: "DELETE" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
 export async function getMyAlbumCoverUrls(albums: Array<Pick<MyAlbum, "album_id" | "cover_photo_id">>): Promise<Record<string, string>> {
   const targets = albums.filter((album) => Boolean(album.cover_photo_id));
   if (!targets.length) return {};
@@ -605,8 +610,7 @@ export async function deactivateCollaborationInvite(albumId: string) {
 }
 
 export async function getCollaborationStatus(albumId: string, signal?: AbortSignal) {
-  const key = `collaboration:${albumId}`;
-  return dedupeRequest(key, async () => {
+  const load = async () => {
     const response = await authenticatedFetch(`/api/albums/${albumId}/collaboration`, { cache: "no-store", signal });
     if (!response.ok) throw new Error(await parseError(response));
     return response.json() as Promise<{
@@ -619,7 +623,11 @@ export async function getCollaborationStatus(albumId: string, signal?: AbortSign
       memory_count: number;
       participation?: Awaited<ReturnType<typeof getAlbumParticipation>>;
     }>;
-  });
+  };
+  // A lifecycle-bound request cannot share a promise with another lifecycle:
+  // StrictMode cleanup may abort the first signal while the next mount needs a
+  // fresh request. Signal-free user-triggered reads can still be deduplicated.
+  return signal ? load() : dedupeRequest(`collaboration:${albumId}`, load);
 }
 
 export async function getAlbumParticipation(albumId: string) {

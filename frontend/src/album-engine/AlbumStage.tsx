@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { AlbumCategory, AlbumPhoto } from "../types";
 import AlbumRenderer from "./AlbumRenderer";
 import type { BuiltAlbum } from "./buildAlbum";
-import { buildAlbum, ensureOrientation } from "./buildAlbum";
+import { buildAlbum, ensureOrientation } from "./buildAlbum";
+import { selectAlbumPhotoUrl } from "../lib/imageUrls";
 import type { EnginePhoto, LocationSource } from "./types";
 
 interface AlbumStageProps {
@@ -47,7 +48,7 @@ function toEnginePhoto(photo: AlbumPhoto): EnginePhoto {
   const height = photo.height ?? null;
   return {
     id: photo.id,
-    src: photo.original_url || photo.thumbnail_url,
+    src: selectAlbumPhotoUrl(photo, "screen"),
     alt: photo.comment || undefined,
     width,
     height,
@@ -63,4 +64,4 @@ function toEnginePhoto(photo: AlbumPhoto): EnginePhoto {
     locationSource: (photo.location_source as LocationSource | null) ?? null,
   };
 }
-
+
