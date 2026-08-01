@@ -974,8 +974,18 @@ async def get_album_generation_status(
     require_album_owner_story(access)
     job = generation_status(client, album_id)
     if not job:
-        # Existing completed albums predate persisted jobs. They are already
-        # safe to open and should never be stranded on a creation route.
+        # Only completed legacy albums may bypass a persisted job.  A legacy
+        # `creating` record without a job is an interrupted upload, not a
+        # completed album; surface a retryable failure instead of polling it
+        # forever.
+        if not album.get("result_path") and str(album.get("status") or "") not in {"active", "completed"}:
+            has_photos = has_current_generation_photos(client, album_id)
+            error_code = "missing_generation_job_retryable" if has_photos else "missing_generation_job_no_photos"
+            client.table("albums").update({"status": "failed"}).eq("id", album_id).execute()
+            return AlbumGenerationStatusResponse(
+                album_id=UUID(album_id), generation_job_id=UUID(int=0), status="failed", progress=0,
+                current_step="failed", ready=False, error_code=error_code,
+            )
         return AlbumGenerationStatusResponse(
             album_id=UUID(album_id), generation_job_id=UUID(int=0), status="completed", progress=100,
             current_step="completed", ready=True,
@@ -997,7 +1007,9 @@ async def retry_album_generation(
     require_album_owner_story(access)
     job = generation_status(client, album_id)
     if not job:
-        raise HTTPException(status_code=409, detail="다시 시작할 작업이 없습니다.")
+        if not has_current_generation_photos(client, album_id):
+            raise HTTPException(status_code=422, detail="사진을 추가한 뒤 앨범을 만들어주세요.")
+        job = create_generation_job(client, album_id)
     state = str(job.get("status") or "pending")
     if state == "completed":
         return _generation_status_response(album_id, job)
