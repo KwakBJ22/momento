@@ -3,7 +3,8 @@ import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
-import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
+import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import { createId } from "../lib/id";
 import { authDebug } from "../lib/authDebug";
 import type { AppUser } from "../services/authService";
@@ -112,6 +113,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // read by the async start handler so the click is never lost.
   const pendingContributionActionRef = useRef<"photo" | "memory" | null>(null);
   const [contributionRetry, setContributionRetry] = useState(0);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({});
+  const [pressedReactions, setPressedReactions] = useState<Set<ReactionCode>>(new Set());
+  const reactionSessionRef = useRef<string>("");
   const photos = useMemo(() => mapSharePhotos(album?.photos), [album?.photos]);
   const { shareAlbum } = useKakaoSdk();
 
@@ -288,6 +292,29 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     } : current);
   }, []);
 
+  const albumId = album?.album_id;
+  useEffect(() => {
+    if (!albumId) return;
+    setReactionCounts({ ...(album?.reaction_counts ?? {}) });
+    setPressedReactions(readPressedReactions(albumId));
+    reactionSessionRef.current = getReactionSessionKey();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [albumId]);
+
+  const react = async (code: ReactionCode) => {
+    if (!albumId || pressedReactions.has(code)) return;
+    // Optimistic: mark pressed + bump the anonymous count.
+    setPressedReactions((prev) => new Set(prev).add(code));
+    setReactionCounts((prev) => ({ ...prev, [code]: (prev[code] ?? 0) + 1 }));
+    try {
+      await submitShareReaction(token, code, reactionSessionRef.current || getReactionSessionKey());
+      markReactionPressed(albumId, code);
+    } catch {
+      setPressedReactions((prev) => { const next = new Set(prev); next.delete(code); return next; });
+      setReactionCounts((prev) => ({ ...prev, [code]: Math.max(0, (prev[code] ?? 1) - 1) }));
+    }
+  };
+
   const share = async () => {
     if (!album || shareLoading) return;
     setShareLoading(true);
@@ -338,6 +365,19 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const publicBody = (
     <>
       <div className="album-result__stage"><AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
+      <section className="public-share__reactions" aria-label="이 앨범에 마음 남기기">
+        {REACTIONS.map((r) => {
+          const isPressed = pressedReactions.has(r.code);
+          const count = reactionCounts[r.code] ?? 0;
+          return (
+            <button key={r.code} type="button" className={`public-share__reaction${isPressed ? " is-pressed" : ""}`} aria-pressed={isPressed} disabled={isPressed} onClick={() => void react(r.code)}>
+              <span className="public-share__reaction-emoji" aria-hidden="true">{r.emoji}</span>
+              <span className="public-share__reaction-label">{r.label}</span>
+              {count > 0 ? <span className="public-share__reaction-count">{count}</span> : null}
+            </button>
+          );
+        })}
+      </section>
       {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 추억"><h3>새로 더해진 추억</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
       <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section>
       {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">추억을 남긴 분의 이름을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}

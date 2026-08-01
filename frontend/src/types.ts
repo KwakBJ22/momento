@@ -244,6 +244,7 @@ export interface PublicShareAlbum {
   media: Array<{ media_type: MediaType; mime_type: string; processing_status: MediaProcessingStatus; original_filename: string | null }>;
   og_title: string;
   og_description: string;
+  reaction_counts?: Record<string, number>;
 }
 
 export interface PublicContributionItem {
