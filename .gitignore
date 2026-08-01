@@ -3,6 +3,7 @@
 Thumbs.db
 .vscode/
 .idea/
+.claude/settings.local.json
 
 # 2. Vercel 관련 설정 및 빌드 결과물 (중요)
 .vercel
@@ -67,6 +68,10 @@ yarn-error.log*
 !docs/PRODUCT_BACKLOG.md
 !docs/LAUNCH_CHECKLIST.md
 !docs/ALBUM_GENERATION_MEASUREMENT.md
+!CLAUDE.md
+!docs/PRIVACY_POLICY.md
+!docs/TERMS_OF_SERVICE.md
+!docs/HANDOVER.md
 coverage/
 .coverage
 htmlcov/
