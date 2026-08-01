@@ -229,6 +229,20 @@ function App() {
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
+  // The login modal must render on every surface (share page included), not only
+  // on Landing. It is a fixed full-screen overlay, so rendering it at the app root
+  // keeps its look identical while ensuring the scroll lock and the modal always
+  // appear together — locking the body without a visible dialog looked frozen.
+  const loginModal = showLogin ? (
+    <div className="auth-modal">
+      <section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
+        <button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button>
+        <AuthPanel titleId="auth-dialog-title" />
+        <button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button>
+      </section>
+    </div>
+  ) : null;
+
   return (
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
       {!adminRoute ? <header className="app__header"><h1><a href="/">Momento</a></h1>{!user && !shareToken ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
@@ -253,12 +267,13 @@ function App() {
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <><Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setIsPhotoSelectionStep(true) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />{showLogin ? <div className="auth-modal"><section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"><button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button><AuthPanel titleId="auth-dialog-title" /><button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button></section></div> : null}</>}
+          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setIsPhotoSelectionStep(true) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />}
       </main>
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} onAccount={() => setAccountMenuOpen(true)} />
       ) : null}
+      {loginModal}
       {withdrawOpen ? (
         <div className="app__withdraw">
           <section className="app__withdraw-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
