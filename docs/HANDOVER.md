@@ -3,7 +3,19 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 참여 설계 §3: 방명록)
+## 최신 세션 요약 (2026-08-02, 참여 설계 §10: 다녀간 사람 수)
+
+기존 `share_links.view_count` 를 표시만 함(새 테이블·API 없음).
+
+- **`album_visitor_count()`** (`f9c431b`): 앨범의 모든 share_links(비활성 포함) view_count 합 →
+  링크 재발급으로 카운트 안 갈라짐.
+- `get_collaboration_status` 응답에 `visitor_count` 추가, **소유자(`can_edit_settings`)만** 계산·노출
+  (비소유자 0). `CollaborationPanel` 은 소유자 & `visitor_count>0` 일 때만
+  "✨ 지금까지 N명이 다녀갔어요." 표시. **0이면 숨김**(상처 방지), "조회수" 안 씀, 숫자만(익명).
+- AlbumRenderer 미변경 → **PDF 제외.** 마이그레이션 없음.
+- 회귀 테스트: 합산·null 처리, 소유자 게이트·0 숨김·따뜻한 카피·PDF 렌더러 청정.
+
+## 이전 세션 요약 (2026-08-02, 참여 설계 §3: 방명록)
 
 앨범 전체에 남기는 짧은 글(사진별 기억과 별개 테이블).
 
@@ -389,6 +401,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 참여 설계 §2(반응) 세션 재확인: frontend **95 passed**, build 통과, backend **214 passed**(반응 회귀 2건 추가).
 참여 설계 §9(측정) 세션 재확인: frontend **95 passed**, build 통과, backend **217 passed**(계측 회귀 3건 추가).
 참여 설계 §3(방명록) 세션 재확인: frontend **100 passed**, build 통과, backend **223 passed**(방명록 회귀 6건 추가).
+참여 설계 §10(다녀간 사람 수) 세션 재확인: frontend **103 passed**, build 통과, backend **226 passed**(방문자 회귀 3건 추가).
 
 # 다음 할 일
 
