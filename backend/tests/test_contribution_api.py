@@ -116,6 +116,23 @@ class ContributionUploadApiTests(TestCase):
         self.assertNotIn("photos", response.json())
         self.assertNotIn("album_json", response.json())
 
+    def test_contributor_photo_and_memory_emit_collaboration_metric_events(self) -> None:
+        with patch("app.api.collaboration.log_event") as log:
+            self.client.post(
+                f"/api/albums/{ALBUM_ID}/contribute/photos",
+                files={"photos": ("new.jpg", b"image", "image/jpeg")},
+                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+            )
+        self.assertIn("photo_added", [call.args[1] for call in log.call_args_list])
+
+        with patch("app.api.collaboration.log_event") as log:
+            self.client.post(
+                f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/memories",
+                json={"comment": "새로 남긴 기억", "contributor_id": CONTRIBUTOR_ID},
+                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+            )
+        self.assertIn("memory_added", [call.args[1] for call in log.call_args_list])
+
     def test_participant_can_update_own_memory(self) -> None:
         updated = {
             "id": MEMORY_ID,

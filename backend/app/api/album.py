@@ -651,6 +651,8 @@ async def upload_album(
         progress=int(job.get("progress") or 20),
     )
     _log_upload_stage("response_serialization", "completed", album_id=album_id, job_id=str(job["id"])[:8])
+    # Metric: album completion rate = album_created / upload_started.
+    log_event(client, "upload_started", album_id=album_id, metadata={"owner_id": authenticated_user_id, "photo_count": len(photos)})
     return response_payload
 
     # Kept below only for source-history context during the rollout. The
@@ -1735,6 +1737,9 @@ async def get_album(
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Cache-Control"] = "no-store"
     response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"
+    if access.is_album_owner and edition is None:
+        # Metric: D7 return rate = owners who revisit their album within 7 days.
+        log_event(client, "album_revisited", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     logger.info(
         "album_detail_completed album_id=%s edition=%s duration_ms=%s light=true",
         album_id,

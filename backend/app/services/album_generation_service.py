@@ -20,6 +20,7 @@ from app.services.image_service import bytes_to_images, generate_album, image_to
 from app.services.image_upload_service import build_derived_image_bytes
 from app.services.openai_service import generate_narrative
 from app.services.question_service import generate_album_questions
+from app.services.share_service import log_event
 from app.services.storage_service import StorageService
 from app.services.supabase import (
     get_album_record,
@@ -319,6 +320,8 @@ async def run_initial_album_generation(job_id: str) -> None:
         build_ms = round((time.perf_counter() - build_started) * 1000)
         logger.info("event=album_build_completed album_id=%s job_id=%s photo_count=%s album_build_ms=%s", _short(album_id), _short(job_id), len(photos), build_ms)
         update_generation_job(client, job_id, status="completed", progress=100, current_step="completed", completed=True)
+        # Metric: album completion rate = album_created / upload_started.
+        log_event(client, "album_created", album_id=album_id, metadata={"photo_count": len(photos)})
         logger.info("event=album_generation_completed album_id=%s job_id=%s photo_count=%s background_start_delay_ms=%s image_processing_ms=%s story_generation_ms=%s album_build_ms=%s total_generation_ms=%s status=completed",
                     _short(album_id), _short(job_id), len(photos), background_start_delay_ms, image_ms, story_ms, build_ms, _milliseconds(started))
     except Exception as exc:

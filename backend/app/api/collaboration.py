@@ -150,6 +150,8 @@ async def join_preview(token: str) -> JoinPreviewResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     album, _invite = get_album_for_invite(client, token)
+    # Metric: invite participation rate = invitation_accepted / invitation_opened.
+    log_event(client, "invitation_opened", album_id=str(album["id"]))
     # A participation invitation should show an actual album photo, never the
     # generated result preview. Prefer the owner's explicit cover selection and
     # otherwise use the first available album photo without changing the public
@@ -196,6 +198,8 @@ async def join_collaboration(
         user_id=user_id,
     )
     resolved_guest = contributor.get("guest_id") or (guest_id if not user_id else None)
+    # Metric: invite participation rate = invitation_accepted / invitation_opened.
+    log_event(client, "invitation_accepted", album_id=str(album["id"]))
     return CollaborationJoinResponse(
         album_id=UUID(str(album["id"])),
         contributor_id=UUID(str(contributor["id"])),
@@ -812,6 +816,9 @@ async def contribute_upload_photos(
             client.table("albums").update({"cover_photo_id": uploaded[0]["id"]}).eq("id", album_id).execute()
         mark_album_dirty(client, album_id)
 
+    if uploaded:
+        # Metric: collaborative-album share = albums with participant photo_added/memory_added.
+        log_event(client, "photo_added", album_id=album_id, metadata={"photo_count": len(uploaded)})
     return {"photos": uploaded, "uploaded": uploaded, "photo_count": current + len(uploaded), "photo_limit": limit}
 
 
@@ -839,6 +846,8 @@ async def create_memory(
     memory = create_photo_memory(
         client, album_id=album_id, photo_id=photo_id, contributor=contributor, comment=body.comment
     )
+    # Metric: collaborative-album share = albums with participant photo_added/memory_added.
+    log_event(client, "memory_added", album_id=album_id)
     return PhotoMemoryResponse(
         id=UUID(str(memory["id"])),
         photo_id=UUID(str(memory["photo_id"])),
