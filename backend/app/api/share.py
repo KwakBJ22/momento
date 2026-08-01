@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 from time import monotonic
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -354,7 +355,10 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
 @router.post("/public/shares/{token}/contribute")
 async def start_public_contribution(
     token: str,
-    body: dict[str, str] | None = None,
+    # dict[str, Any], not dict[str, str]: the client legitimately sends
+    # {"guest_id": null, ...} for signed-in visitors, and a null value must not
+    # fail request validation with a 422 that masks the real state.
+    body: dict[str, Any] | None = None,
     authenticated_user_id: str | None = Depends(optional_authenticated_user),
 ) -> dict[str, str | None]:
     """Create or restore a contributor session from an active share link."""
@@ -364,11 +368,17 @@ async def start_public_contribution(
     album = get_album_record(client, str(share["album_id"]))
     if not album:
         raise HTTPException(status_code=404, detail="Album was not found.")
-    # The link's kind — not a frontend URL guess — decides whether contribution is allowed.
-    if str(share.get("kind") or "contribute") == "view":
-        raise HTTPException(status_code=403, detail="이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요.")
-    if album.get("collaboration_status") == "closed":
-        raise HTTPException(status_code=403, detail="This album is no longer accepting contributions.")
+    # The album owner can always add to their own album — the view/closed gates are
+    # about outside participants, not the owner adding via their own screen.
+    is_owner = bool(authenticated_user_id) and authenticated_user_id in {
+        str(album.get("created_by") or ""), str(album.get("owner_id") or "")
+    }
+    if not is_owner:
+        # The link's kind — not a frontend URL guess — decides whether contribution is allowed.
+        if str(share.get("kind") or "contribute") == "view":
+            raise HTTPException(status_code=403, detail="이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요.")
+        if album.get("collaboration_status") == "closed":
+            raise HTTPException(status_code=403, detail="이 앨범은 참여가 종료되어 더 이상 사진·기억을 남길 수 없어요.")
     # A signed-in visitor must be restored through their account, never silently
     # converted into a new anonymous contributor for the same invitation.
     guest_id = None if authenticated_user_id else ((body or {}).get("guest_id") or new_guest_id())

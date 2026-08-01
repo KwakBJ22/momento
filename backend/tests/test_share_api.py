@@ -293,6 +293,34 @@ class ShareApiTests(TestCase):
         self.assertEqual(response.json()["display_name"], "민수")
         self.assertEqual(join.call_args.kwargs["display_name"], "민수")
 
+    def test_null_guest_id_does_not_422(self) -> None:
+        # Regression: dict[str,str] body rejected {"guest_id": null} with a 422 that
+        # surfaced as "입력 내용을 확인해주세요." and blocked signed-in add-photo.
+        self.app.dependency_overrides[optional_authenticated_user] = lambda: OWNER_ID
+        contributor = {"id": "c1", "display_name": "앨범지기", "guest_id": None}
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album()
+        ), patch("app.api.share.join_as_contributor", return_value=contributor), patch("app.api.share.log_event"):
+            response = self.client.post(
+                "/api/public/shares/opaque-token/contribute",
+                json={"guest_id": None, "display_name": "앨범지기"},
+            )
+        self.assertEqual(response.status_code, 200)
+
+    def test_owner_can_contribute_to_a_closed_or_view_link_album(self) -> None:
+        self.app.dependency_overrides[optional_authenticated_user] = lambda: OWNER_ID
+        owned = {**album(), "created_by": OWNER_ID, "collaboration_status": "closed"}
+        view_share = {**share(), "kind": "view"}
+        contributor = {"id": "c1", "display_name": "앨범지기", "guest_id": None}
+        with patch("app.api.share.get_active_share", return_value=view_share), patch(
+            "app.api.share.get_album_record", return_value=owned
+        ), patch("app.api.share.join_as_contributor", return_value=contributor), patch("app.api.share.log_event"):
+            response = self.client.post(
+                "/api/public/shares/opaque-token/contribute",
+                json={"guest_id": None, "display_name": "앨범지기"},
+            )
+        self.assertEqual(response.status_code, 200)
+
     def test_view_link_cannot_start_a_contribution(self) -> None:
         view_share = {**share(), "kind": "view"}
         with patch("app.api.share.get_active_share", return_value=view_share), patch(

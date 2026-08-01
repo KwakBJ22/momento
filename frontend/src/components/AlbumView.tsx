@@ -315,6 +315,8 @@ export default function AlbumView({ albumId }: AlbumViewProps) {
       const next = new URL(window.location.href);
       next.searchParams.set("action", action);
       window.history.pushState({}, "", next);
+      // Bring the just-opened participation panel into view (it renders inline below).
+      requestAnimationFrame(() => document.querySelector(".album-inline-action")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
     } finally {
