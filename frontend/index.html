@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Momento - 모임 앨범</title>
+    <!-- Warm the Supabase connection early: album photos (signed URLs) and token
+         refresh are served from here, so the TLS/DNS handshake is ready before the
+         first image or auth call. crossorigin variant covers CORS fetch (auth). -->
+    <link rel="preconnect" href="https://hbywquveagumdxtjdzoh.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://hbywquveagumdxtjdzoh.supabase.co" />
     <script
       src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js"
       integrity="sha384-DKYJZ8NLiK8MN4/C5P2dtSmLQ4KwPaoqAfyA/DfmEc1VDxu4yyC7wy6K1Hs90nka"
