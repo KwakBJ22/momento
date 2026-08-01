@@ -3,7 +3,21 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, PDF print 레이아웃 수정)
+## 최신 세션 요약 (2026-08-01, 공유 페이지 로그인 모달 수정)
+
+- **공유 페이지에서 로그인 모달이 안 뜨던 버그 수정 완료** (`58a5166`).
+  공유 페이지(`/s/:token`, shareToken)에서 "로그인"을 누르면 body 스크롤만 잠기고
+  모달은 안 뜨던 문제. 로그인 모달 JSX 가 마지막 Landing 분기 안에만 있었는데,
+  스크롤 잠금 effect 는 `showLogin` 이면 어느 화면에서든 걸려 `ShareEntryRouter`
+  분기에선 잠금만 되고 모달은 렌더 안 돼 화면이 멈춘 듯 보였다(ESC 로만 탈출).
+  - 모달을 `loginModal` const 로 꺼내 앱 root(회원 탈퇴 모달 옆)에서 렌더 →
+    `showLogin` 이면 어느 분기에서든 모달과 스크롤 잠금이 항상 함께 움직인다.
+  - `.auth-modal` 은 `position:fixed; inset:0` 이라 위치 이동해도 모양 동일.
+    접근성(ESC·포커스 트랩·포커스 복귀·스크롤 잠금 복원)·Landing 동작/모양 불변.
+  - 회귀 테스트 `frontend/tests/shareLoginModal.test.ts` 추가. `App.tsx` blob 은
+    깨끗한 LF 라 EOL 정규화 이슈 없음.
+
+## 이전 세션 요약 (2026-08-01, PDF print 레이아웃 수정)
 
 - **PDF print 레이아웃 수정 완료** (`349e0af`). lazy 로딩 수정 이후에도 남은
   "작게 배치·비율 왜곡·캡션 누락"을 **print 스코프**로 고침. 실제 PDF 픽셀 측정 기반.
@@ -222,6 +236,7 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 
 PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과, backend **210 passed**.
 PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build 통과, backend **210 passed**.
+공유 페이지 로그인 모달 수정 세션 재확인: frontend **75 passed**, build 통과, backend **210 passed**.
 
 # 다음 할 일
 
