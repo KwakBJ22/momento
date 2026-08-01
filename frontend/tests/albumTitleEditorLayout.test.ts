@@ -52,3 +52,8 @@ test("title editor stays on screen (wrap + max-width) on narrow webviews", () =>
 test("subtitle is hidden while editing so it does not push below the buttons", () => {
   assert.match(tsx, /subtitle && !editing/);
 });
+
+test("the edit pencil never shrinks when the title is long", () => {
+  const edit = rule(".album-screen-header__edit");
+  assert.match(edit, /flex:\s*0\s+0\s+32px/); // grow 0, shrink 0 → keeps its 32px circle
+});
