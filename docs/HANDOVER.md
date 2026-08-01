@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, PDF 저장 멈춤 수정)
+## 최신 세션 요약 (2026-08-01, PDF 출력 품질 수정)
+
+- **PDF 사진 왜곡·흐림 버그 수정 완료.**
+  - (B) 뒤/아래 사진이 작고 흐리게 나오던 원인: 본문 사진(`AlbumPhotoFrame`)이
+    `loading="lazy"` 기본값이라, PDF host(`left:-10000px`, 뷰포트 밖)에서는 브라우저가
+    이미지 요청 자체를 안 해 html2canvas 가 빈 이미지를 캡처했다.
+    → 렌더 모드 컨텍스트(`AlbumRenderModeContext`) 도입, print 에서는 `AlbumPhotoFrame`·
+    Living Album 이미지를 모두 `eager`+`fetchPriority high` 로 강제. **화면(screen)은 lazy 유지.**
+  - (A) 사진 비율 왜곡 원인: html2canvas 가 `object-fit` 을 무시하고 박스에 늘려 그린다.
+    특히 Living Album 의 `aspect-ratio:1/1; object-fit:cover`(정사각 crop)가 찌그러졌다.
+    → `.album-renderer--print .album-living-page__photos img` 에서 박스를 사진 실제 비율로
+    두어(`aspect-ratio:auto; height:auto; object-fit:contain`) crop 대신 letterbox. **print 전용 스코프.**
+  - 본문 프레임(`.album-photo-frame__img`)은 `height:auto; object-fit:contain` 이라 박스가 이미
+    사진 비율과 같아 object-fit no-op → 왜곡 없음(변경 없이 확인만).
+  - 로딩 정책은 순수 함수 `imageLoadingMode.ts`(`resolveImageLoading`/`resolveImageFetchPriority`)로
+    분리해 단위 테스트. 회귀 테스트 `frontend/tests/albumPrintImageLoading.test.ts`(print eager / screen lazy).
+  - 변경 파일: `AlbumPhotoFrame.tsx`, `AlbumRenderer.tsx`, `AlbumRenderer.css`,
+    신규 `components/AlbumRenderModeContext.tsx`·`components/album/imageLoadingMode.ts`.
+    **screen/공유 레이아웃은 불변.** print 경로에만 영향.
+
+## 이전 세션 요약 (2026-08-01, PDF 저장 멈춤 수정)
 
 - **PDF 저장 무한 멈춤 버그 수정 완료** (`8350b48`). "PDF 만드는 중..."에서 영구히
   멈추던 원인은 `waitForAlbumAssets`가 `document.fonts.ready`·이미지 load/error 를
@@ -19,9 +39,9 @@ Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이
     html2pdf 985KB 별도 청크). 화면 렌더러(onReady) 경로는 그대로 동작 확인.
 - **로컬 main 을 origin/main 에 push 함** (`d278acc..8350b48`, 8커밋). 이전 세션의
   push 보류를 사용자 지시로 해제. Vercel(프론트)·Railway(백엔드) 자동 배포 트리거됨.
-- ⚠️ **`20260801090000_account_withdrawal.sql` migration 은 아직 프로덕션 미적용.**
-  회원 탈퇴 기능이 이제 프로덕션에 배포됐으므로 **migration 을 적용하기 전까지 실제 탈퇴는 실패한다.**
-  Supabase SQL Editor 에서 즉시 실행 필요.
+- ✅ **`20260801090000_account_withdrawal.sql` migration 은 프로덕션에 적용 완료.**
+  프로덕션 Supabase 에서 `delete_profile_cascade` 함수 존재와 nullable+`ON DELETE SET NULL`
+  컬럼 4/4 를 직접 확인함(2026-08-01). 회원 탈퇴 정상 동작 전제 충족.
 
 ## 저장소
 
@@ -46,8 +66,8 @@ push 후에도 다음 위험은 남아 있으니 반드시 챙긴다.
 
 - 전역 하단 네비게이션·인라인 참여는 **화면 구조를 바꾸는 변경**인데
   카카오톡 인앱 웹뷰 QA 가 아직 안 됐다. → 실기기에서 확인.
-- `20260801090000_account_withdrawal.sql` migration 미적용 → **회원 탈퇴가 프로덕션에서 실패한다.**
-  즉시 Supabase 에 적용할 것.
+- ~~`20260801090000_account_withdrawal.sql` migration 미적용~~ → **프로덕션 적용 완료 확인됨**
+  (`delete_profile_cascade` + nullable/SET NULL 4/4). 회원 탈퇴 위험 해소.
 
 ## 스택 / 명령어
 
@@ -102,7 +122,7 @@ backend:   python -m pytest -q     python -m compileall -q app
 
 ## B. 계정 탈퇴·데이터 삭제 (P0, 신규)
 
-**Migration 필요**: `supabase/migrations/20260801090000_account_withdrawal.sql` 을 Supabase SQL Editor에서 실행.
+**Migration**: `supabase/migrations/20260801090000_account_withdrawal.sql` — **프로덕션 적용 완료(2026-08-01 확인).**
 `_rollback.sql`은 되돌릴 때만 쓰는 비상용 — 지금 실행하면 안 된다.
 
 migration 내용: `album_story_inputs.author_profile_id`, `memory_answers.profile_id`,
@@ -179,6 +199,8 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
 | `npm run build` | 통과, 첫 화면 gzip 166KB, html2pdf 985KB 별도 청크 유지 |
 | `.venv python -m pytest -q` | **210 passed / 0 failed** |
 
+PDF 출력 품질 수정 세션 재확인: frontend **66 passed**, build 통과, backend **210 passed**.
+
 # 다음 할 일
 
 1. ~~brand 파일 `git rm` → pytest 재실행~~ ✅ 완료 (`ebcc050`, backend 210 passed)
@@ -188,11 +210,10 @@ git rm --quiet backend/app/api/brand.py backend/app/models/brand_schemas.py `
    문서 5종(gitignore 예외 + CLAUDE.md·HANDOVER·약관 2종)은 `f237186`로 별도 커밋.
 3. ~~`feature/withdrawal-and-nav` push~~ ✅ 완료 (Vercel Preview용).
    ~~**main은 미push.**~~ → **main push 완료** (`8350b48`, 2026-08-01).
-4. ⚠️ **[최우선] Supabase에서 `20260801090000_account_withdrawal.sql` 실행** (프로덕션 미적용 상태).
-   회원 탈퇴가 프로덕션에 배포됐으므로 적용 전까지 실제 탈퇴 실패.
+4. ~~Supabase에서 `20260801090000_account_withdrawal.sql` 실행~~ ✅ 프로덕션 적용 완료 확인(2026-08-01).
 5. **수동 QA** — 자동 테스트가 못 잡는 것들 (프로덕션에서)
-   - 회원 탈퇴 (migration 적용 후, 실제 Supabase에서)
-   - PDF 저장 (html2pdf 지연 로딩 후 첫 클릭 — 이번 세션 멈춤 버그 수정 검증)
+   - 회원 탈퇴 (실제 Supabase에서)
+   - PDF 저장 (멈춤 없이 완료되는지 + 뒤/아래 사진이 선명하고 비율이 맞는지)
    - `/admin` 진입 (lazy + Suspense)
    - **카카오톡 인앱 웹뷰**에서 하단 네비게이션·앨범 내 인라인 사진·기억 추가
 7. `docs/LAUNCH_CHECKLIST.md` P0: migration `20260727090000_social_auth_profiles.sql`,
