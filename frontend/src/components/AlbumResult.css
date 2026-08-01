@@ -570,6 +570,25 @@ a.btn {
 .public-share__reaction-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .public-share__reaction-count { font-variant-numeric: tabular-nums; }
 
+.public-share__guestbook { margin: 1.5rem 0 0.5rem; }
+.public-share__guestbook-title { margin: 0; color: #3d3530; font-size: 1.05rem; }
+.public-share__guestbook-hint { margin: 0.2rem 0 0.7rem; color: #8a7a6e; font-size: 0.86rem; }
+.public-share__guestbook-form { display: grid; gap: 0.5rem; padding: 0.85rem; border: 1px solid #eadfd6; border-radius: 14px; background: #fffdfa; }
+.public-share__guestbook-name,
+.public-share__guestbook-message { width: 100%; box-sizing: border-box; padding: 0.55rem 0.65rem; border: 1px solid #d9cec4; border-radius: 9px; color: #2f2a26; font: inherit; }
+.public-share__guestbook-message { resize: vertical; min-height: 2.6rem; }
+.public-share__guestbook-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.public-share__guestbook-count { color: #a3958a; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.public-share__guestbook-actions .upload-form__submit { width: auto; min-height: 40px; padding: 0.5rem 1rem; }
+.public-share__guestbook-error { margin: 0; color: #a14f45; font-size: 0.84rem; }
+.public-share__guestbook-list { list-style: none; margin: 0.85rem 0 0; padding: 0; display: grid; gap: 0.7rem; }
+.public-share__guestbook-item { padding: 0.7rem 0.8rem; border: 1px solid #efe6dd; border-radius: 12px; background: #fff; }
+.public-share__guestbook-item-head { display: flex; align-items: center; gap: 0.4rem; }
+.public-share__guestbook-author { font-weight: 700; color: #4f4035; }
+.public-share__guestbook-time { color: #a3958a; font-size: 0.78rem; }
+.public-share__guestbook-delete { margin-left: auto; min-height: auto; padding: 0.1rem 0.35rem; border: 0; background: transparent; color: #a3958a; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+.public-share__guestbook-text { margin: 0.3rem 0 0; color: #4a4038; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+
 .public-share__join {
   margin: 1.25rem 0;
   padding: 1rem;

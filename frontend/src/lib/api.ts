@@ -309,6 +309,17 @@ export async function submitShareReaction(token: string, reaction: string, sessi
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+export async function submitGuestbookEntry(token: string, body: { author_name: string; message: string; session_key: string }): Promise<import("../types").GuestbookItem> {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/guestbook`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as import("../types").GuestbookItem;
+}
+
+export async function deleteGuestbookEntry(token: string, entryId: string, sessionKey: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/guestbook/${encodeURIComponent(entryId)}/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_key: sessionKey }) });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
 export async function createAlbumShareLink(albumId: string, expiresAt?: string): Promise<{ share_url: string }> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null }) });
   if (!response.ok) throw new Error(await parseError(response));

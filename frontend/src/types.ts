@@ -245,6 +245,14 @@ export interface PublicShareAlbum {
   og_title: string;
   og_description: string;
   reaction_counts?: Record<string, number>;
+  guestbook?: GuestbookItem[];
+}
+
+export interface GuestbookItem {
+  id: string;
+  author_name: string;
+  message: string;
+  created_at?: string | null;
 }
 
 export interface PublicContributionItem {
