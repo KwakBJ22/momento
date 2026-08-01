@@ -3,7 +3,26 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 참여 설계 §10: 다녀간 사람 수)
+## 최신 세션 요약 (2026-08-02, 회귀 3건 수정: 참여/PDF/제목아이콘)
+
+프로덕션 DB·PDF 직접 조사로 회귀 규명. **정규식 테스트가 실제 동작을 못 봐서 놓친 것 → 백엔드에 실동작 테스트 추가.**
+
+- **[회귀 A] 참여(사진/기억) 무반응** (`f3b273a`). `start_public_contribution` body 가
+  `dict[str, str]` 이라 로그인 사용자의 `{"guest_id": null}` 이 **422 → "입력 내용을 확인해주세요."**로
+  실제 원인을 가림. → body `dict[str, Any]`(null 허용), **소유자는 자기 앨범에 view/closed 무관하게 추가 가능**,
+  closed 안내 한국어, 패널 열 때 scrollIntoView.
+  - **실동작 테스트**(stateful fake DB): 초대 생성→그 링크 조회 성공, enabled/status/is_active 셋 동시 ON,
+    closed 앨범 재초대 시 재개방. `start_collaboration` 자체는 정상(테스트로 증명) — 죽은 초대의
+    closed 는 "참여 중단" 기능에서 온 것.
+- **[회귀 B] PDF 사진 사라짐** (`e575e73`). PDF print 레이아웃 수정 때 aspect-ratio:1·overflow·
+  max-height 제거로 높이 근거 소실 → html2canvas 가 flex 셀 이미지 `height:auto` 를 0 으로 붕괴.
+  → `AlbumPhotoFrame` print 이미지에 **DB width/height 로 `aspect-ratio` 인라인**(정사각 아님, 실제 비율)
+  → 로드 무관 자리 확보. eager 로딩·waitForAlbumAssets 유지.
+  ⚠️ **html2canvas 실렌더는 배포 후 실제 PDF 로 육안/파일크기 검증 필요**(정규식으로 못 봄).
+- **[회귀 3] 제목 편집 연필 찌그러짐** (`717863f`). `.album-screen-header__edit` 가 inline-flex 에서
+  긴 제목에 밀려 축소 → `flex: 0 0 32px`.
+
+## 이전 세션 요약 (2026-08-02, 참여 설계 §10: 다녀간 사람 수)
 
 기존 `share_links.view_count` 를 표시만 함(새 테이블·API 없음).
 
@@ -402,6 +421,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 참여 설계 §9(측정) 세션 재확인: frontend **95 passed**, build 통과, backend **217 passed**(계측 회귀 3건 추가).
 참여 설계 §3(방명록) 세션 재확인: frontend **100 passed**, build 통과, backend **223 passed**(방명록 회귀 6건 추가).
 참여 설계 §10(다녀간 사람 수) 세션 재확인: frontend **103 passed**, build 통과, backend **226 passed**(방문자 회귀 3건 추가).
+회귀 3건(참여/PDF/아이콘) 세션 재확인: frontend **106 passed**, build 통과, backend **230 passed**(참여 실동작 회귀 추가).
 
 # 다음 할 일
 
