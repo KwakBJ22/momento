@@ -3,7 +3,28 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-01, 참여 설계 §1: 역할 규칙)
+## 최신 세션 요약 (2026-08-01, 참여 설계 §2: 반응)
+
+`docs/PARTICIPATION_DESIGN.md` §2(반응)만 구현. 방명록(§3)은 다음 단계.
+
+- **앨범 단위 반응 스키마·집계** (`b347a61`). 반응이 재발급 가능한 공유 링크에 묶여
+  집계가 흩어지던 문제 해소.
+  - migration `20260801110000_share_reactions_album.sql`(+rollback): `album_id`(NOT NULL,
+    albums, **ON DELETE CASCADE**), `share_link_id` nullable(SET NULL, 유입 경로 기록용),
+    유니크 `(album_id, session_hash, reaction)`, 코드 remember→love·warm→moved(smile 유지).
+    0행이라 backfill 없음. **프로덕션 적용 완료**(album_id NOT NULL/share_link_id nullable 확인).
+    album_id CASCADE 라 `delete_album_cascade` 는 안 건드림(앨범 삭제 시 자동 정리).
+  - `add_reaction(album_id, share_id, ...)` album 기준 upsert, `reaction_counts()` 추가,
+    `get_public_share` 응답에 `reaction_counts`(익명 집계) 포함. `ShareReactionRequest` Literal
+    love/moved/smile.
+- **반응 UI 연결** (`6d770f7`). 앨범 마지막 "우리의 이야기" 다음에 ❤️좋아요/🥹뭉클해요/😊웃음이 나요
+  3종 바. 익명 집계만, 누가 눌렀는지 미표시. 이미 누른 건 눌린 상태(session_hash 기준).
+  감상 링크 방문자도 반응 가능(반응은 kind 게이트 아님). **AlbumRenderer 미변경 → PDF 제외.**
+  `lib/shareReactions`: 3종 상수 + 브라우저 고정 session key + 앨범별 눌림 상태(localStorage).
+  360px 웹뷰 대응(flex:1 1 0 + min-width:0 + 라벨 ellipsis).
+- 회귀 테스트: backend(새 코드 love/album_id, 폐기 remember 422), frontend(3종/이모지, PDF 렌더러에 reaction 없음).
+
+## 이전 세션 요약 (2026-08-01, 참여 설계 §1: 역할 규칙)
 
 `docs/PARTICIPATION_DESIGN.md` §1(역할 규칙)만 구현. 반응·방명록(§2·§3)은 다음 단계.
 
@@ -327,6 +348,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 제목수정 레이아웃·성능 연구 세션 재확인: frontend **86 passed**, build 통과, backend **210 passed**.
 제목 편집 UI 크기 축소 세션 재확인: frontend **90 passed**, build 통과, backend **210 passed**.
 참여 설계 §1 세션 재확인: frontend **90 passed**, build 통과, backend **212 passed**(share kind 회귀 2건 추가).
+참여 설계 §2(반응) 세션 재확인: frontend **95 passed**, build 통과, backend **214 passed**(반응 회귀 2건 추가).
 
 # 다음 할 일
 
