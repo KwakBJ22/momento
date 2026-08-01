@@ -9,13 +9,11 @@ from pydantic import ValidationError
 from app.api.admin import router as admin_router
 from app.api.album import router as album_router
 from app.api.auth import router as auth_router
-from app.api.brand import router as brand_router
 from app.api.collaboration import router as collaboration_router
 from app.api.family import album_members_router, invitations_router, router as family_router
 from app.api.memory import router as memory_router
 from app.api.share import router as share_router
 from app.config import get_settings
-from app.brand.generator import get_generator
 from app.services.operations import get_operation_id, get_operation_stage, operation_context
 from app.services.storage_service import StorageService
 from app.services.supabase import get_supabase_client
@@ -106,15 +104,6 @@ fastapi_app.include_router(memory_router)
 fastapi_app.include_router(share_router)
 fastapi_app.include_router(collaboration_router)
 fastapi_app.include_router(admin_router)
-fastapi_app.include_router(brand_router)
-
-
-@fastapi_app.on_event("startup")
-async def warm_brand_pool() -> None:
-    """Pre-build the brand candidate pool so the first request is fast."""
-    generator = get_generator()
-    generator.ensure_built()
-    logger.info("brand_pool_ready size=%s", generator.pool_size)
 
 
 @fastapi_app.get("/health")
