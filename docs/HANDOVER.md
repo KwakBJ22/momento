@@ -3,7 +3,24 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 회귀 3건 수정: 참여/PDF/제목아이콘)
+## 최신 세션 요약 (2026-08-02, PDF 페이지 경계 사진 잘림 + 문서 정합)
+
+- **PDF 페이지 하단 사진 잘림 수정** (`954f320`). html2canvas 는 전체를 한 캔버스로
+  래스터화 후 페이지 높이로 잘라 CSS break-inside 를 못 지킨다. html2pdf `pagebreak.avoid`
+  도 이 레이아웃엔 무력(getBoundingClientRect 컨테이너 오프셋 버그 — 소스에 `// TODO` 존재 +
+  grid 아이템 앞 패딩 div 가 grid 를 깸).
+  → `exportPdf.alignBlocksToPrintPages`: html2pdf 직전 우리 host(top:0)에서 최상위 블록 위치를
+  재고 페이지 경계 넘는 블록에 `margin-top` 을 더해 다음 페이지로 내림(grid 아이템 margin-top 이
+  뒤 형제 밀어내는 것 브라우저 실측 확인). html2pdf `pagebreak: { mode: [] }` 로 버그 avoid 끔.
+  페이지 계산은 순수 함수 `lib/pdfPageBreak.printPageStraddleGap` 로 분리 → 단위 테스트.
+  pageH = hostWidth × 297/210(margin 0, 210mm host). **프로덕션 실렌더 실측 완료**(앨범
+  `3ea35987`, 사진 6장): 정렬 후 host(pageH 1123px) 11개 블록 **straddler 0**, 각 블록이
+  다음 페이지 top(1123·2245·3368…)으로 밀려 페이지 안에 온전히 들어감.
+- **문서 정합** (`ee46ff3`). CLAUDE.md §9 "원본 항상 보존"을 실제(업로드 시 긴 변 2560px 축소,
+  `optimizeImageFile.MAX_EDGE`, 의도된 정책·A4 300DPI 커버)에 맞게 수정. KNOWN_ISSUES 에
+  "A4 초과 대형 인쇄 화질 부족" 추가. **MAX_EDGE·±2° 회전·html2canvas scale 은 안 건드림.**
+
+## 이전 세션 요약 (2026-08-02, 회귀 3건 수정: 참여/PDF/제목아이콘)
 
 프로덕션 DB·PDF 직접 조사로 회귀 규명. **정규식 테스트가 실제 동작을 못 봐서 놓친 것 → 백엔드에 실동작 테스트 추가.**
 
@@ -422,6 +439,7 @@ PDF print 레이아웃 수정 세션 재확인: frontend **71 passed**, build �
 참여 설계 §3(방명록) 세션 재확인: frontend **100 passed**, build 통과, backend **223 passed**(방명록 회귀 6건 추가).
 참여 설계 §10(다녀간 사람 수) 세션 재확인: frontend **103 passed**, build 통과, backend **226 passed**(방문자 회귀 3건 추가).
 회귀 3건(참여/PDF/아이콘) 세션 재확인: frontend **106 passed**, build 통과, backend **230 passed**(참여 실동작 회귀 추가).
+PDF 페이지 경계 수정 세션 재확인: frontend **111 passed**, build 통과(백엔드 변경 없음). PDF 실렌더 프로덕션 실측 완료(straddler 0).
 
 # 다음 할 일
 
