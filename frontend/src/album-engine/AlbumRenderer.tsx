@@ -4,6 +4,8 @@ import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
+import { AlbumRenderModeProvider } from "./components/AlbumRenderModeContext";
+import { resolveImageLoading } from "./components/album/imageLoadingMode";
 import ChapterHeader from "./blocks/ChapterHeader";
 import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
@@ -259,7 +261,7 @@ export default function AlbumRenderer({
           <div className="album-living-page__photos">
             {page.photos.map((photo) => (
               <figure key={photo.id}>
-                <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading="lazy" decoding="async" />
+                <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
                 {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
               </figure>
             ))}
@@ -332,6 +334,7 @@ export default function AlbumRenderer({
   if (!photos.length) {
     if (livingAppendPages.length) {
       return (
+        <AlbumRenderModeProvider mode={mode}>
         <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
           <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
             <div className="album-renderer__body">
@@ -341,6 +344,7 @@ export default function AlbumRenderer({
             </div>
           </PhotoCommentEditProvider>
         </div>
+        </AlbumRenderModeProvider>
       );
     }
     if (!fallbackImageUrl) {
@@ -362,6 +366,7 @@ export default function AlbumRenderer({
   }
 
   return (
+    <AlbumRenderModeProvider mode={mode}>
     <div
       className={`album-renderer album-renderer--${mode} album-renderer--${album.layout.kind.toLowerCase()} ${className}`.trim()}
       data-layout-engine={album.layout.layoutEngineVersion}
@@ -418,7 +423,7 @@ export default function AlbumRenderer({
                 <div className="album-living-page__photos">
                   {page.photos.map((photo) => (
                     <figure key={photo.id}>
-                      <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading="lazy" decoding="async" />
+                      <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
                       {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
                     </figure>
                   ))}
@@ -443,5 +448,6 @@ export default function AlbumRenderer({
         </div>
       </PhotoCommentEditProvider>
     </div>
+    </AlbumRenderModeProvider>
   );
 }

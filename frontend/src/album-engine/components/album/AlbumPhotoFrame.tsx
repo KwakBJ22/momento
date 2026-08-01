@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import { useAlbumRenderMode } from "../AlbumRenderModeContext";
+import { resolveImageFetchPriority, resolveImageLoading } from "./imageLoadingMode";
 import "./AlbumPhotoFrame.css";
 
 interface AlbumPhotoFrameProps {
@@ -28,6 +30,9 @@ export default function AlbumPhotoFrame({
   loading = "lazy",
   fetchPriority = "auto",
 }: AlbumPhotoFrameProps) {
+  const mode = useAlbumRenderMode();
+  const effectiveLoading = resolveImageLoading(mode, loading);
+  const effectiveFetchPriority = resolveImageFetchPriority(mode, fetchPriority);
   return (
     <figure className={`album-photo-frame ${className}`.trim()} style={style}>
       <img
@@ -36,9 +41,9 @@ export default function AlbumPhotoFrame({
         className="album-photo-frame__img"
         width={width}
         height={height}
-        loading={loading}
+        loading={effectiveLoading}
         decoding="async"
-        fetchPriority={fetchPriority}
+        fetchPriority={effectiveFetchPriority}
       />
       {children}
     </figure>
