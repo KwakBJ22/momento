@@ -4,7 +4,9 @@
 .album-screen-header h1 { margin: 0; color: #2f2a26; font-size: clamp(1.8rem, 4vw, 2.35rem); font-weight: 780; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
 .album-screen-header__subtitle { margin: 0; color: #8a7a6e; font-size: 0.92rem; line-height: 1.5; }
 .album-screen-header__edit { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #e2d8cd; border-radius: 50%; background: #fff; color: #755b48; cursor: pointer; }
-.album-screen-header__editor { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; width: min(100%, 520px); }
-.album-screen-header__editor input { min-width: 0; flex: 1 1 220px; padding: 0.62rem 0.72rem; border: 1px solid #d9cec4; border-radius: 9px; color: #2f2a26; font: inherit; font-size: 1.12rem; }
-.album-screen-header__editor button { min-height: 40px; padding: 0.45rem 0.72rem; border: 1px solid #d9cec4; border-radius: 9px; background: #fff; color: #4f4035; font: inherit; cursor: pointer; }
+.album-screen-header__editor { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; width: min(100%, 520px); max-width: 100%; }
+/* Input takes its own full-width row so the 저장/취소 buttons always wrap to the
+   next row together instead of overflowing off-screen on narrow (webview) widths. */
+.album-screen-header__editor input { flex: 1 1 100%; min-width: 0; padding: 0.62rem 0.72rem; border: 1px solid #d9cec4; border-radius: 9px; color: #2f2a26; font: inherit; font-size: 1.12rem; }
+.album-screen-header__editor button { flex: 1 1 auto; min-height: 40px; padding: 0.45rem 0.72rem; border: 1px solid #d9cec4; border-radius: 9px; background: #fff; color: #4f4035; font: inherit; cursor: pointer; }
 .album-screen-header__error { margin: 0; color: #a14f45; font-size: 0.84rem; }
