@@ -33,6 +33,11 @@ export default function AlbumPhotoFrame({
   const mode = useAlbumRenderMode();
   const effectiveLoading = resolveImageLoading(mode, loading);
   const effectiveFetchPriority = resolveImageFetchPriority(mode, fetchPriority);
+  // PDF: html2canvas does not resolve height:auto to an image's intrinsic height in
+  // flex cells, so without a height cue the photo box collapsed to 0 (blank page).
+  // Reserve the box height from the real ratio (DB width/height), independent of load.
+  const imgStyle: CSSProperties | undefined =
+    mode === "print" && width && height ? { aspectRatio: `${width} / ${height}` } : undefined;
   return (
     <figure className={`album-photo-frame ${className}`.trim()} style={style}>
       <img
@@ -41,6 +46,7 @@ export default function AlbumPhotoFrame({
         className="album-photo-frame__img"
         width={width}
         height={height}
+        style={imgStyle}
         loading={effectiveLoading}
         decoding="async"
         fetchPriority={effectiveFetchPriority}
