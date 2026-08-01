@@ -83,7 +83,9 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
           logging: false,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".photo-block", ".date-header", ".album-epilogue", ".album-cover"] },
+        // avoid 셀렉터는 실제 렌더 클래스와 일치해야 페이지 경계에서 잘리지 않는다.
+        // .grid6-block__cell 은 사진+캡션 한 칸을 통째로 유지한다.
+        pagebreak: { mode: ["css", "legacy"], avoid: [".photo-block", ".grid6-block__cell", ".date-header", ".album-epilogue", ".album-cover"] },
       } as Record<string, unknown>)
       .from(element)
       .outputPdf("blob");

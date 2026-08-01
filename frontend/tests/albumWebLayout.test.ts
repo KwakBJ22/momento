@@ -36,12 +36,15 @@ test("web album grid uses the album body width instead of thumbnail dimensions",
 });
 
 test("PDF grid sizing remains isolated from the web album renderer", () => {
+  // print stays multi-column (3) so it never inherits the screen 2-column grid,
+  // but it must NOT force a fixed square cell — that squished photos and clipped
+  // captions under html2canvas (which ignores object-fit).
   assert.match(
     rule(".album-renderer--print .grid6-block"),
     /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
   );
-  assert.match(
+  assert.doesNotMatch(
     rule(".album-renderer--print .grid6-block__cell"),
-    /max-height:\s*58mm/,
+    /(?:max-height|aspect-ratio|overflow:\s*hidden)/,
   );
 });
