@@ -262,10 +262,12 @@ class PublicShareAlbumResponse(BaseModel):
     edition_is_latest: bool = True
     og_title: str
     og_description: str
+    # Anonymous per-album aggregate, e.g. {"love": 3, "moved": 1, "smile": 0}.
+    reaction_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class ShareReactionRequest(BaseModel):
-    reaction: Literal["remember", "warm", "smile"]
+    reaction: Literal["love", "moved", "smile"]
     session_key: str = Field(min_length=16, max_length=200)
 
 

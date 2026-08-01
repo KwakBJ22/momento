@@ -18,7 +18,7 @@ from app.services.auth import optional_authenticated_user, require_authenticated
 from app.services.membership import get_album_access
 from app.services.share_service import (
     add_reaction, create_share_link, deactivate_share_link,
-    get_active_share, increment_view, list_share_links, log_event,
+    get_active_share, increment_view, list_share_links, log_event, reaction_counts,
 )
 from app.services.supabase import (
     get_album_media_records,
@@ -344,6 +344,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         edition_is_latest=edition is None,
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
+        reaction_counts=reaction_counts(client, album_id),
     )
 
 
@@ -393,5 +394,6 @@ async def start_public_contribution(
 async def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
     client = get_supabase_client()
     share = get_active_share(client, token)
-    add_reaction(client, str(share["id"]), body.reaction, body.session_key)
+    # Reactions attach to the album; any active share link (view or contribute) may react.
+    add_reaction(client, str(share["album_id"]), str(share["id"]), body.reaction, body.session_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

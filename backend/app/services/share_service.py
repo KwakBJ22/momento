@@ -84,7 +84,26 @@ def log_event(client: Client, event_name: str, *, album_id: str | None = None, s
     )
 
 
-def add_reaction(client: Client, share_id: str, reaction: str, session_key: str) -> None:
-    if reaction not in {"remember", "warm", "smile"} or len(session_key) < 16:
+REACTION_CODES = ("love", "moved", "smile")
+
+
+def add_reaction(client: Client, album_id: str, share_id: str | None, reaction: str, session_key: str) -> None:
+    if reaction not in REACTION_CODES or len(session_key) < 16:
         raise HTTPException(status_code=400, detail="유효하지 않은 반응입니다.")
-    client.table("share_reactions").upsert({"share_link_id": share_id, "reaction": reaction, "session_hash": hash_token(session_key)}, on_conflict="share_link_id,session_hash,reaction").execute()
+    # Dedupe by album so a re-issued link never fragments the count. share_link_id
+    # is kept only as an acquisition-path record.
+    client.table("share_reactions").upsert(
+        {"album_id": album_id, "share_link_id": share_id, "reaction": reaction, "session_hash": hash_token(session_key)},
+        on_conflict="album_id,session_hash,reaction",
+    ).execute()
+
+
+def reaction_counts(client: Client, album_id: str) -> dict[str, int]:
+    """Anonymous per-album totals for each reaction code."""
+    counts = {code: 0 for code in REACTION_CODES}
+    result = client.table("share_reactions").select("reaction").eq("album_id", album_id).execute()
+    for row in result.data or []:
+        code = str(row.get("reaction") or "")
+        if code in counts:
+            counts[code] += 1
+    return counts

@@ -44,6 +44,7 @@ class ShareApiTests(TestCase):
                 signed_url_ttl_seconds=3600,
             ),
         ).start()
+        patch("app.api.share.reaction_counts", return_value={"love": 0, "moved": 0, "smile": 0}).start()
         self.addCleanup(patch.stopall)
         _rate_windows.clear()
 
@@ -317,6 +318,27 @@ class ShareApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         join.assert_called_once()
+
+    def test_reaction_uses_new_codes_and_attaches_to_the_album(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.add_reaction"
+        ) as add:
+            ok = self.client.post(
+                "/api/public/shares/opaque-token/reactions",
+                json={"reaction": "love", "session_key": "s" * 16},
+            )
+        self.assertEqual(ok.status_code, 204)
+        self.assertEqual(add.call_args.args[1], ALBUM_ID)  # album_id, not share_link_id
+        self.assertEqual(add.call_args.args[3], "love")
+
+    def test_retired_reaction_codes_are_rejected(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch("app.api.share.add_reaction") as add:
+            response = self.client.post(
+                "/api/public/shares/opaque-token/reactions",
+                json={"reaction": "remember", "session_key": "s" * 16},
+            )
+        self.assertEqual(response.status_code, 422)
+        add.assert_not_called()
 
     def test_inactive_or_expired_share_is_blocked(self) -> None:
         with patch("app.api.share.get_active_share", side_effect=__import__("fastapi").HTTPException(status_code=404, detail="expired")):
