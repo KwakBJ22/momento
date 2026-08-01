@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
+    GuestbookCreateRequest, GuestbookDeleteRequest, GuestbookItem,
     PublicContributionItem, PublicMediaItem,
     PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
     AlbumPhotoUrlResponse,
@@ -17,8 +18,9 @@ from app.services.authorization import require_album_edit_settings
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
 from app.services.share_service import (
-    add_reaction, create_share_link, deactivate_share_link,
-    get_active_share, increment_view, list_share_links, log_event, reaction_counts,
+    add_guestbook_entry, add_reaction, create_share_link, deactivate_share_link,
+    delete_own_guestbook_entry, get_active_share, increment_view, list_guestbook_entries,
+    list_share_links, log_event, reaction_counts,
 )
 from app.services.supabase import (
     get_album_media_records,
@@ -345,6 +347,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
         reaction_counts=reaction_counts(client, album_id),
+        guestbook=[GuestbookItem(**entry) for entry in list_guestbook_entries(client, album_id)],
     )
 
 
@@ -396,4 +399,35 @@ async def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
     share = get_active_share(client, token)
     # Reactions attach to the album; any active share link (view or contribute) may react.
     add_reaction(client, str(share["album_id"]), str(share["id"]), body.reaction, body.session_key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/public/shares/{token}/guestbook", response_model=GuestbookItem, status_code=status.HTTP_201_CREATED)
+async def submit_guestbook_entry(token: str, body: GuestbookCreateRequest) -> GuestbookItem:
+    """Leave an album guestbook message. Any active share link (view or contribute) may write."""
+    _rate_limit(f"guestbook:{token}", _GUEST_LIMIT)
+    client = get_supabase_client()
+    share = get_active_share(client, token)
+    entry = add_guestbook_entry(
+        client,
+        str(share["album_id"]),
+        body.author_name,
+        body.message,
+        body.session_key,
+        contributor_id=str(body.contributor_id) if body.contributor_id else None,
+    )
+    return GuestbookItem(
+        id=entry["id"],
+        author_name=str(entry.get("author_name") or ""),
+        message=str(entry.get("message") or ""),
+        created_at=entry.get("created_at"),
+    )
+
+
+@router.post("/public/shares/{token}/guestbook/{entry_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_guestbook_entry(token: str, entry_id: str, body: GuestbookDeleteRequest) -> Response:
+    """Soft-delete one's own guestbook entry (session-hash ownership)."""
+    client = get_supabase_client()
+    share = get_active_share(client, token)
+    delete_own_guestbook_entry(client, str(share["album_id"]), entry_id, body.session_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

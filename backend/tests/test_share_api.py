@@ -45,6 +45,7 @@ class ShareApiTests(TestCase):
             ),
         ).start()
         patch("app.api.share.reaction_counts", return_value={"love": 0, "moved": 0, "smile": 0}).start()
+        patch("app.api.share.list_guestbook_entries", return_value=[]).start()
         self.addCleanup(patch.stopall)
         _rate_windows.clear()
 
@@ -339,6 +340,52 @@ class ShareApiTests(TestCase):
             )
         self.assertEqual(response.status_code, 422)
         add.assert_not_called()
+
+    def test_guestbook_entry_can_be_left_on_any_active_share(self) -> None:
+        entry = {"id": SHARE_ID, "author_name": "민지", "message": "따뜻한 앨범이에요", "created_at": "2026-08-02T10:00:00+00:00"}
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.add_guestbook_entry", return_value=entry
+        ) as add:
+            response = self.client.post(
+                "/api/public/shares/opaque-token/guestbook",
+                json={"author_name": "민지", "message": "따뜻한 앨범이에요", "session_key": "g" * 16},
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["message"], "따뜻한 앨범이에요")
+        self.assertEqual(add.call_args.args[1], ALBUM_ID)  # album_id, not share_link_id
+        self.assertEqual(add.call_args.args[4], "g" * 16)  # session_key
+
+    def test_guestbook_write_requires_name_and_message(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch("app.api.share.add_guestbook_entry") as add:
+            response = self.client.post(
+                "/api/public/shares/opaque-token/guestbook",
+                json={"author_name": "", "message": "hi", "session_key": "g" * 16},
+            )
+        self.assertEqual(response.status_code, 422)
+        add.assert_not_called()
+
+    def test_guestbook_delete_is_session_scoped(self) -> None:
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.delete_own_guestbook_entry"
+        ) as remove:
+            ok = self.client.post(
+                f"/api/public/shares/opaque-token/guestbook/{SHARE_ID}/delete",
+                json={"session_key": "g" * 16},
+            )
+        self.assertEqual(ok.status_code, 204)
+        self.assertEqual(remove.call_args.args[2], SHARE_ID)
+        self.assertEqual(remove.call_args.args[3], "g" * 16)
+
+    def test_guestbook_delete_rejects_a_non_author(self) -> None:
+        from fastapi import HTTPException
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.delete_own_guestbook_entry", side_effect=HTTPException(status_code=403, detail="nope")
+        ):
+            response = self.client.post(
+                f"/api/public/shares/opaque-token/guestbook/{SHARE_ID}/delete",
+                json={"session_key": "z" * 16},
+            )
+        self.assertEqual(response.status_code, 403)
 
     def test_inactive_or_expired_share_is_blocked(self) -> None:
         with patch("app.api.share.get_active_share", side_effect=__import__("fastapi").HTTPException(status_code=404, detail="expired")):

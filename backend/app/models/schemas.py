@@ -240,6 +240,13 @@ class PublicContributionItem(BaseModel):
     content: str | None = None
 
 
+class GuestbookItem(BaseModel):
+    id: UUID
+    author_name: str
+    message: str
+    created_at: datetime | None = None
+
+
 class PublicShareAlbumResponse(BaseModel):
     album_id: UUID
     title: str
@@ -264,10 +271,22 @@ class PublicShareAlbumResponse(BaseModel):
     og_description: str
     # Anonymous per-album aggregate, e.g. {"love": 3, "moved": 1, "smile": 0}.
     reaction_counts: dict[str, int] = Field(default_factory=dict)
+    guestbook: list[GuestbookItem] = Field(default_factory=list)
 
 
 class ShareReactionRequest(BaseModel):
     reaction: Literal["love", "moved", "smile"]
+    session_key: str = Field(min_length=16, max_length=200)
+
+
+class GuestbookCreateRequest(BaseModel):
+    author_name: str = Field(min_length=1, max_length=40)
+    message: str = Field(min_length=1, max_length=200)
+    session_key: str = Field(min_length=16, max_length=200)
+    contributor_id: UUID | None = None
+
+
+class GuestbookDeleteRequest(BaseModel):
     session_key: str = Field(min_length=16, max_length=200)
 
 

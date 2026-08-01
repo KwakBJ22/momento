@@ -107,3 +107,60 @@ def reaction_counts(client: Client, album_id: str) -> dict[str, int]:
         if code in counts:
             counts[code] += 1
     return counts
+
+
+GUESTBOOK_NAME_MAX = 40
+GUESTBOOK_MESSAGE_MAX = 200
+
+
+def add_guestbook_entry(
+    client: Client, album_id: str, author_name: str, message: str, session_key: str,
+    contributor_id: str | None = None,
+) -> dict[str, Any]:
+    name = (author_name or "").strip()
+    text = (message or "").strip()
+    if not (1 <= len(name) <= GUESTBOOK_NAME_MAX) or not (1 <= len(text) <= GUESTBOOK_MESSAGE_MAX) or len(session_key) < 16:
+        raise HTTPException(status_code=400, detail="이름과 메시지를 확인해 주세요.")
+    row: dict[str, Any] = {
+        "album_id": album_id, "author_name": name, "message": text,
+        "session_hash": hash_token(session_key),
+    }
+    if contributor_id:
+        row["contributor_id"] = contributor_id
+    result = client.table("album_guestbook_entries").insert(row).execute()
+    return (result.data or [row])[0]
+
+
+def list_guestbook_entries(client: Client, album_id: str) -> list[dict[str, Any]]:
+    """Visible (not soft-deleted) entries, newest first. No session/identity leaks."""
+    result = (
+        client.table("album_guestbook_entries")
+        .select("id, author_name, message, created_at")
+        .eq("album_id", album_id)
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+def delete_own_guestbook_entry(client: Client, album_id: str, entry_id: str, session_key: str) -> None:
+    """Soft-delete only if the caller's session hash matches the author's."""
+    result = (
+        client.table("album_guestbook_entries")
+        .select("id, album_id, session_hash, deleted_at")
+        .eq("id", entry_id)
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows or str(rows[0].get("album_id")) != str(album_id):
+        raise HTTPException(status_code=404, detail="방명록 글을 찾지 못했어요.")
+    entry = rows[0]
+    if len(session_key) < 16 or str(entry.get("session_hash") or "") != hash_token(session_key):
+        raise HTTPException(status_code=403, detail="본인이 남긴 글만 지울 수 있어요.")
+    if entry.get("deleted_at"):
+        return
+    client.table("album_guestbook_entries").update(
+        {"deleted_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", entry_id).execute()
