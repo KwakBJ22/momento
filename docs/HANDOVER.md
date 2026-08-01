@@ -12,24 +12,28 @@ Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이
 - **앨범 이미지/인증 지연 단축 (1차)** (`7bd5e8a`). Supabase origin preconnect 를
   `index.html` 에 추가(사진 서명 URL·토큰 갱신 커넥션 사전 워밍).
 
-### 성능 연구 결과 (앨범 생성/목록/열기 느림) — 코드 기준 진단
+### 성능 — 진짜 원인은 리전 불일치였음 (해결 완료)
 
-프런트는 이미 대체로 최적화됨: my-albums 는 1요청(커버 서버측 batch 서명 포함),
-앨범 열기는 `getAlbum`+`getAlbumPhotos` 병렬 + 스켈레톤, 사진 서명은 버킷당 1 batch 콜,
-생성 폴링은 1s→2s→3s 백오프. 따라서 지연의 주범은 **인프라·왕복**으로 판단:
+브라우저 실측(프로덕션, 한국)으로 원인 규명:
+- 프로덕션은 Vercel 프록시가 아니라 **Railway(`momento-api-production.up.railway.app`)를 직접 호출.**
+- Railway 는 슬립 안 함(상시 가동). **콜드스타트 아님.**
+- `/health`(Korea→Railway)=205ms, `/health/storage`(→Supabase 왕복)=600ms →
+  **Railway→Supabase 왕복이 ~400ms.** Railway=미국(iad), Supabase=싱가포르(ap-southeast-1) 라
+  엔드포인트마다 Supabase 순차 왕복 5~6회 × 400ms ≈ `/albums/mine` 2.2초의 정체.
 
-1. **[최유력] Railway 백엔드 콜드스타트** — 유휴 시 슬립하면 첫 요청이 수초. "가끔/처음에
-   유독 느림"과 일치. → keep-warm(수 분 간격 `/health` 핑) 또는 슬립 없는 플랜. **사용자 결정 필요.**
-2. **Vercel `/api/*` 프록시 홉** — 프런트→Vercel 함수→Railway→Supabase. Vercel 함수도
-   콜드스타트 가능. → 자주 쓰는 GET 응답에 짧은 캐시 헤더(예: `s-maxage=30`) 제안.
-3. **`signed_url_ttl_seconds=300`(5분)** (`app/config.py:51`) — 서명 URL 이 짧아 매 열기마다
-   재서명, 응답 캐시도 무의미. → TTL 상향(예: 1h)으로 재서명·왕복 절감. **정책(보안) 결정 필요.**
-4. **앨범 열기 3번째 콜(living append pages)이 순차** — `photosReady` 후 별도 호출.
-   대개 페이지 없음이면 스킵되나, 있을 때 순차. 병합/선반영 검토 여지.
-5. **클라이언트 캐시 확장** — 공유뷰(`readPublicShareCache`)처럼 AlbumView/MyAlbums 도
-   최근 응답을 캐시→재방문 즉시 렌더 후 갱신(stale-while-revalidate). 기능 변경이라 **제안**.
+**조치: Railway 리전을 미국(iad) → 싱가포르(southeast-asia)로 이동** (Supabase 와 동일 리전).
+`scale_service` 로 `{southeast-asia:1}` 설정 후 `{iad:0}` 로 미국 replica 제거.
+주의: `scale_service` 는 map 을 **병합**한다(미지정 리전 유지). 미국 제거하려면 `{iad:0}` 명시 필요.
+(중간에 잠깐 2 replica 상태였고, `us-east` 친화명은 iad 와 **다른** 리전이라 안 먹혔음 → `iad` 로 지정.)
 
-→ 즉시 적용(저위험): preconnect(완료). 나머지 1~5 는 인프라/정책/구조 변경이라 사용자 승인 후 진행.
+**실측 결과(warm):** Railway→Supabase 왕복 400ms→~50ms, `/albums/mine` 2.2s→~0.5s(앱 첫 로드 3.7s→0.9s),
+앨범 열기(getAlbum+photos 병렬) ~0.5~0.66s. **약 4~5배.** 단일 replica 유지라 추가 비용 없음.
+
+남은 (선택) 최적화 — 급하지 않음:
+- 각 엔드포인트가 Supabase 를 여전히 순차 5~6회 호출(now ~50ms 라 총 ~300ms). 병렬/배치로 더 줄일 여지.
+- **#4 클라이언트 캐시(stale-while-revalidate)는 보류 결정.** 리전 이동으로 첫 열기가 이미 ~0.5s 라,
+  협업 앨범 staleness·사용자별 캐시키 복잡성(단점)이 장점보다 커짐. 재방문이 여전히 느끼면 그때 재검토.
+- `signed_url_ttl_seconds=300`(`app/config.py:51`)·preconnect(`index.html`, `7bd5e8a`)는 그대로.
 
 ## 이전 세션 요약 (2026-08-01, 실사용 테스트 4건 수정)
 
