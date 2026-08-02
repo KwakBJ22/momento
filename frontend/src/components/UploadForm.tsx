@@ -16,6 +16,9 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 
 interface UploadFormProps {
   category: AlbumCategory;
+  /** Set when the create step was restored after a tab restart: chosen files are
+   *  gone, so prompt a re-pick through the existing error slot. */
+  photosNeedReselect?: boolean;
   onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number }) => void;
   onCancel?: () => void;
 }
@@ -24,19 +27,28 @@ function createPhotoItem(file: File, capturedAt: string | null): PhotoItem {
   return { id: createId(), file, previewUrl: URL.createObjectURL(file), story: "", capturedAt };
 }
 
-export default function UploadForm({ category, onSuccess }: UploadFormProps) {
+export default function UploadForm({ category, photosNeedReselect = false, onSuccess }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Reuse the existing error slot to prompt a re-pick after a restored step.
+  const [error, setError] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const operationIdRef = useRef<string | null>(null);
   const photosRef = useRef<PhotoItem[]>([]);
   const previewsTransferredRef = useRef(false);
+  // Records whether the tab was ever backgrounded — the suspected root of the
+  // "네트워크 연결을 확인해주세요" TypeError (backgrounded tab kills the in-flight fetch).
+  const wasHiddenRef = useRef(false);
 
   useEffect(() => { photosRef.current = photos; }, [photos]);
+  useEffect(() => {
+    const onVisibility = () => { if (document.visibilityState === "hidden") wasHiddenRef.current = true; };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
   useEffect(() => () => {
     if (!previewsTransferredRef.current) {
       for (const photo of photosRef.current) URL.revokeObjectURL(photo.previewUrl);
@@ -97,6 +109,10 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
         // staying at 0 until every image finishes resizing.
         setPhotos((previous) => [...previous, item]);
         setCoverPhotoId((current) => current || item.id);
+        // Yield a tick between photos so the decode/canvas buffers can be
+        // reclaimed before the next one — sequential processing is preserved,
+        // this only relieves the memory spike that restarts the Android tab.
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
@@ -170,7 +186,14 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
         responseAt,
       });
     } catch (cause: unknown) {
-      console.error("Album upload failed", { cause, photoCount: photos.length });
+      // Visibility diagnostics: a TypeError here is likely a fetch killed by the
+      // tab being backgrounded/restarted, not a real network fault. User copy unchanged.
+      console.error("Album upload failed", {
+        cause,
+        photoCount: photos.length,
+        visibilityState: document.visibilityState,
+        wasHiddenDuringSession: wasHiddenRef.current,
+      });
       const reason = cause instanceof DOMException && cause.name === "AbortError"
         ? "요청 시간이 오래 걸리고 있습니다. 네트워크를 확인한 뒤 다시 시도해주세요."
         : cause instanceof TypeError

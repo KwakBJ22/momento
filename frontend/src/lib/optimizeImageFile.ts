@@ -63,12 +63,18 @@ export async function optimizeImageFile(file: File): Promise<File> {
     const canvas = document.createElement("canvas");
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
+    // No willReadFrequently: it forces a software canvas (worse memory/speed on
+    // Android). getImageData is used only on the PNG-transparency path below.
+    const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas is unavailable.");
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
     const isPng = file.type.toLowerCase() === "image/png" || /\.png$/i.test(file.name);
     const keepTransparency = isPng && hasTransparency(context, targetWidth, targetHeight);
     const blob = keepTransparency ? await canvasBlob(canvas, "image/png") : await canvasBlob(canvas, "image/jpeg", 0.85);
+    // Release the canvas backing buffer immediately so peak memory does not stack
+    // up across a many-photo sequential run (a known Android tab-restart trigger).
+    canvas.width = 0;
+    canvas.height = 0;
     const optimized = renamedFile(file, blob, keepTransparency ? "png" : "jpg", keepTransparency ? "image/png" : "image/jpeg");
     return optimized.size < file.size ? optimized : file;
   } finally {

@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 사진 고르기 화면(UploadForm) 재구성)
+## 최신 세션 요약 (2026-08-02, 안드로이드 회귀 2건: 갤러리 다중선택 / 단계 유실)
+
+실기기(안드로이드) 재현으로 원인 확정. 최소 수정.
+
+- **[1] 갤러리 다중 선택 불가** (`imageFile.ts` `IMAGE_ACCEPT`). fe297f2에서 `image/*`가 빠져
+  안드로이드 Chrome picker 인텐트에서 갤러리 앱이 제외됨(문서 선택기는 다중선택 불가).
+  → fe297f2 이전 값(`image/*` 선두 + 명시 타입/확장자)으로 복원. 실제 필터는 `isAcceptedImageFile`.
+- **[2] 다중 선택 후 첫 화면으로 튐**. 안드로이드에서 풀해상도 디코드+2560px 캔버스가 사진 수만큼
+  반복 → 탭/렌더러 재시작 → App 메모리 state(category·step) 유실.
+  - **2-1 단계 유실 방지**: `lib/createStep.ts`(신규, 순수)로 기존 키 하나에 `{category, photoStep}`
+    저장·복원. 마운트 시 복원(파일은 복원 불가 → UploadForm이 기존 error 슬롯에 "사진을 다시 골라주세요.").
+    복원 시 `authDebug("CREATE_STEP_RESTORED")` 1줄(렌더러 재시작 유일 증거). onSuccess/resetToStart에서 정리.
+  - **2-2 메모리 피크 축소**: `optimizeImageFile` willReadFrequently 제거 + 인코딩 후 canvas w/h=0 해제,
+    `addFiles` 사진별 루프에 setTimeout(0) 한 틱 양보(순차 유지). MAX_EDGE/품질/HEIC 폴백 불변.
+- **[3] 업로드 실패 진단**: UploadForm TypeError console.error에 `visibilityState`+`wasHiddenDuringSession`
+  추가(탭 백그라운드로 fetch 죽는지 확인용). 사용자 문구 불변.
+- 회귀 테스트: `imageAccept.test`(IMAGE_ACCEPT 실값 image/* 포함 + UploadForm/Contribute 바인딩),
+  `createStep.test`(단계 저장/복원/미저장/레거시값 라운드트립). **frontend 124 / build / smoke 5/5.**
+  로컬 preview 실측: 갤러리 input accept=image/*·multiple·camera capture 유지, 리로드 시 UploadForm 복원+재선택 안내.
+
+## 이전 세션 요약 (2026-08-02, 사진 고르기 화면(UploadForm) 재구성)
 
 PO 승인 UI 변경. 한 화면 primary 하나(DESIGN_SYSTEM §7) 원칙으로 위계 정리. **업로드 로직/파일 처리/생성 API 불변.**
 

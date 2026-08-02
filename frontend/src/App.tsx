@@ -20,6 +20,7 @@ import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { authenticatedFetch, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
+import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
@@ -27,8 +28,6 @@ import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
 
 const AdminConsole = lazy(() => import("./components/admin/AdminConsole"));
-
-const PENDING_CATEGORY_KEY = "momento-pending-album-category";
 
 function routeId(pattern: RegExp): string | null { return window.location.pathname.match(pattern)?.[1] || null; }
 function getAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})$/); }
@@ -42,14 +41,6 @@ function getParticipantsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-
 function isMyAlbumsPage() { return window.location.pathname === "/my-albums"; }
 function isAuthCallbackPage() { return window.location.pathname === "/auth/callback"; }
 
-function restorePendingCategory(): AlbumCategory | null {
-  try {
-    const value = sessionStorage.getItem(PENDING_CATEGORY_KEY) as AlbumCategory | null;
-    sessionStorage.removeItem(PENDING_CATEGORY_KEY);
-    return value;
-  } catch { return null; }
-}
-
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
@@ -62,8 +53,12 @@ function App() {
   const [, setRouteVersion] = useState(0);
   const loginDialogRef = useRef<HTMLElement | null>(null);
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
-  const [category, setCategory] = useState<AlbumCategory | null>(null);
-  const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(false);
+  const initialCreateStep = useRef(readCreateStep()).current;
+  const [category, setCategory] = useState<AlbumCategory | null>(initialCreateStep.category);
+  const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(initialCreateStep.photoStep);
+  // True only when this mount restored a photo-selection step from storage: the
+  // chosen File objects cannot be restored, so UploadForm asks for a re-pick.
+  const photosNeedReselectRef = useRef(initialCreateStep.photoStep && Boolean(initialCreateStep.category));
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
@@ -110,11 +105,17 @@ function App() {
     return () => { active = false; unsubscribe(); };
   }, []);
 
+  // Keep the create step in sessionStorage while the user is in it; clearing is
+  // automatic when category/step reset (resetToStart, onSuccess).
+  useEffect(() => { saveCreateStep(category, isPhotoSelectionStep); }, [category, isPhotoSelectionStep]);
+
+  // A restored step is the only evidence the renderer restarted mid-flow. Log it
+  // once so we can confirm the Android tab-restart is what's happening.
   useEffect(() => {
-    if (!user) return;
-    const pending = restorePendingCategory();
-    if (pending) setCategory(pending);
-  }, [user?.id]);
+    if (photosNeedReselectRef.current) {
+      authDebug("CREATE_STEP_RESTORED", { hadCategory: Boolean(initialCreateStep.category), note: "photos lost on tab/renderer restart" });
+    }
+  }, []);
 
   // A guest who pressed "저장하기" logs in, comes back here, and we transfer the
   // album to their account, then reload it as the owner. Backend enforces the claim.
@@ -277,8 +278,11 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : category && isPhotoSelectionStep ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
+          ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
             saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt });
+            // Creation succeeded — the persisted step is no longer needed.
+            setCategory(null);
+            setIsPhotoSelectionStep(false);
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />

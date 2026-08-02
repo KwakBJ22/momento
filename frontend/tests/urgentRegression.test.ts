@@ -173,7 +173,8 @@ test("landing category selection stays on the landing screen until the album CTA
   assert.match(landing, /onClick=\{\(\) => onSelectCategory\?\.\(option\.value\)\}/);
   assert.match(landing, /앨범 만들기/);
   assert.match(landing, /disabled=\{!category\}/);
-  assert.match(app, /const \[isPhotoSelectionStep, setIsPhotoSelectionStep\] = useState\(false\)/);
+  // The step initializes from persisted create-state (restored after a tab restart).
+  assert.match(app, /const \[isPhotoSelectionStep, setIsPhotoSelectionStep\] = useState\(initialCreateStep\.photoStep\)/);
   // Guest-first policy: the CTA proceeds to photo selection for everyone (no login wall).
   assert.match(app, /category && isPhotoSelectionStep \? <UploadForm/);
   assert.match(app, /onStart=\{\(selected\) => \{ setCategory\(selected\); setIsPhotoSelectionStep\(true\); \}\}/);
