@@ -174,8 +174,9 @@ test("landing category selection stays on the landing screen until the album CTA
   assert.match(landing, /앨범 만들기/);
   assert.match(landing, /disabled=\{!category\}/);
   assert.match(app, /const \[isPhotoSelectionStep, setIsPhotoSelectionStep\] = useState\(false\)/);
-  assert.match(app, /user && category && isPhotoSelectionStep \? <UploadForm/);
-  assert.match(app, /onStart=\{\(selected\) => user \? setIsPhotoSelectionStep\(true\)/);
+  // Guest-first policy: the CTA proceeds to photo selection for everyone (no login wall).
+  assert.match(app, /category && isPhotoSelectionStep \? <UploadForm/);
+  assert.match(app, /onStart=\{\(selected\) => \{ setCategory\(selected\); setIsPhotoSelectionStep\(true\); \}\}/);
 });
 
 test("creating screen reuses at most five local previews, falls back after refresh, and polls without a fake progress timer", () => {

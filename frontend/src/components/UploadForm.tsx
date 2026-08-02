@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { authenticatedFetch } from "../lib/api";
+import { uploadAlbum } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
@@ -155,14 +155,9 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
       const operationId = operationIdRef.current || crypto.randomUUID();
       operationIdRef.current = operationId;
-      const headers = { "X-Momento-Operation-Id": operationId };
       albumCreationTiming("UPLOAD_REQUEST_STARTED", { photo_count: photos.length });
-      const response = await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: controller.signal, headers });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
-      }
-      const created = (await response.json()) as { album_id: string; generation_job_id?: string | null };
+      // Works logged-in or as a guest; a guest response's token is persisted by uploadAlbum.
+      const created = await uploadAlbum(formData, { operationId, signal: controller.signal });
       const responseAt = performance.now();
       operationIdRef.current = null;
       previewsTransferredRef.current = true;

@@ -1,5 +1,6 @@
 import type { AlbumResult } from "../types";
 import { getAccessToken, getSession, refreshSession } from "../services/authService";
+import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
 
 /**
@@ -57,6 +58,57 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}): 
   return retried;
 }
 
+/**
+ * Fetch an album route as either the logged-in owner OR the guest that created
+ * it. A logged-in user always goes through the normal bearer path (with 401
+ * refresh-retry). Only when there is no session AND we hold a guest token for
+ * this album do we send it as the guest-album header (backend verifies it).
+ */
+async function albumOwnerFetch(albumId: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const guestToken = getGuestAlbumToken(albumId);
+  const session = await getSession();
+  if (session?.accessToken || !guestToken) {
+    return authenticatedFetch(path, init);
+  }
+  const headers = new Headers(init.headers);
+  headers.set("X-Momento-Guest-Album-Token", guestToken);
+  return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
+
+/**
+ * Create an album. Works logged-in (bearer) or as a guest (no bearer); a guest
+ * response carries a one-time token which we persist so the browser can view,
+ * edit, and later claim the album.
+ */
+export async function uploadAlbum(
+  formData: FormData,
+  options: { operationId: string; signal?: AbortSignal },
+): Promise<{ album_id: string; generation_job_id?: string | null; guest_token?: string | null }> {
+  const headers = { "X-Momento-Operation-Id": options.operationId };
+  const session = await getSession();
+  const response = session?.accessToken
+    ? await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: options.signal, headers })
+    : await fetch(`${API_BASE}/api/upload-album`, { method: "POST", body: formData, signal: options.signal, headers });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(typeof body?.detail === "string" ? body.detail : "앨범을 만들지 못했습니다. 다시 시도해주세요.");
+  }
+  const created = (await response.json()) as { album_id: string; generation_job_id?: string | null; guest_token?: string | null };
+  if (created.guest_token && created.album_id) saveGuestAlbumToken(created.album_id, created.guest_token);
+  return created;
+}
+
+/** Transfer a guest album to the now-logged-in account. Requires a session. */
+export async function claimGuestAlbum(guestToken: string): Promise<{ album_id: string }> {
+  const response = await authenticatedFetch("/api/guest-albums/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_token: guestToken }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { album_id: string };
+}
+
 async function parseError(response: Response): Promise<string> {
   const body = await response.json().catch(() => null);
   const detail = body?.detail;
@@ -73,7 +125,7 @@ export async function getAlbum(albumId: string, edition?: number | null, signal?
   const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
   const key = `album:${albumId}:${edition ?? "latest"}`;
   return dedupeRequest(key, async () => {
-    const response = await authenticatedFetch(`/api/albums/${albumId}${suffix}`, { cache: "no-store", signal });
+    const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}${suffix}`, { cache: "no-store", signal });
     if (!response.ok) throw new Error(await parseError(response));
     return (await response.json()) as AlbumResult;
   });
@@ -123,7 +175,7 @@ export async function getMyAlbumCoverUrls(albums: Array<Pick<MyAlbum, "album_id"
 }
 
 export async function patchAlbumTitle(albumId: string, title: string): Promise<AlbumResult> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/title`, {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/title`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
@@ -133,7 +185,7 @@ export async function patchAlbumTitle(albumId: string, title: string): Promise<A
 }
 
 export async function patchEpilogue(albumId: string, epilogue: string): Promise<AlbumResult> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/epilogue`, {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/epilogue`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ epilogue }),
@@ -182,7 +234,7 @@ export async function getAlbumPhotos(albumId: string, edition?: number | null, s
   const suffix = Number.isInteger(edition) ? `?edition=${encodeURIComponent(String(edition))}` : "";
   const key = `album-photos:${albumId}:${edition ?? "latest"}`;
   return dedupeRequest(key, async () => {
-    const response = await authenticatedFetch(`/api/albums/${albumId}/photos${suffix}`, { cache: "no-store", signal });
+    const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/photos${suffix}`, { cache: "no-store", signal });
     if (!response.ok) throw new Error(await parseError(response));
     const body = (await response.json()) as { photos: import("../types").AlbumPhoto[] };
     return body.photos;
@@ -190,7 +242,7 @@ export async function getAlbumPhotos(albumId: string, edition?: number | null, s
 }
 
 export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<{ id: string; comment: string | null }> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { id: string; comment: string | null };
 }
@@ -206,19 +258,19 @@ export type AlbumGenerationStatus = {
 };
 
 export async function getAlbumGenerationStatus(albumId: string, signal?: AbortSignal): Promise<AlbumGenerationStatus> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-status`, { cache: "no-store", signal });
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/generation-status`, { cache: "no-store", signal });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<AlbumGenerationStatus>;
 }
 
 export async function getAlbumGenerationPreview(albumId: string): Promise<Array<{ photo_id: string; url: string | null }>> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-preview`, { cache: "no-store" });
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/generation-preview`, { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
   return ((await response.json()) as { previews?: Array<{ photo_id: string; url: string | null }> }).previews ?? [];
 }
 
 export async function retryAlbumGeneration(albumId: string): Promise<AlbumGenerationStatus> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/generation-retry`, { method: "POST" });
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/generation-retry`, { method: "POST" });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<AlbumGenerationStatus>;
 }

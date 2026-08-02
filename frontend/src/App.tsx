@@ -18,8 +18,9 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
-import { authenticatedFetch, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
+import { authenticatedFetch, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
+import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
@@ -113,6 +114,19 @@ function App() {
     if (!user) return;
     const pending = restorePendingCategory();
     if (pending) setCategory(pending);
+  }, [user?.id]);
+
+  // A guest who pressed "저장하기" logs in, comes back here, and we transfer the
+  // album to their account, then reload it as the owner. Backend enforces the claim.
+  useEffect(() => {
+    if (!user) return;
+    const albumId = takePendingGuestClaim();
+    if (!albumId) return;
+    const token = getGuestAlbumToken(albumId);
+    if (!token) return;
+    void claimGuestAlbum(token)
+      .then(() => { clearGuestAlbumToken(albumId); window.location.assign(`/album/${albumId}`); })
+      .catch(() => { /* keep the token so the user can retry saving */ });
   }, [user?.id]);
 
   useEffect(() => {
@@ -214,10 +228,6 @@ function App() {
     document.addEventListener("keydown", closeOnEscape);
     return () => { document.removeEventListener("mousedown", closeOnOutside); document.removeEventListener("keydown", closeOnEscape); };
   }, [accountMenuOpen]);
-  const openLoginForCategory = (selected: AlbumCategory) => {
-    try { sessionStorage.setItem(PENDING_CATEGORY_KEY, selected); } catch { /* category can be selected again */ }
-    openLogin();
-  };
   const isJoinSurface = Boolean(joinToken);
   const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || creatingAlbumId || result);
   const requiresLogin = (content: ReactNode) => {
@@ -226,6 +236,11 @@ function App() {
     if (bootstrapError) return <p className="auth-panel__notice">{bootstrapError}</p>;
     return content;
   };
+  // A guest holding this album's session token may view/edit it without login;
+  // everyone else falls back to the login wall. Backend re-checks the token.
+  const albumSurface = (albumId: string, content: ReactNode) =>
+    !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
+  const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin(); };
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
@@ -254,20 +269,20 @@ function App() {
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
-          : creatingAlbumId ? requiresLogin(<AlbumCreating albumId={creatingAlbumId} />)
-          : sharedAlbumId ? requiresLogin(<AlbumView albumId={sharedAlbumId} />)
+          : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)
+          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
           : myAlbumsPage ? requiresLogin(<MyAlbums />)
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : user && category && isPhotoSelectionStep ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
+          ) : category && isPhotoSelectionStep ? <UploadForm category={category} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
             saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt });
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => user ? setIsPhotoSelectionStep(true) : openLoginForCategory(selected)} onLogin={openLogin} hideLogin={Boolean(user)} />}
+          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} />}
       </main>
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
