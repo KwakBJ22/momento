@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Briefcase,
   Check,
@@ -10,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ALBUM_CATEGORY_OPTIONS, type AlbumCategory } from "../types";
+import { createActionFor } from "../lib/albumLimit";
 
 interface LandingProps {
   onStart: (category: AlbumCategory) => void;
@@ -17,6 +19,9 @@ interface LandingProps {
   selectedCategory?: AlbumCategory | null;
   onSelectCategory?: (category: AlbumCategory) => void;
   hideLogin?: boolean;
+  /** Logged-in user already at their album cap: block the create step (inline). */
+  albumLimitReached?: boolean;
+  albumLimitMessage?: string;
 }
 
 const CATEGORY_ICONS: Record<AlbumCategory, LucideIcon> = {
@@ -45,9 +50,22 @@ export default function Landing({
   selectedCategory = null,
   onSelectCategory,
   hideLogin = false,
+  albumLimitReached = false,
+  albumLimitMessage,
 }: LandingProps) {
   const category = selectedCategory;
   const hint = category ? CATEGORY_HINTS[category] : null;
+  const [showLimitNotice, setShowLimitNotice] = useState(false);
+
+  const handleStart = () => {
+    // Backend enforces the limit; here we only warn instead of advancing the flow.
+    const action = createActionFor(category, albumLimitReached);
+    if (action === "blocked") {
+      setShowLimitNotice(true);
+      return;
+    }
+    if (action === "start" && category) onStart(category);
+  };
 
   return (
     <section className="landing" aria-labelledby="landing-title">
@@ -93,10 +111,14 @@ export default function Landing({
           type="button"
           className="landing__cta"
           disabled={!category}
-          onClick={() => category && onStart(category)}
+          onClick={handleStart}
         >
           앨범 만들기
         </button>
+
+        {showLimitNotice && albumLimitMessage ? (
+          <p className="landing__limit-notice" aria-live="polite">{albumLimitMessage}</p>
+        ) : null}
       </div>
 
       {!hideLogin && (

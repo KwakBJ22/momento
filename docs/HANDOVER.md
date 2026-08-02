@@ -3,7 +3,30 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 안드로이드 미리보기 깨짐/업로드 실패: 미리보기 전용 축소본)
+## 최신 세션 요약 (2026-08-02, 무료 한도: 사용자당 앨범 3개)
+
+목적: 한도를 코드 한 곳에 모으고, 한도에 닿은 사용자를 계측. 결제·유료 문구는 범위 밖. 마이그레이션 없음.
+
+- **한도 단일 출처**: `config.max_albums_per_user=3`(env `MAX_ALBUMS_PER_USER`) + `services/plan_limits.py`(신규):
+  `get_user_limits(user_id)`(다른 곳에서 직접 안 읽음, 유료 플랜은 여기서만 분기), `count_owned_albums`
+  (**살아있는 앨범만** — `deleted_at IS NULL`, owner/created_by. `list_all_owned_album_ids`는 삭제분 포함이라 재사용 안 함).
+- **생성 검사**(`album.py upload_album`): 로그인 사용자만, **사진 처리·Storage 업로드보다 먼저**. 초과 시 403
+  "앨범은 N개까지…"(숫자는 한도값). 게스트(비로그인)는 소유자 없어 미적용.
+- **claim 검사**(`album.py claim_guest_album`): 초과 시 **앨범 삭제 안 함** — 게스트 세션 7일 연장 후 403
+  "앨범 N개를 이미 가지고 계세요…"(자리 비운 뒤 재저장 가능). 이미 자기 것이면 idempotent 통과.
+  `guest_album_service`에 `get_guest_session`/`extend_guest_session` 추가.
+- **계측**: 새 이벤트명은 CHECK 제약(마이그레이션)이 필요해 금지 → **허용 이벤트 `upload_failed` + metadata
+  `error_code`("album_limit_reached"/"photo_limit_reached")** 재사용(parity 테스트 그린, 스키마 무변경).
+  album_limit=생성/claim 거절, photo_limit=사진 30장 초과 백엔드 400.
+- **bootstrap 확장**(additive): `POST /api/auth/bootstrap` 응답에 `album_count`/`max_albums` 추가(profile_id/family_id 유지).
+- **프런트**: App이 bootstrap에서 `{count,max}` 보관 → `lib/albumLimit`(신규, 순수) `isAlbumLimitReached`.
+  Landing이 `createActionFor`로 게이트: 한도 도달 시 사진 선택 단계로 안 넘어가고 인라인 안내(`landing__limit-notice`,
+  새 페이지·모달 없음). 비로그인은 통과. 업로드 중 403은 기존 error 슬롯이 서버 detail 표시.
+- 테스트(실동작): backend `test_plan_limits`(count 삭제제외, 생성 403+Storage 미호출, 2개 통과 게이트,
+  claim 초과 403+미삭제+세션연장, claim 통과). frontend `albumLimit.test`(경계·게스트·미로드, blocked/start, 바인딩).
+  **backend 252 / frontend 134 / build / smoke 5+1skip.** ⚠️ 한도 배너 실기기/실계정 확인은 사용자.
+
+## 이전 세션 요약 (2026-08-02, 안드로이드 미리보기 깨짐/업로드 실패: 미리보기 전용 축소본)
 
 원인 확정: 미리보기가 업로드용 2560px 파일을 그대로 `<img>`에 물려 탭 디코드 메모리 고갈
 (2560×1920×4≈19.6MB/장, 7장≈137MB). 6~7장부터 새 사진이 깨진 아이콘, 비결정적(=자원 고갈).

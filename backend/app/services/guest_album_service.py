@@ -15,7 +15,7 @@ who add to someone else's already-owned album — a guest-album owner owns the a
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -66,6 +66,33 @@ def guest_session_matches(client: Client, album_id: str, token: str | None) -> b
         return False
     session = _active_session_for_token(client, token)
     return bool(session and str(session.get("album_id")) == str(album_id))
+
+
+def get_guest_session(client: Client, token: str | None) -> dict[str, Any] | None:
+    """Raw session row for a token, any status (used to decide claim eligibility)."""
+    if not token:
+        return None
+    result = (
+        client.table("guest_album_sessions")
+        .select("*")
+        .eq("token_hash", hash_token(token))
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    return rows[0] if rows else None
+
+
+def extend_guest_session(client: Client, token: str, *, days: int) -> None:
+    """Push a pending guest session's expiry out (and keep it active) so a user who
+    was refused a claim (e.g. over the album limit) can come back and save it later.
+    We never delete the album to enforce a limit — the data is preserved."""
+    if not token:
+        return
+    new_expiry = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    client.table("guest_album_sessions").update(
+        {"expires_at": new_expiry, "status": "active"}
+    ).eq("token_hash", hash_token(token)).execute()
 
 
 # Error text raised by the claim RPC, mapped to caller-facing HTTP status.

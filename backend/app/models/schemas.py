@@ -301,6 +301,9 @@ class GuestbookDeleteRequest(BaseModel):
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID
+    # Additive: lets the frontend warn before the create flow. Existing fields unchanged.
+    album_count: int = 0
+    max_albums: int = 0
 
 
 class AlbumPhotoUrlsResponse(BaseModel):

@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.models.schemas import AuthBootstrapResponse
 from app.services.account_service import delete_account
 from app.services.auth import require_authenticated_user
+from app.services.plan_limits import count_owned_albums, get_user_limits
 from app.services.supabase import ensure_default_family, get_supabase_client
 
 
@@ -17,8 +18,15 @@ async def bootstrap_auth_user(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AuthBootstrapResponse:
     """Ensure an authenticated user has a profile and default family."""
-    family_id = ensure_default_family(get_supabase_client(), authenticated_user_id)
-    return AuthBootstrapResponse(profile_id=UUID(authenticated_user_id), family_id=UUID(family_id))
+    client = get_supabase_client()
+    family_id = ensure_default_family(client, authenticated_user_id)
+    limits = get_user_limits(authenticated_user_id)
+    return AuthBootstrapResponse(
+        profile_id=UUID(authenticated_user_id),
+        family_id=UUID(family_id),
+        album_count=count_owned_albums(client, authenticated_user_id),
+        max_albums=limits["max_albums"],
+    )
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)

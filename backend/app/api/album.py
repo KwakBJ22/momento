@@ -120,6 +120,7 @@ from app.services.authorization import (
     require_album_read,
 )
 from app.services import guest_album_service
+from app.services.plan_limits import count_owned_albums, get_user_limits
 from app.services.operations import get_operation_id, get_operation_stage, set_operation_stage
 from app.services.membership import (
     get_album_access,
@@ -410,6 +411,9 @@ async def upload_album(
     if not photos:
         raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")
     if len(photos) > settings.max_photos:
+        # The frontend trims past 30 before sending, so this backend 400 is rare;
+        # record it (best-effort) when it does happen to inform the photo cap.
+        log_event(get_supabase_client(settings), "upload_failed", metadata={"error_code": "photo_limit_reached", "photo_count": len(photos)})
         raise HTTPException(status_code=400, detail=f"사진은 최대 {settings.max_photos}장까지 업로드할 수 있습니다.")
 
     _log_upload_stage("file_validation", "started", **upload_diagnostics)
@@ -468,7 +472,17 @@ async def upload_album(
     client = get_supabase_client(settings)
     # No login: create an unclaimed album bound to a guest session (below). A
     # guest has no family, so skip family provisioning and leave owner/family null.
+    # Guests own nothing, so the album limit does not apply to them.
     if authenticated_user_id:
+        # Limit check runs BEFORE any photo processing / Storage upload — refusing
+        # after 30 photos were uploaded would be the worst experience.
+        limits = get_user_limits(authenticated_user_id)
+        if count_owned_albums(client, authenticated_user_id) >= limits["max_albums"]:
+            log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
+            raise HTTPException(
+                status_code=403,
+                detail=f"앨범은 {limits['max_albums']}개까지 만들 수 있어요. 기존 앨범을 정리하시면 새로 만들 수 있어요.",
+            )
         family_id = ensure_default_family(client, authenticated_user_id)
         family_membership = get_family_membership(client, family_id, authenticated_user_id)
         require_family_write_role(family_membership["role"] if family_membership else None)
@@ -1924,6 +1938,21 @@ async def claim_guest_album(
 ) -> dict[str, str]:
     """Transfer a guest-created album to the now-logged-in account (owner claim)."""
     client = get_supabase_client(get_settings())
+    limits = get_user_limits(authenticated_user_id)
+    # A session already claimed by this same user re-claims idempotently (it is
+    # already counted), so it must never be blocked by the limit.
+    session = guest_album_service.get_guest_session(client, body.guest_token)
+    already_mine = bool(session and session.get("status") == "claimed" and str(session.get("claimed_profile_id") or "") == authenticated_user_id)
+    if not already_mine and count_owned_albums(client, authenticated_user_id) >= limits["max_albums"]:
+        # Preserve the data AND the limit: refuse the claim but push the guest
+        # session's expiry out 7 days so the user can tidy up and save it later.
+        # We never delete an album to enforce the limit.
+        guest_album_service.extend_guest_session(client, body.guest_token, days=7)
+        log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
+        raise HTTPException(
+            status_code=403,
+            detail=f"앨범 {limits['max_albums']}개를 이미 가지고 계세요. 기존 앨범을 정리하시면 이 앨범을 저장할 수 있어요.",
+        )
     family_id = ensure_default_family(client, authenticated_user_id)
     album_id = guest_album_service.claim_guest_album(client, body.guest_token, authenticated_user_id, family_id)
     log_event(client, "guest_album_claimed", album_id=album_id, metadata={"owner_id": authenticated_user_id})

@@ -23,8 +23,8 @@ test("the login modal is no longer nested inside the Landing-only branch", () =>
   const occurrences = appSource.match(/className="auth-modal"/g) ?? [];
   assert.equal(occurrences.length, 1);
   // The Landing render branch ends right after the <Landing/> element with no
-  // trailing modal fragment.
-  assert.match(appSource, /<Landing[\s\S]*?hideLogin=\{Boolean\(user\)\}\s*\/>\}/);
+  // trailing modal fragment (additive props after hideLogin are allowed).
+  assert.match(appSource, /<Landing[\s\S]*?hideLogin=\{Boolean\(user\)\}[\s\S]*?\/>\}/);
   // Nothing between <Landing and its closing "/>}" reintroduces the modal.
   assert.doesNotMatch(appSource, /<Landing[\s\S]*?auth-modal[\s\S]*?\/>\}/);
 });

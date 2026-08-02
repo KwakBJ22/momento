@@ -22,6 +22,7 @@ import { authenticatedFetch, claimGuestAlbum, deleteAccount, getAlbum, getAlbumP
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
+import { isAlbumLimitReached } from "./lib/albumLimit";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
@@ -62,6 +63,8 @@ function App() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  // Album cap from /auth/bootstrap — used to warn before the create flow (backend enforces).
+  const [albumLimit, setAlbumLimit] = useState<{ count: number; max: number } | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const creatingAlbumId = getCreatingAlbumIdFromPath();
@@ -134,9 +137,14 @@ function App() {
     if (!user) return;
     let active = true;
     void authenticatedFetch("/api/auth/bootstrap", { method: "POST" })
-      .then((response) => {
+      .then(async (response) => {
         if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
-        if (active) setBootstrapError(null);
+        const data = await response.json().catch(() => null);
+        if (!active) return;
+        setBootstrapError(null);
+        if (data && typeof data.max_albums === "number") {
+          setAlbumLimit({ count: Number(data.album_count) || 0, max: data.max_albums });
+        }
       })
       .catch((error) => active && setBootstrapError(error instanceof Error ? error.message : "인증을 확인하지 못했어요."));
     return () => { active = false; };
@@ -242,6 +250,9 @@ function App() {
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
   const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin(); };
+  // Only logged-in users are capped; guests are unaffected. Backend enforces this.
+  const albumLimitReached = isAlbumLimitReached(Boolean(user), albumLimit);
+  const albumLimitMessage = albumLimit ? `앨범은 ${albumLimit.max}개까지 만들 수 있어요. 기존 앨범을 정리하시면 새로 만들 수 있어요.` : undefined;
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
@@ -286,7 +297,7 @@ function App() {
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} />}
+          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} albumLimitReached={albumLimitReached} albumLimitMessage={albumLimitMessage} />}
       </main>
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />

@@ -350,12 +350,18 @@ class AlbumAuthorizationTests(TestCase):
         self.as_user(OWNER_ID)
         with patch("app.api.auth.get_supabase_client", return_value=object()) as get_client, patch(
             "app.api.auth.ensure_default_family", return_value=ALBUM_ID
-        ) as ensure_family:
+        ) as ensure_family, patch(
+            "app.api.auth.count_owned_albums", return_value=2
+        ), patch("app.api.auth.get_user_limits", return_value={"max_albums": 3, "max_photos": 30}):
             response = self.client.post("/api/auth/bootstrap")
 
         self.assertEqual(response.status_code, 200)
         ensure_family.assert_called_once_with(get_client.return_value, OWNER_ID)
-        self.assertEqual(response.json()["profile_id"], OWNER_ID)
+        body = response.json()
+        self.assertEqual(body["profile_id"], OWNER_ID)
+        # Additive limit fields for the frontend pre-check; existing fields kept.
+        self.assertEqual(body["album_count"], 2)
+        self.assertEqual(body["max_albums"], 3)
 
     def test_edition_history_can_navigate_back_one_snapshot_at_a_time(self) -> None:
         record = {

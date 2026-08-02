@@ -541,6 +541,15 @@ body {
   box-shadow: none;
 }
 
+.landing__limit-notice {
+  max-width: min(100%, 320px);
+  margin: 0.85rem auto 0;
+  color: var(--c-text-muted);
+  font-size: var(--t-sm);
+  line-height: var(--lh-base);
+  word-break: keep-all;
+}
+
 .landing__cta:focus-visible,
 .landing__login:focus-visible,
 .landing__category:focus-visible {
