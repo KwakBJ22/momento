@@ -26,6 +26,14 @@ export function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase();
 
+// Post-deploy smoke signal: an empty API_BASE on a real deployment means uploads
+// go through the 4.5MB-capped Vercel proxy instead of directly to the backend,
+// so any album with several photos (~5+) fails. Exposed read-only for the smoke
+// test to assert; no behavior depends on it.
+if (typeof window !== "undefined") {
+  (window as unknown as { __momentoApiBase?: string }).__momentoApiBase = API_BASE;
+}
+
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
 function dedupeRequest<T>(key: string, load: () => Promise<T>): Promise<T> {

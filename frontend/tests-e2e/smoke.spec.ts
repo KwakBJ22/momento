@@ -64,3 +64,17 @@ test("/admin route renders (not a white screen)", async ({ page }) => {
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#root")).not.toBeEmpty();
 });
+
+test("uploads target the backend directly, not the 4.5MB-capped Vercel proxy", async ({ page, baseURL }) => {
+  // A local preview build has no VITE_API_BASE_URL by design (it uses the dev/proxy
+  // path), so this deployment-config check only applies to real deployments.
+  const host = baseURL ? new URL(baseURL).hostname : "";
+  test.skip(host === "localhost" || host === "127.0.0.1", "local preview has no VITE_API_BASE_URL by design");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const apiBase = await page.evaluate(() => (window as unknown as { __momentoApiBase?: string }).__momentoApiBase);
+  // Empty API_BASE ⇒ /api/upload-album goes through the Vercel proxy, whose 4.5MB
+  // request-body cap makes any album with ~5+ photos fail. VITE_API_BASE_URL must
+  // point the frontend straight at the backend (Railway) origin.
+  expect(typeof apiBase).toBe("string");
+  expect(apiBase, "VITE_API_BASE_URL is unset → uploads hit the 4.5MB proxy and 5+ photo albums fail").not.toBe("");
+});

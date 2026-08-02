@@ -3,7 +3,24 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 안드로이드 회귀 2건: 갤러리 다중선택 / 단계 유실)
+## 최신 세션 요약 (2026-08-02, 안드로이드 picker 갤러리 우선 + 업로드 4.5MB 프록시 한도 규명)
+
+- **[1] 갤러리를 picker 첫 번째로** (`imageFile.ts` `IMAGE_ACCEPT`). `image/*` + 명시 MIME/확장자를
+  같이 두면 안드로이드 Chrome이 인텐트를 넓게 구성해 문서 선택기("내 파일", 다중선택 불가)를
+  같이 띄우고 사용자가 그걸 먼저 누른다. → **`IMAGE_ACCEPT = "image/*"` 단독**으로 축소해 갤러리 우선.
+  허용 범위는 그대로(실검증은 `isAcceptedImageFile`/`filterImageFiles`, 불변). `imageAccept.test` 를
+  image/* 단독 계약으로 갱신, 바인딩 검증 유지.
+- **[2] 프로덕션 업로드 실패 = Vercel 프록시 4.5MB 한도** (코드 수정 없음, 문서만). `frontend/api/[...path].ts`
+  프록시가 요청 본문 4.5MB 플랫폼 한도 → 사진 ~5장 이상 앨범 생성이 전부 실패(Railway 로그에 도달 없음).
+  근거: 성공 앨범 최대 6장 4.91MB, 그 이상 전무. **해결: Vercel 환경변수 `VITE_API_BASE_URL` 를 Railway
+  공개 도메인으로 지정**(사용자가 콘솔에서 설정)해 프록시 우회·백엔드 직접 호출. KNOWN_ISSUES·프록시 상단
+  주석에 기록(프록시 코드는 작은 요청용으로 유지, 미변경).
+- **[3] 회귀 방지 스모크 1개 추가**. `api.ts` 가 `window.__momentoApiBase = API_BASE`(진단 전용, 동작 무관)
+  노출 → `smoke.spec.ts` 가 배포 대상에서 **API_BASE 비어있지 않은지** 검사(localhost는 설계상 skip).
+  이 설정 누락 배포를 스모크가 잡는다. **frontend 124 / build / smoke(로컬 preview: API_BASE 항목 skip, 나머지 pass).**
+  ⚠️ 프로덕션 스모크의 API_BASE 항목은 `VITE_API_BASE_URL` 설정 전까지는(현재 미설정 추정) 실패해야 정상 — 그게 목적.
+
+## 이전 세션 요약 (2026-08-02, 안드로이드 회귀 2건: 갤러리 다중선택 / 단계 유실)
 
 실기기(안드로이드) 재현으로 원인 확정. 최소 수정.
 
