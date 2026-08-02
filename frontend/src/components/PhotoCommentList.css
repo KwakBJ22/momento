@@ -21,7 +21,7 @@
   overflow: hidden;
   aspect-ratio: 4 / 3;
   border-radius: 12px;
-  background: #f0ebe6;
+  background: var(--c-brand-soft);
 }
 
 .photo-comments__image {
@@ -40,7 +40,7 @@
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
-  color: #5c534c;
+  color: var(--c-text-soft);
   font-size: 1rem;
   cursor: pointer;
 }
@@ -50,10 +50,10 @@
   width: 100%;
   min-height: 88px;
   padding: 0.85rem 0.9rem;
-  border: 1px solid #ddd4cc;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fff;
-  color: #3d3530;
+  background: var(--c-surface);
+  color: var(--c-text);
   font: inherit;
   font-size: 16px; /* iOS 자동 줌 방지 */
   line-height: 1.5;
@@ -62,11 +62,11 @@
 
 .photo-comments__input:focus {
   outline: 2px solid rgba(140, 120, 100, 0.35);
-  border-color: #b5a498;
+  border-color: var(--c-text-subtle);
 }
 
 .photo-comments__input::placeholder {
-  color: #9a9088;
+  color: var(--c-text-subtle);
 }
 
 .photo-comments__cover {
@@ -78,7 +78,7 @@
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
-  color: #5c534c;
+  color: var(--c-text-soft);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
@@ -86,20 +86,20 @@
 }
 
 .photo-comments__cover.is-selected {
-  background: #604938;
-  color: #fff;
+  background: var(--c-text-soft);
+  color: var(--c-surface);
 }
 
 .photo-comments__guide {
   margin: -0.1rem 0 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: 0.92rem;
   line-height: 1.55;
 }
 
 .photo-comments__cover-guide {
   margin: -4px 0 12px;
-  color: var(--text-muted, #6e625b);
+  color: var(--text-muted, var(--c-text-soft));
   font-size: 0.82rem;
   line-height: 1.45;
 }

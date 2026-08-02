@@ -4,13 +4,13 @@
   justify-items: center;
   padding: 2rem 1.25rem;
   border-radius: 8px;
-  background: linear-gradient(180deg, #faf7f2 0%, #f1efec 100%);
+  background: linear-gradient(180deg, var(--c-surface) 0%, var(--c-bg) 100%);
   text-align: center;
 }
 
 .ending-block__eyebrow {
   margin: 0;
-  color: #b48c6e;
+  color: var(--c-brand-text);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -19,7 +19,7 @@
 
 .ending-block__title {
   margin: 0;
-  color: #2f2f2f;
+  color: var(--c-text);
   font-size: 1.25rem;
   font-weight: 750;
   letter-spacing: -0.03em;
@@ -27,14 +27,14 @@
 
 .ending-block__date {
   margin: 0;
-  color: #77736e;
+  color: var(--c-text-muted);
   font-size: 0.92rem;
   font-weight: 600;
 }
 
 .ending-block__copy {
   margin: 0.35rem 0 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: 0.95rem;
   line-height: 1.5;
 }

@@ -4,11 +4,11 @@
   max-width: 100%;
   margin: 0 auto;
   vertical-align: top;
-  background: #ffffff;
+  background: var(--c-surface);
   padding: 10px;
-  border: 1px solid #d8d5d0;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--sh-md);
   box-sizing: border-box;
 }
 

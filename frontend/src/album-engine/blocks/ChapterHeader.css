@@ -17,7 +17,7 @@
 
 .chapter-header__month {
   margin: 0;
-  color: #2f2a26;
+  color: var(--c-text);
   font-size: clamp(1.05rem, 2.2vw, 1.2rem);
   font-weight: 780;
   letter-spacing: -0.02em;
@@ -25,7 +25,7 @@
 
 .chapter-header__dayline {
   margin: 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: clamp(0.82rem, 1.6vw, 0.92rem);
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -38,13 +38,13 @@
   text-align: center;
   padding: 1.75rem 1.25rem;
   border-radius: 16px;
-  background: linear-gradient(180deg, #faf6f0 0%, #fffdf9 100%);
-  border: 1px solid #ebe4d8;
+  background: linear-gradient(180deg, var(--c-brand-soft) 0%, var(--c-surface) 100%);
+  border: 1px solid var(--c-bg-soft);
 }
 
 .chapter-header__eyebrow {
   margin: 0;
-  color: #b48c6e;
+  color: var(--c-brand-text);
   font-size: clamp(0.75rem, 1.5vw, 0.82rem);
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -53,7 +53,7 @@
 
 .chapter-header__title {
   margin: 0;
-  color: #2f2a26;
+  color: var(--c-text);
   font-size: clamp(1.375rem, 3.2vw, 1.75rem); /* 22~28px */
   font-weight: 780;
   letter-spacing: -0.03em;
@@ -69,7 +69,7 @@
 }
 
 .chapter-header__date {
-  color: #3d3530;
+  color: var(--c-text);
   font-size: clamp(0.82rem, 1.6vw, 0.95rem);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -79,7 +79,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: clamp(0.75rem, 1.5vw, 0.88rem);
   font-weight: 600;
 }
@@ -89,8 +89,8 @@
   align-items: center;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
-  background: #efe6da;
-  color: #8a6f55;
+  background: var(--c-brand-soft);
+  color: var(--c-brand-text);
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.02em;
@@ -98,7 +98,7 @@
 
 .chapter-header__extras {
   margin: 0;
-  color: #9a9086;
+  color: var(--c-text-subtle);
   font-size: clamp(0.72rem, 1.4vw, 0.82rem);
   font-weight: 600;
 }
@@ -106,7 +106,7 @@
 .chapter-header__desc {
   margin: 0.15rem 0 0;
   max-width: 36em;
-  color: #6b6258;
+  color: var(--c-text-soft);
   font-size: clamp(0.9rem, 1.7vw, 1rem);
   line-height: 1.7;
 }

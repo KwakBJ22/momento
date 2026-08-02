@@ -1,7 +1,7 @@
 .album-renderer {
   width: 100%;
-  background: #faf7f4;
-  color: #3d3530;
+  background: var(--c-surface);
+  color: var(--c-text);
   font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
@@ -11,7 +11,7 @@
 
 .album-renderer--screen .album-renderer__empty {
   margin: 48px auto;
-  color: #6c5b50;
+  color: var(--c-text-soft);
   text-align: center;
 }
 
@@ -45,10 +45,10 @@
   margin: 0;
   padding: 0.75rem;
   box-sizing: border-box;
-  border: 1px solid #e7dfd6;
+  border: 1px solid var(--c-border);
   border-radius: 9px;
-  background: #fff;
-  box-shadow: 0 7px 20px rgba(75, 57, 42, 0.10);
+  background: var(--c-surface);
+  box-shadow: var(--sh-md);
   transform-origin: center center;
 }
 
@@ -110,7 +110,7 @@
 .album-renderer--screen .album-screen-photo-grid > .photo-block { position: relative; }
 
 .album-renderer--print {
-  background: #faf7f4;
+  background: var(--c-surface);
   width: 210mm;
   max-width: 210mm;
   margin: 0 auto;
@@ -133,7 +133,7 @@
 .album-renderer--loading {
   min-height: 220px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #f1efec 25%, #faf7f2 50%, #f1efec 75%);
+  background: linear-gradient(90deg, var(--c-bg) 25%, var(--c-surface) 50%, var(--c-bg) 75%);
   background-size: 200% 100%;
   animation: album-renderer-shimmer 1.2s ease-in-out infinite;
 }
@@ -144,14 +144,14 @@
   object-fit: contain;
   border-radius: 12px;
   display: block;
-  background: #faf7f2;
+  background: var(--c-surface);
 }
 
 .album-living-page {
   margin-top: 2rem;
   padding: clamp(1.25rem, 4vw, 2.5rem);
-  border-top: 1px solid #d9cec4;
-  background: #fffaf5;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-brand-soft);
 }
 
 .album-living-page__header {
@@ -169,7 +169,7 @@
 }
 
 .album-living-page__header p {
-  color: #927862;
+  color: var(--c-text-muted);
   font-size: 0.8rem;
 }
 
@@ -180,8 +180,8 @@
 
 .album-living-page__new {
   border-radius: 999px;
-  background: #695242;
-  color: #fff;
+  background: var(--c-text-soft);
+  color: var(--c-surface);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -219,7 +219,7 @@
 
 .album-living-page__photos figcaption {
   margin-top: 0.4rem;
-  color: #5e5149;
+  color: var(--c-text-soft);
   font-size: 0.82rem;
   line-height: 1.45;
 }
@@ -235,19 +235,19 @@
 .album-living-page__memories li {
   padding: 0.8rem 0.9rem;
   border-radius: 8px;
-  background: #f6eee7;
+  background: var(--c-brand-soft);
 }
 
 .album-living-page__memories small {
   display: block;
   margin-top: 0.35rem;
-  color: #89776b;
+  color: var(--c-text-muted);
 }
 
 .album-renderer__brand-footer {
   margin-top: 1.25rem;
   padding: 1.2rem 0 0.5rem;
-  color: #76675c;
+  color: var(--c-text-soft);
   font-size: 0.8rem;
   text-align: center;
 }
@@ -279,7 +279,7 @@
   body {
     margin: 0 !important;
     padding: 0 !important;
-    background: #faf7f4 !important;
+    background: var(--c-surface) !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

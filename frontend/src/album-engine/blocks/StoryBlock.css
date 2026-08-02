@@ -4,19 +4,19 @@
   margin: clamp(1.75rem, 5vw, 3rem) 0 clamp(2.5rem, 7vw, 4rem);
   padding: clamp(1.1rem, 3vw, 1.55rem) 0 0;
   border: 0;
-  border-top: 1px solid #d9cec3;
+  border-top: 1px solid var(--c-border);
 }
 
 .story-block__title {
   margin: 0;
-  color: #76685d;
+  color: var(--c-text-soft);
   font-size: clamp(1rem, 2vw, 1.16rem);
   font-weight: 700;
 }
 
 .story-block__body {
   margin: 0;
-  color: #4a423c;
+  color: var(--c-text);
   font-size: clamp(0.92rem, 1.7vw, 1rem);
   line-height: 1.7;
   white-space: pre-wrap;

@@ -2,15 +2,15 @@
    which the unshrinkable edit buttons inflate past the header — clamping the
    column to 0 keeps the editor row from overflowing the card on narrow webviews. */
 .album-screen-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.42rem; justify-items: center; padding: 0.25rem 0 0.6rem; text-align: center; }
-.album-screen-header__brand { margin: 0; color: #9a7f6a; font-size: 0.76rem; font-weight: 750; letter-spacing: 0.08em; }
+.album-screen-header__brand { margin: 0; color: var(--c-text-muted); font-size: 0.76rem; font-weight: 750; letter-spacing: 0.08em; }
 .album-screen-header__title-row { display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0; }
-.album-screen-header h1 { margin: 0; color: #2f2a26; font-size: clamp(1.8rem, 4vw, 2.35rem); font-weight: 780; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
-.album-screen-header__subtitle { margin: 0; color: #8a7a6e; font-size: 0.92rem; line-height: 1.5; }
-.album-screen-header__edit { display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid #e2d8cd; border-radius: 50%; background: #fff; color: #755b48; cursor: pointer; }
+.album-screen-header h1 { margin: 0; color: var(--c-text); font-size: clamp(1.8rem, 4vw, 2.35rem); font-weight: 780; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
+.album-screen-header__subtitle { margin: 0; color: var(--c-text-muted); font-size: 0.92rem; line-height: 1.5; }
+.album-screen-header__edit { display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); cursor: pointer; }
 .album-screen-header__editor { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; width: min(100%, 480px); max-width: 100%; }
 /* The input grows to fill the row; 저장/취소 stay content-sized (no grow) so they
    never balloon to ~half the screen. min-width:0 lets the input shrink instead of
    overflowing or wrapping on narrow (webview) widths — keeping it to one compact row. */
-.album-screen-header__editor input { flex: 1 1 7rem; min-width: 0; padding: 0.4rem 0.6rem; border: 1px solid #d9cec4; border-radius: 9px; color: #2f2a26; font: inherit; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 700; }
-.album-screen-header__editor button { flex: 0 0 auto; min-height: 40px; padding: 0.4rem 0.9rem; border: 1px solid #d9cec4; border-radius: 9px; background: #fff; color: #4f4035; font: inherit; font-size: 0.95rem; cursor: pointer; }
-.album-screen-header__error { margin: 0; color: #a14f45; font-size: 0.84rem; }
+.album-screen-header__editor input { flex: 1 1 7rem; min-width: 0; padding: 0.4rem 0.6rem; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text); font: inherit; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 700; }
+.album-screen-header__editor button { flex: 0 0 auto; min-height: 40px; padding: 0.4rem 0.9rem; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 0.95rem; cursor: pointer; }
+.album-screen-header__error { margin: 0; color: var(--c-danger); font-size: 0.84rem; }

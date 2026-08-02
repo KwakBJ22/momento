@@ -11,25 +11,25 @@
 
 .question-flow__album {
   margin: 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: 0.85rem;
 }
 
 .question-flow__notice {
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   text-align: center;
 }
 
 .question-flow__error {
-  color: #b85c4c;
+  color: var(--c-danger);
   text-align: center;
 }
 
 .question-card {
   padding: 1rem;
-  border: 1px solid #eadfd6;
+  border: 1px solid var(--c-border);
   border-radius: 16px;
-  background: #fffdfa;
+  background: var(--c-surface);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -46,13 +46,13 @@
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.5;
-  color: #3d3530;
+  color: var(--c-text);
 }
 
 .question-flow__others {
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  background: #f6efe8;
+  background: var(--c-brand-soft);
 }
 
 .question-flow__others h3 {
@@ -71,7 +71,7 @@
 
 .question-flow__others p {
   margin: 0.2rem 0 0;
-  color: #5c524c;
+  color: var(--c-text-soft);
 }
 
 .question-flow__toolbar {

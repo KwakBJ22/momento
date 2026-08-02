@@ -4,16 +4,16 @@
 
 body {
   margin: 0;
-  font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  background: #fcf8f4;
+  font-family: var(--font);
+  background: var(--c-bg);
   background-image: none;
-  color: #3d3530;
+  color: var(--c-text);
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
-  background: #fcf8f4;
+  background: var(--c-surface);
   background-image: none;
 }
 
@@ -26,7 +26,7 @@ body {
 
 .app:not(.app--album),
 .app:not(.app--album) .app__main {
-  background: #fcf8f4;
+  background: var(--c-surface);
   background-image: none;
 }
 
@@ -90,7 +90,9 @@ body {
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: #b48c6e;
+  /* 로고는 아이덴티티 색을 그대로 쓴다. WCAG 1.4.3 은 로고타입을
+     대비 요건에서 제외한다. 본문 글자에는 이 색을 쓰지 않는다. */
+  color: var(--c-brand);
 }
 
 .app__header-actions {
@@ -102,7 +104,7 @@ body {
 }
 
 .app__nav-link {
-  color: #b48c6e;
+  color: var(--c-brand-text);
   text-decoration: none;
   font-size: 0.9rem;
 }
@@ -111,7 +113,7 @@ body {
   margin-top: 0;
   border: 0;
   background: transparent;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -131,10 +133,10 @@ body {
   height: 34px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid #e2d2c3;
+  border: 1px solid var(--c-border);
   border-radius: 50%;
-  background: #fffdfa;
-  color: #8d6a4f;
+  background: var(--c-surface);
+  color: var(--c-brand-text);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
@@ -152,10 +154,10 @@ body {
   min-width: 108px;
   margin-top: 0.45rem;
   padding: 0.35rem;
-  border: 1px solid #e2d2c3;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fffdfa;
-  box-shadow: 0 8px 20px rgba(86, 61, 44, 0.14);
+  background: var(--c-surface);
+  box-shadow: var(--sh-md);
 }
 
 .app__account-menu a,
@@ -164,7 +166,7 @@ body {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #5c4c40;
+  color: var(--c-text-soft);
   font: inherit;
   font-size: 0.82rem;
   text-align: left;
@@ -173,31 +175,54 @@ body {
 }
 
 .app__account-menu a:hover,
-.app__account-menu button:hover { background: #f7efe7; }
+.app__account-menu button:hover { background: var(--c-brand-soft); }
 .app__account-name,
-.app__account-email { margin: 0; padding: 0.35rem 0.55rem; color: #5c4c40; font-size: 0.8rem; overflow-wrap: anywhere; }
+.app__account-email { margin: 0; padding: 0.35rem 0.55rem; color: var(--c-text-soft); font-size: 0.8rem; overflow-wrap: anywhere; }
 .app__account-name { font-weight: 700; }
-.app__account-email { color: #8a7a6e; font-size: 0.72rem; }
+.app__account-email { color: var(--c-text-muted); font-size: 0.72rem; }
 .app__header-actions { display: none; }
 .app__account--global { position: absolute; top: 1.25rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; width: 34px; height: 34px; }
 .app__account--global .app__account-menu { position: absolute; top: calc(100% + 0.45rem); right: 0; margin-top: 0; }
-.app__login-global { position: absolute; top: 1.4rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; border: 0; background: transparent; color: #8a7a6e; font: inherit; text-decoration: underline; cursor: pointer; }
+.app__login-global { position: absolute; top: 1.4rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 768px) { .app__account--global { top: 0.15rem; right: 16px; } }
 @media (max-width: 768px) { .app__login-global { top: 0.35rem; right: 16px; } }
 
 .auth-panel {
   padding: 1.5rem;
-  border: 1px solid #eadfd6;
+  border: 1px solid var(--c-border);
   border-radius: 16px;
-  background: #fffdfa;
+  background: var(--c-surface);
 }
 
 .auth-panel h2 {
   margin-top: 0;
 }
 
+/* 카카오 로그인 버튼은 카카오 브랜드 규정을 따른다.
+   노란 배경(#FEE500) + 검은 글자는 규정상 고정이며 우리 팔레트로 바꾸지 않는다.
+   다른 사이트와 같은 모양이어야 사용자가 즉시 알아본다. */
+.auth-panel__kakao {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0.85rem 1rem;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--c-kakao);
+  color: var(--c-kakao-text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: var(--w-bold);
+  letter-spacing: -0.02em;
+  cursor: pointer;
+}
+
+.auth-panel__kakao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-panel__notice {
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   text-align: center;
 }
 
@@ -217,10 +242,10 @@ body {
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
   padding: 24px;
-  border: 1px solid #eadfd6;
+  border: 1px solid var(--c-border);
   border-radius: 18px;
-  background: #fffdfa;
-  box-shadow: 0 18px 44px rgba(61, 53, 48, 0.18);
+  background: var(--c-surface);
+  box-shadow: var(--sh-lg);
 }
 
 .auth-modal .auth-panel {
@@ -235,14 +260,14 @@ body {
 .auth-modal .auth-panel h2 {
   margin: 0;
   padding-right: 28px;
-  color: #3d3530;
+  color: var(--c-text);
   font-size: clamp(1.625rem, 7vw, 1.875rem);
   line-height: 1.25;
 }
 
 .auth-modal .auth-panel > p:not(.auth-panel__notice) {
   margin: 0;
-  color: #6f655d;
+  color: var(--c-text-soft);
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -267,13 +292,13 @@ body {
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #75685e;
+  color: var(--c-text-soft);
   cursor: pointer;
 }
 
 .auth-modal__close:hover,
 .auth-modal__close:focus-visible {
-  background: #f5eee6;
+  background: var(--c-brand-soft);
 }
 
 .auth-modal__later {
@@ -283,7 +308,7 @@ body {
   padding: 0.35rem 0.65rem;
   border: 0;
   background: transparent;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font: inherit;
   font-size: 0.94rem;
   text-decoration: underline;
@@ -314,31 +339,41 @@ body {
 .my-albums { display: grid; gap: 1rem; }
 .my-albums__header, .my-albums__card, .my-albums__card-title-row { display: flex; align-items: center; }
 .my-albums__header, .my-albums__card-title-row { justify-content: space-between; }
-.my-albums__eyebrow { margin: 0 0 0.15rem; color: #9a7f6a; font-size: 0.8rem; }
+.my-albums__eyebrow { margin: 0 0 0.15rem; color: var(--c-text-muted); font-size: 0.8rem; }
 .my-albums__header h2, .my-albums__card h3, .my-albums__card p { margin: 0; }
 .my-albums__header h2 { font-size: 1.35rem; }
-.my-albums__create { color: #b48c6e; font-size: 0.9rem; font-weight: 700; text-decoration: none; }
+.my-albums__create { color: var(--c-brand-text); font-size: 0.9rem; font-weight: 700; text-decoration: none; }
 .my-albums__list { display: grid; gap: 0.75rem; }
-.my-albums__card { gap: 0.85rem; padding: 0.65rem; border: 1px solid #eadfd6; border-radius: 14px; background: #fffdfa; color: inherit; }
+.my-albums__card { gap: 0.85rem; padding: 0.65rem; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-surface); color: inherit; }
 .my-albums__card-link { display: flex; flex: 1; gap: 0.85rem; min-width: 0; color: inherit; text-decoration: none; }
-.my-albums__delete { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: #a66a5d; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+.my-albums__delete { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-danger); font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .my-albums__delete:disabled { opacity: 0.6; cursor: wait; }
 .my-albums__card--skeleton { pointer-events: none; }
-.my-albums__skeleton-block { background: linear-gradient(90deg, #f0e4d8 25%, #f8f1ea 50%, #f0e4d8 75%); background-size: 200% 100%; animation: my-albums-shimmer 1.2s infinite; }
-.my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; border-radius: 6px; background: #f0e4d8; }
+.my-albums__skeleton-block { background: linear-gradient(90deg, var(--c-brand-soft) 25%, var(--c-brand-soft) 50%, var(--c-brand-soft) 75%); background-size: 200% 100%; animation: my-albums-shimmer 1.2s infinite; }
+.my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; border-radius: 6px; background: var(--c-brand-soft); }
 .my-albums__skeleton-line--title { width: 70%; height: 0.9rem; margin-top: 0; }
 @keyframes my-albums-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-.my-albums__image-wrap { display: grid; width: 74px; height: 74px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 10px; background: #f3e8dd; }
+.my-albums__image-wrap { display: grid; width: 74px; height: 74px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 10px; background: var(--c-brand-soft); }
 .my-albums__image { width: 100%; height: 100%; object-fit: cover; }
-.my-albums__image-placeholder { color: #b48c6e; }
+.my-albums__image-placeholder { color: var(--c-brand-text); }
 .my-albums__card-body { min-width: 0; flex: 1; }
-.my-albums__card-title-row { gap: 0.5rem; }
-.my-albums__card h3 { overflow: hidden; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
-.my-albums__card p { margin-top: 0.35rem; color: #8a7a6e; font-size: 0.84rem; }
-.my-albums__memory-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: #efe0d1; color: #8d6a4f; font-size: 0.72rem; font-weight: 700; }
-.my-albums__status-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: #e7ddd2; color: #7a6a5c; font-size: 0.72rem; font-weight: 700; }
-.my-albums__status-badge--failed { background: #f3dcd6; color: #a5503c; }
-.my-albums__empty { display: grid; justify-items: center; gap: 0.45rem; padding: 2rem 1rem; border: 1px dashed #ddcbbb; border-radius: 14px; color: #8a7a6e; text-align: center; }
+/* flex 항목은 min-width 기본값이 auto 라 긴 제목이 축소되지 않고 넘쳤다. */
+.my-albums__card-title-row { gap: 0.5rem; min-width: 0; }
+.my-albums__card h3 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.my-albums__card p { margin-top: 0.35rem; color: var(--c-text-muted); font-size: 0.84rem; }
+.my-albums__memory-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: var(--c-border); color: var(--c-brand-text); font-size: 0.72rem; font-weight: 700; }
+.my-albums__status-badge { flex: 0 0 auto; padding: 0.25rem 0.45rem; border-radius: 999px; background: var(--c-border); color: var(--c-text-soft); font-size: 0.72rem; font-weight: 700; }
+.my-albums__status-badge--failed { background: var(--c-danger-soft); color: var(--c-danger); }
+.my-albums__empty { display: grid; justify-items: center; gap: 0.45rem; padding: 2rem 1rem; border: 1px dashed var(--c-border); border-radius: 14px; color: var(--c-text-muted); text-align: center; }
 .my-albums__empty p { margin: 0; }
 .my-albums__empty-cta { display: grid; place-items: center; margin-top: 0.5rem; text-decoration: none; }
 
@@ -356,7 +391,7 @@ body {
 
 .landing {
   position: relative;
-  background: #fcf8f4;
+  background: var(--c-surface);
   background-image: none;
   display: flex;
   flex-direction: column;
@@ -382,7 +417,7 @@ body {
 .landing__title {
   margin: 0;
   max-width: 16em;
-  color: #3d3530;
+  color: var(--c-text);
   font-size: clamp(1.45rem, 5.8vw, 1.9rem);
   font-weight: 700;
   line-height: 1.35;
@@ -392,7 +427,7 @@ body {
 
 .landing__copy {
   margin: 0.65rem 0 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: 0.95rem;
   line-height: 1.45;
 }
@@ -413,10 +448,12 @@ body {
   gap: 0.45rem;
   min-height: 48px;
   padding: 0.65rem 0.7rem;
-  border: 1px solid #e6d9cd;
+  border: 1px solid var(--c-border);
   border-radius: 16px;
-  background: #f7efe7;
-  color: #5c534c;
+  /* 기본은 흰 표면이다. 연코랄을 기본으로 쓰면 7개가 모두
+     선택된 것처럼 보이고 선택 상태와 구분되지 않는다. */
+  background: var(--c-surface);
+  color: var(--c-text-soft);
   font: inherit;
   font-size: 0.95rem;
   font-weight: 700;
@@ -429,25 +466,25 @@ body {
 
 .landing__category:hover {
   transform: translateY(-2px);
-  background: #f3e8dd;
-  border-color: #d8c4b2;
+  background: var(--c-bg-soft);
+  border-color: var(--c-border-strong);
 }
 
 .landing__category.is-selected {
-  border-color: #b48c6e;
-  background: #efe0d1;
-  color: #6f533f;
-  box-shadow: 0 0 0 1px rgba(180, 140, 110, 0.35);
+  border-color: var(--c-brand);
+  background: var(--c-brand-soft);
+  color: var(--c-brand-text);
+  box-shadow: var(--sh-md);
 }
 
 .landing__category-icon {
   display: grid;
   place-items: center;
-  color: #a07d62;
+  color: var(--c-text-muted);
 }
 
 .landing__category.is-selected .landing__category-icon {
-  color: #8d6a4f;
+  color: var(--c-brand);
 }
 
 .landing__category-label {
@@ -463,14 +500,14 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #b48c6e;
-  color: #fff;
+  background: var(--c-brand-action);
+  color: var(--c-surface);
 }
 
 .landing__hint {
   margin: 0.7rem 0 0;
   min-height: 1.35em;
-  color: #9a7f6a;
+  color: var(--c-text-muted);
   font-size: 0.9rem;
   line-height: 1.4;
   opacity: 0;
@@ -488,13 +525,13 @@ body {
   padding: 0 1.25rem;
   border: 0;
   border-radius: 14px;
-  background: #b48c6e;
-  color: #fff;
+  background: var(--c-brand-action);
+  color: var(--c-surface);
   font: inherit;
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  box-shadow: 0 6px 16px rgba(180, 140, 110, 0.22);
+  box-shadow: var(--sh-md);
   cursor: pointer;
 }
 
@@ -507,7 +544,7 @@ body {
 .landing__cta:focus-visible,
 .landing__login:focus-visible,
 .landing__category:focus-visible {
-  outline: 3px solid #3d3530;
+  outline: 3px solid var(--c-text);
   outline-offset: 3px;
 }
 
@@ -519,7 +556,7 @@ body {
   padding: 0.55rem;
   border: 0;
   background: transparent;
-  color: #9a9088;
+  color: var(--c-text-subtle);
   font: inherit;
   font-size: 0.82rem;
   text-decoration: underline;
@@ -561,7 +598,7 @@ body {
 }
 
 .admin-app {
-  background: #1e1a18;
+  background: var(--c-text);
   min-height: 100vh;
 }
 
@@ -569,8 +606,8 @@ body {
   max-width: none;
 }
 
-.app__account-withdraw { color: #b4544a; }
-.app__account-menu .app__account-withdraw:hover { background: #fbeeec; }
+.app__account-withdraw { color: var(--c-danger); }
+.app__account-menu .app__account-withdraw:hover { background: var(--c-danger-soft); }
 
 .app__withdraw {
   position: fixed;
@@ -587,14 +624,14 @@ body {
   width: min(340px, 100%);
   padding: 1.5rem 1.35rem 1.25rem;
   border-radius: 18px;
-  background: #fffaf5;
-  box-shadow: 0 18px 44px rgba(45, 34, 27, 0.22);
+  background: var(--c-brand-soft);
+  box-shadow: var(--sh-lg);
 }
 
-.app__withdraw-dialog h2 { margin: 0 0 0.7rem; font-size: 1.05rem; color: #3b2d24; }
-.app__withdraw-dialog p { margin: 0 0 0.55rem; font-size: 0.86rem; line-height: 1.6; color: #5c4c40; }
-.app__withdraw-hint { color: #8a7a6e; font-size: 0.79rem; }
-.app__withdraw-error { color: #b4544a; font-size: 0.82rem; }
+.app__withdraw-dialog h2 { margin: 0 0 0.7rem; font-size: 1.05rem; color: var(--c-text); }
+.app__withdraw-dialog p { margin: 0 0 0.55rem; font-size: 0.86rem; line-height: 1.6; color: var(--c-text-soft); }
+.app__withdraw-hint { color: var(--c-text-muted); font-size: 0.79rem; }
+.app__withdraw-error { color: var(--c-danger); font-size: 0.82rem; }
 
 .app__withdraw-actions { display: flex; gap: 0.5rem; margin-top: 1.1rem; }
 .app__withdraw-actions button {
@@ -602,11 +639,11 @@ body {
   padding: 0.7rem 0.5rem;
   border: 0;
   border-radius: 12px;
-  background: #efe4d9;
-  color: #5c4c40;
+  background: var(--c-brand-soft);
+  color: var(--c-text-soft);
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
 }
 .app__withdraw-actions button:disabled { opacity: 0.6; cursor: default; }
-.app__withdraw-confirm { background: #b4544a; color: #fffaf5; }
+.app__withdraw-confirm { background: var(--c-danger); color: var(--c-bg-soft); }

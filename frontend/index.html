@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Momento - 모임 앨범</title>
+    <!-- Pretendard: 기기 기본 글꼴에 의존하면 안드로이드 카톡 웹뷰에서
+         제조사 기본 글꼴이 나온다. dynamic-subset 은 필요한 글자만 받아 가볍다. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <!-- Warm the Supabase connection early: album photos (signed URLs) and token
          refresh are served from here, so the TLS/DNS handshake is ready before the
          first image or auth call. crossorigin variant covers CORS fetch (auth). -->

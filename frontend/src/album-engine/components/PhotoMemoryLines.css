@@ -43,7 +43,7 @@
 }
 
 .photo-memory-lines__author {
-  color: #9a9086;
+  color: var(--c-text-subtle);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -54,7 +54,7 @@
 }
 
 .photo-memory-lines__text {
-  color: #3d3530;
+  color: var(--c-text);
   font-weight: 500;
   white-space: pre-wrap;
 }
@@ -158,7 +158,7 @@
   padding: 0.35rem 0.5rem;
   border: 0;
   background: transparent;
-  color: #b48c6e;
+  color: var(--c-brand-text);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 600;
@@ -170,7 +170,7 @@
   max-width: 100%;
 }
 
-.photo-memory-lines__error { margin: 0.4rem 0 0; color: #a14f45; font-size: 0.8rem; line-height: 1.4; }
+.photo-memory-lines__error { margin: 0.4rem 0 0; color: var(--c-danger); font-size: 0.8rem; line-height: 1.4; }
 
 .photo-memory-lines__input {
   box-sizing: border-box;
@@ -178,9 +178,9 @@
   width: 100%;
   max-width: 100%;
   padding: 0.65rem 0.75rem;
-  border: 1px solid #ddd4cc;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  color: #3d3530;
+  color: var(--c-text);
   font: inherit;
   font-size: 16px;
   line-height: 1.45;
@@ -189,7 +189,7 @@
 
 .photo-memory-lines__input:focus {
   outline: none;
-  border-color: #b48c6e;
+  border-color: var(--c-brand);
 }
 
 .photo-memory-lines__edit-actions {

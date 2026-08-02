@@ -20,7 +20,7 @@
   aspect-ratio: 4 / 3;
   border-radius: 12px;
   object-fit: cover;
-  background: #f0ebe6;
+  background: var(--c-brand-soft);
 }
 
 .album-photo-comments__item textarea {
@@ -28,10 +28,10 @@
   width: 100%;
   min-height: 88px;
   padding: 0.85rem 0.9rem;
-  border: 1px solid #ddd4cc;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fff;
-  color: #3d3530;
+  background: var(--c-surface);
+  color: var(--c-text);
   font: inherit;
   font-size: 16px;
   line-height: 1.5;
@@ -41,7 +41,7 @@
 .album-photo-comments__place {
   display: grid;
   gap: 0.35rem;
-  color: #6b6258;
+  color: var(--c-text-soft);
   font-size: 0.85rem;
   font-weight: 650;
 }
@@ -57,10 +57,10 @@
   width: 100%;
   min-height: 44px;
   padding: 0.65rem 0.8rem;
-  border: 1px solid #ddd4cc;
+  border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fff;
-  color: #3d3530;
+  background: var(--c-surface);
+  color: var(--c-text);
   font: inherit;
   font-size: 16px;
 }
@@ -69,23 +69,23 @@
   display: inline-flex;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
-  background: #efe6da;
-  color: #8a6f55;
+  background: var(--c-brand-soft);
+  color: var(--c-brand-text);
   font-size: 0.68rem;
   font-weight: 750;
 }
 
 .album-photo-comments__item textarea:focus {
   outline: 2px solid rgba(140, 120, 100, 0.35);
-  border-color: #b5a498;
+  border-color: var(--c-text-subtle);
 }
 
 .album-photo-comments__item textarea::placeholder {
-  color: #9a9088;
+  color: var(--c-text-subtle);
 }
 
 .album-photo-comments__error {
-  color: #a33b2e;
+  color: var(--c-danger);
   font-weight: 700;
 }
 

@@ -10,7 +10,7 @@
 
 .album-cover__eyebrow {
   margin: 0;
-  color: #b48c6e;
+  color: var(--c-brand-text);
   font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -19,7 +19,7 @@
 
 .album-cover__title {
   margin: 0;
-  color: #2f2a26;
+  color: var(--c-text);
   font-size: clamp(1.85rem, 4.5vw, 2.35rem);
   font-weight: 780;
   letter-spacing: -0.035em;
@@ -28,7 +28,7 @@
 
 .album-cover__period {
   margin: 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: clamp(0.92rem, 1.8vw, 1.05rem);
   font-weight: 600;
 }
@@ -48,7 +48,7 @@
 
 .album-cover__people {
   margin: 0;
-  color: #9a9086;
+  color: var(--c-text-subtle);
   font-size: 0.82rem;
   font-weight: 500;
 }

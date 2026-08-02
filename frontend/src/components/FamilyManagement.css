@@ -11,15 +11,15 @@
 
 .family-panel__header p {
   margin: 0.35rem 0 0;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
   font-size: 0.9rem;
 }
 
 .family-panel__section {
   padding: 1rem;
-  border: 1px solid #eadfd6;
+  border: 1px solid var(--c-border);
   border-radius: 16px;
-  background: #fffdfa;
+  background: var(--c-surface);
 }
 
 .family-panel__section h3 {
@@ -30,11 +30,11 @@
 .family-panel__notice,
 .family-panel__error {
   text-align: center;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
 }
 
 .family-panel__error {
-  color: #b85c4c;
+  color: var(--c-danger);
 }
 
 .family-invite-form {
@@ -47,7 +47,7 @@
   margin-top: 0.75rem;
   padding: 0.75rem;
   border-radius: 12px;
-  background: #f6efe8;
+  background: var(--c-brand-soft);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -76,14 +76,14 @@
   align-items: center;
   padding: 0.75rem;
   border-radius: 12px;
-  background: #faf7f4;
+  background: var(--c-surface);
 }
 
 .member-card__role,
 .invitation-card span {
   display: block;
   font-size: 0.8rem;
-  color: #8a7a6e;
+  color: var(--c-text-muted);
 }
 
 .member-card__actions {
@@ -100,22 +100,22 @@
 .member-card__remove {
   border: 0;
   background: transparent;
-  color: #b85c4c;
+  color: var(--c-danger);
   cursor: pointer;
   font-size: 0.85rem;
 }
 
 .invitation-card__status--pending {
-  color: #b48c6e;
+  color: var(--c-brand-text);
 }
 
 .invitation-card__status--accepted {
-  color: #5f8f6d;
+  color: var(--c-success);
 }
 
 .invitation-card__status--revoked,
 .invitation-card__status--expired {
-  color: #8a7a6e;
+  color: var(--c-text-muted);
 }
 
 .family-panel__back {

@@ -25,8 +25,11 @@ export default function AuthPanel({ returnTo, titleId }: AuthPanelProps) {
       <h2 id={titleId}>내 앨범 보관하기</h2>
       <p>로그인하면 언제든 내 앨범에서 다시 볼 수 있어요.</p>
       {message && <p className="auth-panel__notice" role="alert">{message}</p>}
-      <button className="upload-form__submit" type="button" disabled={isSubmitting} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>
-      <button className="btn btn--secondary" type="button" disabled={isSubmitting} onClick={() => void continueWith("naver")}>네이버로 계속하기</button>
+      <button className="auth-panel__kakao" type="button" disabled={isSubmitting} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>
+      {/* 네이버 로그인은 MVP 에서 노출하지 않는다. 주 채널이 카카오톡 웹뷰이고,
+          로그인 선택지가 둘이면 사용자가 고민한다. 백엔드의 custom:naver 처리는
+          그대로 살아 있으므로 이 한 줄을 되살리면 즉시 다시 쓸 수 있다.
+      <button className="btn btn--secondary" type="button" disabled={isSubmitting} onClick={() => void continueWith("naver")}>네이버로 계속하기</button> */}
     </section>
   );
 }

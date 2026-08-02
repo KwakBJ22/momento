@@ -1,11 +1,11 @@
 .admin {
-  --admin-bg: #1e1a18;
-  --admin-panel: #2a2420;
-  --admin-border: #3d3530;
-  --admin-text: #f5efe9;
-  --admin-muted: #b8a99c;
-  --admin-accent: #c9a27e;
-  --admin-card: #322c27;
+  --admin-bg: var(--c-text);
+  --admin-panel: var(--c-text);
+  --admin-border: var(--c-text);
+  --admin-text: var(--c-bg-soft);
+  --admin-muted: var(--c-text-subtle);
+  --admin-accent: var(--c-brand);
+  --admin-card: var(--c-text);
   max-width: 1120px;
   margin: 0 auto;
   color: var(--admin-text);
@@ -43,7 +43,7 @@
 }
 
 .admin__nav a[aria-current="page"] {
-  background: #3f362f;
+  background: var(--c-text);
   color: var(--admin-text);
 }
 
@@ -119,7 +119,7 @@
 .admin__trend-bar {
   width: 100%;
   max-width: 28px;
-  background: linear-gradient(180deg, var(--admin-accent), #8a6a4f);
+  background: linear-gradient(180deg, var(--admin-accent), var(--c-brand-action));
   border-radius: 6px 6px 2px 2px;
   min-height: 4px;
 }
@@ -219,7 +219,7 @@
   flex: 1;
   border-radius: 10px;
   border: 1px solid var(--admin-border);
-  background: #241f1c;
+  background: var(--c-text);
   color: var(--admin-text);
   padding: 10px 12px;
 }
@@ -258,7 +258,7 @@
 .admin__actions button {
   border-radius: 10px;
   border: 1px solid var(--admin-border);
-  background: #3a322c;
+  background: var(--c-text);
   color: var(--admin-text);
   padding: 8px 12px;
   cursor: pointer;
@@ -266,8 +266,8 @@
 }
 
 .admin__actions button.danger {
-  border-color: #7a3f3f;
-  background: #4a2a2a;
+  border-color: var(--c-danger);
+  background: var(--c-text);
 }
 
 .admin__kpi-block {
