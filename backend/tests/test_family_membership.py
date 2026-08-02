@@ -168,7 +168,9 @@ class MembershipApiTests(TestCase):
             get_response = self.client.get(f"/api/albums/{ALBUM_ID}")
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Hack"})
 
-        self.assertEqual(get_response.status_code, 401)
+        # Detail now accepts a guest token, so no bearer + no valid token = 403
+        # (no access), not 401. The legacy epilogue PATCH stays owner-only (401).
+        self.assertEqual(get_response.status_code, 403)
         self.assertEqual(patch_response.status_code, 401)
 
     def test_create_invitation_returns_link(self) -> None:

@@ -125,6 +125,21 @@ def resolve_album_access(
     )
 
 
+# The absence of every role: a caller with no relationship to the album.
+NO_ALBUM_ACCESS = AlbumAccess(family_role=None, album_role=None, is_legacy_owner=False)
+
+
+def guest_album_owner_access() -> AlbumAccess:
+    """Owner-level access granted to a valid guest-session token holder.
+
+    A guest album is unclaimed (owner_id/family_id NULL) and belongs to whoever
+    holds its session token until it is claimed at login. Modelled as an
+    ``owner`` album role so every capability (read/edit/contribute) resolves the
+    same way it does for a real owner — authorization stays in one place.
+    """
+    return AlbumAccess(family_role=None, album_role="owner", is_legacy_owner=False)
+
+
 def require_album_read(access: AlbumAccess) -> None:
     if not access.can_read_private:
         raise HTTPException(

@@ -15,6 +15,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Callable
 
+# Column defaults the real Postgres schema fills in on INSERT. Services rely on
+# these (e.g. create_guest_session inserts only album_id + token_hash and trusts
+# the DB to set status/expiry), so the fake must apply them too. A far-future
+# expiry keeps it deterministic (no clock); tests override it to test expiry.
+_INSERT_DEFAULTS: dict[str, dict[str, Any]] = {
+    "guest_album_sessions": {"status": "active", "expires_at": "2999-01-01T00:00:00+00:00"},
+}
+
 # Child tables removed together with an album by the delete_album_cascade RPC.
 _ALBUM_CHILD_TABLES = (
     "album_photos",
@@ -117,6 +125,8 @@ class _Query:
     def _insert_row(self, row: dict) -> dict:
         stored = dict(row)
         stored.setdefault("id", f"{self._name}-{self._client._next_id()}")
+        for key, value in _INSERT_DEFAULTS.get(self._name, {}).items():
+            stored.setdefault(key, value)
         self._t.append(stored)
         return dict(stored)
 
@@ -192,6 +202,7 @@ class FakeSupabase:
         self.rpc_handlers: dict[str, Callable[[dict], Any]] = {
             "delete_album_cascade": self._rpc_delete_album_cascade,
             "delete_profile_cascade": self._rpc_delete_profile_cascade,
+            "claim_guest_album_ownership": self._rpc_claim_guest_album_ownership,
         }
         self.auth = SimpleNamespace(
             admin=SimpleNamespace(delete_user=lambda uid: self.deleted_auth_users.append(str(uid)))
@@ -242,3 +253,38 @@ class FakeSupabase:
             if str(row.get("user_id")) == profile_id:
                 row["user_id"] = None
         return [existed]
+
+    def _rpc_claim_guest_album_ownership(self, params: dict):
+        """Emulate the race-safe claim RPC (raises like the real plpgsql function)."""
+        token_hash = params.get("p_token_hash")
+        profile_id = str(params.get("p_profile_id"))
+        family_id = params.get("p_family_id")
+        session = next(
+            (s for s in self.tables.get("guest_album_sessions", []) if s.get("token_hash") == token_hash),
+            None,
+        )
+        if session is None:
+            raise RuntimeError("guest ownership token not found")
+        if session.get("status") == "claimed":
+            if str(session.get("claimed_profile_id")) == profile_id:
+                return session.get("album_id")  # idempotent for the same owner
+            raise RuntimeError("guest album already claimed by another user")
+        if session.get("status") != "active":
+            raise RuntimeError("guest ownership token expired")
+        album_id = session.get("album_id")
+        album = next((a for a in self.tables.get("albums", []) if str(a.get("id")) == str(album_id)), None)
+        if album is None:
+            raise RuntimeError("guest album not found")
+        if (album.get("owner_id") and album.get("owner_id") != profile_id) or (
+            album.get("created_by") and album.get("created_by") != profile_id
+        ):
+            raise RuntimeError("guest album already claimed by another user")
+        album["owner_id"] = profile_id
+        album["created_by"] = profile_id
+        album["family_id"] = family_id
+        self.tables.setdefault("album_members", []).append(
+            {"album_id": album_id, "profile_id": profile_id, "role": "owner", "status": "active", "invited_by": profile_id}
+        )
+        session["status"] = "claimed"
+        session["claimed_profile_id"] = profile_id
+        return album_id

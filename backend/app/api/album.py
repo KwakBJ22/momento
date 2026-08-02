@@ -6,7 +6,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Query, Request, Response, UploadFile, status
 
 from app.config import Settings, get_settings
 from app.models.album_photo_status import ALBUM_PHOTO_READY
@@ -34,6 +34,7 @@ from app.models.schemas import (
     PhotoCommentResponse,
     PhotoCommentUpdate,
     AlbumUploadResponse,
+    GuestAlbumClaimRequest,
     AlbumGenerationStatusResponse,
     AlbumGenerationPreviewItem,
     AlbumGenerationPreviewResponse,
@@ -107,14 +108,18 @@ from app.services.album_generation_service import (
 )
 from app.services.photo_timeline import cover_date_from_processed, group_photos_by_taken_date, sort_photo_entries
 from app.services.media_upload_service import process_media_upload
-from app.services.auth import require_authenticated_user
+from app.services.auth import optional_strict_authenticated_user, require_authenticated_user
 from app.services.authorization import (
+    NO_ALBUM_ACCESS,
+    AlbumAccess,
+    guest_album_owner_access,
     require_album_contribute,
     require_album_delete,
     require_album_edit_settings,
     require_album_owner_story,
     require_album_read,
 )
+from app.services import guest_album_service
 from app.services.operations import get_operation_id, get_operation_stage, set_operation_stage
 from app.services.membership import (
     get_album_access,
@@ -224,6 +229,24 @@ def _require_media_mutation_access(media: dict[str, Any], access: Any, authentic
     if str(media.get("uploader_id") or "") == authenticated_user_id:
         return
     raise HTTPException(status_code=403, detail="본인이 추가한 미디어만 삭제할 수 있습니다.")
+
+
+def _actor_album_access(client: Any, album: dict[str, Any], user_id: str | None, guest_token: str | None) -> AlbumAccess:
+    """Access for either a logged-in user OR a valid guest-session token holder.
+
+    Logged-in users go through the normal family/album role resolution unchanged.
+    A guest album (unclaimed) is owned by whoever holds its session token, so a
+    matching token grants owner-level access; anything else gets no access. The
+    guest token is always verified server-side against ``guest_album_sessions``.
+    """
+    if user_id:
+        return get_album_access(client, album, user_id)
+    if guest_album_service.guest_session_matches(client, str(album.get("id") or ""), guest_token):
+        return guest_album_owner_access()
+    return NO_ALBUM_ACCESS
+
+
+_GUEST_TOKEN_HEADER = Header(default=None, alias="X-Momento-Guest-Album-Token")
 
 
 def _resolve_cover_photo(album: dict[str, Any], photos: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -372,7 +395,7 @@ async def upload_album(
     description: str = Form("", description="선택형 앨범 보강 정보"),
     file_meta: str = Form("[]", description='[{"last_modified": 1710000000000}, ...] File.lastModified'),
     cover_photo_order: int = Form(-1),
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
 ) -> AlbumUploadResponse:
     request_started = time.perf_counter()
     settings = get_settings()
@@ -443,9 +466,14 @@ async def upload_album(
 
     _log_upload_stage("supabase_client", "started", photo_count=len(photos))
     client = get_supabase_client(settings)
-    family_id = ensure_default_family(client, authenticated_user_id)
-    family_membership = get_family_membership(client, family_id, authenticated_user_id)
-    require_family_write_role(family_membership["role"] if family_membership else None)
+    # No login: create an unclaimed album bound to a guest session (below). A
+    # guest has no family, so skip family provisioning and leave owner/family null.
+    if authenticated_user_id:
+        family_id = ensure_default_family(client, authenticated_user_id)
+        family_membership = get_family_membership(client, family_id, authenticated_user_id)
+        require_family_write_role(family_membership["role"] if family_membership else None)
+    else:
+        family_id = None
     operation_id = (request.headers.get("X-Momento-Operation-Id") or "").strip()
     try:
         album_id = str(UUID(operation_id)) if operation_id else create_album_id()
@@ -589,7 +617,10 @@ async def upload_album(
         _log_upload_stage("media_db_insert", "started", album_id=album_id, media_count=len(media_records))
         save_album_media_records(client, media_records)
         _log_upload_stage("media_db_insert", "completed", album_id=album_id, media_count=len(media_records))
-        save_album_member(client, album_id=album_id, profile_id=authenticated_user_id, role="owner", invited_by=authenticated_user_id)
+        # A guest has no profile row, so no owner membership is written now — the
+        # claim RPC inserts the owner membership at login.
+        if authenticated_user_id:
+            save_album_member(client, album_id=album_id, profile_id=authenticated_user_id, role="owner", invited_by=authenticated_user_id)
         _, share_token = create_share_link(client, album_id, authenticated_user_id, None)
         _log_upload_stage("album_json_generation", "deferred", album_id=album_id)
         _log_upload_stage("cover_photo_assignment", "completed", album_id=album_id, photo_id=cover_photo_id[:8])
@@ -641,6 +672,13 @@ async def upload_album(
         round((originals_uploaded_at - original_upload_started) * 1000),
         round((records_created_at - originals_uploaded_at) * 1000),
     )
+    # No login: bind the album to a guest session and hand the browser the raw
+    # token (only its hash is stored). This is what lets the guest view/edit and
+    # later claim the album — the album row itself stays owner-less until claimed.
+    guest_token: str | None = None
+    if not authenticated_user_id:
+        guest_token = guest_album_service.create_guest_session(client, album_id)
+        log_event(client, "guest_album_generated", album_id=album_id)
     _log_upload_stage("response_serialization", "started", album_id=album_id, job_id=str(job["id"])[:8])
     response_payload = AlbumUploadResponse(
         album_id=UUID(album_id), meeting_type=meeting_type, category=album_category, template=layout,
@@ -648,7 +686,7 @@ async def upload_album(
         image_url="", cover_photo_id=UUID(cover_photo_id), cover_image_url=None,
         share_url=f"{settings.frontend_base_url.rstrip('/')}/s/{share_token}", created_at=datetime.now(timezone.utc),
         saved=True, photos=[], generation_job_id=UUID(str(job["id"])), generation_status=str(job.get("status") or "pending"),
-        progress=int(job.get("progress") or 20),
+        progress=int(job.get("progress") or 20), guest_token=guest_token,
     )
     _log_upload_stage("response_serialization", "completed", album_id=album_id, job_id=str(job["id"])[:8])
     # Metric: album completion rate = album_created / upload_started.
@@ -933,7 +971,8 @@ def _generation_status_response(album_id: str, job: dict[str, Any]) -> AlbumGene
 @router.get("/albums/{album_id}/generation-preview", response_model=AlbumGenerationPreviewResponse)
 async def get_album_generation_preview(
     album_id: str,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumGenerationPreviewResponse:
     """Return at most five existing assets for a creation-screen preview."""
     settings = get_settings()
@@ -941,7 +980,7 @@ async def get_album_generation_preview(
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     require_album_owner_story(access)
     rows = (
         client.table("album_photos")
@@ -966,13 +1005,14 @@ async def get_album_generation_preview(
 @router.get("/albums/{album_id}/generation-status", response_model=AlbumGenerationStatusResponse)
 async def get_album_generation_status(
     album_id: str,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumGenerationStatusResponse:
     client = get_supabase_client(get_settings())
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     require_album_owner_story(access)
     job = generation_status(client, album_id)
     if not job:
@@ -999,13 +1039,14 @@ async def get_album_generation_status(
 async def retry_album_generation(
     album_id: str,
     background_tasks: BackgroundTasks,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumGenerationStatusResponse:
     client = get_supabase_client(get_settings())
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     require_album_owner_story(access)
     job = generation_status(client, album_id)
     if not job:
@@ -1033,15 +1074,16 @@ async def retry_album_generation(
 async def get_album_photo_urls(
     album_id: str,
     edition: int | None = None,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumPhotoUrlsResponse:
-    """Issue short-lived private asset URLs only to the album owner."""
+    """Issue short-lived private asset URLs only to the album owner (or its guest holder)."""
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, record, authenticated_user_id)
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
     require_album_read(access)
 
     document, _ = _edition_document_and_pages(record, edition)
@@ -1168,13 +1210,14 @@ async def save_photo_comment(
     album_id: str,
     photo_id: str,
     body: PhotoCommentUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> PhotoCommentResponse:
     client = get_supabase_client()
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     _require_photo_mutation_access(
         client,
         album_id=album_id,
@@ -1693,7 +1736,8 @@ async def get_album(
     album_id: str,
     response: Response,
     edition: int | None = None,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumDetailResponse:
     started_at = time.perf_counter()
     settings = get_settings()
@@ -1728,7 +1772,7 @@ async def get_album(
             photo_count=photo_count,
             memory_count=memory_count,
         )
-    access = get_album_access(client, record, authenticated_user_id)
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
     require_album_read(access)
     detail = detail.model_copy(update={
         "can_edit": access.is_album_owner,
@@ -1737,7 +1781,7 @@ async def get_album(
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Cache-Control"] = "no-store"
     response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"
-    if access.is_album_owner and edition is None:
+    if authenticated_user_id and access.is_album_owner and edition is None:
         # Metric: D7 return rate = owners who revisit their album within 7 days.
         log_event(client, "album_revisited", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     logger.info(
@@ -1837,14 +1881,15 @@ async def patch_album(
 async def patch_epilogue(
     album_id: str,
     body: EpilogueUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumDetailResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, record, authenticated_user_id)
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
     require_album_owner_story(access)
 
     epilogue = body.epilogue.strip()
@@ -1856,19 +1901,33 @@ async def patch_epilogue(
 async def patch_album_title(
     album_id: str,
     body: AlbumTitleUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumDetailResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, record, authenticated_user_id)
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
     require_album_owner_story(access)
 
     title = body.title.strip()
     updated = update_album_title(client, album_id, title)
     return _record_to_detail(updated or {**record, "title": title}, settings, client)
+
+
+@router.post("/guest-albums/claim")
+async def claim_guest_album(
+    body: GuestAlbumClaimRequest,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> dict[str, str]:
+    """Transfer a guest-created album to the now-logged-in account (owner claim)."""
+    client = get_supabase_client(get_settings())
+    family_id = ensure_default_family(client, authenticated_user_id)
+    album_id = guest_album_service.claim_guest_album(client, body.guest_token, authenticated_user_id, family_id)
+    log_event(client, "guest_album_claimed", album_id=album_id, metadata={"owner_id": authenticated_user_id})
+    return {"album_id": album_id, "family_id": family_id}
 
 
 @router.post("/albums/{album_id}/epilogue/generate", response_model=EpilogueGenerateResponse)

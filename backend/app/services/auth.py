@@ -99,6 +99,29 @@ def optional_authenticated_user(
     return current_user.id if current_user else None
 
 
+def optional_strict_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> CurrentUser | None:
+    """Anonymous when no bearer is sent, but a *present* bearer must be valid.
+
+    This is the dependency for routes that also accept a guest-album token. It
+    differs from ``optional_current_user`` in one crucial way: when a bearer IS
+    provided but is expired/invalid it still raises 401 (rather than silently
+    downgrading to anonymous), so a logged-in caller keeps the frontend's
+    401→refresh→retry behaviour instead of being mistaken for a guest.
+    """
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    return require_current_user(credentials)
+
+
+def optional_strict_authenticated_user(
+    current_user: CurrentUser | None = Depends(optional_strict_current_user),
+) -> str | None:
+    """Id-only variant of ``optional_strict_current_user`` (None when anonymous)."""
+    return current_user.id if current_user else None
+
+
 def require_platform_admin(
     user_id: str = Depends(require_authenticated_user),
     settings: Settings = Depends(get_settings),

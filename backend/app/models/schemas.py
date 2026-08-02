@@ -88,6 +88,14 @@ class AlbumUploadResponse(BaseModel):
     generation_job_id: UUID | None = None
     generation_status: Literal["pending", "processing", "completed", "failed"] | None = None
     progress: int | None = Field(default=None, ge=0, le=100)
+    # Present only for albums created without login: the raw guest-session token
+    # the browser stores to access/edit and later claim this album. Null for
+    # logged-in creators.
+    guest_token: str | None = None
+
+
+class GuestAlbumClaimRequest(BaseModel):
+    guest_token: str = Field(min_length=1)
 
 
 class AlbumGenerationStatusResponse(BaseModel):

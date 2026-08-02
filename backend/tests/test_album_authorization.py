@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.api.album import _edition_document_and_pages, _previous_edition_number, router
 from app.services.authorization import resolve_album_access
 from app.api.auth import router as auth_router
-from app.services.auth import require_authenticated_user
+from app.services.auth import optional_strict_authenticated_user, require_authenticated_user
 
 
 ALBUM_ID = "11111111-1111-1111-1111-111111111111"
@@ -73,7 +73,10 @@ class AlbumAuthorizationTests(TestCase):
         self.app.dependency_overrides.clear()
 
     def as_user(self, user_id: str) -> None:
+        # Guest-enabled routes resolve the actor via optional_strict_authenticated_user;
+        # legacy owner-only routes still use require_authenticated_user. Override both.
         self.app.dependency_overrides[require_authenticated_user] = lambda: user_id
+        self.app.dependency_overrides[optional_strict_authenticated_user] = lambda: user_id
 
     def test_owner_can_update_album(self) -> None:
         self.as_user(OWNER_ID)
@@ -294,10 +297,13 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
-    def test_unauthenticated_album_creation_is_rejected(self) -> None:
+    def test_unauthenticated_album_creation_is_allowed_for_guests(self) -> None:
+        # Policy: login is not required to create an album; the guest branch runs.
+        # With no multipart body it fails validation (422) rather than on auth (401).
         response = self.client.post("/api/upload-album")
 
-        self.assertEqual(response.status_code, 401)
+        self.assertNotEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 422)
 
     def test_missing_album_cannot_be_updated_or_deleted(self) -> None:
         self.as_user(OWNER_ID)
@@ -316,7 +322,11 @@ class AlbumAuthorizationTests(TestCase):
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
             delete_response = self.client.delete(f"/api/albums/{ALBUM_ID}")
 
-        self.assertEqual(get_response.status_code, 401)
+        # The detail route accepts a guest token, so a caller with neither a bearer
+        # nor a valid guest token is "no access" (403), not "unauthenticated" (401).
+        # A present-but-invalid bearer still 401s (see optional_strict_current_user),
+        # preserving the frontend's refresh-retry. Legacy owner-only routes 401.
+        self.assertEqual(get_response.status_code, 403)
         self.assertEqual(patch_response.status_code, 401)
         self.assertEqual(delete_response.status_code, 401)
 
