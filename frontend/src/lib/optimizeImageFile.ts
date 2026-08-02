@@ -6,7 +6,14 @@ const PREVIEW_MAX_EDGE = 800;
 const PREVIEW_QUALITY = 0.75;
 // Must match the private Supabase Storage bucket's per-object limit.
 export const MAX_ORIGINAL_IMAGE_BYTES = 10 * 1024 * 1024;
-export const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024;
+// Realistic mobile total: 100MB effectively meant "no cap" and uploads died with
+// an opaque "네트워크 연결을 확인해주세요". 40MB is what a phone can actually send.
+export const MAX_TOTAL_UPLOAD_BYTES = 40 * 1024 * 1024;
+
+/** True if adding `addedBytes` keeps the whole selection within the upload cap. */
+export function fitsWithinUploadTotal(currentTotalBytes: number, addedBytes: number): boolean {
+  return currentTotalBytes + addedBytes <= MAX_TOTAL_UPLOAD_BYTES;
+}
 
 function isGif(file: File): boolean {
   return file.type.toLowerCase() === "image/gif" || /\.gif$/i.test(file.name);

@@ -3,7 +3,7 @@ import { uploadAlbum } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
-import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
+import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -102,8 +102,9 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         // One decode yields both the upload file and a small preview blob.
         // Optimization failure falls back to the original file so no photo is lost.
         const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
-        if (nextTotal + prepared.size > MAX_TOTAL_UPLOAD_BYTES) {
-          failures.push("선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.");
+        // Over the total cap: block only the NEW photo; keep everything already chosen.
+        if (!fitsWithinUploadTotal(nextTotal, prepared.size)) {
+          failures.push("사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.");
           continue;
         }
         const item = createPhotoItem(prepared, previewBlob, capturedAt);

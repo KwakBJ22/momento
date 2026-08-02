@@ -3,7 +3,17 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 무료 한도: 사용자당 앨범 3개)
+## 최신 세션 요약 (2026-08-02, 업로드 총량 가드 40MB 현실화)
+
+`MAX_TOTAL_UPLOAD_BYTES` 100MB는 모바일에서 성공 불가라 사실상 무한 → 실패가 "네트워크 연결을
+확인해주세요"로 원인 불명. **40MB로 하향**(`optimizeImageFile.ts`, 상수 그대로 사용). 순수 함수
+`fitsWithinUploadTotal(currentBytes, addedBytes)` 추가 → UploadForm.addFiles가 사진별로 검사,
+초과 시 **그 사진만 막고(continue) 기존 선택 보존**, 기존 error 슬롯에
+"사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요."(기술 용어 없음).
+MAX_PHOTOS 30·업로드 API 불변. 실동작 테스트 `uploadTotalGuard.test`(40MB 값, 미만 허용/초과 차단/경계,
+UploadForm 바인딩·기존 선택 미초기화). **frontend 137 / build 통과.**
+
+## 이전 세션 요약 (2026-08-02, 무료 한도: 사용자당 앨범 3개)
 
 목적: 한도를 코드 한 곳에 모으고, 한도에 닿은 사용자를 계측. 결제·유료 문구는 범위 밖. 마이그레이션 없음.
 
