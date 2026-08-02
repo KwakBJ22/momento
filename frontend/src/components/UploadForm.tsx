@@ -3,7 +3,7 @@ import { uploadAlbum } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
-import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
+import { formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, MAX_TOTAL_UPLOAD_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -23,8 +23,10 @@ interface UploadFormProps {
   onCancel?: () => void;
 }
 
-function createPhotoItem(file: File, capturedAt: string | null): PhotoItem {
-  return { id: createId(), file, previewUrl: URL.createObjectURL(file), story: "", capturedAt };
+function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null): PhotoItem {
+  // Prefer the small 800px preview; fall back to the upload file when it is null
+  // (GIF / HEIC / decode failure), preserving the current behavior.
+  return { id: createId(), file, previewUrl: URL.createObjectURL(previewBlob ?? file), story: "", capturedAt };
 }
 
 export default function UploadForm({ category, photosNeedReselect = false, onSuccess }: UploadFormProps) {
@@ -97,13 +99,14 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         } catch (cause) {
           console.warn("Capture date extraction failed", { cause, fileName: file.name });
         }
+        // One decode yields both the upload file and a small preview blob.
         // Optimization failure falls back to the original file so no photo is lost.
-        const prepared = await prepareForUpload(file);
+        const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
         if (nextTotal + prepared.size > MAX_TOTAL_UPLOAD_BYTES) {
           failures.push("선택한 사진의 전체 용량이 너무 큽니다. 용량이 큰 사진을 제외하거나 사진 수를 줄여주세요.");
           continue;
         }
-        const item = createPhotoItem(prepared, capturedAt);
+        const item = createPhotoItem(prepared, previewBlob, capturedAt);
         nextTotal += prepared.size;
         // Reflect the real count immediately, one photo at a time, instead of
         // staying at 0 until every image finishes resizing.

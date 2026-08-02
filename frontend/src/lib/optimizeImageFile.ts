@@ -1,4 +1,9 @@
 const MAX_EDGE = 2560;
+// The on-screen preview spans the full width, so 480px looks blurry; 800px stays
+// sharp while its decode memory (~1.9MB) is ~1/10 of the 2560px upload file's,
+// which is what was exhausting the Android tab's decode budget.
+const PREVIEW_MAX_EDGE = 800;
+const PREVIEW_QUALITY = 0.75;
 // Must match the private Supabase Storage bucket's per-object limit.
 export const MAX_ORIGINAL_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -43,6 +48,47 @@ function hasTransparency(context: CanvasRenderingContext2D, width: number, heigh
   return false;
 }
 
+/** Draw an already-decoded image onto a canvas scaled so its long edge ≤ maxEdge. */
+function drawScaled(image: CanvasImageSource, srcWidth: number, srcHeight: number, maxEdge: number) {
+  const scale = Math.min(1, maxEdge / Math.max(srcWidth, srcHeight));
+  const width = Math.max(1, Math.round(srcWidth * scale));
+  const height = Math.max(1, Math.round(srcHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  // No willReadFrequently: it forces a software canvas (worse memory/speed on
+  // Android). getImageData is used only on the PNG-transparency path below.
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas is unavailable.");
+  context.drawImage(image, 0, 0, width, height);
+  return { canvas, context, width, height };
+}
+
+/** Release the canvas backing buffer immediately so peak memory doesn't stack up. */
+function releaseCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
+/** Encode the 2560px upload file from an already-decoded image (shared core). */
+async function encodeUploadFromImage(image: CanvasImageSource, srcWidth: number, srcHeight: number, file: File): Promise<File> {
+  const { canvas, context, width, height } = drawScaled(image, srcWidth, srcHeight, MAX_EDGE);
+  const isPng = file.type.toLowerCase() === "image/png" || /\.png$/i.test(file.name);
+  const keepTransparency = isPng && hasTransparency(context, width, height);
+  const blob = keepTransparency ? await canvasBlob(canvas, "image/png") : await canvasBlob(canvas, "image/jpeg", 0.85);
+  releaseCanvas(canvas);
+  const optimized = renamedFile(file, blob, keepTransparency ? "png" : "jpg", keepTransparency ? "image/png" : "image/jpeg");
+  return optimized.size < file.size ? optimized : file;
+}
+
+/** Encode a small 800px JPEG preview from the same decoded image. */
+async function encodePreviewFromImage(image: CanvasImageSource, srcWidth: number, srcHeight: number): Promise<Blob> {
+  const { canvas } = drawScaled(image, srcWidth, srcHeight, PREVIEW_MAX_EDGE);
+  const blob = await canvasBlob(canvas, "image/jpeg", PREVIEW_QUALITY);
+  releaseCanvas(canvas);
+  return blob;
+}
+
 /** Prepares images sequentially in the browser while retaining GIF animation and file timestamps. */
 export async function optimizeImageFile(file: File): Promise<File> {
   if (isGif(file)) return file;
@@ -57,28 +103,52 @@ export async function optimizeImageFile(file: File): Promise<File> {
   try {
     const { width, height } = imageSize(image);
     if (!width || !height) throw new Error("Image dimensions are unavailable.");
-    const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
-    const targetWidth = Math.max(1, Math.round(width * scale));
-    const targetHeight = Math.max(1, Math.round(height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    // No willReadFrequently: it forces a software canvas (worse memory/speed on
-    // Android). getImageData is used only on the PNG-transparency path below.
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas is unavailable.");
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-    const isPng = file.type.toLowerCase() === "image/png" || /\.png$/i.test(file.name);
-    const keepTransparency = isPng && hasTransparency(context, targetWidth, targetHeight);
-    const blob = keepTransparency ? await canvasBlob(canvas, "image/png") : await canvasBlob(canvas, "image/jpeg", 0.85);
-    // Release the canvas backing buffer immediately so peak memory does not stack
-    // up across a many-photo sequential run (a known Android tab-restart trigger).
-    canvas.width = 0;
-    canvas.height = 0;
-    const optimized = renamedFile(file, blob, keepTransparency ? "png" : "jpg", keepTransparency ? "image/png" : "image/jpeg");
-    return optimized.size < file.size ? optimized : file;
+    return await encodeUploadFromImage(image, width, height, file);
   } finally {
     if (image instanceof ImageBitmap) image.close();
+  }
+}
+
+/** Upload file + small preview blob from ONE decode (avoids a second full decode). */
+async function optimizeWithPreview(file: File): Promise<{ file: File; previewBlob: Blob | null }> {
+  // GIF is kept as-is (animation); its own file is used as the preview.
+  if (isGif(file)) return { file, previewBlob: null };
+  let image: CanvasImageSource;
+  try {
+    image = await decodeImage(file);
+  } catch (error) {
+    // HEIC decode unsupported → original goes to the server path, no preview.
+    if (/\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type)) return { file, previewBlob: null };
+    throw error;
+  }
+  try {
+    const { width, height } = imageSize(image);
+    if (!width || !height) throw new Error("Image dimensions are unavailable.");
+    // Upload first, then preview — each canvas is released before the next.
+    const uploadFile = await encodeUploadFromImage(image, width, height, file);
+    let previewBlob: Blob | null = null;
+    try {
+      previewBlob = await encodePreviewFromImage(image, width, height);
+    } catch {
+      previewBlob = null; // preview is best-effort; the upload file already succeeded
+    }
+    return { file: uploadFile, previewBlob };
+  } finally {
+    if (image instanceof ImageBitmap) image.close();
+  }
+}
+
+/**
+ * Like prepareForUpload, but also returns a small preview blob decoded from the
+ * SAME bitmap. Never drops a photo: on any failure the original file is used for
+ * upload and previewBlob is null (caller falls back to the upload file for preview).
+ */
+export async function prepareUploadAndPreview(file: File): Promise<{ file: File; previewBlob: Blob | null }> {
+  try {
+    return await optimizeWithPreview(file);
+  } catch (cause) {
+    if (file.size <= MAX_ORIGINAL_IMAGE_BYTES) return { file, previewBlob: null };
+    throw cause;
   }
 }
 

@@ -34,6 +34,6 @@ test("the upload form reflects the count immediately by adding photos one at a t
   assert.doesNotMatch(src, /\.\.\.added\]/);
   // Each prepared photo is appended inside the loop.
   assert.match(src, /setPhotos\(\(previous\) => \[\.\.\.previous, item\]\)/);
-  // Preparation uses the loss-safe fallback path, not the raw optimizer.
-  assert.match(src, /prepareForUpload\(file\)/);
+  // Preparation uses the loss-safe fallback path (now also returning a preview).
+  assert.match(src, /prepareUploadAndPreview\(file\)/);
 });

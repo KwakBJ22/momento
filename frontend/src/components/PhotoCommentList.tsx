@@ -30,6 +30,8 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
                 src={photo.previewUrl}
                 alt={`선택한 사진 ${index + 1}`}
                 className="photo-comments__image"
+                loading="lazy"
+                decoding="async"
               />
               <button
                 type="button"

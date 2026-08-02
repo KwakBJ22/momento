@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 안드로이드 picker 갤러리 우선 + 업로드 4.5MB 프록시 한도 규명)
+## 최신 세션 요약 (2026-08-02, 안드로이드 미리보기 깨짐/업로드 실패: 미리보기 전용 축소본)
+
+원인 확정: 미리보기가 업로드용 2560px 파일을 그대로 `<img>`에 물려 탭 디코드 메모리 고갈
+(2560×1920×4≈19.6MB/장, 7장≈137MB). 6~7장부터 새 사진이 깨진 아이콘, 비결정적(=자원 고갈).
+그 상태로 생성 누르면 FormData 읽는 중 fetch가 전송 단계에서 죽어 TypeError(서버 도달 0).
+
+- **[1] `optimizeImageFile.ts`**: `prepareUploadAndPreview(file) → {file, previewBlob}` 추가.
+  **같은 디코드에서** (a) 2560px 업로드본(기존 로직 그대로) → (b) 800px JPEG 0.75 미리보기본을
+  순서대로 인코딩, 각 캔버스는 인코딩 직후 w/h=0 해제. 디코드 실패·HEIC·GIF는 previewBlob=null +
+  원본 File(사진 안 떨어뜨림). `optimizeImageFile`/`prepareForUpload` 시그니처·동작 불변(공유 코어
+  `encodeUploadFromImage` 재사용, 중복 없음). MAX_EDGE 2560·품질 0.85·HEIC 서버경로 불변.
+- **[2] `UploadForm.tsx`**: `createPhotoItem`의 previewUrl을 previewBlob 기준(null이면 업로드 파일 폴백).
+  addFiles가 prepareUploadAndPreview 사용. revoke·setTimeout(0) 양보 유지.
+- **[3] `PhotoCommentList.tsx`**: 미리보기 img에 `loading="lazy" decoding="async"` → 화면 밖은 디코드
+  안 함(디코드 메모리를 보이는 장수로 제한). 레이아웃·디자인 불변(aspect-ratio 기존).
+- 회귀 테스트(실호출): `uploadPreview.test`가 DOM 스텁으로 실제 경로 실행 → 업로드 캔버스 long edge
+  2560·미리보기 800 확인, 디코드 실패/HEIC/GIF 폴백(원본+null), UploadForm 바인딩, img lazy/async.
+  기존 uploadPreparation 테스트 유지. **frontend 129 / build / smoke(로컬 5 pass·1 skip).**
+  ⚠️ 안드로이드 실기기(10장+ 추가 시 미리보기 유지 + 생성 성공)는 사용자 검증.
+
+## 이전 세션 요약 (2026-08-02, 안드로이드 picker 갤러리 우선 + 업로드 4.5MB 프록시 한도 규명)
 
 - **[1] 갤러리를 picker 첫 번째로** (`imageFile.ts` `IMAGE_ACCEPT`). `image/*` + 명시 MIME/확장자를
   같이 두면 안드로이드 Chrome이 인텐트를 넓게 구성해 문서 선택기("내 파일", 다중선택 불가)를
