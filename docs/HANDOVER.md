@@ -3,7 +3,46 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, PDF 페이지 경계 사진 잘림 + 문서 정합)
+## 검증 방법 (변경 유형별 필수 검증) — 회귀 재발 방지
+
+> 이 저장소의 상당수 테스트는 **소스 구조를 정규식으로 볼 뿐 코드를 실행하지 않는다.**
+> 그래서 로그인 모달 미렌더 / PDF 사진 사라짐 / 초대 링크 죽음 / 참여 422 / tokens.css 미배포
+> 같은 회귀가 전부 "테스트 통과" 상태로 새어 나갔다. **변경하면 아래 방식으로 실제로 실행해 확인한다.**
+
+| 변경 유형 | 필수 검증 |
+| --- | --- |
+| 백엔드 로직·API | `python -m pytest`. **실동작 테스트 우선** — `tests/test_core_flows.py` 처럼 stateful fake DB(`tests/_fake_supabase.py`)로 *만들고 → 실제 호출 → 조회*. MagicMock 스크립트 응답은 구조 버그를 통과시킨다. |
+| 삭제·탈퇴·정합성 | stateful fake 로 **남아야 할 것과 사라져야 할 것을 양쪽 다 assert**(예: 내 앨범/프로필 제거 + 타인 앨범 기여는 익명화되어 잔존). |
+| 프런트 순수 로직 | `npm run test:frontend`(tsx). 순수 함수는 CSS-free 모듈로 분리해 단위 테스트(예: `lib/pdfPageBreak.ts`). |
+| CSS·레이아웃·렌더(PDF/앨범/화면) | `npm run build` + **브라우저 실측**(computed style·`getBoundingClientRect`). 정규식 테스트로는 절대 못 본다. |
+| 배포 후 프로덕션 | **`npm run test:smoke`**(Playwright, `tests-e2e/`). 빈 화면·CSS 죽음·라우트 크래시를 잡는 유일한 수단. 타깃은 `SMOKE_BASE_URL`(기본 프로덕션). CI 없음 → 배포 후 수동 실행. |
+| DB 스키마·마이그레이션 | 프로덕션 적용 후 FK/NULL/CASCADE 제약 실측 + cascade 테스트. |
+
+**배포 검증**: `git push` ≠ 배포 완료. origin 해시 · Vercel 배포 해시 · alias · 실제 URL 반영을 모두 확인(CLAUDE.md §11).
+
+## 최신 세션 요약 (2026-08-02, 실동작 테스트 + 스모크 테스트 + 검증 절)
+
+회귀 방지 인프라. **소스 정규식 테스트가 실제 동작을 안 봐서 회귀가 샌 문제**에 대응.
+
+- **[1] 백엔드 실동작 테스트** (`tests/test_core_flows.py`, `tests/_fake_supabase.py`). 공유 stateful
+  fake Supabase(insert/update/delete/upsert/eq/is_/in_/or_/order/limit/count/rpc) + `test_invite_flow`의
+  검증된 방식으로 핵심 흐름을 *만들고→호출→조회*: **앨범 생성→조회→삭제**(권한 없는 삭제 거부),
+  **초대 생성→링크 접근→참여자 사진 저장**, **view 공유 링크 사진 추가 거부(실 엔드포인트+TestClient)**,
+  **회원 탈퇴→내 앨범·프로필 제거·타인 앨범 기여 익명 잔존**, **반응 세션별 dedupe·방명록 작성/본인만 삭제**.
+  backend **239 passed**(+9).
+- **[2] Playwright 스모크 5종** (`frontend/tests-e2e/smoke.spec.ts`, `playwright.config.ts`,
+  `npm run test:smoke`). 랜딩 렌더+CTA / 콘솔 uncaught 오류 0 / **`--c-brand`=`#ff6b6b` 실적용** /
+  공유 링크 라우트 비-백지 / `/admin` 비-백지. `@playwright/test` devDependency 추가(회귀 비용>도입 비용).
+  현재 빌드(로컬 preview) 대상 **5/5 통과**.
+- **[3] HANDOVER "검증 방법" 절**(위) 추가.
+- ⚠️ **스모크가 실제 프로덕션 결함을 잡음**: 프로덕션은 `--c-brand` 등 **디자인 토큰이 미적용**
+  (버튼이 의도한 코랄이 아니라 탁한 탄색 `#b48c6e`). 원인 — `frontend/src/styles/tokens.css`가
+  **git 미추적(`??`)**, `main.tsx`의 `import "./styles/tokens.css"`가 **미커밋(HEAD에 없음)**.
+  즉 **워밍코랄 토큰 리디자인 전체가 로컬 워킹트리에만 있고 배포된 적이 없다.** 스모크는 프로덕션에서
+  이 항목이 (정당하게) 실패한다. **이 미커밋 리디자인 배포는 이번 작업 범위 밖**(대규모 디자인 변경 —
+  사용자 결정 필요). 이 세션 커밋에는 tokens.css/main.tsx 등 워킹트리 변경을 포함하지 않았다.
+
+## 이전 세션 요약 (2026-08-02, PDF 페이지 경계 사진 잘림 + 문서 정합)
 
 - **PDF 페이지 하단 사진 잘림 수정** (`954f320`). html2canvas 는 전체를 한 캔버스로
   래스터화 후 페이지 높이로 잘라 CSS break-inside 를 못 지킨다. html2pdf `pagebreak.avoid`
