@@ -36,7 +36,9 @@
 
 | 항목 | 상태 | 우선순위 | 출시 대상 | 비고 |
 | --- | --- | --- | --- | --- |
-| 로그인 사용자 기준 앨범 생성 | 완료 | P0 | MVP | `owner_id`는 Auth user id |
+| 비로그인(게스트) 앨범 생성 | 완료 | P0 | MVP | 로그인 없이 생성·확인. 앨범은 `owner_id=NULL`로 저장되고 브라우저의 게스트 세션 토큰(`guest_album_sessions.token_hash`)에 묶인다. 그 토큰으로만 접근·수정(백엔드 검증). 세션 만료 24h. |
+| 게스트 앨범 저장(claim) | 완료 | P0 | MVP | "내 앨범으로 저장하기" → 로그인 → `claim_guest_album_ownership` RPC로 `owner_id`/`created_by`/`family_id` 설정, 세션 `claimed`. 같은 사용자 재시도 idempotent. |
+| 로그인 사용자 앨범 생성 | 완료 | P0 | MVP | `owner_id`는 Auth user id (기존 흐름 유지) |
 | 사진 최대 30장 생성 | 완료 | P0 | MVP | 이미지 분석 기본 비활성 |
 | 사진 100장 확대 | 계획 | P1 | 출시 후 | 업로드·생성·PDF 비용 검토 필요 |
 | 대량 업로드 진행 상태와 재시도 | 계획 | P1 | 출시 후 | 실패 파일 단위 재시도 |

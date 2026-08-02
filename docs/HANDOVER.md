@@ -3,6 +3,36 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
+## 최신 세션 요약 (2026-08-02, 비로그인(게스트) 앨범 생성 + 저장(claim))
+
+**정책(PO 확정)**: 로그인 없이 앨범을 만들 수 있어야 한다. 저장 시점에 가입을 유도한다.
+소셜 로그인 전환 때 빠졌던 게스트 경로를 재도입했다(DB 인프라·claim RPC는 이미 존재 —
+`guest_album_sessions`, `claim_guest_album_ownership`, `albums.owner_id` nullable. **마이그레이션 없음**).
+
+- **백엔드** (`app/api/album.py`, `app/services/guest_album_service.py`(신규), `authorization.py`, `auth.py`):
+  - `optional_strict_authenticated_user`: **Authorization 헤더가 없으면 익명(게스트), 있는데 무효면 그대로 401.**
+    → 로그인 사용자의 401→refresh 흐름을 보존하면서 게스트를 허용(기존 흐름 안 깨짐).
+  - `guest_album_owner_access()`(album_role=owner) + `_actor_album_access(user|guest_token)`: 게스트 토큰은
+    항상 `guest_album_sessions`에서 hash로 서버 검증(active·미만료·album_id 일치)해야 소유자 권한.
+  - `upload-album`: 비로그인이면 `owner_id/family_id=NULL`, 멤버십·가족 provisioning 생략, **게스트 세션 생성 후
+    raw 토큰을 응답**(`guest_token`), `guest_album_generated` 이벤트. 로그인 경로는 불변.
+  - 게스트 토큰을 받는 라우트: 상세·사진·생성상태·미리보기·재시도·제목·에필로그·사진코멘트(모두 `X-Momento-Guest-Album-Token`).
+  - `POST /api/guest-albums/claim`(로그인 필요): `ensure_default_family`→`claim_guest_album_ownership` RPC로 소유 이전,
+    `guest_album_claimed` 이벤트. 같은 사용자 idempotent, 타인 claim은 403.
+  - `/media`(영상)는 family 필요 → 게스트 대상 아님(게스트는 생성 시 사진 업로드). 정책 변화로 **미인증 생성은 이제 401 아님**,
+    미인증 상세조회는 401→**403**(no-access)로 바뀜(관련 기존 테스트 갱신).
+- **프런트** (`App.tsx`, `lib/api.ts`, `lib/guestAlbum.ts`(신규), `UploadForm.tsx`, `AlbumView.tsx`):
+  - 첫 화면 로그인 벽 제거: 카테고리+"앨범 만들기"→바로 사진 선택(게스트 포함).
+  - `uploadAlbum`(세션 있으면 bearer, 없으면 게스트) + 응답 `guest_token`을 `localStorage momento-guest-album-token:<id>`에 저장.
+  - `albumOwnerFetch`: 세션 있으면 bearer, 없고 게스트 토큰 있으면 헤더로 전송. get/photos/status/preview/retry/title/epilogue/comment 적용.
+  - 게스트는 `requiresLogin` 우회(토큰 보유 시) → 자기 앨범 조회·수정. AlbumView guestOwner: "내 앨범으로 저장하기" CTA
+    → `setPendingGuestClaim`+로그인 → 로그인 후 `claimGuestAlbum`→토큰 삭제→`/album/:id` 재로딩(소유자).
+- **테스트/문서**: backend `test_guest_album_flow.py`(생성·조회·타세션 거부·만료·claim·idempotent·타인 403, stateful fake+claim RPC),
+  `_fake_supabase`에 claim RPC·insert 기본값 추가, `test_album_authorization`/`test_family_membership` 정책 갱신.
+  frontend `guestAlbum.test.ts`(토큰 저장 스코프·pending 1회 소비), `urgentRegression` 게스트-우선 갱신.
+  KNOWN_ISSUES 비회원 앨범·PRODUCT_BACKLOG 갱신. **backend 246 / frontend 114 / build 통과.**
+  ⚠️ 실제 카카오 로그인 왕복+claim은 배포 후 실측 필요(정규식으로 못 봄).
+
 ## 검증 방법 (변경 유형별 필수 검증) — 회귀 재발 방지
 
 > 이 저장소의 상당수 테스트는 **소스 구조를 정규식으로 볼 뿐 코드를 실행하지 않는다.**
@@ -20,7 +50,7 @@ Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이
 
 **배포 검증**: `git push` ≠ 배포 완료. origin 해시 · Vercel 배포 해시 · alias · 실제 URL 반영을 모두 확인(CLAUDE.md §11).
 
-## 최신 세션 요약 (2026-08-02, 실동작 테스트 + 스모크 테스트 + 검증 절)
+## 이전 세션 요약 (2026-08-02, 실동작 테스트 + 스모크 테스트 + 검증 절)
 
 회귀 방지 인프라. **소스 정규식 테스트가 실제 동작을 안 봐서 회귀가 샌 문제**에 대응.
 
