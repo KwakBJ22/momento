@@ -3,7 +3,19 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 비로그인(게스트) 앨범 생성 + 저장(claim))
+## 최신 세션 요약 (2026-08-02, 사진 고르기 화면(UploadForm) 재구성)
+
+PO 승인 UI 변경. 한 화면 primary 하나(DESIGN_SYSTEM §7) 원칙으로 위계 정리. **업로드 로직/파일 처리/생성 API 불변.**
+
+- `UploadForm.tsx`/`UploadForm.css`: 상단 제목("어떤 사진을 담을까요?")+설명(찍은 날짜로 정리 안내) 추가.
+  "사진 고르기"는 primary(＋), 사진 있으면 secondary+"＋ 사진 더 고르기". "바로 촬영하기"는 텍스트 링크로 강등
+  (배경·테두리 제거, `--tap-min` 유지, `capture="environment"` 유지). 0장: 빈 상태 "고른 사진이 여기에 모여요",
+  **생성 버튼·선택 수 미렌더**. 1장+: "30장 중 N장 · size"(N만 강조), 목록 아래 "앨범 만들기" primary. 토큰 변수만 사용.
+- 회귀: 사진 수 분기를 순수 모듈 `lib/uploadFormView.ts`(pickButtonLabel/showsSubmitButton/showsEmptyState/
+  showsSelectionCount)로 분리 → UploadForm이 실제로 호출. `uploadFormRender.test.ts`가 0/N 분기 실동작 +
+  JSX 바인딩 + capture 유지 확인. **frontend 118 / build / smoke(로컬 preview 5/5) 통과. 0장 화면 프로덕션 빌드 실측 확인.**
+
+## 이전 세션 요약 (2026-08-02, 비로그인(게스트) 앨범 생성 + 저장(claim))
 
 **정책(PO 확정)**: 로그인 없이 앨범을 만들 수 있어야 한다. 저장 시점에 가입을 유도한다.
 소셜 로그인 전환 때 빠졌던 게스트 경로를 재도입했다(DB 인프라·claim RPC는 이미 존재 —

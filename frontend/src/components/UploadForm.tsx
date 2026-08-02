@@ -8,6 +8,7 @@ import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
+import { pickButtonLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 30;
@@ -187,28 +188,42 @@ export default function UploadForm({ category, onSuccess }: UploadFormProps) {
 
   const cancelUpload = () => abortRef.current?.abort();
 
+  const hasPhotos = photos.length > 0;
+
   return (
     <div className="upload-form story-first-upload">
+      <header className="upload-form__intro">
+        <h1 className="upload-form__title">어떤 사진을 담을까요?</h1>
+        <p className="upload-form__subtitle">최대 {MAX_PHOTOS}장까지 고를 수 있어요.<br />고른 순서가 아니라 찍은 날짜로 정리돼요.</p>
+      </header>
       <section className="upload-form__picker" aria-label="사진 선택">
-        <label className="gallery-btn">
-          사진 고르기
+        {/* Primary until photos exist; once chosen it steps down to secondary and the
+            "앨범 만들기" below becomes the single primary (DESIGN_SYSTEM §7). */}
+        <label className={hasPhotos ? "gallery-btn gallery-btn--secondary" : "gallery-btn"}>
+          {pickButtonLabel(photos.length)}
           <input className={FILE_INPUT_CLASS} type="file" accept={IMAGE_ACCEPT} multiple onChange={handlePickerChange} />
         </label>
-        <label className="gallery-btn gallery-btn--camera">
+        <label className="upload-form__camera-link">
           바로 촬영하기
           <input className={FILE_INPUT_CLASS} type="file" accept="image/*" capture="environment" multiple onChange={handlePickerChange} />
         </label>
-        <div className="drop-zone" role="button" tabIndex={0} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("drop-zone--active"); }} onDragLeave={(event) => event.currentTarget.classList.remove("drop-zone--active")} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("drop-zone--active"); void addFiles(event.dataTransfer.files); }}>
-          <p className="drop-zone__title">여기에 사진을 놓아도 좋아요</p>
-          <p className="drop-zone__hint">사진을 최대 {MAX_PHOTOS}장까지 선택할 수 있습니다.</p>
-        </div>
-        <p className="upload-form__count" aria-live="polite">30장 중 {photos.length}장을 선택했습니다.{photos.length ? ` ${formatUploadSize(totalUploadBytes)}` : ""}</p>
+        {showsEmptyState(photos.length) ? (
+          <div className="drop-zone" role="button" tabIndex={0} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("drop-zone--active"); }} onDragLeave={(event) => event.currentTarget.classList.remove("drop-zone--active")} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("drop-zone--active"); void addFiles(event.dataTransfer.files); }}>
+            <p className="drop-zone__title">고른 사진이 여기에 모여요</p>
+            <p className="drop-zone__hint">사진을 최대 {MAX_PHOTOS}장까지 선택할 수 있습니다.</p>
+          </div>
+        ) : null}
+        {showsSelectionCount(photos.length) ? (
+          <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
+        ) : null}
         {isPreparing ? <p className="upload-form__count" aria-live="polite">사진을 업로드하기 좋게 준비하고 있습니다.</p> : null}
       </section>
       <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
-      <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>
-        {isSubmitting ? "앨범 생성 중..." : "앨범 생성하기"}
-      </button>
+      {showsSubmitButton(photos.length) ? (
+        <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>
+          {isSubmitting ? "앨범 만드는 중..." : "앨범 만들기"}
+        </button>
+      ) : null}
       {error && <p className="upload-form__error">{error}</p>}
       {error && photos.length > 0 && <button type="button" className="upload-form__retry" onClick={() => void createAlbum()}>다시 시도</button>}
       {progressStep !== null && (
