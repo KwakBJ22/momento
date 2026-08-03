@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { uploadAlbum } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
+import { CREATION_PROGRESS_TICK_MS, easeTowardTarget } from "../lib/creationProgress";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
@@ -52,6 +53,9 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
   const [isPreparing, setIsPreparing] = useState(false);
   // Progress of the current preparation batch, shown in the existing count slot.
   const [preparingProgress, setPreparingProgress] = useState<{ done: number; total: number } | null>(null);
+  // Eased 0–100 value for the thin prepare bar. The count text stays exact; the bar
+  // glides between the coarse (2-at-a-time) completion counts so it doesn't jump.
+  const [prepareDisplay, setPrepareDisplay] = useState(0);
   // Reuse the existing error slot to prompt a re-pick after a restored step.
   const [error, setError] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
@@ -69,6 +73,18 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
+  // Glide the prepare bar toward done/total (no server polling here — the target is just
+  // the completion ratio). Reuses the album-creation easing so there's one implementation.
+  useEffect(() => {
+    if (!isPreparing) { setPrepareDisplay(0); return; }
+    const target = preparingProgress && preparingProgress.total > 0
+      ? (preparingProgress.done / preparingProgress.total) * 100
+      : 0;
+    const id = window.setInterval(() => {
+      setPrepareDisplay((current) => easeTowardTarget(current, target));
+    }, CREATION_PROGRESS_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [isPreparing, preparingProgress]);
   useEffect(() => () => {
     if (!previewsTransferredRef.current) {
       for (const photo of photosRef.current) URL.revokeObjectURL(photo.previewUrl);
@@ -288,8 +304,17 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         {showsSelectionCount(photos.length) ? (
           <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
         ) : null}
-        {isPreparing ? <p className="upload-form__count upload-form__count--sticky" aria-live="polite">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p> : null}
       </section>
+      {/* Direct child of .upload-form (not the picker section) so position:sticky stays
+          pinned while the user scrolls through the photo list below. */}
+      {isPreparing ? (
+        <div className="upload-form__preparing" aria-live="polite">
+          <p className="upload-form__count upload-form__preparing-text">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p>
+          <div className="upload-form__preparing-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(prepareDisplay)}>
+            <span style={{ width: `${prepareDisplay.toFixed(1)}%` }} />
+          </div>
+        </div>
+      ) : null}
       <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       {showsSubmitButton(photos.length) ? (
         <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>

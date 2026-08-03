@@ -41,3 +41,23 @@ test("UploadForm gates its render on the tested branch functions", () => {
 test("the camera input keeps its capture attribute (behaviour must not change)", () => {
   assert.match(source, /accept="image\/\*" capture="environment"/);
 });
+
+test("prepare progress is a direct child of .upload-form (sticky parent-box contract), before the photo list", () => {
+  // A sticky element only stays pinned while its PARENT box is on screen. The photo list
+  // is a sibling of the picker <section>, so the prepare block must live OUTSIDE that
+  // section — directly under .upload-form — and before <PhotoCommentList>.
+  const pickerOpen = source.indexOf("upload-form__picker");
+  const pickerClose = source.indexOf("</section>", pickerOpen);
+  const listIdx = source.indexOf("<PhotoCommentList");
+  const prepIdx = source.indexOf("upload-form__preparing");
+  assert.ok(pickerOpen >= 0 && pickerClose >= 0 && listIdx >= 0 && prepIdx >= 0);
+  assert.ok(prepIdx > pickerClose, "prepare block must be AFTER the picker section closes (not inside it)");
+  assert.ok(prepIdx < listIdx, "prepare block must come before the photo list");
+  assert.match(source.slice(pickerClose, listIdx), /isPreparing \?/); // unmounts when preparation ends
+});
+
+test("prepare bar reuses the shared easing and shows a bar alongside the exact count", () => {
+  assert.match(source, /easeTowardTarget/); // no duplicate easing implementation
+  assert.match(source, /upload-form__preparing-bar/);
+  assert.match(source, /장 중 \$\{preparingProgress\.done\}장/); // exact count text kept
+});

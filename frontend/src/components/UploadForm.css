@@ -218,18 +218,46 @@
   font-weight: 700;
 }
 
-/* While preparing, pin the progress line to the top so it stays visible even when the
-   user scrolls down to read the photos already added. Released automatically when
-   preparation ends (the element is unmounted). Uses the existing count slot — no new
-   UI. The fixed bottom navigation is unaffected (this sticks to the top). */
-.upload-form__count--sticky {
+/* While preparing, pin the progress to the top so it stays visible even when the user
+   scrolls down to read the photos already added. This block is a DIRECT child of
+   .upload-form (not the picker section), so position:sticky stays pinned across the
+   whole form — a sticky element only lives as long as its parent box is on screen.
+   Released automatically when preparation ends (the element is unmounted). The fixed
+   bottom navigation is unaffected (this sticks to the top; .app__header scrolls away). */
+.upload-form__preparing {
   position: sticky;
   top: 0;
   z-index: 5;
+  display: grid;
+  gap: 0.4rem;
   margin: 0;
   padding: 0.5rem 0;
   background: var(--c-bg);
   border-bottom: 1px solid var(--c-border);
+}
+
+.upload-form__preparing-text {
+  margin: 0;
+}
+
+/* Thin progress bar — same visual as the album-creating bar, tokens only. */
+.upload-form__preparing-bar {
+  overflow: hidden;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--c-brand-soft);
+}
+
+.upload-form__preparing-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c-brand-action);
+  transition: width 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-form__preparing-bar span { transition: none; }
 }
 
 .upload-form__submit {

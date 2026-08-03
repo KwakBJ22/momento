@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../src/lib/creationProgress";
+import { easeTowardTarget, estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../src/lib/creationProgress";
 
 const TOTAL = estimateTotalMs(30); // measured baseline ≈ 95s
 
@@ -70,4 +70,26 @@ test("works with an unknown photo count via the default estimate", () => {
 test("estimate scales with photo count", () => {
   assert.ok(estimateTotalMs(30) > estimateTotalMs(10));
   assert.equal(estimateTotalMs(10), 20_000 + 2_500 * 10);
+});
+
+test("easeTowardTarget approaches the target monotonically and never overshoots", () => {
+  let p = 0;
+  for (let i = 0; i < 200; i += 1) p = easeTowardTarget(p, 40);
+  assert.ok(Math.abs(p - 40) < 0.001, `settles exactly on the target, got ${p}`);
+  // never backward when the target is lower than the current display
+  assert.equal(easeTowardTarget(50, 30), 50);
+});
+
+test("easeTowardTarget: prepare bar climbs with a rising done/total and finishes at 100", () => {
+  let p = 0;
+  const snapshots: number[] = [];
+  for (const target of [20, 40, 60, 80, 100]) {
+    for (let i = 0; i < 60; i += 1) p = easeTowardTarget(p, target);
+    snapshots.push(p);
+  }
+  for (let i = 1; i < snapshots.length; i += 1) {
+    assert.ok(snapshots[i] >= snapshots[i - 1], `monotonic: ${snapshots}`);
+  }
+  assert.equal(p, 100);
+  assert.ok(easeTowardTarget(100, 100) <= 100);
 });

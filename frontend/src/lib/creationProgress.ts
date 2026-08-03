@@ -33,6 +33,22 @@ export function initialCreationProgress(): number {
   return START_FLOOR;
 }
 
+const EASE_RATE = 0.2;      // fraction of the remaining gap eased per tick
+const EASE_MIN_STEP = 0.6;  // guarantees visible motion while catching up
+
+/**
+ * Ease a display value toward a target (0–100) with a guaranteed minimum step, without
+ * overshooting it. Monotonic — never returns less than `display`. Used by the photo
+ * PREPARE bar, which has no server polling: the target is simply done/total so the bar
+ * glides between the coarse (2-at-a-time) completion counts instead of jumping.
+ */
+export function easeTowardTarget(display: number, target: number): number {
+  const cappedTarget = Math.min(100, Math.max(0, target));
+  if (display >= cappedTarget) return display;
+  const eased = display + Math.max((cappedTarget - display) * EASE_RATE, EASE_MIN_STEP);
+  return Math.min(cappedTarget, eased);
+}
+
 // Smoothstep (easeInOut): gentle at the start so the early seconds don't inflate (the
 // bug was the bar shooting past half in ~30s), steepest through the middle — exactly
 // the window where the single story-generation call reports nothing — then gentle
