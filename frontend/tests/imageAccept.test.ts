@@ -4,13 +4,20 @@ import test from "node:test";
 
 import { IMAGE_ACCEPT } from "../src/lib/imageFile";
 
-// Android picker regression: with `image/*` PLUS explicit MIME/extensions, Chrome
-// broadens the intent and offers the document picker ("내 파일"), which cannot
-// multi-select. The accept attribute must therefore be `image/*` and nothing
-// else — acceptance breadth is preserved by isAcceptedImageFile/filterImageFiles.
+// Android picker regression (verified on a real device): `image/*` ALONE drops the
+// gallery from the intent chooser (only 카메라/파일 appear). The full list — image/*
+// PLUS explicit MIME types and extensions — keeps the gallery present. So the accept
+// attribute must include image/* AND the explicit tokens.
 
-test("IMAGE_ACCEPT is image/* only (no explicit MIME/extension tokens)", () => {
-  assert.equal(IMAGE_ACCEPT, "image/*");
+test("IMAGE_ACCEPT includes image/* and the explicit MIME/extension tokens", () => {
+  const tokens = IMAGE_ACCEPT.split(",").map((t) => t.trim());
+  assert.ok(tokens.includes("image/*"), `image/* must be present in ${IMAGE_ACCEPT}`);
+  for (const mime of ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]) {
+    assert.ok(tokens.includes(mime), `expected ${mime}`);
+  }
+  for (const ext of [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"]) {
+    assert.ok(tokens.includes(ext), `expected ${ext}`);
+  }
 });
 
 // The two multi-select photo inputs must bind the shared constant (not a

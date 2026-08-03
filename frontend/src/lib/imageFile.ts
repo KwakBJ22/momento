@@ -1,13 +1,18 @@
 /** Mobile-safe image file helpers (iOS/Android often omit or mangle MIME). */
 
-// `image/*` ONLY, on purpose: adding explicit MIME types/extensions makes Android
-// Chrome broaden the picker intent and surface the document picker ("내 파일") —
-// which cannot multi-select and which users tend to tap first. With just
-// `image/*`, Chrome drops the document picker and leads with the gallery.
+// Full accept list (image/* + explicit MIME types + extensions). Verified on a
+// real Android device:
+//   - full list      → 카메라 / 내 파일 / 사진 및 동영상  (gallery IS offered)
+//   - `image/*` only  → 카메라 / 파일                    (gallery MISSING)
+// So `image/*` alone drops the gallery from the Android intent chooser entirely —
+// far worse than the gallery merely appearing last. We cannot control the ORDER of
+// the chooser entries: that is decided by the Android intent resolver, not the web
+// page. Keep the full list so the gallery is always present.
 // This does NOT narrow what is accepted: real validation (empty MIME,
 // octet-stream, extension fallback) is done by isAcceptedImageFile /
 // filterImageFiles, which stay unchanged.
-export const IMAGE_ACCEPT = "image/*";
+export const IMAGE_ACCEPT =
+  "image/*,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif";
 
 const EXT_OK = new Set(["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"]);
 
