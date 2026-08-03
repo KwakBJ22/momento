@@ -15,6 +15,7 @@ from app.services.guest_album_cleanup import (
     find_abandoned_guest_albums,
     find_orphan_storage_albums,
 )
+from app.services.supabase import delete_abandoned_guest_album
 
 NOW = datetime(2026, 8, 3, tzinfo=timezone.utc)
 SETTINGS = SimpleNamespace(
@@ -173,6 +174,21 @@ class DeleteGuestAlbumTests(TestCase):
         result = delete_guest_album(client, SETTINGS, "owned-9", dry_run=False)
         self.assertFalse(result)
         self.assertTrue(any(a["id"] == "owned-9" for a in client.tables["albums"]))
+
+
+class RpcGuardTests(TestCase):
+    def test_rpc_refuses_a_live_session_album_even_when_called_directly(self) -> None:
+        # Assume a caller bypassed the Python selection guard and handed the RPC a guest
+        # album that still has a live (unexpired) session. The SQL invariant must refuse.
+        far_future = datetime(2999, 1, 1, tzinfo=timezone.utc)
+        client = make_client(
+            [{"id": "live-9", "owner_id": None, "created_by": None}],
+            [_session("live-9", expires=far_future)],
+        )
+        result = delete_abandoned_guest_album(client, "live-9")
+        self.assertFalse(result)
+        self.assertTrue(any(a["id"] == "live-9" for a in client.tables["albums"]))
+        self.assertTrue(any(s["album_id"] == "live-9" for s in client.tables["guest_album_sessions"]))
 
 
 class _FakeStorage:

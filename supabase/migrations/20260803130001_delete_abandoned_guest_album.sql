@@ -22,7 +22,11 @@ AS $$
 DECLARE
   v_deleted integer := 0;
 BEGIN
-  -- Guard: only an album that is ownerless AND has no claimed guest session may go.
+  -- Guard (the INVARIANT, enforced in SQL so a caller can never be trusted to have
+  -- checked it): the album must be ownerless, have no claimed session, and have NO
+  -- live (unexpired) session — never delete an album someone is still using. The
+  -- 7-day grace after the last expiry is POLICY, kept in the Python service layer;
+  -- this function only guarantees "not owned, not claimed, not live".
   IF NOT EXISTS (
     SELECT 1
     FROM public.albums AS a
@@ -34,6 +38,12 @@ BEGIN
         FROM public.guest_album_sessions AS s
         WHERE s.album_id = a.id
           AND s.claimed_profile_id IS NOT NULL
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.guest_album_sessions AS s2
+        WHERE s2.album_id = a.id
+          AND s2.expires_at > now()
       )
   ) THEN
     RETURN false;

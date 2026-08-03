@@ -12,6 +12,7 @@ should be added here (once) rather than re-mocked per test.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Callable
 
@@ -241,7 +242,8 @@ class FakeSupabase:
         return [True]
 
     def _rpc_delete_abandoned_guest_album(self, params: dict):
-        # Mirrors the SQL guard: ownerless AND no claimed session, then cascade.
+        # Mirrors the SQL guard: ownerless AND no claimed session AND no live (unexpired)
+        # session, then cascade. now() is emulated with the real clock, like Postgres.
         album_id = str(params.get("p_album_id"))
         albums = self.tables.get("albums", [])
         target = next((a for a in albums if str(a.get("id")) == album_id), None)
@@ -249,9 +251,18 @@ class FakeSupabase:
             return [False]
         if target.get("owner_id") is not None or target.get("created_by") is not None:
             return [False]
-        sessions = self.tables.get("guest_album_sessions", [])
-        if any(str(s.get("album_id")) == album_id and s.get("claimed_profile_id") for s in sessions):
+        sessions = [s for s in self.tables.get("guest_album_sessions", []) if str(s.get("album_id")) == album_id]
+        if any(s.get("claimed_profile_id") for s in sessions):
             return [False]
+        now = datetime.now(timezone.utc)
+        for session in sessions:
+            expiry = session.get("expires_at")
+            try:
+                parsed = datetime.fromisoformat(str(expiry).replace("Z", "+00:00")) if expiry else None
+            except (TypeError, ValueError):
+                parsed = None
+            if parsed is not None and (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)) > now:
+                return [False]  # a live session exists — never delete
         albums[:] = [a for a in albums if str(a.get("id")) != album_id]
         for child in (*_ALBUM_CHILD_TABLES, "guest_album_sessions", "guest_memory_submissions"):
             rows = self.tables.get(child)
