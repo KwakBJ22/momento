@@ -8,9 +8,9 @@
   width: 100%;
   min-height: 60vh;
   position: relative;
-  background:
-    radial-gradient(ellipse at top, rgba(255, 252, 247, 0.95), transparent 55%),
-    linear-gradient(180deg, var(--c-brand-soft) 0%, var(--c-surface) 40%, var(--c-bg) 100%);
+  /* Flat neutral background. The old gradient carried --c-brand-soft, which reads
+     as a red band across the logo / "내 앨범" area now that the token is coral. */
+  background: var(--c-bg);
   padding: 1.5rem 0 7.5rem;
 }
 
@@ -109,7 +109,9 @@
   gap: 1.25rem;
   padding: 1.35rem 1.2rem;
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
+  /* --c-border (1.56:1 on white) is almost invisible and reads as a render glitch;
+     --c-border-strong (2.16:1) separates the card without being heavy. */
+  border: 1px solid var(--c-border-strong);
   border-radius: 14px;
 }
 

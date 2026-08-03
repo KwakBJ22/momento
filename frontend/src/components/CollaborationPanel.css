@@ -3,7 +3,9 @@
   gap: 0.9rem;
   min-width: 0;
   padding: 1rem;
-  border: 1px solid var(--c-border);
+  /* Match .album-page__manage: --c-border is nearly invisible on white and reads
+     as a render glitch; --c-border-strong separates the card without being heavy. */
+  border: 1px solid var(--c-border-strong);
   border-radius: 14px;
   background: var(--c-surface);
 }
