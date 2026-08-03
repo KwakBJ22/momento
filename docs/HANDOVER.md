@@ -3,7 +3,32 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-03, --c-brand-soft 오용 정리 3건 + 토큰 규칙 명문화)
+## 최신 세션 요약 (2026-08-03, 계측 이벤트명 전용화 — 한도/어뷰징 신호 분리, PO 승인)
+
+원인: `analytics_events.event_name` CHECK에 없는 이름은 못 써서, 한도 거절을
+`upload_failed` + `metadata.error_code`로 우회 기록 → (a)업로드 실패율 오염 (b)claim 거절이
+업로드로 잡힘 (c)metadata 파싱 없이 못 꺼냄. 세 신호에 전용 이름을 부여.
+
+- **[1] Migration**(사용자 적용 대기): `20260803120000_analytics_limit_events.sql`(+`_rollback`).
+  CHECK에 `album_limit_reached`/`photo_limit_reached`/`video_dropped` 추가(기존 33개 그대로).
+  기존 `upload_failed`+error_code 행을 전용 이름으로 UPDATE(해당 없으면 no-op, WHERE로 한정).
+  rollback은 UPDATE 되돌림 → 네이티브 신규행 DELETE → 이전 CHECK 재적용(비상용).
+- **[2] 코드**(`api/album.py`): 생성·claim 한도 거절→`album_limit_reached`, 사진 30장 초과→
+  `photo_limit_reached`. `upload_failed`+error_code 기록 **제거**(중복 금지). `log_event`는
+  best-effort라 migration 적용 전 신규 이름은 기록만 실패(요청 안 깨짐).
+- **video_dropped 건너뜀**: 동영상 안내 기능이 아직 없어(제네릭 비이미지 제외만 존재) 코드 계측은
+  보류. CHECK엔 미리 넣어둠(추후 안내 작업 때 바로 사용).
+- **[4] parity 테스트**: `test_analytics_event_names.py`의 CHECK 출처를 새 migration으로 갱신 +
+  전용 이름 허용/우회 제거 검증 추가. **backend 262 / compileall 통과.**
+
+### 계측 이벤트 — 기록 시점 / 판단 근거
+| 이벤트 | 기록 시점 | 무엇의 근거 |
+| --- | --- | --- |
+| `album_limit_reached` | 앨범 생성·claim이 어뷰징 상한(50개)에 막힐 때 | 상한이 정상 사용자를 막는지(어뷰징 방어 튜닝). 유료화 근거 아님 |
+| `photo_limit_reached` | 한 번에 30장 초과 업로드 시도(백엔드 400) | 개별 업로드/분할 기능 필요성 |
+| `video_dropped` | (미구현) 동영상이 걸러질 때 | 동영상 지원 우선순위 |
+
+## 이전 세션 요약 (2026-08-03, --c-brand-soft 오용 정리 3건 + 토큰 규칙 명문화)
 
 원칙: `--c-brand-soft`는 (a)선택·활성 (b)hover/focus (c)스켈레톤·이미지 플레이스홀더 (d)배지·알림에만.
 중립 영역·섹션·다이얼로그·앨범 본문 배경엔 안 씀.
@@ -99,9 +124,8 @@ UploadForm 바인딩·기존 선택 미초기화). **frontend 137 / build 통과
 - **claim 검사**(`album.py claim_guest_album`): 초과 시 **앨범 삭제 안 함** — 게스트 세션 7일 연장 후 403
   "앨범 N개를 이미 가지고 계세요…"(자리 비운 뒤 재저장 가능). 이미 자기 것이면 idempotent 통과.
   `guest_album_service`에 `get_guest_session`/`extend_guest_session` 추가.
-- **계측**: 새 이벤트명은 CHECK 제약(마이그레이션)이 필요해 금지 → **허용 이벤트 `upload_failed` + metadata
-  `error_code`("album_limit_reached"/"photo_limit_reached")** 재사용(parity 테스트 그린, 스키마 무변경).
-  album_limit=생성/claim 거절, photo_limit=사진 30장 초과 백엔드 400.
+- **계측**: (당시) `upload_failed` + `error_code` 재사용. **→ 2026-08-03 세션에서 전용 이벤트명
+  `album_limit_reached`/`photo_limit_reached`로 대체됨(위 최신 세션 참고). 이 우회는 더 이상 쓰지 않는다.**
 - **bootstrap 확장**(additive): `POST /api/auth/bootstrap` 응답에 `album_count`/`max_albums` 추가(profile_id/family_id 유지).
 - **프런트**: App이 bootstrap에서 `{count,max}` 보관 → `lib/albumLimit`(신규, 순수) `isAlbumLimitReached`.
   Landing이 `createActionFor`로 게이트: 한도 도달 시 사진 선택 단계로 안 넘어가고 인라인 안내(`landing__limit-notice`,

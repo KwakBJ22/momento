@@ -413,8 +413,9 @@ async def upload_album(
         raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")
     if len(photos) > settings.max_photos:
         # The frontend trims past 30 before sending, so this backend 400 is rare;
-        # record it (best-effort) when it does happen to inform the photo cap.
-        log_event(get_supabase_client(settings), "upload_failed", metadata={"error_code": "photo_limit_reached", "photo_count": len(photos)})
+        # record it (best-effort) when it does happen to inform the photo cap. Its own
+        # event name (not upload_failed) so it never pollutes the upload-failure metric.
+        log_event(get_supabase_client(settings), "photo_limit_reached", metadata={"photo_count": len(photos)})
         raise HTTPException(status_code=400, detail=f"사진은 최대 {settings.max_photos}장까지 업로드할 수 있습니다.")
 
     _log_upload_stage("file_validation", "started", **upload_diagnostics)
@@ -481,7 +482,8 @@ async def upload_album(
         if count_owned_albums(client, authenticated_user_id) >= limits["max_albums"]:
             # album_limit_reached: NOT a monetization signal — it's an abuse-detection
             # signal now that the ceiling is high. Don't expose the number or upsell.
-            log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
+            # Dedicated event name (not upload_failed) — this is a limit hit, not a failure.
+            log_event(client, "album_limit_reached", metadata={"owner_id": authenticated_user_id})
             raise HTTPException(
                 status_code=403,
                 detail="앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.",
@@ -1978,8 +1980,9 @@ async def claim_guest_album(
         # session's expiry out 7 days so the user can tidy up and save it later.
         # We never delete an album to enforce the limit.
         guest_album_service.extend_guest_session(client, body.guest_token, days=7)
-        # album_limit_reached: abuse-detection signal, not a paywall. Don't expose the number.
-        log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
+        # album_limit_reached: abuse-detection signal, not a paywall. Don't expose the
+        # number. Dedicated event name — a claim rejection is not an upload failure.
+        log_event(client, "album_limit_reached", metadata={"owner_id": authenticated_user_id})
         raise HTTPException(
             status_code=403,
             detail="앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.",

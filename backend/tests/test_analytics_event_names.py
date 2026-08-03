@@ -6,7 +6,8 @@ from unittest import TestCase
 
 REPO = Path(__file__).resolve().parents[2]
 APP = Path(__file__).resolve().parents[1] / "app"
-CHECK_MIGRATION = REPO / "supabase" / "migrations" / "20260801120000_analytics_metric_events.sql"
+# The latest migration that (re)defines the analytics_events CHECK is the source of truth.
+CHECK_MIGRATION = REPO / "supabase" / "migrations" / "20260803120000_analytics_limit_events.sql"
 
 
 def allowed_names() -> set[str]:
@@ -40,3 +41,18 @@ class AnalyticsEventNameTests(TestCase):
             "memory_added", "album_revisited",
         ):
             self.assertIn(name, allowed)
+
+    def test_the_dedicated_limit_events_are_allowed(self) -> None:
+        # Split out of the upload_failed + error_code workaround (PO-approved).
+        allowed = allowed_names()
+        for name in ("album_limit_reached", "photo_limit_reached", "video_dropped"):
+            self.assertIn(name, allowed)
+
+    def test_limit_rejections_no_longer_masquerade_as_upload_failures(self) -> None:
+        # The old workaround logged limit rejections as upload_failed + error_code; that
+        # must be gone so the upload-failure metric is not polluted.
+        album_api = (APP / "api" / "album.py").read_text(encoding="utf-8")
+        self.assertNotIn('"error_code": "album_limit_reached"', album_api)
+        self.assertNotIn('"error_code": "photo_limit_reached"', album_api)
+        self.assertIn('log_event(client, "album_limit_reached"', album_api)
+        self.assertIn('"photo_limit_reached"', album_api)
