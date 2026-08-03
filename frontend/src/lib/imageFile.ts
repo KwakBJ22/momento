@@ -52,13 +52,38 @@ export function isAcceptedImageFile(file: File): boolean {
   return false;
 }
 
+// Video is not supported yet (no client-side compression + the 40MB total guard; needs
+// per-photo upload first). We only DETECT it so the user is told instead of it vanishing.
+const VIDEO_EXT = new Set(["mp4", "mov", "m4v", "avi", "3gp"]);
+
+/** True for a video file. Extension fallback is required: Android often sends an empty
+ *  MIME or application/octet-stream, same reason isAcceptedImageFile falls back to ext. */
+export function isVideoFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase().trim();
+  if (mime.startsWith("video/")) return true;
+  return VIDEO_EXT.has(extensionOf(file));
+}
+
 export function filterImageFiles(files: FileList | File[] | null | undefined): {
   accepted: File[];
   rejected: number;
+  rejectedVideos: number;
+  rejectedOther: number;
 } {
   const list = files ? Array.from(files) : [];
-  const accepted = list.filter(isAcceptedImageFile);
-  return { accepted, rejected: list.length - accepted.length };
+  const accepted: File[] = [];
+  let rejectedVideos = 0;
+  let rejectedOther = 0;
+  for (const file of list) {
+    if (isAcceptedImageFile(file)) {
+      accepted.push(file);
+    } else if (isVideoFile(file)) {
+      rejectedVideos += 1;
+    } else {
+      rejectedOther += 1;
+    }
+  }
+  return { accepted, rejected: rejectedVideos + rejectedOther, rejectedVideos, rejectedOther };
 }
 
 /**

@@ -397,6 +397,7 @@ async def upload_album(
     description: str = Form("", description="선택형 앨범 보강 정보"),
     file_meta: str = Form("[]", description='[{"last_modified": 1710000000000}, ...] File.lastModified'),
     cover_photo_order: int = Form(-1),
+    dropped_video_count: int = Form(0, description="프런트에서 걸러진 동영상 수(수요 계측용)"),
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
 ) -> AlbumUploadResponse:
     request_started = time.perf_counter()
@@ -408,6 +409,13 @@ async def upload_album(
     _log_upload_stage("request_authentication", "completed", authenticated=True, guest_token_check="not_applicable")
     _log_upload_stage("multipart_parsing", "started")
     _log_upload_stage("multipart_parsing", "completed", **upload_diagnostics)
+
+    if dropped_video_count and dropped_video_count > 0:
+        # Videos are filtered out in the frontend (no client-side compression + the 40MB
+        # total guard; needs per-photo upload first), so they never arrive as files — the
+        # count rides along here. Demand signal for prioritizing per-photo upload + video
+        # support. Best-effort; a caller who abandons before upload is not counted.
+        log_event(get_supabase_client(settings), "video_dropped", metadata={"video_count": int(dropped_video_count)})
 
     if not photos:
         raise HTTPException(status_code=400, detail="최소 1장의 사진이 필요합니다.")

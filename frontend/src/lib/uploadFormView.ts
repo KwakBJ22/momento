@@ -25,3 +25,29 @@ export function showsEmptyState(photoCount: number): boolean {
 export function showsSelectionCount(photoCount: number): boolean {
   return photoCount > 0;
 }
+
+// Copy for filtered-out files (CLAUDE.md §8: no tech terms, no "coming soon" promise).
+
+/** Notices when SOME photos were added but files were also dropped this pick.
+ *  Video message first, then the existing non-photo message — they read as one line. */
+export function droppedFileNotices(rejectedVideos: number, rejectedOther: number): string[] {
+  const notices: string[] = [];
+  if (rejectedVideos > 0) {
+    notices.push(`동영상 ${rejectedVideos}개는 아직 앨범에 담을 수 없어요. 사진만 담았습니다.`);
+  }
+  if (rejectedOther > 0) {
+    notices.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
+  }
+  return notices;
+}
+
+/** Notice when NOTHING was added this pick. Preserves the existing non-video wording
+ *  ("사진 파일을 선택해주세요." / "사진을 선택해주세요.") and prepends a video note if any. */
+export function noPhotosAddedNotice(rejectedVideos: number, hasOtherRejects: boolean): string {
+  const parts: string[] = [];
+  if (rejectedVideos > 0) {
+    parts.push(`동영상 ${rejectedVideos}개는 아직 앨범에 담을 수 없어요.`);
+  }
+  parts.push(rejectedVideos > 0 || hasOtherRejects ? "사진 파일을 선택해주세요." : "사진을 선택해주세요.");
+  return parts.join(" ");
+}

@@ -21,7 +21,7 @@ ALLOWED_METADATA_KEYS = frozenset({
     "started_at", "completed_at", "duration_ms", "applied_photo_count",
     "applied_memory_count", "failure_code", "mode", "photo_count",
     "memory_count", "selected_mode", "previous_edition", "new_edition",
-    "operation_id", "operation_name", "success", "error_code",
+    "operation_id", "operation_name", "success", "error_code", "video_count",
 })
 
 

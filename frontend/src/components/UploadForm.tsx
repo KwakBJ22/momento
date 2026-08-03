@@ -10,7 +10,7 @@ import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
-import { pickButtonLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
+import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 30;
@@ -99,14 +99,19 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     ));
   }, [photos]);
   const uploadInFlightRef = useRef(false);
+  // Videos are filtered out (not supported yet). Count how many the user tried to add
+  // across all picks; the total rides along on the upload request as a demand signal
+  // (there is no other frontend->backend event path). See createAlbum.
+  const droppedVideoCountRef = useRef(0);
   const templateType = recommendedTemplateType(category);
   const totalUploadBytes = photos.reduce((total, photo) => total + photo.file.size, 0);
 
   const addFiles = useCallback(async (files: FileList | File[] | null) => {
     if (isPreparing) return;
-    const { accepted, rejected } = filterImageFiles(files);
+    const { accepted, rejectedVideos, rejectedOther } = filterImageFiles(files);
     if (!accepted.length) {
-      setError(rejected ? "사진 파일을 선택해주세요." : "사진을 선택해주세요.");
+      droppedVideoCountRef.current += rejectedVideos;
+      setError(noPhotosAddedNotice(rejectedVideos, rejectedOther > 0));
       return;
     }
     const { accepted: unique, duplicates } = dedupeSelectedPhotos(accepted, photos.map((photo) => photo.file));
@@ -179,7 +184,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
       );
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
-      if (rejected > 0) failures.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
+      droppedVideoCountRef.current += rejectedVideos;
+      failures.push(...droppedFileNotices(rejectedVideos, rejectedOther));
       setError(failures.length ? failures.join(" ") : null);
     } finally {
       setIsPreparing(false);
@@ -234,6 +240,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
       formData.append("description", "");
       formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ captured_at: photo.capturedAt }))));
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
+      // Demand signal only: how many videos the user tried to add (all filtered out).
+      formData.append("dropped_video_count", String(droppedVideoCountRef.current));
       const operationId = operationIdRef.current || crypto.randomUUID();
       operationIdRef.current = operationId;
       albumCreationTiming("UPLOAD_REQUEST_STARTED", { photo_count: photos.length });
