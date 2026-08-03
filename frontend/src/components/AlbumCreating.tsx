@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAlbum, getAlbumGenerationPreview, getAlbumGenerationStatus, retryAlbumGeneration, type AlbumGenerationStatus } from "../lib/api";
 import { albumCreationTiming, getAlbumCreationPreview, releaseAlbumCreationPreview } from "../lib/albumCreation";
+import { CREATION_PROGRESS_TICK_MS, initialCreationProgress, nextCreationProgress } from "../lib/creationProgress";
 import "./AlbumCreating.css";
 
 const STEP_COPY: Record<string, string> = {
@@ -20,6 +21,9 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
   const [retrying, setRetrying] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>(() => getAlbumCreationPreview(albumId)?.previewUrls ?? []);
   const [failedPreviews, setFailedPreviews] = useState<Set<string>>(() => new Set());
+  // Smoothly-eased display value; the server progress is only a target it moves toward.
+  const [displayProgress, setDisplayProgress] = useState(() => initialCreationProgress());
+  const targetProgress = useRef(initialCreationProgress());
   const startedAt = useRef(Date.now());
   const firstStatusAt = useRef<number | null>(null);
   const completedAt = useRef<number | null>(null);
@@ -125,6 +129,22 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
     };
   }, [albumId, poll]);
 
+  // The server progress is the target the bar eases toward; completion targets 100.
+  useEffect(() => {
+    if (job?.ready || job?.status === "completed") targetProgress.current = 100;
+    else if (job) targetProgress.current = Math.max(20, Math.min(100, job.progress));
+  }, [job]);
+
+  // Crawl the display value toward the target so a long server step never looks
+  // frozen. Runs whenever generation is not failed (the bar is hidden on failure).
+  useEffect(() => {
+    if (job?.status === "failed") return;
+    const id = window.setInterval(() => {
+      setDisplayProgress((current) => nextCreationProgress(current, targetProgress.current));
+    }, CREATION_PROGRESS_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [job?.status]);
+
   const retry = async () => {
     if (retrying) return;
     setRetrying(true);
@@ -144,7 +164,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
   };
 
   const failed = job?.status === "failed";
-  const progress = Math.max(20, Math.min(100, job?.progress ?? 20));
+  const progress = Math.round(displayProgress);
   const visiblePreviews = previewUrls.filter((url) => !failedPreviews.has(url)).slice(0, 5);
   return (
     <section className="album-creating" aria-live="polite">

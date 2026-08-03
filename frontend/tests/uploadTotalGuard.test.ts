@@ -23,7 +23,9 @@ test("a photo within the cap is allowed; one that would exceed it is blocked", (
 const src = readFileSync(new URL("../src/components/UploadForm.tsx", import.meta.url), "utf8");
 
 test("UploadForm blocks only the over-cap photo, keeping the existing selection", () => {
-  assert.match(src, /if \(!fitsWithinUploadTotal\(nextTotal, prepared\.size\)\) \{[\s\S]*?continue;/);
+  // Over-cap path skips just this photo (returns from the per-photo ready callback),
+  // then keeps delivering the rest.
+  assert.match(src, /if \(!fitsWithinUploadTotal\(nextTotal, prepared\.size\)\) \{[\s\S]*?return;/);
   assert.match(src, /20장 정도로 나눠서 앨범을 만들어 보세요\./);
   // No reset of the photo list on the over-cap path (only a skip).
   assert.doesNotMatch(src, /fitsWithinUploadTotal[\s\S]*?setPhotos\(\[\]\)/);

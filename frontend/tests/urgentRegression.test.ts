@@ -180,7 +180,7 @@ test("landing category selection stays on the landing screen until the album CTA
   assert.match(app, /onStart=\{\(selected\) => \{ setCategory\(selected\); setIsPhotoSelectionStep\(true\); \}\}/);
 });
 
-test("creating screen reuses at most five local previews, falls back after refresh, and polls without a fake progress timer", () => {
+test("creating screen reuses at most five local previews, falls back after refresh, and eases progress toward the server target", () => {
   const creating = component("AlbumCreating");
   const upload = component("UploadForm");
   const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
@@ -193,7 +193,10 @@ test("creating screen reuses at most five local previews, falls back after refre
   assert.match(creating, /await getAlbum\(albumId\)/);
   assert.match(creating, /releaseAlbumCreationPreview\(albumId\)/);
   assert.match(api, /generation-preview/);
-  assert.doesNotMatch(creating, /setInterval\(/);
+  // The progress timer is NOT fabricated: it eases the display toward a target
+  // derived from the real server job.progress (nextCreationProgress).
+  assert.match(creating, /nextCreationProgress\(current, targetProgress\.current\)/);
+  assert.match(creating, /targetProgress\.current = Math\.max\(20, Math\.min\(100, job\.progress\)\)/);
 });
 
 test("creation timing keeps object URLs in memory only and logs no file paths or signed urls", () => {

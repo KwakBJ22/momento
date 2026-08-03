@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-03, 회귀 복원 + 무료 한도 정책 변경 + 문구 정정)
+## 최신 세션 요약 (2026-08-03, 앨범 생성 체감 개선 3건 — 처리 로직 불변)
+
+측정: 와이파이 30장 = 준비 약 2분 + 생성 약 1분30초, 실패 없음. 속도·체감 문제.
+
+- **[1] 진행바 멈춤 체감 제거**. AlbumCreating이 서버 `job.progress`를 그대로 렌더 → 긴 단계에서 고정.
+  `lib/creationProgress.ts`(순수): 서버값을 **목표치**로 두고 표시값이 100ms마다 목표로 이징, 따라잡으면
+  목표+여유(≤+6)까지 아주 느리게 기어감(정지 안 함), **단조 증가**(서버가 낮은 값 줘도 뒤로 안 감),
+  완료 전 상한 99, 완료 시 100. AlbumCreating이 displayProgress state + targetProgress ref + setInterval로
+  이징. aria-valuenow=표시값. 실패 시 진행바 숨김 유지.
+- **[2] 준비 2분 무정보 해소**. UploadForm addFiles가 처리 장수를 state로 노출, 준비 문구를
+  "사진을 준비하고 있어요 · 30장 중 12장"으로(기존 upload-form__count 슬롯 재사용, aria-live polite 유지,
+  갱신은 장 단위=초 간격).
+- **[3] 준비시간 단축(보수적)**. addFiles 순차→**동시 2개**(`PREPARE_CONCURRENCY=2`, ⚠️ fbedc19 메모리
+  회귀 위험 영역, 올리지 말 것 주석). 순서 보존은 `lib/orderedPool.ts`(순수: 입력 순서대로 flush,
+  실패 건이 나머지 안 막음). 장당 setTimeout(0) 양보 유지. MAX_EDGE/미리보기800/업로드 API/서버
+  파이프라인/MAX_PHOTOS/40MB 가드 불변.
+- 테스트: `creationProgress.test`(이징·단조·상한·완료), `orderedPool.test`(입력순 delivery·실패 비차단·
+  동시성≤2). urgentRegression/uploadTotalGuard 바인딩 갱신. **frontend 141 / build / smoke(5·1skip).**
+  ⚠️ **[3] 안드로이드 30장 실기기 재확인 필요**(커밋 후 사용자 요청).
+
+## 이전 세션 요약 (2026-08-03, 회귀 복원 + 무료 한도 정책 변경 + 문구 정정)
 
 - **[1] 안드로이드 picker 갤러리 회귀 복원**. 5f65cd5(`image/*` 단독)이 실기기에서 오히려 **갤러리를
   누락**(카메라/파일만)시켰다. `IMAGE_ACCEPT`를 fe297f2 전체 목록(image/* + 명시 MIME + 확장자)으로 복원.

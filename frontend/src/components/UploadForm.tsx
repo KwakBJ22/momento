@@ -4,6 +4,7 @@ import { albumCreationTiming } from "../lib/albumCreation";
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
+import { runOrderedPool } from "../lib/orderedPool";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -13,6 +14,10 @@ import "./UploadForm.css";
 
 const MAX_PHOTOS = 30;
 const UPLOAD_TIMEOUT_MS = 600_000;
+// How many photos are decoded/encoded at once during preparation.
+// ⚠️ MEMORY-REGRESSION DANGER ZONE (fbedc19: many concurrent decodes restarted the
+// Android tab). 2 is safe because the preview is only 800px; DO NOT raise this.
+const PREPARE_CONCURRENCY = 2;
 
 interface UploadFormProps {
   category: AlbumCategory;
@@ -34,6 +39,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
+  // Progress of the current preparation batch, shown in the existing count slot.
+  const [preparingProgress, setPreparingProgress] = useState<{ done: number; total: number } | null>(null);
   // Reuse the existing error slot to prompt a re-pick after a restored step.
   const [error, setError] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
@@ -84,46 +91,67 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
 
     setIsPreparing(true);
     setError(null);
+    setPreparingProgress({ done: 0, total: limited.length });
     const failures: string[] = [];
     let nextTotal = totalUploadBytes;
+    let processed = 0;
     try {
-      for (const file of limited) {
-        if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
-          failures.push(`${file.name}: 이 사진은 용량이 너무 큽니다. 10MB 이하의 사진을 선택해주세요.`);
-          continue;
-        }
-        // EXIF failure must not drop the photo — capture date is optional.
-        let capturedAt: string | null = null;
-        try {
-          capturedAt = await extractOriginalCaptureDate(file);
-        } catch (cause) {
-          console.warn("Capture date extraction failed", { cause, fileName: file.name });
-        }
-        // One decode yields both the upload file and a small preview blob.
-        // Optimization failure falls back to the original file so no photo is lost.
-        const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
-        // Over the total cap: block only the NEW photo; keep everything already chosen.
-        if (!fitsWithinUploadTotal(nextTotal, prepared.size)) {
-          failures.push("사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.");
-          continue;
-        }
-        const item = createPhotoItem(prepared, previewBlob, capturedAt);
-        nextTotal += prepared.size;
-        // Reflect the real count immediately, one photo at a time, instead of
-        // staying at 0 until every image finishes resizing.
-        setPhotos((previous) => [...previous, item]);
-        setCoverPhotoId((current) => current || item.id);
-        // Yield a tick between photos so the decode/canvas buffers can be
-        // reclaimed before the next one — sequential processing is preserved,
-        // this only relieves the memory spike that restarts the Android tab.
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+      // Prepare up to PREPARE_CONCURRENCY photos at once for speed, but deliver the
+      // results in the user's selected order (runOrderedPool) so the album order is
+      // preserved. A photo that fails preparation is delivered as a failure and does
+      // NOT block the rest.
+      await runOrderedPool(
+        limited,
+        PREPARE_CONCURRENCY,
+        async (file) => {
+          if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
+            throw { tooBig: true, name: file.name };
+          }
+          // EXIF failure must not drop the photo — capture date is optional.
+          let capturedAt: string | null = null;
+          try {
+            capturedAt = await extractOriginalCaptureDate(file);
+          } catch (cause) {
+            console.warn("Capture date extraction failed", { cause, fileName: file.name });
+          }
+          // One decode yields both the upload file and a small preview blob.
+          // Optimization failure falls back to the original file so no photo is lost.
+          const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
+          // Yield a tick so decode/canvas buffers can be reclaimed before the next
+          // one starts — relieves the memory spike that restarts the Android tab.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          return { prepared, previewBlob, capturedAt };
+        },
+        (result) => {
+          // Called in selection order as each photo becomes ready.
+          processed += 1;
+          setPreparingProgress({ done: processed, total: limited.length });
+          if (!result.ok) {
+            const error = result.error as { tooBig?: boolean; name?: string } | undefined;
+            if (error?.tooBig) {
+              failures.push(`${error.name}: 이 사진은 용량이 너무 큽니다. 10MB 이하의 사진을 선택해주세요.`);
+            }
+            return;
+          }
+          const { prepared, previewBlob, capturedAt } = result.value;
+          // Over the total cap: block only this photo; keep everything already chosen.
+          if (!fitsWithinUploadTotal(nextTotal, prepared.size)) {
+            failures.push("사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.");
+            return;
+          }
+          const item = createPhotoItem(prepared, previewBlob, capturedAt);
+          nextTotal += prepared.size;
+          setPhotos((previous) => [...previous, item]);
+          setCoverPhotoId((current) => current || item.id);
+        },
+      );
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
       if (rejected > 0) failures.push("선택한 파일 중 사진이 아닌 항목은 제외했습니다.");
       setError(failures.length ? failures.join(" ") : null);
     } finally {
       setIsPreparing(false);
+      setPreparingProgress(null);
     }
   }, [isPreparing, photos.length, totalUploadBytes]);
 
@@ -243,7 +271,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         {showsSelectionCount(photos.length) ? (
           <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
         ) : null}
-        {isPreparing ? <p className="upload-form__count" aria-live="polite">사진을 업로드하기 좋게 준비하고 있습니다.</p> : null}
+        {isPreparing ? <p className="upload-form__count" aria-live="polite">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p> : null}
       </section>
       <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       {showsSubmitButton(photos.length) ? (
