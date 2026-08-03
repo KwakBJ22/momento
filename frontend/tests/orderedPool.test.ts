@@ -36,6 +36,28 @@ test("a failing item is delivered as a failure and does NOT block the rest", asy
   assert.deepEqual(seen.map((s) => s.ok), [true, false, true]); // the middle one failed
 });
 
+test("onSettled fires per completion (not per in-order flush) so a slow first item does not batch the counter", async () => {
+  // Item 0 is by far the slowest. onReady flushes in input order (0 last), but the
+  // progress counter (onSettled) must tick as 1,2,3 finish — not jump 0→4 at the end.
+  const delays = [40, 5, 8, 12];
+  const settledAt: number[] = [];
+  let counter = 0;
+  const counterAtSettle: number[] = [];
+  await runOrderedPool(
+    [0, 1, 2, 3],
+    2,
+    async (item) => { await wait(delays[item]); return item; },
+    () => {},
+    (index) => { settledAt.push(index); counter += 1; counterAtSettle.push(counter); },
+  );
+  // Settled in completion order (fast items before the slow index 0), and the counter
+  // increased one-by-one to the total.
+  assert.equal(settledAt.length, 4);
+  assert.notEqual(settledAt[settledAt.length - 1], undefined);
+  assert.ok(settledAt.indexOf(0) > 0, `slow item 0 settled after faster ones, order: ${settledAt}`);
+  assert.deepEqual(counterAtSettle, [1, 2, 3, 4]); // smooth increments, no chunk jump
+});
+
 test("respects the concurrency limit", async () => {
   let inFlight = 0;
   let maxInFlight = 0;

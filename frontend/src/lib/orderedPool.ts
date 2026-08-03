@@ -11,12 +11,18 @@ export type PoolResult<R> = { ok: true; value: R } | { ok: false; error: unknown
  * @param worker      async work for one item
  * @param onReady     called once per item, in input-index order, as soon as that
  *                    index AND all earlier indexes have finished
+ * @param onSettled   optional: called once per item the moment IT finishes (completion
+ *                    order, not input order). Ordering/results are unaffected — this is
+ *                    purely for progress, which must reflect real completions rather
+ *                    than waiting for the in-order flush (else the counter jumps in
+ *                    chunks when an early item is slow).
  */
 export async function runOrderedPool<T, R>(
   items: readonly T[],
   concurrency: number,
   worker: (item: T, index: number) => Promise<R>,
   onReady: (result: PoolResult<R>, index: number) => void,
+  onSettled?: (index: number) => void,
 ): Promise<void> {
   const results: (PoolResult<R> | undefined)[] = new Array(items.length);
   let nextFlush = 0;
@@ -38,6 +44,7 @@ export async function runOrderedPool<T, R>(
       } catch (error) {
         results[index] = { ok: false, error };
       }
+      onSettled?.(index);
       flush();
     }
   };

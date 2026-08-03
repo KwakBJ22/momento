@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAlbum, getAlbumGenerationPreview, getAlbumGenerationStatus, retryAlbumGeneration, type AlbumGenerationStatus } from "../lib/api";
 import { albumCreationTiming, getAlbumCreationPreview, releaseAlbumCreationPreview } from "../lib/albumCreation";
-import { CREATION_PROGRESS_TICK_MS, initialCreationProgress, nextCreationProgress } from "../lib/creationProgress";
+import { CREATION_PROGRESS_TICK_MS, estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../lib/creationProgress";
 import "./AlbumCreating.css";
 
 const STEP_COPY: Record<string, string> = {
@@ -21,9 +21,10 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
   const [retrying, setRetrying] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>(() => getAlbumCreationPreview(albumId)?.previewUrls ?? []);
   const [failedPreviews, setFailedPreviews] = useState<Set<string>>(() => new Set());
-  // Smoothly-eased display value; the server progress is only a target it moves toward.
+  // Time-driven display value; the server progress only corrects it upward (see
+  // creationProgress). Total time is estimated from the photo count when available.
   const [displayProgress, setDisplayProgress] = useState(() => initialCreationProgress());
-  const targetProgress = useRef(initialCreationProgress());
+  const totalMs = useRef(estimateTotalMs(getAlbumCreationPreview(albumId)?.photoCount));
   const startedAt = useRef(Date.now());
   const firstStatusAt = useRef<number | null>(null);
   const completedAt = useRef<number | null>(null);
@@ -129,21 +130,22 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
     };
   }, [albumId, poll]);
 
-  // The server progress is the target the bar eases toward; completion targets 100.
-  useEffect(() => {
-    if (job?.ready || job?.status === "completed") targetProgress.current = 100;
-    else if (job) targetProgress.current = Math.max(20, Math.min(100, job.progress));
-  }, [job]);
-
-  // Crawl the display value toward the target so a long server step never looks
-  // frozen. Runs whenever generation is not failed (the bar is hidden on failure).
+  // Advance the bar on elapsed time so the long story-generation step (which reports
+  // no server progress) never freezes it. The server value only pulls it up. Runs
+  // whenever generation is not failed (the bar is hidden on failure).
   useEffect(() => {
     if (job?.status === "failed") return;
     const id = window.setInterval(() => {
-      setDisplayProgress((current) => nextCreationProgress(current, targetProgress.current));
+      setDisplayProgress((current) => nextCreationProgress({
+        display: current,
+        elapsedMs: Date.now() - startedAt.current,
+        totalMs: totalMs.current,
+        serverProgress: job ? job.progress : null,
+        complete: Boolean(job?.ready || job?.status === "completed"),
+      }));
     }, CREATION_PROGRESS_TICK_MS);
     return () => window.clearInterval(id);
-  }, [job?.status]);
+  }, [job]);
 
   const retry = async () => {
     if (retrying) return;
@@ -177,7 +179,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
           ) : <span key={`placeholder-${index}`} aria-hidden="true" />)}
         </div>
         <p>{failed ? "사진은 안전하게 보관되어 있어요. 다시 시도해 주세요." : STEP_COPY[job?.current_step ?? "upload_completed"] ?? "앨범을 만들고 있어요"}</p>
-        {!failed && <><div className="album-creating__progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><span className="album-creating__working" aria-hidden="true">···</span><small>페이지를 닫아도 앨범은 계속 만들어져요.</small></>}
+        {!failed && <><div className="album-creating__progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${displayProgress.toFixed(1)}%` }} /></div><span className="album-creating__working" aria-hidden="true">···</span><small>페이지를 닫아도 앨범은 계속 만들어져요.</small></>}
         {error ? <p className="album-creating__error">{error}</p> : null}
         {failed ? <div className="album-creating__actions"><button type="button" onClick={() => void retry()} disabled={retrying}>{retrying ? "다시 준비하고 있어요" : "다시 시도"}</button><a href="/my-albums">내 앨범으로 이동</a></div> : null}
       </div>

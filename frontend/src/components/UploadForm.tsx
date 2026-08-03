@@ -19,12 +19,23 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 // Android tab). 2 is safe because the preview is only 800px; DO NOT raise this.
 const PREPARE_CONCURRENCY = 2;
 
+// Yield to the browser between heavy decodes so a paint can happen. requestAnimationFrame
+// guarantees the next frame is scheduled — so the prepare counter actually reaches the
+// screen instead of being starved until a scroll forces a repaint. Falls back to
+// setTimeout(0) where rAF is unavailable (older webviews / test env).
+function yieldToPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+}
+
 interface UploadFormProps {
   category: AlbumCategory;
   /** Set when the create step was restored after a tab restart: chosen files are
    *  gone, so prompt a re-pick through the existing error slot. */
   photosNeedReselect?: boolean;
-  onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number }) => void;
+  onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number; photoCount: number }) => void;
   onCancel?: () => void;
 }
 
@@ -94,7 +105,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     setPreparingProgress({ done: 0, total: limited.length });
     const failures: string[] = [];
     let nextTotal = totalUploadBytes;
-    let processed = 0;
+    let settledCount = 0;
     try {
       // Prepare up to PREPARE_CONCURRENCY photos at once for speed, but deliver the
       // results in the user's selected order (runOrderedPool) so the album order is
@@ -117,15 +128,14 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           // One decode yields both the upload file and a small preview blob.
           // Optimization failure falls back to the original file so no photo is lost.
           const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
-          // Yield a tick so decode/canvas buffers can be reclaimed before the next
-          // one starts — relieves the memory spike that restarts the Android tab.
-          await new Promise((resolve) => setTimeout(resolve, 0));
+          // Yield a frame so decode/canvas buffers can be reclaimed AND the counter
+          // paints before the next one starts — relieves the memory spike that
+          // restarts the Android tab and keeps the progress visible without a scroll.
+          await yieldToPaint();
           return { prepared, previewBlob, capturedAt };
         },
         (result) => {
-          // Called in selection order as each photo becomes ready.
-          processed += 1;
-          setPreparingProgress({ done: processed, total: limited.length });
+          // Input order: append photos so the album keeps the user's selected order.
           if (!result.ok) {
             const error = result.error as { tooBig?: boolean; name?: string } | undefined;
             if (error?.tooBig) {
@@ -143,6 +153,12 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           nextTotal += prepared.size;
           setPhotos((previous) => [...previous, item]);
           setCoverPhotoId((current) => current || item.id);
+        },
+        () => {
+          // Completion order: advance the counter the instant a photo finishes, so it
+          // climbs smoothly instead of jumping in chunks when an early photo is slow.
+          settledCount += 1;
+          setPreparingProgress({ done: settledCount, total: limited.length });
         },
       );
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
@@ -216,6 +232,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         previewUrls: photos.slice(0, 5).map((photo) => photo.previewUrl),
         submittedAt,
         responseAt,
+        photoCount: photos.length,
       });
     } catch (cause: unknown) {
       // Visibility diagnostics: a TypeError here is likely a fetch killed by the
@@ -271,7 +288,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         {showsSelectionCount(photos.length) ? (
           <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
         ) : null}
-        {isPreparing ? <p className="upload-form__count" aria-live="polite">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p> : null}
+        {isPreparing ? <p className="upload-form__count upload-form__count--sticky" aria-live="polite">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p> : null}
       </section>
       <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       {showsSubmitButton(photos.length) ? (

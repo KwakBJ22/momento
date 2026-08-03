@@ -218,6 +218,20 @@
   font-weight: 700;
 }
 
+/* While preparing, pin the progress line to the top so it stays visible even when the
+   user scrolls down to read the photos already added. Released automatically when
+   preparation ends (the element is unmounted). Uses the existing count slot — no new
+   UI. The fixed bottom navigation is unaffected (this sticks to the top). */
+.upload-form__count--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0.5rem 0;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+}
+
 .upload-form__submit {
   width: 100%;
   min-height: 52px;

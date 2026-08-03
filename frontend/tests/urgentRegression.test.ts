@@ -193,10 +193,12 @@ test("creating screen reuses at most five local previews, falls back after refre
   assert.match(creating, /await getAlbum\(albumId\)/);
   assert.match(creating, /releaseAlbumCreationPreview\(albumId\)/);
   assert.match(api, /generation-preview/);
-  // The progress timer is NOT fabricated: it eases the display toward a target
-  // derived from the real server job.progress (nextCreationProgress).
-  assert.match(creating, /nextCreationProgress\(current, targetProgress\.current\)/);
-  assert.match(creating, /targetProgress\.current = Math\.max\(20, Math\.min\(100, job\.progress\)\)/);
+  // The progress bar is time-driven (so the ~1min story step never freezes it) with the
+  // real server job.progress passed in only as an upward correction (nextCreationProgress).
+  assert.match(creating, /nextCreationProgress\(\{/);
+  assert.match(creating, /serverProgress: job \? job\.progress : null/);
+  assert.match(creating, /elapsedMs: Date\.now\(\) - startedAt\.current/);
+  assert.match(creating, /estimateTotalMs\(getAlbumCreationPreview\(albumId\)\?\.photoCount\)/);
 });
 
 test("creation timing keeps object URLs in memory only and logs no file paths or signed urls", () => {

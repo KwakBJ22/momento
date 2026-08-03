@@ -2,6 +2,9 @@ type CreationPreviewState = {
   previewUrls: string[];
   submittedAt: number;
   responseAt: number;
+  /** How many photos were submitted — used to estimate creation time. Optional so a
+   *  reloaded /creating page (no preview state) still works with a default. */
+  photoCount?: number;
 };
 
 const previewState = new Map<string, CreationPreviewState>();

@@ -1,45 +1,91 @@
-// Pure easing for the album-creation progress bar. The server reports a target
-// (job.progress) that jumps between steps; the on-screen bar eases toward that
-// target and, once caught up, crawls slowly so a long step never looks frozen —
-// while never exceeding a ceiling (100 is reached only on completion) and never
-// moving backward (monotonic), even if the server reports a lower value.
+// Progress bar for album creation. The bar is driven by ELAPSED TIME, not by the
+// server's job.progress — because the server cannot report intermediate progress for
+// the story-generation step (a single call that runs ~1 minute with no updates), so
+// waiting on the server value made the bar freeze there. Time-based advance keeps it
+// moving; the server value is only a correction that pulls the bar UP if it lags.
+// The function is pure (all inputs passed in) so its behaviour is unit-testable.
 
 export const CREATION_PROGRESS_TICK_MS = 100;
 
-const FLOOR = 20;            // matches the server's starting progress
-const CEILING = 99;          // auto-progress never fills the last %; completion does
-const APPROACH_RATE = 0.12;  // fraction of the remaining gap eased per tick when catching up
-const APPROACH_MIN_STEP = 0.4; // guarantees visible motion while catching up
-const CREEP_MARGIN = 6;      // how far past the server target the bar may crawl
-const CREEP_STEP = 0.12;     // slow crawl per tick once caught up
+// Total-time estimate from photo count: total = BASE_MS + PER_PHOTO_MS * count.
+// Calibrated to a measured baseline (~30 photos over Wi-Fi ≈ 90s → 20000 + 2500*30).
+const BASE_MS = 20_000;
+const PER_PHOTO_MS = 2_500;
+const DEFAULT_PHOTO_COUNT = 30; // when the count is unknown
+
+const START_FLOOR = 3;       // small non-empty start so the bar reads as "alive" at once
+const TIME_CAP = 95;         // time-based fill never exceeds this; only server/completion may
+const CEILING = 99;          // crawl target once the estimate is exceeded; 100 = completion only
+const CREEP_PER_SEC = 0.05;  // very slow 95→99 crawl after the estimate is exceeded (spec)
+// Guaranteed motion while still within the estimate. Covers the case where the server
+// pulled the bar ahead of the time curve and then went silent (story generation): the
+// bar keeps inching up instead of freezing at the last server value. ~0.3%/s.
+const LIVE_STEP_PER_TICK = 0.03;
+const COMPLETE_RATE = 0.25;  // fraction of the remaining gap eased per tick when finishing
+const COMPLETE_MIN_STEP = 1; // guarantees a fast, visible finish to 100
+
+export function estimateTotalMs(photoCount?: number | null): number {
+  const count = photoCount && photoCount > 0 ? Math.floor(photoCount) : DEFAULT_PHOTO_COUNT;
+  return BASE_MS + PER_PHOTO_MS * count;
+}
 
 export function initialCreationProgress(): number {
-  return FLOOR;
+  return START_FLOOR;
+}
+
+// Smoothstep (easeInOut): gentle at the start so the early seconds don't inflate (the
+// bug was the bar shooting past half in ~30s), steepest through the middle — exactly
+// the window where the single story-generation call reports nothing — then gentle
+// again as it approaches the cap.
+function smoothstep(t: number): number {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * (3 - 2 * c);
+}
+
+export interface CreationProgressInput {
+  /** Current on-screen value (kept for monotonicity). */
+  display: number;
+  /** Milliseconds since creation started. */
+  elapsedMs: number;
+  /** Estimated total duration (see estimateTotalMs). */
+  totalMs: number;
+  /** Latest server job.progress (0–100), or null if unknown. */
+  serverProgress: number | null;
+  /** True once the album is ready/completed. */
+  complete: boolean;
 }
 
 /**
- * Next displayed progress (0–100) given the current display value and the server
- * target. Monotonic (never returns less than `display`); caps below 100 until the
- * server target itself reaches 100 (completion), then eases smoothly to 100.
+ * Next displayed progress (0–100). Monotonic (never below `display`). Advances on
+ * elapsed time regardless of the server; the server value only pulls it up. Caps below
+ * 100 until completion, then eases quickly to exactly 100.
  */
-export function nextCreationProgress(display: number, serverTarget: number): number {
-  const target = Math.max(FLOOR, Math.min(100, serverTarget));
+export function nextCreationProgress(input: CreationProgressInput): number {
+  const { display, elapsedMs, totalMs, serverProgress, complete } = input;
 
-  if (target >= 100) {
-    // Completion: fill smoothly all the way to 100.
-    const eased = display + Math.max((100 - display) * APPROACH_RATE, APPROACH_MIN_STEP);
+  if (complete) {
+    const eased = display + Math.max((100 - display) * COMPLETE_RATE, COMPLETE_MIN_STEP);
     return Math.min(100, Math.max(display, eased));
   }
 
-  if (display < target) {
-    // Behind the server: ease up to it with a guaranteed minimum step (don't overshoot).
-    const eased = display + Math.max((target - display) * APPROACH_RATE, APPROACH_MIN_STEP);
-    return Math.min(target, eased);
+  const frac = totalMs > 0 ? elapsedMs / totalMs : 1;
+  let value: number;
+  if (frac <= 1) {
+    value = START_FLOOR + (TIME_CAP - START_FLOOR) * smoothstep(frac);
+    // Never frozen: even if the server pulled us ahead of this curve and then stalled,
+    // guarantee a small upward step so the bar keeps living during story generation.
+    value = Math.max(value, Math.min(CEILING, display + LIVE_STEP_PER_TICK));
+  } else {
+    // Past the estimate: crawl very slowly toward the ceiling until completion arrives.
+    const overSec = (elapsedMs - totalMs) / 1000;
+    value = Math.min(CEILING, TIME_CAP + overSec * CREEP_PER_SEC);
   }
 
-  // Caught up: crawl a little past the target so a long step keeps moving, but never
-  // reach the ceiling until the server reports completion. max(display, …) keeps it
-  // monotonic if the server ever reports a lower target than the current display.
-  const creepCap = Math.min(CEILING, target + CREEP_MARGIN);
-  return Math.max(display, Math.min(creepCap, display + CREEP_STEP));
+  // The server value only ever pulls the bar UP (prevents lag), never back, and never
+  // to 100 (completion does that). A server value below the current display is ignored.
+  if (serverProgress !== null && serverProgress > value) {
+    value = Math.min(CEILING, serverProgress);
+  }
+
+  return Math.max(display, value);
 }

@@ -1,40 +1,73 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { initialCreationProgress, nextCreationProgress } from "../src/lib/creationProgress";
+import { estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../src/lib/creationProgress";
 
-test("starts at the floor (20)", () => {
-  assert.equal(initialCreationProgress(), 20);
+const TOTAL = estimateTotalMs(30); // measured baseline ≈ 95s
+
+test("starts at a small non-empty floor", () => {
+  assert.equal(initialCreationProgress(), 3);
 });
 
-test("eases up toward a higher server target and crawls a little past it", () => {
+test("keeps advancing even while the server value is frozen for 60s (the core regression)", () => {
   let p = initialCreationProgress();
-  for (let i = 0; i < 500; i += 1) p = nextCreationProgress(p, 40);
-  assert.ok(p >= 40, `should reach the target 40, got ${p}`);
-  assert.ok(p <= 46.001, `should not crawl far past target+margin(6), got ${p}`);
-  assert.ok(p < 99);
-});
-
-test("is monotonic — never goes backward even if the server reports a lower value", () => {
-  assert.ok(nextCreationProgress(60, 30) >= 60);
-  assert.ok(nextCreationProgress(50, 50) >= 50);
-  assert.ok(nextCreationProgress(20, 20) >= 20);
-});
-
-test("never looks frozen — at the target it still creeps forward", () => {
-  assert.ok(nextCreationProgress(40, 40) > 40);
-});
-
-test("never reaches 100 until the server target itself is 100", () => {
-  let p = initialCreationProgress();
-  for (let i = 0; i < 10_000; i += 1) p = nextCreationProgress(p, 95);
-  assert.ok(p <= 99, `ceiling is 99 before completion, got ${p}`);
+  // First 30s: server reports 50 and the bar catches up to it.
+  for (let t = 0; t <= 30_000; t += 100) {
+    p = nextCreationProgress({ display: p, elapsedMs: t, totalMs: TOTAL, serverProgress: 50, complete: false });
+  }
+  const at30 = p;
+  // Next 60s: server STAYS at 50 (the story-generation gap). The bar must keep moving.
+  for (let t = 30_100; t <= 90_000; t += 100) {
+    p = nextCreationProgress({ display: p, elapsedMs: t, totalMs: TOTAL, serverProgress: 50, complete: false });
+  }
+  assert.ok(p > at30 + 5, `bar must climb while the server is frozen: ${at30} -> ${p}`);
   assert.ok(p < 100);
 });
 
-test("fills smoothly to exactly 100 on completion and stays there", () => {
+test("never goes backward when the server reports a lower value", () => {
+  const p = nextCreationProgress({ display: 70, elapsedMs: 40_000, totalMs: TOTAL, serverProgress: 30, complete: false });
+  assert.ok(p >= 70, `stayed monotonic, got ${p}`);
+});
+
+test("pulls up to a higher server value (prevents lag)", () => {
+  const p = nextCreationProgress({ display: 20, elapsedMs: 5_000, totalMs: TOTAL, serverProgress: 80, complete: false });
+  assert.ok(p >= 80, `should jump up to the server value, got ${p}`);
+  assert.ok(p <= 99);
+});
+
+test("past the estimate it crawls very slowly and stays under 99", () => {
+  const early = nextCreationProgress({ display: 95, elapsedMs: TOTAL + 10_000, totalMs: TOTAL, serverProgress: null, complete: false });
+  assert.ok(early > 95 && early <= 99, `crawls above 95 slowly, got ${early}`);
+
+  let q = 95;
+  for (let t = TOTAL; t <= TOTAL + 600_000; t += 1000) {
+    q = nextCreationProgress({ display: q, elapsedMs: t, totalMs: TOTAL, serverProgress: null, complete: false });
+  }
+  assert.ok(q > 95, `keeps inching forward, got ${q}`);
+  assert.ok(q <= 99, `never reaches 100 before completion, got ${q}`);
+});
+
+test("fills to exactly 100 on completion and never exceeds it", () => {
   let p = 80;
-  for (let i = 0; i < 500; i += 1) p = nextCreationProgress(p, 100);
+  for (let i = 0; i < 500; i += 1) {
+    p = nextCreationProgress({ display: p, elapsedMs: 100_000, totalMs: TOTAL, serverProgress: 100, complete: true });
+  }
   assert.equal(p, 100);
-  assert.equal(nextCreationProgress(100, 100), 100);
+  assert.equal(nextCreationProgress({ display: 100, elapsedMs: 0, totalMs: TOTAL, serverProgress: 100, complete: true }), 100);
+});
+
+test("works with an unknown photo count via the default estimate", () => {
+  assert.equal(estimateTotalMs(undefined), estimateTotalMs(30));
+  assert.equal(estimateTotalMs(null), estimateTotalMs(30));
+  assert.equal(estimateTotalMs(0), estimateTotalMs(30));
+  // Still advances on time with the default total.
+  const total = estimateTotalMs(undefined);
+  const a = nextCreationProgress({ display: 3, elapsedMs: 0, totalMs: total, serverProgress: null, complete: false });
+  const b = nextCreationProgress({ display: a, elapsedMs: 30_000, totalMs: total, serverProgress: null, complete: false });
+  assert.ok(b > a, `advances on time even without a server value: ${a} -> ${b}`);
+});
+
+test("estimate scales with photo count", () => {
+  assert.ok(estimateTotalMs(30) > estimateTotalMs(10));
+  assert.equal(estimateTotalMs(10), 20_000 + 2_500 * 10);
 });

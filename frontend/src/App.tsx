@@ -287,8 +287,8 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: result.image_url, linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={result.cover_image_url || result.image_url} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onSuccess={({ albumId, previewUrls, submittedAt, responseAt }) => {
-            saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt });
+          ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onSuccess={({ albumId, previewUrls, submittedAt, responseAt, photoCount }) => {
+            saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt, photoCount });
             // Creation succeeded — the persisted step is no longer needed.
             setCategory(null);
             setIsPhotoSelectionStep(false);
