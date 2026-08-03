@@ -3,7 +3,30 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-03, 계측 이벤트명 전용화 — 한도/어뷰징 신호 분리, PO 승인)
+## 최신 세션 요약 (2026-08-04, 게스트 앨범 데이터 위생 + 삭제 RPC 가드 보강)
+
+버려진 게스트 앨범(주인 없음·미claim·만료)과 고아 Storage 객체를 정리하는 운영 도구.
+`scripts/cleanup_guest_albums.py`(dry-run 기본, 모드 A 삭제 / 모드 B 리포트) +
+`app/services/guest_album_cleanup.py`. 삭제 순서는 계정 탈퇴와 동일(에셋 경로 스냅샷 →
+`delete_abandoned_guest_album` RPC → `cleanup_album_files`). 상세는 OPERATIONS.md.
+
+- **왜 새 RPC**: 기존 `delete_album_cascade`는 actor=owner/created_by 인증이라 ownerless
+  게스트 앨범을 못 지운다 → owner/created_by NULL·claim 세션 없음·**살아있는(미만료) 세션
+  없음**을 SQL에서 재검사하는 `delete_abandoned_guest_album(uuid)` RPC 추가.
+  **불변식(미소유·미claim·비활성)은 SQL, 7일 유예 정책은 Python** 에 둔다(가드 vs 정책 분리).
+
+### Migration 상태 (중요)
+| Migration | 상태 |
+| --- | --- |
+| `20260803130000_guest_session_ttl_7d` (세션 TTL 24h→7d) | **적용 완료** |
+| `20260803130001_delete_abandoned_guest_album` (삭제 RPC) | **적용 완료** — 단, 가드 보강본(`s2.expires_at > now()` 추가)으로 **재실행 대기** |
+
+> ⚠️ **이미 적용된 migration 파일은 사후 수정하지 않고 새 migration으로 간다.** 이번엔
+> `CREATE OR REPLACE FUNCTION` + 단일 환경이라 같은 `130001` 파일을 다시 실행해 함수를
+> 교체하는 예외를 택했지만, 재적용·스테이징/프로덕션 다중 환경에서는 적용본과 파일이
+> 어긋나 사고가 난다. 다음부터 스키마 변경은 항상 새 파일(예: `20260803140000_*`)로.
+
+## 이전 세션 요약 (2026-08-03, 계측 이벤트명 전용화 — 한도/어뷰징 신호 분리, PO 승인)
 
 원인: `analytics_events.event_name` CHECK에 없는 이름은 못 써서, 한도 거절을
 `upload_failed` + `metadata.error_code`로 우회 기록 → (a)업로드 실패율 오염 (b)claim 거절이
