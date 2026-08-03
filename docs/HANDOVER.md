@@ -3,7 +3,27 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-02, 업로드 총량 가드 40MB 현실화)
+## 최신 세션 요약 (2026-08-03, 회귀 복원 + 무료 한도 정책 변경 + 문구 정정)
+
+- **[1] 안드로이드 picker 갤러리 회귀 복원**. 5f65cd5(`image/*` 단독)이 실기기에서 오히려 **갤러리를
+  누락**(카메라/파일만)시켰다. `IMAGE_ACCEPT`를 fe297f2 전체 목록(image/* + 명시 MIME + 확장자)으로 복원.
+  주석은 실기기 결과로 재작성(순서는 안드로이드 인텐트 선택기가 정함, 웹 제어 불가). imageAccept 테스트도
+  전체 목록 계약으로 복원(image/* 포함 + Upload/Contribute 바인딩 유지). isAcceptedImageFile/filter 불변.
+- **[2] 무료 한도 정책 변경(PO)**: 앨범 개수 제한 사실상 해제. `max_albums_per_user 3→50`(유료화 한도 아님,
+  **어뷰징 방어 상한**). Landing 사전 안내 게이트 제거(`lib/albumLimit.ts`·`albumLimit.test.ts` 삭제,
+  `.landing__limit-notice` CSS 제거). App은 bootstrap album_count/max_albums를 계속 state에 보관(유료 플랜용).
+  백엔드 403 문구를 어뷰징 방어 문구로 변경("앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.",
+  숫자·유료 유도 없음) — 생성·claim 양쪽. **`album_limit_reached` 이벤트 의미 변경: 유료화 근거 아님 →
+  어뷰징 탐지 신호.** plan_limits 구조(get_user_limits/count_owned_albums)는 유지. 무료 경계는 결과물
+  (고해상도 PDF·원본·인쇄)로 이동 — PRODUCT_BACKLOG 갱신.
+- **[3] 사진 장수 문구 정정**(숫자 30 불변). max_photos 30은 "한 번의 업로드" 제한이지 앨범 총량이 아님.
+  UploadForm 부제 "최대 30장까지 고를 수 있어요"→"한 번에 30장까지 담을 수 있어요. 다 담지 못했다면 앨범을
+  만든 뒤에 더 추가할 수 있어요." + 드롭존 문구도 동일 취지 정정. MAX_PHOTOS·백엔드 max_photos 불변.
+- **[4] 함께 커밋**: Cowork가 수정한 CLAUDE.md(§1 관계 기반 결과물, §9 온디바이스 얼굴 인식)와
+  docs/PRIVACY_POLICY.md(§1.4 얼굴정보 미수집)를 내용 변경 없이 커밋. `*.bak.*` 백업은 커밋 제외.
+- 검증: backend pytest / frontend test / build / smoke. **[1] 안드로이드 실기기 재확인은 사용자 몫**(커밋 후 요청).
+
+## 이전 세션 요약 (2026-08-02, 업로드 총량 가드 40MB 현실화)
 
 `MAX_TOTAL_UPLOAD_BYTES` 100MB는 모바일에서 성공 불가라 사실상 무한 → 실패가 "네트워크 연결을
 확인해주세요"로 원인 불명. **40MB로 하향**(`optimizeImageFile.ts`, 상수 그대로 사용). 순수 함수

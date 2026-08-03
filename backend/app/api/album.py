@@ -474,14 +474,16 @@ async def upload_album(
     # guest has no family, so skip family provisioning and leave owner/family null.
     # Guests own nothing, so the album limit does not apply to them.
     if authenticated_user_id:
-        # Limit check runs BEFORE any photo processing / Storage upload — refusing
-        # after 30 photos were uploaded would be the worst experience.
+        # Abuse-protection ceiling (see config.max_albums_per_user) — normal users
+        # never reach it. Checked BEFORE any photo processing / Storage upload.
         limits = get_user_limits(authenticated_user_id)
         if count_owned_albums(client, authenticated_user_id) >= limits["max_albums"]:
+            # album_limit_reached: NOT a monetization signal — it's an abuse-detection
+            # signal now that the ceiling is high. Don't expose the number or upsell.
             log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
             raise HTTPException(
                 status_code=403,
-                detail=f"앨범은 {limits['max_albums']}개까지 만들 수 있어요. 기존 앨범을 정리하시면 새로 만들 수 있어요.",
+                detail="앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.",
             )
         family_id = ensure_default_family(client, authenticated_user_id)
         family_membership = get_family_membership(client, family_id, authenticated_user_id)
@@ -1948,10 +1950,11 @@ async def claim_guest_album(
         # session's expiry out 7 days so the user can tidy up and save it later.
         # We never delete an album to enforce the limit.
         guest_album_service.extend_guest_session(client, body.guest_token, days=7)
+        # album_limit_reached: abuse-detection signal, not a paywall. Don't expose the number.
         log_event(client, "upload_failed", metadata={"error_code": "album_limit_reached", "owner_id": authenticated_user_id})
         raise HTTPException(
             status_code=403,
-            detail=f"앨범 {limits['max_albums']}개를 이미 가지고 계세요. 기존 앨범을 정리하시면 이 앨범을 저장할 수 있어요.",
+            detail="앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.",
         )
     family_id = ensure_default_family(client, authenticated_user_id)
     album_id = guest_album_service.claim_guest_album(client, body.guest_token, authenticated_user_id, family_id)

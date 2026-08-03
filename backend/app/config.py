@@ -34,9 +34,14 @@ class Settings(BaseSettings):
     prompt_hot_reload: bool | None = None
 
     max_photos: int = 30
-    # Free-tier cap on albums a single user may own. The single source of truth —
-    # read it only through plan_limits.get_user_limits, never inline. Env: MAX_ALBUMS_PER_USER.
-    max_albums_per_user: int = 3
+    # Abuse-protection ceiling on albums a single user may own — NOT a paywall.
+    # Album creation is a growth path (create → 카톡 share → new users) and album
+    # count doesn't track real cost, so the free boundary lives at the OUTPUT
+    # (high-res PDF / original download / physical print), not at creation. 50 is a
+    # number normal users never reach; it only stops runaway/abusive creation.
+    # Still the single source of truth — read it only through
+    # plan_limits.get_user_limits, never inline. Env: MAX_ALBUMS_PER_USER.
+    max_albums_per_user: int = 50
     max_file_size_mb: int = 10
     max_total_upload_size_mb: int = 100
 

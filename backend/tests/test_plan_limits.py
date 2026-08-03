@@ -39,8 +39,9 @@ class OwnedAlbumCountTests(TestCase):
         self.assertEqual(count_owned_albums(client, USER_ID), 2)
 
     def test_default_limits_come_from_settings(self) -> None:
+        # 50 is now an abuse ceiling, not a paywall (normal users never reach it).
         limits = get_user_limits(USER_ID)
-        self.assertEqual(limits["max_albums"], 3)
+        self.assertEqual(limits["max_albums"], 50)
         self.assertEqual(limits["max_photos"], 30)
 
 
@@ -74,19 +75,21 @@ class CreationLimitTests(TestCase):
             data={"stories": json.dumps([{"order": 0, "user": "", "text": "x"}]), "category": "friend"},
         )
 
-    def test_at_the_limit_creation_is_refused_before_any_storage_upload(self) -> None:
-        client = FakeSupabase({"albums": [_album("a1", USER_ID), _album("a2", USER_ID), _album("a3", USER_ID)]})
+    def test_at_the_abuse_ceiling_creation_is_refused_before_any_storage_upload(self) -> None:
+        # At the ceiling (50) creation is refused with an abuse message — no number,
+        # no upsell — before any photo processing.
+        client = FakeSupabase({"albums": [_album(f"a{i}", USER_ID) for i in range(50)]})
         api = self._app(client, user=USER_ID)
         resp = self._post(api)
         self.assertEqual(resp.status_code, 403)
-        self.assertIn("3개까지", resp.json()["detail"])
+        self.assertEqual(resp.json()["detail"], "앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.")
         # The limit check runs before photo processing — Storage was never touched.
         self.storage_spy.assert_not_called()
         # No new album row was created.
-        self.assertEqual(len(client.tables["albums"]), 3)
+        self.assertEqual(len(client.tables["albums"]), 50)
 
     def test_under_the_limit_the_creation_gate_is_passed(self) -> None:
-        # 2 < 3 → not refused on the limit. We stop the pipeline right after the
+        # 2 < 50 → not refused on the limit. We stop the pipeline right after the
         # gate (ensure_default_family) to prove the gate let it through without
         # running the heavy upload path.
         client = FakeSupabase({"albums": [_album("a1", USER_ID), _album("a2", USER_ID)]})
@@ -134,13 +137,13 @@ class GuestClaimLimitTests(TestCase):
             p.stop()
 
     def test_claim_over_the_limit_is_refused_without_deleting_and_extends_the_session(self) -> None:
-        client = FakeSupabase({"albums": [_album("o1", USER_ID), _album("o2", USER_ID), _album("o3", USER_ID)]})
+        client = FakeSupabase({"albums": [_album(f"o{i}", USER_ID) for i in range(50)]})
         token = self._guest_album(client)
         api = self._app(client)
         resp = api.post("/api/guest-albums/claim", json={"guest_token": token})
 
         self.assertEqual(resp.status_code, 403)
-        self.assertIn("이미 가지고", resp.json()["detail"])
+        self.assertEqual(resp.json()["detail"], "앨범을 너무 많이 만들었어요. 잠시 후 다시 시도해 주세요.")
         # The album is NOT deleted and NOT claimed — data preserved.
         album = get_album_record(client, self.ALBUM_ID)
         self.assertIsNotNone(album)

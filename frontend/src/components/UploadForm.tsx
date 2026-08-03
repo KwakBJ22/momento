@@ -221,7 +221,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     <div className="upload-form story-first-upload">
       <header className="upload-form__intro">
         <h1 className="upload-form__title">어떤 사진을 담을까요?</h1>
-        <p className="upload-form__subtitle">최대 {MAX_PHOTOS}장까지 고를 수 있어요.<br />고른 순서가 아니라 찍은 날짜로 정리돼요.</p>
+        <p className="upload-form__subtitle">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 다 담지 못했다면 앨범을 만든 뒤에 더 추가할 수 있어요.<br />고른 순서가 아니라 찍은 날짜로 정리돼요.</p>
       </header>
       <section className="upload-form__picker" aria-label="사진 선택">
         {/* Primary until photos exist; once chosen it steps down to secondary and the
@@ -237,7 +237,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         {showsEmptyState(photos.length) ? (
           <div className="drop-zone" role="button" tabIndex={0} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("drop-zone--active"); }} onDragLeave={(event) => event.currentTarget.classList.remove("drop-zone--active")} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("drop-zone--active"); void addFiles(event.dataTransfer.files); }}>
             <p className="drop-zone__title">고른 사진이 여기에 모여요</p>
-            <p className="drop-zone__hint">사진을 최대 {MAX_PHOTOS}장까지 선택할 수 있습니다.</p>
+            <p className="drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
           </div>
         ) : null}
         {showsSelectionCount(photos.length) ? (

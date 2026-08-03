@@ -22,7 +22,6 @@ import { authenticatedFetch, claimGuestAlbum, deleteAccount, getAlbum, getAlbumP
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
-import { isAlbumLimitReached } from "./lib/albumLimit";
 import { authDebug } from "./lib/authDebug";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
@@ -64,7 +63,9 @@ function App() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   // Album cap from /auth/bootstrap — used to warn before the create flow (backend enforces).
-  const [albumLimit, setAlbumLimit] = useState<{ count: number; max: number } | null>(null);
+  // Bootstrap still records album_count/max_albums in state; the creation gate is
+  // removed (limit is now an abuse ceiling, not a paywall). Kept for a future paid plan.
+  const [, setAlbumLimit] = useState<{ count: number; max: number } | null>(null);
   const { shareAlbum } = useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const creatingAlbumId = getCreatingAlbumIdFromPath();
@@ -250,9 +251,6 @@ function App() {
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
   const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin(); };
-  // Only logged-in users are capped; guests are unaffected. Backend enforces this.
-  const albumLimitReached = isAlbumLimitReached(Boolean(user), albumLimit);
-  const albumLimitMessage = albumLimit ? `앨범은 ${albumLimit.max}개까지 만들 수 있어요. 기존 앨범을 정리하시면 새로 만들 수 있어요.` : undefined;
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
@@ -297,7 +295,7 @@ function App() {
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} albumLimitReached={albumLimitReached} albumLimitMessage={albumLimitMessage} />}
+          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} />}
       </main>
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
