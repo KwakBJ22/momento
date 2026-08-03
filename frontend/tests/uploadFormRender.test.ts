@@ -34,8 +34,16 @@ const source = readFileSync(new URL("../src/components/UploadForm.tsx", import.m
 test("UploadForm gates its render on the tested branch functions", () => {
   assert.match(source, /showsSubmitButton\(photos\.length\) \?/);
   assert.match(source, /showsEmptyState\(photos\.length\) \?/);
-  assert.match(source, /showsSelectionCount\(photos\.length\) \?/);
+  assert.match(source, /showsSelectionCount\(photos\.length\)/);
   assert.match(source, /pickButtonLabel\(photos\.length\)/);
+});
+
+test("selection count and prepare progress never render at the same time", () => {
+  // The duplicate-count bug: both the selection count and the prepare progress showed
+  // "30장 중 4장". The selection count must be suppressed while preparing.
+  assert.match(source, /showsSelectionCount\(photos\.length\) && !isPreparing \?/);
+  // The prepare block renders only while preparing — the two conditions are exclusive.
+  assert.match(source, /\{isPreparing \? \(/);
 });
 
 test("the camera input keeps its capture attribute (behaviour must not change)", () => {

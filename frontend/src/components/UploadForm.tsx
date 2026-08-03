@@ -301,7 +301,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
             <p className="drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
           </div>
         ) : null}
-        {showsSelectionCount(photos.length) ? (
+        {showsSelectionCount(photos.length) && !isPreparing ? (
           <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
         ) : null}
       </section>
