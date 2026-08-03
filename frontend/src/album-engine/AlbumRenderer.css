@@ -45,7 +45,9 @@
   margin: 0;
   padding: 0.75rem;
   box-sizing: border-box;
-  border: 1px solid var(--c-border);
+  /* Card boundary on white: --c-border (1.56:1) reads as a render error, so use
+     --c-border-strong (2.16:1). Thickness/radius/layout unchanged. See DESIGN_SYSTEM §1. */
+  border: 1px solid var(--c-border-strong);
   border-radius: 9px;
   background: var(--c-surface);
   box-shadow: var(--sh-md);
@@ -152,7 +154,7 @@
   padding: clamp(1.25rem, 4vw, 2.5rem);
   /* No background color in album body (§6): it prints as ink on every page and
      competes with the photos. Section break comes from the margin + top border. */
-  border-top: 1px solid var(--c-border);
+  border-top: 1px solid var(--c-border-strong);
   background: transparent;
 }
 

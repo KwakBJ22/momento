@@ -4,7 +4,8 @@
   margin: clamp(1.75rem, 5vw, 3rem) 0 clamp(2.5rem, 7vw, 4rem);
   padding: clamp(1.1rem, 3vw, 1.55rem) 0 0;
   border: 0;
-  border-top: 1px solid var(--c-border);
+  /* Section divider on white: use --c-border-strong so it doesn't read as a render error. */
+  border-top: 1px solid var(--c-border-strong);
 }
 
 .story-block__head {
