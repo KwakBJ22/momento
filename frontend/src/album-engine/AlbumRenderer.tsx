@@ -4,6 +4,8 @@ import AlbumCover from "./components/AlbumCover";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
+import { DateStoryEditProvider, type DateStoryEditState } from "./components/DateStoryEditContext";
+import { isDateStoryEligible } from "../lib/storyRules";
 import { AlbumRenderModeProvider } from "./components/AlbumRenderModeContext";
 import { resolveImageLoading } from "./components/album/imageLoadingMode";
 import ChapterHeader from "./blocks/ChapterHeader";
@@ -35,6 +37,7 @@ export interface AlbumRendererProps {
   onReady?: () => void;
   onEditEpilogue?: () => void;
   photoCommentEdit?: PhotoCommentEditState | null;
+  dateStoryEdit?: DateStoryEditState | null;
   livingAppendPages?: LivingAppendPage[];
   className?: string;
 }
@@ -103,6 +106,7 @@ export default function AlbumRenderer({
   onReady,
   onEditEpilogue,
   photoCommentEdit = null,
+  dateStoryEdit = null,
   livingAppendPages = [],
   className = "",
 }: AlbumRendererProps) {
@@ -294,6 +298,11 @@ export default function AlbumRenderer({
   // different frame sizes. Screen mode is one consistent date -> card grid.
   const screenChapters = mode === "screen" ? album?.chapters.map((chapter, chapterIndex) => {
     const flowPlan = album.memoryFlows[chapterIndex];
+    const storyKey = chapter.date ?? String(chapterIndex);
+    // Owners get an empty-state entry to add a story on eligible dates (≥5 photos +
+    // ≥1 comment) that have none yet; readers/print see nothing for those.
+    const showStory = Boolean(chapter.storyBody)
+      || (dateStoryEdit?.canEdit && isDateStoryEligible(chapter.photos));
     return (
       <section className="album-screen-chapter" key={`screen-chapter-${chapter.date ?? chapterIndex}`}>
         <ChapterHeader
@@ -321,10 +330,11 @@ export default function AlbumRenderer({
             />
           ))}
         </div>
-        {chapter.storyBody ? (
+        {showStory ? (
           <StoryBlock
             title={chapter.dateRangeLabel ? `${chapter.dateRangeLabel}의 이야기` : "그날의 이야기"}
-            body={chapter.storyBody}
+            body={chapter.storyBody ?? ""}
+            storyKey={storyKey}
           />
         ) : null}
       </section>
@@ -385,6 +395,7 @@ export default function AlbumRenderer({
       ) : null}
 
       <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+        <DateStoryEditProvider value={dateStoryEdit ?? null}>
         <div className="album-renderer__body">
           {mode === "screen" ? (
             <div className="album-renderer__screen-chapters">
@@ -446,6 +457,7 @@ export default function AlbumRenderer({
             <a href="/">가족과 함께 추억을 이어가 보세요.</a>
           </footer>
         </div>
+        </DateStoryEditProvider>
       </PhotoCommentEditProvider>
     </div>
     </AlbumRenderModeProvider>

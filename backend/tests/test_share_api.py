@@ -156,7 +156,9 @@ class ShareApiTests(TestCase):
                 "id": f"00000000-0000-0000-0000-{index:012d}",
                 "sort_order": index,
                 "caption": "자동 문구만 있는 사진" if index == 0 else "",
-                "comment": "사용자가 쓴 코멘트" if index == 1 else None,
+                # index 1 → 07-12 (still hidden: only 4 photos); index 4 → 07-13 makes
+                # that date eligible (>=5 photos AND >=1 comment) so it is shown.
+                "comment": "사용자가 쓴 코멘트" if index in (1, 4) else None,
                 "storage_bucket": "private",
                 "storage_path": f"photos/{index}.jpg",
                 "thumbnail_bucket": "private",

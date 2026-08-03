@@ -7,11 +7,110 @@
   border-top: 1px solid var(--c-border);
 }
 
+.story-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .story-block__title {
   margin: 0;
   color: var(--c-text-soft);
   font-size: clamp(1rem, 2vw, 1.16rem);
   font-weight: 700;
+}
+
+.story-block__edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+
+.story-block__edit-btn:hover {
+  background: var(--c-brand-soft);
+  color: var(--c-brand-text);
+}
+
+.story-block__input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--s-3);
+  font: inherit;
+  font-size: clamp(0.92rem, 1.7vw, 1rem);
+  line-height: 1.7;
+  color: var(--c-text);
+  background: var(--c-surface);
+  resize: vertical;
+}
+
+.story-block__input:focus {
+  outline: none;
+  border-color: var(--c-border-strong);
+}
+
+.story-block__edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.story-block__action {
+  min-height: 40px;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--r-md);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.story-block__action--save {
+  border: 0;
+  background: var(--c-brand-action);
+  color: var(--c-surface);
+}
+
+.story-block__action--save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.story-block__action--cancel {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+}
+
+.story-block__empty-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-subtle);
+  font: inherit;
+  font-size: clamp(0.92rem, 1.7vw, 1rem);
+  cursor: pointer;
+  text-align: left;
+}
+
+.story-block__empty-hint:hover {
+  color: var(--c-brand-text);
+}
+
+.story-block__error {
+  margin: 0;
+  color: var(--c-danger);
+  font-size: var(--t-sm);
 }
 
 .story-block__body {

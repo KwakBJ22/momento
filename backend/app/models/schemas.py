@@ -196,6 +196,12 @@ class AlbumTitleUpdate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
 
 
+class ChapterStoryUpdate(BaseModel):
+    # date is the YYYY-MM-DD chapter_stories key. Empty story removes that date's story.
+    date: str = Field(min_length=1, max_length=32)
+    story: str = Field(default="", max_length=800)
+
+
 class StoryInputUpdate(BaseModel):
     value: str = Field(default="", max_length=300)
 

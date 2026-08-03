@@ -202,6 +202,20 @@ export async function patchEpilogue(albumId: string, epilogue: string): Promise<
   return (await response.json()) as AlbumResult;
 }
 
+export async function patchChapterStory(
+  albumId: string,
+  date: string,
+  story: string,
+): Promise<AlbumResult> {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/chapter-story`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date, story }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumResult;
+}
+
 export async function generateEpilogue(
   albumId: string,
 ): Promise<{ epilogue: string; chapter_stories: Record<string, string>; warning: string | null; rejected: boolean }> {

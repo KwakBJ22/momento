@@ -31,6 +31,7 @@ from app.models.schemas import (
     EpilogueGenerateResponse,
     EpilogueUpdate,
     AlbumTitleUpdate,
+    ChapterStoryUpdate,
     PhotoCommentResponse,
     PhotoCommentUpdate,
     AlbumUploadResponse,
@@ -1931,6 +1932,33 @@ async def patch_album_title(
     title = body.title.strip()
     updated = update_album_title(client, album_id, title)
     return _record_to_detail(updated or {**record, "title": title}, settings, client)
+
+
+@router.patch("/albums/{album_id}/chapter-story", response_model=AlbumDetailResponse)
+async def patch_chapter_story(
+    album_id: str,
+    body: ChapterStoryUpdate,
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
+) -> AlbumDetailResponse:
+    """Owner-only edit of a single date story (chapter_stories[date]). Empty removes it."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
+    require_album_owner_story(access)
+
+    date = body.date.strip()
+    story = body.story.strip()
+    stories = dict(record.get("chapter_stories") or {})
+    if story:
+        stories[date] = story
+    else:
+        stories.pop(date, None)
+    updated = update_album_chapter_stories(client, album_id, stories)
+    return _record_to_detail(updated or {**record, "chapter_stories": stories}, settings, client)
 
 
 @router.post("/guest-albums/claim")

@@ -135,6 +135,71 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["title"], "Updated title")
 
+    def test_owner_can_update_a_date_story(self) -> None:
+        self.as_user(OWNER_ID)
+        record = {**album_record(), "chapter_stories": {"2026-07-12": "Old story"}}
+        captured: dict[str, object] = {}
+
+        def fake_update(client, album_id, chapter_stories):
+            captured["stories"] = chapter_stories
+            return {**record, "chapter_stories": chapter_stories}
+
+        with patch("app.api.album.get_album_record", return_value=record), patch(
+            "app.api.album.update_album_chapter_stories", side_effect=fake_update
+        ):
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/chapter-story",
+                json={"date": "2026-07-12", "story": "New story"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured["stories"], {"2026-07-12": "New story"})
+        self.assertEqual(response.json()["chapter_stories"]["2026-07-12"], "New story")
+
+    def test_empty_date_story_removes_it_and_refill_restores(self) -> None:
+        self.as_user(OWNER_ID)
+        record = {**album_record(), "chapter_stories": {"2026-07-12": "Old story"}}
+        captured: dict[str, object] = {}
+
+        def fake_update(client, album_id, chapter_stories):
+            captured["stories"] = dict(chapter_stories)
+            return {**record, "chapter_stories": chapter_stories}
+
+        with patch("app.api.album.get_album_record", return_value=record), patch(
+            "app.api.album.update_album_chapter_stories", side_effect=fake_update
+        ):
+            cleared = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/chapter-story",
+                json={"date": "2026-07-12", "story": "   "},
+            )
+        self.assertEqual(cleared.status_code, 200)
+        self.assertNotIn("2026-07-12", captured["stories"])
+        self.assertNotIn("2026-07-12", cleared.json()["chapter_stories"])
+
+        # Refilling the same date restores the story block.
+        with patch("app.api.album.get_album_record", return_value={**record, "chapter_stories": {}}), patch(
+            "app.api.album.update_album_chapter_stories", side_effect=fake_update
+        ):
+            refilled = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/chapter-story",
+                json={"date": "2026-07-12", "story": "Restored story"},
+            )
+        self.assertEqual(refilled.status_code, 200)
+        self.assertEqual(refilled.json()["chapter_stories"]["2026-07-12"], "Restored story")
+
+    def test_non_owner_cannot_update_a_date_story(self) -> None:
+        self.as_user(OTHER_USER_ID)
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.update_album_chapter_stories"
+        ) as update_mock:
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/chapter-story",
+                json={"date": "2026-07-12", "story": "Sneaky edit"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        update_mock.assert_not_called()
+
     def test_my_albums_returns_only_the_authenticated_creators_albums(self) -> None:
         self.as_user(OWNER_ID)
         created_at = datetime.now(timezone.utc).isoformat()
