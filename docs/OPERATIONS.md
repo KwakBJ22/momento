@@ -69,6 +69,35 @@ python -m app.operations_cli cleanup_storage --album-id <album-id> --execute
   **비임시** 파일 후보를 정리한다. 생성 후 24시간이 지나지 않은 앨범과 오래된 legacy
   경로는 자동 삭제하지 않는다.
 
+## Guest album cleanup (`scripts/cleanup_guest_albums.py`)
+
+버려진 게스트 앨범(주인 없음·미claim·만료)과 고아 Storage 객체를 정리한다.
+**기본은 dry-run이라 아무것도 지우지 않는다.** Supabase env가 필요하므로 `railway run`으로 실행한다.
+
+```bash
+# 모드 A(버려진 게스트 앨범) + 모드 B(고아 객체) 리포트만 — 삭제 없음
+railway run python -m scripts.cleanup_guest_albums
+
+# 모드 A 실제 삭제(한 번에 최대 --limit, 기본 100). 모드 B는 여전히 리포트만
+railway run python -m scripts.cleanup_guest_albums --apply
+
+# 모드 B 고아 객체까지 삭제(플래그 2개 필요 — 복구 불가)
+railway run python -m scripts.cleanup_guest_albums --apply --delete-orphan-objects
+```
+
+- **모드 A** 삭제 대상 (전부 AND): `owner_id`·`created_by` 둘 다 NULL, 그 앨범의 게스트
+  세션 중 claim된 것이 하나도 없음, 모든 세션 만료, **마지막 만료로부터 7일** 경과
+  (`--grace-days`). 세션이 없거나 만료 파싱이 안 되면 건너뛴다.
+- 삭제 순서는 계정 탈퇴와 동일: 에셋 경로 스냅샷 → DB cascade(`delete_abandoned_guest_album`
+  RPC, owner/claim을 DB에서 재검사) → Storage 정리. **owner/created_by가 있으면 절대 삭제하지 않는다.**
+- **모드 B**는 `albums/<id>/` 프리픽스를 `public.albums`와 대조해 대응 앨범이 없는 객체를
+  보고한다. 기본 리포트만이며, 삭제는 `--apply`와 `--delete-orphan-objects` **둘 다** 있어야 한다.
+- 로그에는 앨범 id 앞 6자만 남기고 캡션·파일명은 남기지 않는다.
+
+**주기:** 처음에는 **주 1회 수동**으로 dry-run 결과를 검토하고, 후보가 예상과 맞을 때만
+`--apply`한다. 안정화되면 별도 Railway Cron 서비스로 전환한다(위 Cleanup Scheduler와 동일 원칙).
+`delete_abandoned_guest_album` RPC와 게스트 세션 TTL 7일 migration이 프로덕션에 적용돼 있어야 동작한다.
+
 ## Cleanup Scheduler
 
 인프로세스 스케줄러는 여러 Railway worker에서 중복 실행될 수 있으므로 사용하지

@@ -835,6 +835,24 @@ def delete_album_cascade(client: Client, album_id: str, actor_id: str) -> bool:
     return bool(data)
 
 
+def delete_abandoned_guest_album(client: Client, album_id: str) -> bool:
+    """Service-role delete of an ownerless, unclaimed, expired guest album.
+
+    The DB function re-checks the abandonment invariants (owner_id/created_by NULL and no
+    claimed session), so an owned or claimed album can never be removed even if a caller
+    passes its id by mistake. Storage is outside this transaction, like delete_album_cascade:
+    collect asset paths first, then clean them up after a successful DB deletion.
+    """
+    result = client.rpc(
+        "delete_abandoned_guest_album",
+        {"p_album_id": album_id},
+    ).execute()
+    data = result.data
+    if isinstance(data, list):
+        return bool(data[0]) if data else False
+    return bool(data)
+
+
 def cleanup_incomplete_album(client: Client, album_id: str) -> None:
     """Compensate a failed create in child-first order before removing assets."""
     # These rows are created by authenticated album creation routes.

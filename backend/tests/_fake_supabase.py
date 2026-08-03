@@ -201,6 +201,7 @@ class FakeSupabase:
         # Overridable per test; default handlers cover the destructive cascades.
         self.rpc_handlers: dict[str, Callable[[dict], Any]] = {
             "delete_album_cascade": self._rpc_delete_album_cascade,
+            "delete_abandoned_guest_album": self._rpc_delete_abandoned_guest_album,
             "delete_profile_cascade": self._rpc_delete_profile_cascade,
             "claim_guest_album_ownership": self._rpc_claim_guest_album_ownership,
         }
@@ -234,6 +235,25 @@ class FakeSupabase:
             return [False]
         albums[:] = [a for a in albums if str(a.get("id")) != album_id]
         for child in _ALBUM_CHILD_TABLES:
+            rows = self.tables.get(child)
+            if rows:
+                rows[:] = [r for r in rows if str(r.get("album_id")) != album_id]
+        return [True]
+
+    def _rpc_delete_abandoned_guest_album(self, params: dict):
+        # Mirrors the SQL guard: ownerless AND no claimed session, then cascade.
+        album_id = str(params.get("p_album_id"))
+        albums = self.tables.get("albums", [])
+        target = next((a for a in albums if str(a.get("id")) == album_id), None)
+        if target is None:
+            return [False]
+        if target.get("owner_id") is not None or target.get("created_by") is not None:
+            return [False]
+        sessions = self.tables.get("guest_album_sessions", [])
+        if any(str(s.get("album_id")) == album_id and s.get("claimed_profile_id") for s in sessions):
+            return [False]
+        albums[:] = [a for a in albums if str(a.get("id")) != album_id]
+        for child in (*_ALBUM_CHILD_TABLES, "guest_album_sessions", "guest_memory_submissions"):
             rows = self.tables.get(child)
             if rows:
                 rows[:] = [r for r in rows if str(r.get("album_id")) != album_id]
