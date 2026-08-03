@@ -3,7 +3,24 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-03, 앨범 첫 진입 사진 프레임만 보이는 문제 = 서명 URL 만료)
+## 최신 세션 요약 (2026-08-03, --c-brand-soft 오용 정리 3건 + 토큰 규칙 명문화)
+
+원칙: `--c-brand-soft`는 (a)선택·활성 (b)hover/focus (c)스켈레톤·이미지 플레이스홀더 (d)배지·알림에만.
+중립 영역·섹션·다이얼로그·앨범 본문 배경엔 안 씀.
+
+- **[1] 앨범 본문(최우선, PDF 잉크)**: `AlbumRenderer.css .album-living-page` 배경 coral→transparent,
+  `ChapterHeader.css .chapter-header__panel` 배경 gradient(brand-soft→surface) 제거→transparent.
+  **배경만 걷어냄**(레이아웃·글자·border 불변). 웹/공유/PDF 동일 AlbumRenderer라 세 곳 반영. (§6)
+- **[2] 탈퇴 다이얼로그**: `App.css .app__withdraw-dialog` 배경 brand-soft→`--c-surface`(확인 버튼 --c-danger 유지).
+- **[3] QuestionFlow**: `.question-flow__others` 배경 brand-soft→`--c-bg-soft`(중립).
+- **[4] 정리만**: `JoinPage .join-page__cover--empty` gradient(brand-soft,brand-soft)→단색 brand-soft(색 변화 없음).
+- **[5] 규칙 명문화**: `docs/DESIGN_SYSTEM.md`에 --c-brand-soft 허용 4용례+금지(중립·섹션·다이얼로그·앨범 본문)
+  + 앨범 본문 배경색 금지 이유(인쇄 잉크·사진 우선) 명시.
+- 건드리지 않음: 선택/활성·hover/focus·스켈레톤·배지("N명 다녀갔어요")·레이아웃·글자.
+  **frontend 145 / build / smoke(5·1skip).** 로컬 preview computed style 실측: living/chapter=transparent·none,
+  withdraw=#ffffff, qothers=#fdf7f5, joinEmpty=#fff0f0 단색. (html2canvas가 이 computed값을 래스터하므로 PDF 잉크 없음)
+
+## 이전 세션 요약 (2026-08-03, 앨범 첫 진입 사진 프레임만 보이는 문제 = 서명 URL 만료)
 
 원인: 비공개 버킷 서명 URL TTL 300s(5분)인데 생성 흐름이 ~3분30초 걸려, 완성 직후 30장 순차
 로드 중 뒤쪽 URL이 만료돼 403 → 프레임만. 나갔다 오면 새 URL로 정상(실기기 확인).

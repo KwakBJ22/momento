@@ -150,8 +150,10 @@
 .album-living-page {
   margin-top: 2rem;
   padding: clamp(1.25rem, 4vw, 2.5rem);
+  /* No background color in album body (§6): it prints as ink on every page and
+     competes with the photos. Section break comes from the margin + top border. */
   border-top: 1px solid var(--c-border);
-  background: var(--c-brand-soft);
+  background: transparent;
 }
 
 .album-living-page__header {

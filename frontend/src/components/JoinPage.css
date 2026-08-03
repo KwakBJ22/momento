@@ -41,7 +41,8 @@
 }
 
 .join-page__cover--empty {
-  background: linear-gradient(160deg, var(--c-brand-soft), var(--c-brand-soft));
+  /* Image placeholder — keep the color; just a flat fill (same color, no gradient). */
+  background: var(--c-brand-soft);
 }
 
 .join-page__album-info {

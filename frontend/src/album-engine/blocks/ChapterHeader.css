@@ -38,7 +38,9 @@
   text-align: center;
   padding: 1.75rem 1.25rem;
   border-radius: 16px;
-  background: linear-gradient(180deg, var(--c-brand-soft) 0%, var(--c-surface) 100%);
+  /* No background in album body (§6): it prints as ink. Hierarchy comes from the
+     typography and spacing below, not a coral fill. */
+  background: transparent;
   border: 1px solid var(--c-bg-soft);
 }
 
