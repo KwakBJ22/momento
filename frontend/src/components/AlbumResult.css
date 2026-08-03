@@ -90,8 +90,9 @@
   gap: 3rem;
   padding: 2rem 1.9rem 2.8rem;
   background: rgba(255, 252, 247, 0.62);
-  border-right: 1px solid var(--c-border-strong);
-  border-left: 1px solid var(--c-border-strong);
+  /* Close all four sides with the same color/thickness so the card doesn't read as an
+     open box (the translucent background made left/right-only look unclosed). PO-approved. */
+  border: 1px solid var(--c-border-strong);
   border-radius: 0;
   box-shadow: none;
 }
