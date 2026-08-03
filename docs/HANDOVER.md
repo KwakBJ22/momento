@@ -3,7 +3,24 @@
 Codex → Claude Code 이관 세션 기록. 이어서 작업하는 세션은 이 문서부터 읽는다.
 개발 원칙은 저장소 루트의 `CLAUDE.md`를 따른다.
 
-## 최신 세션 요약 (2026-08-03, 앨범 생성 체감 개선 3건 — 처리 로직 불변)
+## 최신 세션 요약 (2026-08-03, 앨범 첫 진입 사진 프레임만 보이는 문제 = 서명 URL 만료)
+
+원인: 비공개 버킷 서명 URL TTL 300s(5분)인데 생성 흐름이 ~3분30초 걸려, 완성 직후 30장 순차
+로드 중 뒤쪽 URL이 만료돼 403 → 프레임만. 나갔다 오면 새 URL로 정상(실기기 확인).
+
+- **[1] TTL 상향(근본)**. `config.signed_url_ttl_seconds` 기본 300→**3600(1시간)**. 서명 URL은 권한
+  검사 통과 후 발급되는 임시 링크라 5분은 과도하게 짧음(주석). env `SIGNED_URL_TTL_SECONDS` 유지.
+- **[2] 만료 이미지 자동 복구(방어)**. `lib/signedUrlRefresh.ts`(순수: `mergeRefreshedPhotoUrls`
+  =id 매칭 URL만 교체·순서 보존, `isAlbumPhotoImageError`, `createSignedUrlRefresher`=앨범 단위 1회
+  게이트) + `lib/useSignedUrlRefresh.ts`(훅: 컨테이너에 capture-phase error 리스너 — img error는
+  버블 안 함). AlbumView가 stage div에 ref + 훅. **첫 사진 로드 에러 시 사진목록 1회 재요청→새 URL로
+  교체, setPhotos로 URL만 갱신해 AlbumRenderer 재마운트 안 함(§9)**. 2번째 실패는 무시(루프/스탬피드 방지).
+- 테스트: backend `test_signed_url_config`(기본 3600 계약), frontend `signedUrlRefresh.test`
+  (URL만 교체·id/순서 보존, 앨범 img만 감지, 정확히 1회 재요청·2번째 무시, 비앨범 img 무반응).
+  권한 검사·비공개 버킷·imageUrls 폴백(display→original→thumbnail) 불변.
+  **backend 253 / frontend 145 / build / smoke(5·1skip).** ⚠️ **30장 완성 직후 전부 보이는지 실기기 확인 요청.**
+
+## 이전 세션 요약 (2026-08-03, 앨범 생성 체감 개선 3건 — 처리 로직 불변)
 
 측정: 와이파이 30장 = 준비 약 2분 + 생성 약 1분30초, 실패 없음. 속도·체감 문제.
 

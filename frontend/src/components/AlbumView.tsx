@@ -6,6 +6,8 @@ import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages,
 
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
+import { useSignedUrlRefresh } from "../lib/useSignedUrlRefresh";
+
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 
 import CollaborationPanel from "./CollaborationPanel";
@@ -39,6 +41,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
 
   const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
   const [livingAppendPages, setLivingAppendPages] = useState<import("../types").LivingAppendPage[]>([]);
+  // Recover expired signed URLs: on the first album-photo load error, refetch the
+  // list once and swap in fresh URLs (no AlbumRenderer remount). See signedUrlRefresh.
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  useSignedUrlRefresh(albumId, requestedEdition, setPhotos, stageRef);
 
   const [error, setError] = useState<string | null>(null);
   const [photosReady, setPhotosReady] = useState(false);
@@ -434,7 +440,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     <>
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
-      <div className="album-result__stage album-result__stage--web">
+      <div className="album-result__stage album-result__stage--web" ref={stageRef}>
         <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={canEdit ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}

@@ -56,7 +56,13 @@ class Settings(BaseSettings):
     max_image_pixels: int = 40_000_000
     thumbnail_max_side: int = 640
     image_processing_concurrency: int = 4
-    signed_url_ttl_seconds: int = 300
+    # Signed URLs are temporary links usable only by someone who already passed the
+    # backend's album authorization, so they don't need to be short-lived. 5분(300s)
+    # was too tight: album creation alone takes ~3.5min, and normal viewing (slow
+    # scroll through 30 photos, or backgrounding the app briefly) easily exceeds it,
+    # so trailing photos expired to 403 and showed only their frame. 1시간이면 여유롭다.
+    # Env: SIGNED_URL_TTL_SECONDS.
+    signed_url_ttl_seconds: int = 3600
     allowed_image_types: tuple[str, ...] = (
         "image/jpeg",
         "image/png",
