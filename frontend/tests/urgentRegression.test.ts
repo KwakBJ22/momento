@@ -218,7 +218,22 @@ test("album viewing and collaboration invitation use distinct URLs and Kakao pay
   assert.match(source, /pathname\.startsWith\("\/join\/"\)/);
   assert.match(source, /title: "우리 앨범에 추억을 더해주세요"/);
   assert.match(source, /buttonTitle: "추억 추가하기"/);
-  assert.match(source, /함께 만들도록 초대/);
+  // Result-named wording (동사 대신 결과로 이름): 초대 = "사진·기억 받기", 복사 = "링크 복사".
+  assert.match(source, /사진·기억 받기/);
+  assert.match(source, /링크 복사/);
+  assert.match(source, /상대가 자기 사진을 더할 수 있어요/);
+  assert.doesNotMatch(source, /함께 만들도록 초대/);
+});
+
+test("share buttons are named for the view-only result, not the '공유' verb", () => {
+  for (const name of ["AlbumView", "AlbumResult", "PublicShareView"]) {
+    const source = component(name);
+    assert.match(source, /구경하라고 보내기/);
+    assert.match(source, /보기만 할 수 있어요/);
+    // The action-bar button no longer says the ambiguous "앨범 공유하기".
+    // (AlbumResult's share modal keeps that phrase as a dialog title — not an action button.)
+    assert.doesNotMatch(source, />앨범 공유하기<\/button>/);
+  }
 });
 
 test("Kakao failures copy the matching viewing link instead of silently failing", () => {

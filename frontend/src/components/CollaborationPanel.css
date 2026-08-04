@@ -116,6 +116,21 @@
   gap: 0.45rem;
 }
 
+/* 위계: 초대(사진·기억 받기)를 대표 동작으로. 새 색이 아니라 기존 브랜드 액션색 재사용. */
+.collab-panel__invite-primary {
+  border-color: var(--c-brand-action) !important;
+  background: var(--c-brand-action) !important;
+  color: var(--c-surface) !important;
+  font-weight: 700 !important;
+}
+
+.collab-panel__invite-hint {
+  margin: 0.4rem 0 0;
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+}
+
 .collab-panel__new-summary {
   display: grid;
   gap: 0.2rem;

@@ -475,7 +475,10 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   };
   const publicActions = (
     <div className="album-result__actions">
-      <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>앨범 공유하기</button>
+      <div className="album-result__hinted-action">
+        <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>구경하라고 보내기</button>
+        <p className="album-result__action-hint">보기만 할 수 있어요</p>
+      </div>
       <a className="btn btn--ghost" href="/">새 앨범 만들기</a>
     </div>
   );

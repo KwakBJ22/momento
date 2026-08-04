@@ -403,6 +403,20 @@
   gap: 0.65rem;
 }
 
+/* 버튼 + 한 줄 설명을 한 묶음으로. 컬럼 레이아웃 그대로, 버튼 폭 불변. */
+.album-result__hinted-action {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.album-result__action-hint {
+  margin: 0;
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+}
+
 .btn {
   display: flex;
   align-items: center;

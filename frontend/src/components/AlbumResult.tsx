@@ -277,7 +277,10 @@ export default function AlbumResultView({
   const resultActions = (
     <><div className="album-result__actions">
       <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>{isSavingAlbum ? "확인 중..." : "앨범 저장"}</button>
-      <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>앨범 공유하기</button>
+      <div className="album-result__hinted-action">
+        <button type="button" className="btn btn--ghost" onClick={() => setShowShareModal(true)}>구경하라고 보내기</button>
+        <p className="album-result__action-hint">보기만 할 수 있어요</p>
+      </div>
       <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
       <button type="button" className="btn btn--ghost" onClick={onReset}>새 앨범 만들기</button>
     </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>

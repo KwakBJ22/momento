@@ -332,7 +332,7 @@ export default function CollaborationPanel({
       </div>
     ) : (
       <>
-        {canManage ? <div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>초대 링크 복사</button><button type="button" disabled={busy !== null} onClick={() => void shareKakao()}>함께 만들도록 초대</button></div> : null}
+        {canManage ? <><div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => void shareKakao()}>사진·기억 받기</button></div><p className="collab-panel__invite-hint">상대가 자기 사진을 더할 수 있어요</p></> : null}
         {started && canManage ? <>
           <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
