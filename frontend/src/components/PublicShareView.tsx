@@ -9,6 +9,7 @@ import { GUESTBOOK_MESSAGE_MAX, GUESTBOOK_NAME_MAX, addMyGuestbookId, getGuestbo
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
 import { authDebug } from "../lib/authDebug";
+import { resolveShareImageUrl } from "../lib/shareImage";
 import type { AppUser } from "../services/authService";
 import {
   appendPendingContributions,
@@ -364,7 +365,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     const url = window.location.href;
     try {
       await sharePublicAlbum(
-        () => shareAlbum({ imageUrl: album.image_url, linkUrl: url, description: album.og_description, title: album.title }),
+        () => shareAlbum({ imageUrl: resolveShareImageUrl(album), linkUrl: url, description: album.og_description, title: album.title }),
         () => copyPublicLink(url),
       );
     } finally {
@@ -462,6 +463,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
     onShare: () => undefined,
+    onCreateAlbum: () => window.location.assign("/"),
     canAddPhoto: !isStartingContribution,
     canAddMemory: !isStartingContribution,
   } : {

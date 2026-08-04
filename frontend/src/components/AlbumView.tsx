@@ -17,6 +17,7 @@ import AlbumScreen from "./AlbumScreen";
 import type { AlbumPhoto, AlbumResult } from "../types";
 
 import { visibleChapterStories } from "../lib/storyRules";
+import { resolveShareImageUrl } from "../lib/shareImage";
 
 import "./AlbumResult.css";
 
@@ -304,7 +305,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
       shareUrl = await resolvePublicShareUrl();
       shareAlbum({
 
-        imageUrl: album.image_url,
+        imageUrl: resolveShareImageUrl(album),
 
         linkUrl: shareUrl,
 
@@ -459,7 +460,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
   };
   const albumBody = (
     <>
-      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></section> : null}
+      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
         <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={canEdit ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } } : null} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} />
@@ -477,7 +478,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
       <a className="btn btn--ghost" href="/">새 앨범 만들기</a>
     </div>
   ) : (
-    <><div className="album-result__actions"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>앨범 공유하기</button><button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button><a className="btn btn--ghost" href="/">새 앨범 만들기</a></div>{requestedEdition === null ? <CollaborationPanel albumId={albumId} imageUrl={displayAlbum?.cover_image_url} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
+    <><div className="album-result__actions"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>앨범 공유하기</button><button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button><a className="btn btn--ghost" href="/">새 앨범 만들기</a></div>{requestedEdition === null ? <CollaborationPanel albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
   );
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
   return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={editionLinks} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => { void handleKakaoShare(); }, onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
@@ -705,7 +706,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
 
           {requestedEdition === null ? <CollaborationPanel
             albumId={albumId}
-            imageUrl={displayAlbum?.cover_image_url || displayAlbum?.image_url}
+            imageUrl={resolveShareImageUrl(displayAlbum)}
             title={displayTitle}
             photos={photos}
             coverPhotoId={displayAlbum?.cover_photo_id}

@@ -2,7 +2,7 @@
 .album-bottom-navigation button, .album-bottom-navigation a { display: grid; place-items: center; align-content: center; gap: 0.26rem; min-width: 0; min-height: 82px; padding: 0.45rem; border: 0; background: transparent; color: var(--c-text-soft); font: inherit; font-size: 0.76rem; font-weight: 650; line-height: 1.15; text-align: center; text-decoration: none; cursor: pointer; }
 .album-bottom-navigation__new-album { background: var(--c-brand-soft) !important; color: var(--c-brand-text) !important; }
 .album-bottom-navigation button:disabled { opacity: 0.42; cursor: default; }
-.album-bottom-navigation--participant { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.album-bottom-navigation--participant { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .album-bottom-navigation button.is-active { background: var(--c-brand-soft); color: var(--c-brand-text); }
 .album-bottom-navigation--app { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (min-width: 769px) {
