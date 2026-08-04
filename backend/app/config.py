@@ -78,6 +78,9 @@ class Settings(BaseSettings):
 
     # Comma-separated Supabase Auth emails allowed to use /api/admin (platform operators).
     platform_admin_emails: str = ""
+    # Comma-separated Supabase Auth user ids allowed to use /api/admin. Primary allowlist
+    # now that Kakao login provides no email — an operator without an email is matched here.
+    platform_admin_user_ids: str = ""
 
     @property
     def platform_admin_email_set(self) -> frozenset[str]:
@@ -85,6 +88,14 @@ class Settings(BaseSettings):
             email.strip().lower()
             for email in self.platform_admin_emails.split(",")
             if email.strip()
+        )
+
+    @property
+    def platform_admin_user_id_set(self) -> frozenset[str]:
+        return frozenset(
+            user_id.strip()
+            for user_id in self.platform_admin_user_ids.split(",")
+            if user_id.strip()
         )
 
     @property
