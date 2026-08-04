@@ -1,31 +1,53 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.config import get_settings
-from app.models.schemas import AuthBootstrapResponse
+from app.models.schemas import AuthBootstrapRequest, AuthBootstrapResponse
 from app.services.account_service import delete_account
 from app.services.auth import require_authenticated_user
+from app.services.collaboration_service import attribute_contributions
+from app.services.event_logger import EventLogger
 from app.services.plan_limits import count_owned_albums, get_user_limits
 from app.services.supabase import ensure_default_family, get_supabase_client
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/bootstrap", response_model=AuthBootstrapResponse)
 async def bootstrap_auth_user(
+    body: AuthBootstrapRequest | None = None,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AuthBootstrapResponse:
-    """Ensure an authenticated user has a profile and default family."""
+    """Ensure an authenticated user has a profile and default family, and attribute any
+    guest contributions made before login to this account (best-effort)."""
     client = get_supabase_client()
     family_id = ensure_default_family(client, authenticated_user_id)
     limits = get_user_limits(authenticated_user_id)
+
+    claimed_guest_ids: list[str] = []
+    guest_ids = list(body.contributor_guest_ids) if body else []
+    if guest_ids:
+        # Best-effort: a failure here must never break login/session-restore.
+        try:
+            claimed_guest_ids, attributed_albums = attribute_contributions(
+                client, authenticated_user_id, guest_ids
+            )
+            if attributed_albums:
+                EventLogger.record(client, "contribution_claimed", metadata={"album_count": attributed_albums})
+        except Exception as exc:  # noqa: BLE001 - keep login resilient
+            logger.warning("contribution_attribution_failed error_type=%s", type(exc).__name__)
+            claimed_guest_ids = []
+
     return AuthBootstrapResponse(
         profile_id=UUID(authenticated_user_id),
         family_id=UUID(family_id),
         album_count=count_owned_albums(client, authenticated_user_id),
         max_albums=limits["max_albums"],
+        claimed_guest_ids=claimed_guest_ids,
     )
 
 

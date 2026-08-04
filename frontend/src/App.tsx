@@ -18,7 +18,8 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
-import { authenticatedFetch, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
+import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
+import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
@@ -138,15 +139,15 @@ function App() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    void authenticatedFetch("/api/auth/bootstrap", { method: "POST" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
-        const data = await response.json().catch(() => null);
+    void bootstrapAccount(collectContributorGuestIds())
+      .then((data) => {
         if (!active) return;
         setBootstrapError(null);
-        if (data && typeof data.max_albums === "number") {
+        if (typeof data.max_albums === "number") {
           setAlbumLimit({ count: Number(data.album_count) || 0, max: data.max_albums });
         }
+        // Flag attributed contributor sessions so the next bootstrap doesn't resend them.
+        if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
       })
       .catch((error) => active && setBootstrapError(error instanceof Error ? error.message : "인증을 확인하지 못했어요."));
     return () => { active = false; };

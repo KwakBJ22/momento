@@ -7,7 +7,7 @@ from unittest import TestCase
 REPO = Path(__file__).resolve().parents[2]
 APP = Path(__file__).resolve().parents[1] / "app"
 # The latest migration that (re)defines the analytics_events CHECK is the source of truth.
-CHECK_MIGRATION = REPO / "supabase" / "migrations" / "20260803120000_analytics_limit_events.sql"
+CHECK_MIGRATION = REPO / "supabase" / "migrations" / "20260803150000_analytics_contribution_claimed.sql"
 
 
 def allowed_names() -> set[str]:
@@ -47,6 +47,10 @@ class AnalyticsEventNameTests(TestCase):
         allowed = allowed_names()
         for name in ("album_limit_reached", "photo_limit_reached", "video_dropped"):
             self.assertIn(name, allowed)
+
+    def test_contribution_claimed_is_allowed(self) -> None:
+        # invite→participation conversion metric.
+        self.assertIn("contribution_claimed", allowed_names())
 
     def test_limit_rejections_no_longer_masquerade_as_upload_failures(self) -> None:
         # The old workaround logged limit rejections as upload_failed + error_code; that

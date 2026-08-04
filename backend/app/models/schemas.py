@@ -307,12 +307,21 @@ class GuestbookDeleteRequest(BaseModel):
     session_key: str = Field(min_length=16, max_length=200)
 
 
+class AuthBootstrapRequest(BaseModel):
+    # Guest contributor ids from the browser to attribute to this account on login.
+    # Capped so a login never sends an unbounded payload.
+    contributor_guest_ids: list[str] = Field(default_factory=list, max_length=50)
+
+
 class AuthBootstrapResponse(BaseModel):
     profile_id: UUID
     family_id: UUID
     # Additive: lets the frontend warn before the create flow. Existing fields unchanged.
     album_count: int = 0
     max_albums: int = 0
+    # Guest ids that were successfully attributed — the frontend flags these so they are
+    # not re-sent on the next bootstrap.
+    claimed_guest_ids: list[str] = Field(default_factory=list)
 
 
 class AlbumPhotoUrlsResponse(BaseModel):

@@ -2,6 +2,7 @@ import type { AlbumResult } from "../types";
 import { getAccessToken, getSession, refreshSession } from "../services/authService";
 import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
+import { COLLAB_SESSION_KEY } from "./contributionAttribution";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -603,8 +604,6 @@ export async function analyzeAlbumMedia(albumId: string, mediaId?: string): Prom
 
 // --- Collaborative album MVP ---
 
-const COLLAB_SESSION_KEY = "momento-collab-session";
-
 export type CollabSession = {
   albumId: string;
   contributorId: string;
@@ -624,6 +623,25 @@ export function loadCollabSession(albumId: string): CollabSession | null {
 
 export function saveCollabSession(session: CollabSession): void {
   localStorage.setItem(`${COLLAB_SESSION_KEY}:${session.albumId}`, JSON.stringify(session));
+}
+
+export async function bootstrapAccount(
+  contributorGuestIds: string[],
+): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[] }> {
+  const response = await authenticatedFetch("/api/auth/bootstrap", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contributor_guest_ids: contributorGuestIds }),
+  });
+  if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
+  const data = (await response.json().catch(() => null)) as
+    | { album_count?: number; max_albums?: number; claimed_guest_ids?: string[] }
+    | null;
+  return {
+    album_count: data?.album_count,
+    max_albums: data?.max_albums,
+    claimed_guest_ids: data?.claimed_guest_ids ?? [],
+  };
 }
 
 function collabHeaders(session: CollabSession | null): HeadersInit {

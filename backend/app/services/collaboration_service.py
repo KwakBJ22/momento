@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -15,7 +16,69 @@ from app.models.album_photo_status import is_deleted_album_photo, is_ready_album
 from app.services.share_service import create_token, hash_token
 from app.services.supabase import soft_delete_album_photo_with_references
 
+logger = logging.getLogger(__name__)
+
 RELATIONSHIP_OPTIONS = frozenset({"가족", "친구", "연인", "지인", "기타"})
+
+# A single login attributes at most this many guest contributions — bounds the bootstrap
+# payload and any surprising local state. Matches the frontend cap.
+CONTRIBUTION_ATTRIBUTION_LIMIT = 50
+
+
+def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) -> tuple[list[str], int]:
+    """Attach a signed-in account to its prior guest (contributor) rows, best-effort.
+
+    For each unguessable guest_id, fill album_contributors.user_id on rows that still have
+    NONE — a row already claimed by another user_id is never touched (no stealing). When the
+    user already has an active contributor row for that album, the (album_id, user_id) unique
+    index would conflict, so that guest row is SKIPPED (and logged) — their old participation
+    stays under the guest name rather than breaking. Returns (attributed_guest_ids,
+    attributed_album_count) for the caller's analytics.
+    """
+    claimed: list[str] = []
+    attributed_albums = 0
+    skipped_conflicts = 0
+    for guest_id in guest_ids[:CONTRIBUTION_ATTRIBUTION_LIMIT]:
+        rows = (
+            client.table("album_contributors")
+            .select("id, album_id")
+            .eq("guest_id", guest_id)
+            .is_("user_id", "null")
+            .eq("status", "active")
+            .execute()
+            .data
+            or []
+        )
+        attributed_here = False
+        for row in rows:
+            album_id = str(row.get("album_id") or "")
+            row_id = row.get("id")
+            if not album_id or not row_id:
+                continue
+            existing = (
+                client.table("album_contributors")
+                .select("id")
+                .eq("album_id", album_id)
+                .eq("user_id", user_id)
+                .eq("status", "active")
+                .execute()
+                .data
+                or []
+            )
+            if existing:
+                skipped_conflicts += 1
+                logger.info("contribution_attribution_skipped_conflict album_id=%s", album_id[:6])
+                continue
+            client.table("album_contributors").update({"user_id": user_id}).eq("id", row_id).is_(
+                "user_id", "null"
+            ).execute()
+            attributed_albums += 1
+            attributed_here = True
+        if attributed_here:
+            claimed.append(str(guest_id))
+    if skipped_conflicts:
+        logger.info("contribution_attribution_conflicts_total count=%s", skipped_conflicts)
+    return claimed, attributed_albums
 MAX_COMMENT_LEN = 500
 MAX_BATCH_UPLOAD = 30
 # Small collaboration updates keep the existing album intact and are attached
