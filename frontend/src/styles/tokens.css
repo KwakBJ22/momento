@@ -22,7 +22,9 @@
   --c-text: #2d2d2d;           /* 본문·제목        13.57:1 */
   --c-text-soft: #5a5150;      /* 보조 본문         7.59:1 */
   --c-text-muted: #7d716f;     /* 설명·캡션         4.64:1 */
-  --c-text-subtle: #9e9190;    /* 비활성·placeholder 3.00:1 */
+  /* 비활성·placeholder. 40대 이후 타겟: 노안에는 3.00:1 이 부족해 4.5:1 이상으로 올림
+   * (#9e9190 3.00:1 → #7e726f). 실측 --c-bg 대비 4.58:1(흰 --c-surface 대비 4.64:1). */
+  --c-text-subtle: #7e726f;
 
   /* ---- 색: 브랜드 ----
    * --c-brand 는 아이덴티티 색이다. 로고·아이콘·선택 상태·하트에 쓴다.
@@ -72,9 +74,10 @@
   --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
           "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 
-  --t-xs: 0.78rem;   /* 라벨·메타 */
-  --t-sm: 0.88rem;   /* 보조 본문·버튼 */
-  --t-base: 1rem;    /* 본문 */
+  /* 40대 이후 타겟 기준: 본문·보조 16px, 라벨 14px 하한(노안 대비 최소 크기). */
+  --t-xs: 0.875rem;  /* 라벨·메타      14px (하한) */
+  --t-sm: 1rem;      /* 보조 본문·버튼  16px */
+  --t-base: 1rem;    /* 본문          16px */
   --t-lg: 1.15rem;   /* 소제목 */
   --t-xl: 1.5rem;    /* 화면 제목 */
   --t-2xl: 2rem;     /* 앨범 제목 */
