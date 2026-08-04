@@ -226,6 +226,22 @@ body {
   text-align: center;
 }
 
+/* 법적 동의 시점 표시. 40대 이후 가독성 하한 14px 유지(그 이하로 내리지 말 것). */
+.auth-panel__legal {
+  margin: 0.75rem 0 0;
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.auth-panel__legal a {
+  color: var(--c-text-soft);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .auth-modal {
   position: fixed;
   inset: 0;
@@ -563,6 +579,23 @@ body {
   text-decoration: underline;
   text-underline-offset: 0.18em;
   cursor: pointer;
+}
+
+/* 법적 고지 링크. 로그인 아래 최하단 한 줄. 14px 하한 유지. */
+.landing__legal {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  margin: 0.5rem 0 0;
+  color: var(--c-text-subtle);
+  font-size: var(--t-xs);
+  text-align: center;
+}
+
+.landing__legal a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 @media (min-width: 768px) {

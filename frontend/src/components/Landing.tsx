@@ -108,6 +108,12 @@ export default function Landing({
           이미 계정이 있나요? 로그인
         </button>
       )}
+
+      <p className="landing__legal">
+        <a href="/terms.html" target="_blank" rel="noopener">이용약관</a>
+        <span aria-hidden="true"> · </span>
+        <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>
+      </p>
     </section>
   );
 }
