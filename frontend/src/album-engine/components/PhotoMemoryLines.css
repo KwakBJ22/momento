@@ -214,3 +214,8 @@
 .album-stage__block:has(.photo-memory-lines--block) + .album-stage__block {
   margin-top: -0.75rem;
 }
+
+/* 40+ 화면 가독성: 화면 모드에서만 캡션 14px 하한(인쇄 원본 유지). */
+.album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: clamp(0.875rem, 1.55vw, 0.9rem); }
+.album-renderer--screen .photo-memory-lines__edit-btn,
+.album-renderer--screen .photo-memory-lines__action { font-size: var(--t-xs); }

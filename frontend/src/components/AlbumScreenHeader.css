@@ -2,7 +2,7 @@
    which the unshrinkable edit buttons inflate past the header — clamping the
    column to 0 keeps the editor row from overflowing the card on narrow webviews. */
 .album-screen-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.42rem; justify-items: center; padding: 0.25rem 0 0.6rem; text-align: center; }
-.album-screen-header__brand { margin: 0; color: var(--c-text-muted); font-size: 0.76rem; font-weight: 750; letter-spacing: 0.08em; }
+.album-screen-header__brand { margin: 0; color: var(--c-text-muted); font-size: var(--t-xs); font-weight: 750; letter-spacing: 0.08em; }
 .album-screen-header__title-row { display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .album-screen-header h1 { margin: 0; color: var(--c-text); font-size: clamp(1.8rem, 4vw, 2.35rem); font-weight: 780; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
 .album-screen-header__subtitle { margin: 0; color: var(--c-text-muted); font-size: 0.92rem; line-height: 1.5; }
@@ -13,4 +13,4 @@
    overflowing or wrapping on narrow (webview) widths — keeping it to one compact row. */
 .album-screen-header__editor input { flex: 1 1 7rem; min-width: 0; padding: 0.4rem 0.6rem; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text); font: inherit; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 700; }
 .album-screen-header__editor button { flex: 0 0 auto; min-height: 40px; padding: 0.4rem 0.9rem; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 0.95rem; cursor: pointer; }
-.album-screen-header__error { margin: 0; color: var(--c-danger); font-size: 0.84rem; }
+.album-screen-header__error { margin: 0; color: var(--c-danger); font-size: var(--t-xs); }

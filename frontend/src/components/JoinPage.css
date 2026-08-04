@@ -23,7 +23,7 @@
 .join-page__eyebrow {
   margin: 0;
   color: var(--c-text-subtle);
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
 }

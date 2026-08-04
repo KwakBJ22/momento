@@ -35,7 +35,7 @@
 .contribute__badge {
   margin: 0;
   color: var(--c-brand-text);
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -98,7 +98,7 @@
   place-items: center;
   background: var(--c-brand-soft);
   color: var(--c-text-soft);
-  font-size: 0.85rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
@@ -153,7 +153,7 @@
 .contribute__limit {
   margin: -0.25rem 0 0;
   color: var(--c-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -305,7 +305,7 @@
 .contribute__fresh {
   margin: 0;
   color: var(--c-brand-text);
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
@@ -345,7 +345,7 @@
   background: transparent;
   color: var(--c-brand-text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   text-decoration: underline;
   text-underline-offset: 0.16em;
   cursor: pointer;
@@ -430,7 +430,7 @@
   border-radius: 10px;
   padding: 0.55rem;
   font: inherit;
-  font-size: 0.87rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -457,7 +457,7 @@
   margin: 0;
   text-align: right;
   color: var(--c-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
 }
 
 .contribute__draft-actions {
@@ -467,7 +467,7 @@
 
 .contribute__memory-author {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--c-text-muted);
 }
@@ -482,7 +482,7 @@
 .contribute__memory-pending {
   margin: 0;
   color: var(--c-brand-text);
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
@@ -492,7 +492,7 @@
   padding: 0.8rem;
   border-radius: 8px;
   background: var(--c-bg);
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
 }
 
 .contribute__loading {

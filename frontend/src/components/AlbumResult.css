@@ -30,7 +30,7 @@
   margin: 0 auto 0.65rem;
   padding: 0;
   color: var(--c-brand-text);
-  font-size: 0.84rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   text-align: left;
   text-decoration: none;
@@ -368,7 +368,7 @@
   border-radius: 999px;
   background: var(--c-brand-soft);
   color: var(--c-brand-text);
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
@@ -559,7 +559,7 @@ a.btn {
   background: var(--c-surface);
   color: var(--c-text-soft);
   font: inherit;
-  font-size: 0.86rem;
+  font-size: var(--t-xs);
   cursor: pointer;
 }
 .public-share__reaction.is-pressed {
@@ -575,21 +575,21 @@ a.btn {
 
 .public-share__guestbook { margin: 1.5rem 0 0.5rem; }
 .public-share__guestbook-title { margin: 0; color: var(--c-text); font-size: 1.05rem; }
-.public-share__guestbook-hint { margin: 0.2rem 0 0.7rem; color: var(--c-text-muted); font-size: 0.86rem; }
+.public-share__guestbook-hint { margin: 0.2rem 0 0.7rem; color: var(--c-text-muted); font-size: var(--t-xs); }
 .public-share__guestbook-form { display: grid; gap: 0.5rem; padding: 0.85rem; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-surface); }
 .public-share__guestbook-name,
 .public-share__guestbook-message { width: 100%; box-sizing: border-box; padding: 0.55rem 0.65rem; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text); font: inherit; }
 .public-share__guestbook-message { resize: vertical; min-height: 2.6rem; }
 .public-share__guestbook-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.public-share__guestbook-count { color: var(--c-text-subtle); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.public-share__guestbook-count { color: var(--c-text-subtle); font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
 .public-share__guestbook-actions .upload-form__submit { width: auto; min-height: 40px; padding: 0.5rem 1rem; }
-.public-share__guestbook-error { margin: 0; color: var(--c-danger); font-size: 0.84rem; }
+.public-share__guestbook-error { margin: 0; color: var(--c-danger); font-size: var(--t-xs); }
 .public-share__guestbook-list { list-style: none; margin: 0.85rem 0 0; padding: 0; display: grid; gap: 0.7rem; }
 .public-share__guestbook-item { padding: 0.7rem 0.8rem; border: 1px solid var(--c-bg-soft); border-radius: 12px; background: var(--c-surface); }
 .public-share__guestbook-item-head { display: flex; align-items: center; gap: 0.4rem; }
 .public-share__guestbook-author { font-weight: 700; color: var(--c-text); }
-.public-share__guestbook-time { color: var(--c-text-subtle); font-size: 0.78rem; }
-.public-share__guestbook-delete { margin-left: auto; min-height: auto; padding: 0.1rem 0.35rem; border: 0; background: transparent; color: var(--c-text-subtle); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+.public-share__guestbook-time { color: var(--c-text-subtle); font-size: var(--t-xs); }
+.public-share__guestbook-delete { margin-left: auto; min-height: auto; padding: 0.1rem 0.35rem; border: 0; background: transparent; color: var(--c-text-subtle); font-size: var(--t-xs); text-decoration: underline; cursor: pointer; }
 .public-share__guestbook-text { margin: 0.3rem 0 0; color: var(--c-text); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .public-share__join {
@@ -671,7 +671,7 @@ a.btn {
 
 .public-share__pending-meta {
   color: var(--c-text-soft);
-  font-size: 0.84rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
@@ -720,7 +720,7 @@ a.btn {
   background: transparent;
   color: var(--c-text-soft);
   font: inherit;
-  font-size: 0.71rem;
+  font-size: var(--t-xs); /* 40+ 하한 14px (참고: 이 nav는 현재 미사용 레거시 CSS) */
   font-weight: 700;
   line-height: 1.18;
   text-align: center;
@@ -735,7 +735,7 @@ a.btn {
 
 @media (min-width: 640px) {
   .public-share__bottom-nav button,
-  .public-share__bottom-nav a { font-size: 0.78rem; }
+  .public-share__bottom-nav a { font-size: var(--t-xs); }
 }
 
 .public-share__name {

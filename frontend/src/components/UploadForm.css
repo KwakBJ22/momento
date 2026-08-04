@@ -120,7 +120,7 @@
 }
 
 .template-card__desc {
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
   color: var(--c-text-muted);
   text-align: center;
 }
@@ -549,7 +549,7 @@
   background: transparent;
   color: var(--c-text-subtle);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
   text-decoration: underline;
   text-underline-offset: 0.16em;
   cursor: pointer;
@@ -652,6 +652,6 @@
 .story-first-upload__eyebrow {
   margin: 0 0 0.5rem;
   color: var(--c-brand-text) !important;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }

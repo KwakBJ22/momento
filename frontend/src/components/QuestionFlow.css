@@ -12,7 +12,7 @@
 .question-flow__album {
   margin: 0;
   color: var(--c-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--t-xs);
 }
 
 .question-flow__notice {

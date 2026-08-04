@@ -1,6 +1,6 @@
 .album-creating { display: grid; min-height: min(68vh, 620px); place-items: center; padding: 24px 16px; }
 .album-creating__card { width: min(100%, 420px); box-sizing: border-box; padding: 32px 28px; border: 1px solid var(--c-border); border-radius: 18px; background: var(--c-surface); text-align: center; box-shadow: var(--sh-md); }
-.album-creating__eyebrow { margin: 0 0 8px; color: var(--c-brand-text); font-size: .86rem; font-weight: 700; }
+.album-creating__eyebrow { margin: 0 0 8px; color: var(--c-brand-text); font-size: var(--t-xs); font-weight: 700; }
 .album-creating h2 { margin: 0; color: var(--c-text); font-size: clamp(1.45rem, 5vw, 1.9rem); }
 .album-creating__previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 14px; }
 .album-creating__previews img, .album-creating__previews span { width: 100%; aspect-ratio: 1; border-radius: 10px; background: var(--c-brand-soft); object-fit: cover; }

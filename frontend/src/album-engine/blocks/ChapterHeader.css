@@ -112,3 +112,11 @@
   font-size: clamp(0.9rem, 1.7vw, 1rem);
   line-height: 1.7;
 }
+
+/* 40+ 화면 가독성: 화면 모드에서만 14px 하한(인쇄 원본 유지). clamp는 최소만 올리고 vw 증가율 유지. */
+.album-renderer--screen .chapter-header__badge { font-size: var(--t-xs); }
+.album-renderer--screen .chapter-header__eyebrow { font-size: clamp(0.875rem, 1.5vw, 0.9375rem); }
+.album-renderer--screen .chapter-header__extras { font-size: clamp(0.875rem, 1.4vw, 0.9375rem); }
+.album-renderer--screen .chapter-header__place { font-size: clamp(0.875rem, 1.5vw, 0.9375rem); }
+.album-renderer--screen .chapter-header__date { font-size: clamp(0.875rem, 1.6vw, 0.95rem); }
+.album-renderer--screen .chapter-header__dayline { font-size: clamp(0.875rem, 1.6vw, 0.9375rem); }

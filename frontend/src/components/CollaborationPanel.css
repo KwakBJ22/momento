@@ -13,7 +13,7 @@
 .collab-panel__loading-hint {
   margin: 0 0 0.65rem;
   color: var(--c-text-soft);
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
 }
 
 .collab-panel__skeleton-lines {
@@ -141,7 +141,7 @@
   align-items: center;
   gap: 0.35rem 0.5rem;
   color: var(--c-text-soft);
-  font-size: 0.84rem;
+  font-size: var(--t-xs);
 }
 
 .collab-panel__status strong {
@@ -240,18 +240,18 @@
 .collab-panel__living-modes label.is-selected { border-color: var(--c-text-soft); background: var(--c-brand-soft); }
 .collab-panel__living-modes strong, .collab-panel__living-modes small { display: block; }
 .collab-panel__living-modes strong { color: var(--c-text); font-size: 0.9rem; }
-.collab-panel__living-modes small { margin-top: 0.2rem; color: var(--c-text-soft); font-size: 0.78rem; line-height: 1.4; }
+.collab-panel__living-modes small { margin-top: 0.2rem; color: var(--c-text-soft); font-size: var(--t-xs); line-height: 1.4; }
 .collab-panel__select-all { display: block; margin-bottom: 0.6rem; color: var(--c-text-soft); font-size: 0.88rem; }
 .collab-panel__pending-list { display: grid; gap: 0.5rem; max-height: 42vh; margin: 0; padding: 0; overflow: auto; list-style: none; }
 .collab-panel__pending-list label { display: grid; grid-template-columns: auto 48px minmax(0, 1fr); align-items: center; gap: 0.55rem; padding: 0.45rem; border: 1px solid var(--c-border); border-radius: 10px; cursor: pointer; }
 .collab-panel__pending-list img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; display: block; }
 .collab-panel__pending-list strong, .collab-panel__pending-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.collab-panel__pending-list strong { color: var(--c-text); font-size: 0.83rem; }
-.collab-panel__pending-list small { margin-top: 0.18rem; color: var(--c-text-soft); font-size: 0.76rem; }
+.collab-panel__pending-list strong { color: var(--c-text); font-size: var(--t-xs); }
+.collab-panel__pending-list small { margin-top: 0.18rem; color: var(--c-text-soft); font-size: var(--t-xs); }
 
 .collab-panel__message { color: var(--c-text-soft); font-size: 0.9rem; }
 .collab-panel__error { color: var(--c-danger); font-size: 0.9rem; }
-.collab-panel__minor-error { color: var(--c-brand-text); font-size: 0.82rem; }
+.collab-panel__minor-error { color: var(--c-brand-text); font-size: var(--t-xs); }
 .collab-panel__minor-error button { min-height: auto; padding: 0; border: 0; color: inherit; text-decoration: underline; }
 
 @media (max-width: 768px) {

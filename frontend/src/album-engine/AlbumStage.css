@@ -6,7 +6,8 @@
   margin: 0 0 1.25rem;
   text-align: center;
   color: var(--c-text-muted);
-  font-size: clamp(0.82rem, 1.6vw, 0.95rem);
+  /* 40+ 하한 14px. AlbumStage는 화면 전용 폴백이라 인쇄 영향 없음. */
+  font-size: clamp(0.875rem, 1.6vw, 0.95rem);
   font-weight: 700;
   letter-spacing: -0.02em;
 }

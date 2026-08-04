@@ -329,3 +329,9 @@
     padding: 0.6rem;
   }
 }
+
+/* 40+ 화면 가독성: 화면 모드에서만 14px 하한. 인쇄(--print)는 300DPI로 선명하므로 원본 유지. */
+.album-renderer--screen .album-living-page__header p,
+.album-renderer--screen .album-living-page__new,
+.album-renderer--screen .album-living-page__photos figcaption,
+.album-renderer--screen .album-renderer__brand-footer { font-size: var(--t-xs); }

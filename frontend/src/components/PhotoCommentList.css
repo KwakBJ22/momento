@@ -80,7 +80,7 @@
   background: rgba(255, 255, 255, 0.94);
   color: var(--c-text-soft);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -100,7 +100,7 @@
 .photo-comments__cover-guide {
   margin: -4px 0 12px;
   color: var(--text-muted, var(--c-text-soft));
-  font-size: 0.82rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
