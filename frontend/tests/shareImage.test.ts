@@ -4,22 +4,24 @@ import test from "node:test";
 
 import { resolveShareImageUrl } from "../src/lib/shareImage";
 
-// Real behaviour: Kakao's feed template takes ONE image, so every share path must send
-// the cover photo (readable thumbnail), falling back to the result image only when no
-// cover exists yet.
-test("resolveShareImageUrl prefers the cover photo", () => {
+// Real behaviour: Kakao's feed template takes ONE image, so every share path sends the
+// cover photo (a readable thumbnail). It NEVER falls back to image_url — that is the
+// result grid, illegible as a thumbnail. No cover → share with no image (Kakao's default
+// card beats an unrecognizable grid).
+test("resolveShareImageUrl uses the cover photo", () => {
   assert.equal(
     resolveShareImageUrl({ cover_image_url: "https://cdn/cover.jpg", image_url: "https://cdn/grid.png" }),
     "https://cdn/cover.jpg",
   );
 });
 
-test("falls back to the result image when there is no cover", () => {
-  assert.equal(resolveShareImageUrl({ cover_image_url: null, image_url: "https://cdn/grid.png" }), "https://cdn/grid.png");
-  assert.equal(resolveShareImageUrl({ image_url: "https://cdn/grid.png" }), "https://cdn/grid.png");
+test("never falls back to the result grid image", () => {
+  // image_url present but no cover → empty, so Kakao does not show the 9-grid.
+  assert.equal(resolveShareImageUrl({ cover_image_url: null, image_url: "https://cdn/grid.png" }), "");
+  assert.equal(resolveShareImageUrl({ image_url: "https://cdn/grid.png" }), "");
 });
 
-test("returns empty string when nothing is available", () => {
+test("returns empty string when there is no cover", () => {
   assert.equal(resolveShareImageUrl({ cover_image_url: null, image_url: null }), "");
   assert.equal(resolveShareImageUrl(null), "");
   assert.equal(resolveShareImageUrl(undefined), "");

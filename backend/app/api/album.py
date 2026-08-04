@@ -1626,6 +1626,12 @@ def _detail_from_record(
     image_url = get_result_signed_url(client, record, settings)
     epilogue = str(record.get("epilogue") or record.get("narrative") or "").strip()
     cover_photo_id = record.get("cover_photo_id")
+    # Fill cover_image_url from a SINGLE signed cover photo (the chosen cover, else the
+    # first photo). Every share path uses resolveShareImageUrl(cover_image_url || …); when
+    # this was None the client fell back to image_url — the unreadable 9-grid result image.
+    # Sign exactly one photo: the light detail must never sign the whole album.
+    _cover_photo_records = get_album_photo_records(client, album_id)
+    _resolved_cover_id, cover_image_url = _cover_image_url(client, settings, record, _cover_photo_records)
     raw_stories = record.get("chapter_stories")
     chapter_stories = (
         {str(key): str(value).strip() for key, value in raw_stories.items() if str(value).strip()}
@@ -1645,7 +1651,7 @@ def _detail_from_record(
         chapter_stories=chapter_stories,
         image_url=image_url,
         cover_photo_id=UUID(str(cover_photo_id)) if cover_photo_id else None,
-        cover_image_url=None,
+        cover_image_url=cover_image_url,
         share_url="",
         created_at=record["created_at"],
         media=[],
