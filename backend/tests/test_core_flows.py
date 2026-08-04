@@ -213,11 +213,15 @@ class AccountWithdrawalTests(TestCase):
         self.assertIn(OWNER_ID, client.deleted_auth_users)
         # The other person's album survives untouched.
         self.assertIsNotNone(get_album_record(client, self.OTHER_ALBUM))
-        # My contribution to it stays, with my name anonymized (not deleted).
-        contributor = client.tables["album_contributors"][0]
-        self.assertEqual(contributor["display_name"], account_service.WITHDRAWN_DISPLAY_NAME)
+        # My roster row is removed — the withdrawn person leaves the participant list. Keeping
+        # it with user_id -> NULL (guest_id already NULL) would violate the identity CHECK and
+        # crash withdrawal with 23514 (the fixed regression).
+        self.assertEqual(client.tables["album_contributors"], [])
+        # But the memory I left stays inside that album, with my name anonymized and the
+        # author link cleared — never delete other people's albums' contributions.
         memory = client.tables["photo_memories"][0]
         self.assertEqual(memory["author_name"], account_service.WITHDRAWN_DISPLAY_NAME)
+        self.assertIsNone(memory["author_id"])
 
 
 # ── [e] 반응·방명록 추가 → 조회 ───────────────────────────────────────────

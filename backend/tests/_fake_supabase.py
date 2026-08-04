@@ -280,9 +280,19 @@ class FakeSupabase:
         members = self.tables.get("album_members")
         if members:
             members[:] = [m for m in members if str(m.get("user_id")) != profile_id]
-        for row in self.tables.get("album_contributors", []):
-            if str(row.get("user_id")) == profile_id:
-                row["user_id"] = None
+        # The withdrawn person leaves the participant roster (mirrors the migration): the
+        # SET NULL on user_id would otherwise leave a row failing the identity CHECK.
+        contributors = self.tables.get("album_contributors")
+        if contributors:
+            contributors[:] = [c for c in contributors if str(c.get("user_id")) != profile_id]
+        # Their photos/memories stay in the album; only the author reference is cleared
+        # (ON DELETE SET NULL) — never delete other people's contributions.
+        for photo in self.tables.get("album_photos", []):
+            if str(photo.get("contributor_profile_id")) == profile_id:
+                photo["contributor_profile_id"] = None
+        for memory in self.tables.get("photo_memories", []):
+            if str(memory.get("author_id")) == profile_id:
+                memory["author_id"] = None
         return [existed]
 
     def _rpc_claim_guest_album_ownership(self, params: dict):

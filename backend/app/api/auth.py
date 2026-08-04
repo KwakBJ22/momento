@@ -59,8 +59,17 @@ async def delete_auth_account(
     settings = get_settings()
     try:
         delete_account(get_supabase_client(settings), settings, authenticated_user_id)
+    except HTTPException:
+        raise
     except RuntimeError:
         # An album survived the first pass; nothing was destroyed beyond it and
         # the request is safe to repeat.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="탈퇴를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.")
+    except Exception as exc:  # noqa: BLE001
+        # An unexpected DB error (e.g. a constraint we did not anticipate) must reach the
+        # user as a clear, retryable message and let them close the modal — not a bare 500
+        # that the frontend can only re-open. The withdrawal is transactional, so a failed
+        # attempt leaves the account intact and the request is safe to repeat.
+        logger.exception("account_deletion_failed error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="탈퇴를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
