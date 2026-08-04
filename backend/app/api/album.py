@@ -81,6 +81,7 @@ from app.services.supabase import (
     list_album_photo_list_summaries,
     list_owned_album_cover_records,
     list_owned_album_list_records,
+    list_participating_album_list_records,
     get_signed_url,
     get_supabase_client,
     save_album_record,
@@ -342,6 +343,24 @@ def _attach_my_album_cover_urls(
     album_ids = [album_id for album_id, _ in targets]
     cover_photo_ids = [photo_id for _, photo_id in targets]
     covers = _owned_cover_urls(client, settings, profile_id, album_ids, cover_photo_ids)
+    return _apply_cover_urls(items, covers)
+
+
+def _attach_participating_cover_urls(
+    client: Any,
+    settings: Settings,
+    items: list[MyAlbumListItem],
+) -> list[MyAlbumListItem]:
+    """Sign covers for albums the user contributed to (participation already established,
+    so no ownership gate) — same batch signing as owned albums."""
+    targets = [(str(item.album_id), str(item.cover_photo_id)) for item in items if item.cover_photo_id]
+    if not targets:
+        return items
+    covers = _sign_cover_thumbnails(client, settings, [a for a, _ in targets], [p for _, p in targets])
+    return _apply_cover_urls(items, covers)
+
+
+def _apply_cover_urls(items: list[MyAlbumListItem], covers: dict[str, str]) -> list[MyAlbumListItem]:
     if not covers:
         return items
     return [
@@ -357,6 +376,28 @@ def _attach_my_album_cover_urls(
     ]
 
 
+def _sign_cover_thumbnails(
+    client: Any,
+    settings: Settings,
+    album_ids: list[str],
+    cover_photo_ids: list[str],
+) -> dict[str, str]:
+    """Batch-sign requested cover thumbnails. Caller is responsible for authorizing access."""
+    requested_ids = {str(photo_id) for photo_id in cover_photo_ids}
+    if not album_ids or not requested_ids:
+        return {}
+    rows = list_album_photo_cover_records(client, album_ids, sorted(requested_ids))
+    signed_urls = get_signed_urls_batch(client, rows, settings.signed_url_ttl_seconds)
+    covers: dict[str, str] = {}
+    for row in rows:
+        bucket = str(row.get("thumbnail_bucket") or row.get("storage_bucket") or "")
+        path = str(row.get("thumbnail_path") or row.get("storage_path") or "")
+        url = signed_urls.get((bucket, path))
+        if url:
+            covers[str(row["album_id"])] = url
+    return covers
+
+
 def _owned_cover_urls(
     client: Any,
     settings: Settings,
@@ -367,19 +408,9 @@ def _owned_cover_urls(
     """Resolve requested cover thumbnails in constant query count for owned albums only."""
     owned = list_owned_album_cover_records(client, profile_id, album_ids)
     owned_ids = [str(row["id"]) for row in owned]
-    requested_ids = {str(photo_id) for photo_id in cover_photo_ids}
-    if not owned_ids or not requested_ids:
+    if not owned_ids:
         return {}
-    rows = list_album_photo_cover_records(client, owned_ids, sorted(requested_ids))
-    signed_urls = get_signed_urls_batch(client, rows, settings.signed_url_ttl_seconds)
-    covers: dict[str, str] = {}
-    for row in rows:
-        bucket = str(row.get("thumbnail_bucket") or row.get("storage_bucket") or "")
-        path = str(row.get("thumbnail_path") or row.get("storage_path") or "")
-        url = signed_urls.get((bucket, path))
-        if url:
-            covers[str(row["album_id"])] = url
-    return covers
+    return _sign_cover_thumbnails(client, settings, owned_ids, cover_photo_ids)
 
 
 @router.post("/upload-album", response_model=AlbumUploadResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -1720,13 +1751,27 @@ async def get_my_albums(
     records = list_owned_album_list_records(client, authenticated_user_id, limit=20)
     album_ids = [str(record["id"]) for record in records]
     photo_rows = await asyncio.to_thread(list_album_photo_list_summaries, client, album_ids)
+    # Albums the user was invited to and contributed to (never owned — excluded here so an
+    # owner is never double-listed).
+    participating_records = list_participating_album_list_records(
+        client, authenticated_user_id, set(album_ids), limit=20
+    )
+    participating_ids = [str(record["id"]) for record in participating_records]
+    participating_photo_rows = await asyncio.to_thread(
+        list_album_photo_list_summaries, client, participating_ids
+    )
     payload = MyAlbumsResponse(
         albums=_attach_my_album_cover_urls(
             client,
             settings,
             authenticated_user_id,
             _my_album_list_items(client, settings, records, {}, photo_rows),
-        )
+        ),
+        participating=_attach_participating_cover_urls(
+            client,
+            settings,
+            _my_album_list_items(client, settings, participating_records, {}, participating_photo_rows),
+        ),
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Server-Timing"] = f"my-albums;dur={duration_ms}"

@@ -468,6 +468,50 @@ def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int
     return rows[:limit]
 
 
+def list_participating_album_list_records(
+    client: Client, profile_id: str, exclude_ids: set[str], *, limit: int = 20
+) -> list[dict[str, Any]]:
+    """Albums this user contributed to but does not own — for the "함께 만드는 앨범" list.
+
+    Ownership is handled by list_owned_album_list_records; here we return only
+    album_contributors rows (role != owner, active) whose album is not already owned,
+    so an owner never shows up twice.
+    """
+    contributor_rows = (
+        client.table("album_contributors")
+        .select("album_id, role")
+        .eq("user_id", profile_id)
+        .eq("status", "active")
+        .execute()
+        .data
+        or []
+    )
+    participating_ids: list[str] = []
+    seen: set[str] = set()
+    for row in contributor_rows:
+        album_id = str(row.get("album_id") or "")
+        if not album_id or album_id in seen or album_id in exclude_ids:
+            continue
+        if str(row.get("role") or "") == "owner":
+            continue
+        seen.add(album_id)
+        participating_ids.append(album_id)
+    if not participating_ids:
+        return []
+    columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous, status"
+    result = (
+        client.table("albums")
+        .select(columns)
+        .in_("id", participating_ids)
+        .is_("deleted_at", "null")
+        .order("updated_at", desc=True)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
 def list_album_photo_list_summaries(client: Client, album_ids: list[str]) -> list[dict[str, Any]]:
     """Fetch only IDs and ordering for list counts and legacy cover fallback in one query."""
     if not album_ids:

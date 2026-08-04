@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.api.album import router
 from app.services.auth import require_authenticated_user
-from app.services.supabase import list_owned_album_list_records
+from app.services.supabase import list_owned_album_list_records, list_participating_album_list_records
+from tests._fake_supabase import FakeSupabase
 
 
 PROFILE_ID = "22222222-2222-2222-2222-222222222222"
@@ -70,6 +71,7 @@ class MyAlbumsApiTests(TestCase):
                     "result_path": "old/result.png",
                 },
             ]),
+            patch("app.api.album.list_participating_album_list_records", return_value=[]),
         ]
         for item in self.patches:
             item.start()
@@ -124,6 +126,25 @@ class MyAlbumsApiTests(TestCase):
         cover_rows.assert_called_once()
         signed_urls.assert_called_once()
 
+    def test_my_albums_returns_participating_albums_separately_from_owned(self) -> None:
+        part_id = "44444444-4444-4444-4444-444444444444"
+        with patch("app.api.album.list_participating_album_list_records", return_value=[
+            {"id": part_id, "title": "함께 만든 앨범", "created_at": "2026-07-20T12:00:00+00:00", "updated_at": "2026-07-20T12:00:00+00:00", "result_path": "part/result.png"},
+        ]), patch(
+            "app.api.album._attach_my_album_cover_urls", side_effect=lambda _c, _s, _p, items: items
+        ), patch(
+            "app.api.album._attach_participating_cover_urls", side_effect=lambda _c, _s, items: items
+        ):
+            response = self.client.get("/api/albums/mine")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        # Existing field kept; owned unchanged.
+        self.assertEqual([a["album_id"] for a in body["albums"]], [NEW_ALBUM_ID, OLD_ALBUM_ID])
+        # New field carries the participated album, and an owned album never leaks into it.
+        self.assertEqual([a["album_id"] for a in body["participating"]], [part_id])
+        self.assertNotIn(NEW_ALBUM_ID, [a["album_id"] for a in body["participating"]])
+
     def test_owner_membership_recovers_legacy_claimed_album_and_sorts_it_first(self) -> None:
         client = _OwnedListClient(
             direct=[{"id": OLD_ALBUM_ID, "created_at": "2026-07-22T12:00:00+00:00", "updated_at": "2026-07-22T12:00:00+00:00"}],
@@ -134,3 +155,36 @@ class MyAlbumsApiTests(TestCase):
         records = list_owned_album_list_records(client, PROFILE_ID)
 
         self.assertEqual([record["id"] for record in records], [NEW_ALBUM_ID, OLD_ALBUM_ID])
+
+
+class ParticipatingAlbumQueryTests(TestCase):
+    """Real query semantics via the stateful fake — the destructive/visibility rules
+    (exclude owned, exclude owner-role, exclude deleted) must hold for real."""
+
+    def test_excludes_owned_owner_role_and_deleted_albums(self) -> None:
+        user = "22222222-2222-2222-2222-222222222222"
+        client = FakeSupabase({
+            "albums": [
+                {"id": "album-b", "title": "함께B", "deleted_at": None},
+                {"id": "album-c", "title": "소유C", "deleted_at": None},
+                {"id": "album-d", "title": "삭제D", "deleted_at": "2026-08-01T00:00:00+00:00"},
+            ],
+            "album_contributors": [
+                {"album_id": "album-b", "user_id": user, "status": "active", "role": "contributor"},
+                {"album_id": "album-c", "user_id": user, "status": "active", "role": "contributor"},
+                {"album_id": "album-d", "user_id": user, "status": "active", "role": "contributor"},
+                {"album_id": "album-a", "user_id": user, "status": "active", "role": "owner"},
+                {"album_id": "album-b", "user_id": "99999999-9999-9999-9999-999999999999", "status": "active", "role": "contributor"},
+            ],
+        })
+        # album-c is passed as owned (exclude_ids); it must not appear.
+        records = list_participating_album_list_records(client, user, exclude_ids={"album-c"})
+        ids = [r["id"] for r in records]
+        self.assertIn("album-b", ids)          # genuine participation
+        self.assertNotIn("album-c", ids)       # owned → excluded
+        self.assertNotIn("album-d", ids)       # deleted → excluded
+        self.assertNotIn("album-a", ids)       # owner role → excluded (already in owned list)
+
+    def test_no_participation_returns_empty(self) -> None:
+        client = FakeSupabase({"albums": [], "album_contributors": []})
+        self.assertEqual(list_participating_album_list_records(client, "u", exclude_ids=set()), [])

@@ -33,6 +33,7 @@ function MyAlbumsSkeleton() {
 
 export default function MyAlbums() {
   const [albums, setAlbums] = useState<MyAlbum[] | null>(null);
+  const [participating, setParticipating] = useState<MyAlbum[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,9 +44,10 @@ export default function MyAlbums() {
     const startedAt = performance.now();
 
     void requestMyAlbumList(getMyAlbums)
-      .then((items) => {
+      .then((data) => {
         if (!active) return;
-        setAlbums(items);
+        setAlbums(data.albums);
+        setParticipating(data.participating);
         debugTiming("my albums list response", startedAt);
         window.requestAnimationFrame(() => debugTiming("my albums first card", startedAt));
       })
@@ -68,6 +70,46 @@ export default function MyAlbums() {
       deletingIdsRef.current.delete(album.album_id);
       setDeletingId(null);
     }
+  };
+
+  // One card shape for both sections (no duplicate markup). Participating albums pass
+  // canDelete=false — a non-owner can't delete, so no delete control (section title,
+  // not a badge, distinguishes owner vs participant).
+  const renderCard = (album: MyAlbum, index: number, canDelete: boolean) => {
+    const imageUrl = myAlbumCardImageUrl(album);
+    const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
+    return (
+      <div key={album.album_id} className="my-albums__card">
+        <a className="my-albums__card-link" href={album.status === "processing" || album.status === "failed" ? `/album/${album.album_id}/creating` : `/album/${album.album_id}`}>
+          <div className="my-albums__image-wrap">
+            {imageUrl && !imageFailed ? (
+              <img
+                className="my-albums__image"
+                src={imageUrl}
+                alt=""
+                loading={index < 2 ? "eager" : "lazy"}
+                decoding="async"
+                onError={() => setFailedImageUrls((current) => new Set(current).add(imageUrl))}
+              />
+            ) : <span className="my-albums__image-placeholder" aria-hidden="true"><Image size={24} /></span>}
+          </div>
+          <div className="my-albums__card-body">
+            <div className="my-albums__card-title-row"><h3>{album.title}</h3>{album.status === "processing" ? <span className="my-albums__status-badge">생성 중</span> : album.status === "failed" ? <span className="my-albums__status-badge my-albums__status-badge--failed">생성 실패</span> : album.new_memory_count > 0 ? <span className="my-albums__memory-badge">새로운 추억 {album.new_memory_count}개</span> : null}</div>
+            <p>{formatDate(album.created_at)} · 사진 {album.photo_count}장</p>
+          </div>
+        </a>
+        {canDelete ? (
+          <button
+            type="button"
+            className="my-albums__delete"
+            disabled={deletingId === album.album_id}
+            onClick={() => void handleDelete(album)}
+          >
+            {deletingId === album.album_id ? "삭제 중" : "삭제"}
+          </button>
+        ) : null}
+      </div>
+    );
   };
 
   if (error) return <p className="auth-panel__notice">{error}</p>;
@@ -93,42 +135,19 @@ export default function MyAlbums() {
         <div className="my-albums__empty"><p>아직 만든 앨범이 없어요.</p><a className="landing__cta my-albums__empty-cta" href="/">첫 앨범 만들기</a></div>
       ) : (
         <div className="my-albums__list">
-          {albums.map((album, index) => {
-            const imageUrl = myAlbumCardImageUrl(album);
-            const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
-            return (
-              <div key={album.album_id} className="my-albums__card">
-                <a className="my-albums__card-link" href={album.status === "processing" || album.status === "failed" ? `/album/${album.album_id}/creating` : `/album/${album.album_id}`}>
-                  <div className="my-albums__image-wrap">
-                    {imageUrl && !imageFailed ? (
-                      <img
-                        className="my-albums__image"
-                        src={imageUrl}
-                        alt=""
-                        loading={index < 2 ? "eager" : "lazy"}
-                        decoding="async"
-                        onError={() => setFailedImageUrls((current) => new Set(current).add(imageUrl))}
-                      />
-                    ) : <span className="my-albums__image-placeholder" aria-hidden="true"><Image size={24} /></span>}
-                  </div>
-                  <div className="my-albums__card-body">
-                    <div className="my-albums__card-title-row"><h3>{album.title}</h3>{album.status === "processing" ? <span className="my-albums__status-badge">생성 중</span> : album.status === "failed" ? <span className="my-albums__status-badge my-albums__status-badge--failed">생성 실패</span> : album.new_memory_count > 0 ? <span className="my-albums__memory-badge">새로운 추억 {album.new_memory_count}개</span> : null}</div>
-                    <p>{formatDate(album.created_at)} · 사진 {album.photo_count}장</p>
-                  </div>
-                </a>
-                <button
-                  type="button"
-                  className="my-albums__delete"
-                  disabled={deletingId === album.album_id}
-                  onClick={() => void handleDelete(album)}
-                >
-                  {deletingId === album.album_id ? "삭제 중" : "삭제"}
-                </button>
-              </div>
-            );
-          })}
+          {albums.map((album, index) => renderCard(album, index, true))}
         </div>
       )}
+      {participating.length > 0 ? (
+        <>
+          <header className="my-albums__header my-albums__header--section">
+            <div><p className="my-albums__eyebrow">함께</p><h2>함께 만드는 앨범</h2></div>
+          </header>
+          <div className="my-albums__list">
+            {participating.map((album, index) => renderCard(album, index, false))}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

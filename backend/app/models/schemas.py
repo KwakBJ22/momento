@@ -174,6 +174,9 @@ class MyAlbumListItem(BaseModel):
 
 class MyAlbumsResponse(BaseModel):
     albums: list[MyAlbumListItem] = Field(default_factory=list)
+    # Albums the user was invited to and contributed to (not owned). Additive: existing
+    # clients that read only `albums` keep working.
+    participating: list[MyAlbumListItem] = Field(default_factory=list)
 
 
 class AlbumPdfUrlResponse(BaseModel):

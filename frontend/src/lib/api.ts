@@ -153,10 +153,11 @@ export type MyAlbum = {
   status?: "processing" | "active" | "failed" | string;
 };
 
-export async function getMyAlbums(): Promise<MyAlbum[]> {
+export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[] }> {
   const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
-  return ((await response.json()) as { albums: MyAlbum[] }).albums;
+  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[] };
+  return { albums: data.albums ?? [], participating: data.participating ?? [] };
 }
 
 export async function deleteAlbum(albumId: string): Promise<void> {
