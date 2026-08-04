@@ -146,10 +146,17 @@ def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) ->
 
 
 @router.get("/api/join/{token}", response_model=JoinPreviewResponse)
-async def join_preview(token: str) -> JoinPreviewResponse:
+async def join_preview(
+    token: str,
+    user_id: str | None = Depends(optional_authenticated_user),
+) -> JoinPreviewResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     album, _invite = get_album_for_invite(client, token)
+    # Permission judged on the server (CLAUDE.md §10): is the signed-in requester
+    # already the owner/member of this album? If so the client redirects them to the
+    # album instead of the participant join form.
+    viewer_is_member = bool(user_id) and get_album_access(client, album, str(user_id)).can_read_private
     # Metric: invite participation rate = invitation_accepted / invitation_opened.
     log_event(client, "invitation_opened", album_id=str(album["id"]))
     # A participation invitation should show an actual album photo, never the
@@ -175,6 +182,7 @@ async def join_preview(token: str) -> JoinPreviewResponse:
         photo_count=count_ready_photos(client, str(album["id"])),
         photo_limit=int(album.get("photo_limit") or 30),
         collaboration_status=album.get("collaboration_status") or "collecting",
+        viewer_is_member=viewer_is_member,
     )
 
 

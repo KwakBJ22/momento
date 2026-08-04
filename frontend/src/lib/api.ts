@@ -671,9 +671,23 @@ async function collaborationFetch(path: string, init: RequestInit, session: Coll
 }
 
 export async function getJoinPreview(token: string) {
-  const response = await fetch(`${API_BASE}/api/join/${encodeURIComponent(token)}`);
+  // Attach the bearer when signed in so the server can tell if the viewer already
+  // owns/belongs to this album (viewer_is_member). Anonymous viewers send no token.
+  const session = await getSession();
+  const response = session?.accessToken
+    ? await authenticatedFetch(`/api/join/${encodeURIComponent(token)}`)
+    : await fetch(`${API_BASE}/api/join/${encodeURIComponent(token)}`);
   if (!response.ok) throw new Error(await parseError(response));
-  return response.json();
+  return response.json() as Promise<{
+    album_id: string;
+    title: string;
+    owner_name: string | null;
+    cover_image_url: string | null;
+    contributor_count: number;
+    photo_count: number;
+    photo_limit: number;
+    viewer_is_member?: boolean;
+  }>;
 }
 
 export async function joinCollaboration(

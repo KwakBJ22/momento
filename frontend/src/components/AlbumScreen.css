@@ -14,3 +14,8 @@
 .album-inline-action__error { color: var(--c-danger); }
 @media (max-width: 768px) { .album-inline-action { right: 0; bottom: 0; left: 0; width: 100%; max-height: calc(100dvh - 68px - env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; } }
 @media (max-width: 768px) { .album-screen__book { gap: 1.5rem; } }
+
+/* 플로팅 "맨 위로": 하단 네비 위, 우측에 배치. 네비(z70)보다 위·인라인 패널(z90)보다 아래.
+   데스크톱은 중앙 900px 책 컨테이너 우측 바깥에, 모바일은 우측 16px에 고정. */
+.album-screen__scroll-top { position: fixed; z-index: 75; right: max(16px, calc((100vw - 900px) / 2 + 16px)); bottom: calc(82px + 12px + env(safe-area-inset-bottom)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--c-border-strong); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); box-shadow: var(--sh-md); cursor: pointer; }
+@media (max-width: 640px) { .album-screen__scroll-top { right: 16px; bottom: calc(68px + 12px + env(safe-area-inset-bottom)); } }

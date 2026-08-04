@@ -26,7 +26,16 @@ export default function JoinPage({ token }: JoinPageProps) {
   useEffect(() => {
     let active = true;
     void getJoinPreview(token)
-      .then((data) => active && setPreview(data))
+      .then((data) => {
+        if (!active) return;
+        // Opening your own invite link: the owner/member lands on the album, not the
+        // participant join form. Membership is decided by the server (viewer_is_member).
+        if (data.viewer_is_member) {
+          window.location.replace(`/album/${data.album_id}`);
+          return;
+        }
+        setPreview(data);
+      })
       .catch((err: Error) => active && setError(err.message));
     return () => { active = false; };
   }, [token]);

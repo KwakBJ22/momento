@@ -1,4 +1,4 @@
-.album-bottom-navigation { position: fixed; z-index: 70; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); min-height: calc(82px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--c-border); background: rgba(255,253,249,0.98); box-shadow: var(--sh-md); }
+.album-bottom-navigation { position: fixed; z-index: 70; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: calc(82px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--c-border); background: rgba(255,253,249,0.98); box-shadow: var(--sh-md); }
 .album-bottom-navigation button, .album-bottom-navigation a { display: grid; place-items: center; align-content: center; gap: 0.26rem; min-width: 0; min-height: 82px; padding: 0.45rem; border: 0; background: transparent; color: var(--c-text-soft); font: inherit; font-size: var(--t-xs); font-weight: 650; line-height: 1.15; text-align: center; text-decoration: none; cursor: pointer; }
 .album-bottom-navigation__new-album { background: var(--c-brand-soft) !important; color: var(--c-brand-text) !important; }
 .album-bottom-navigation button:disabled { opacity: 0.42; cursor: default; }
@@ -10,8 +10,8 @@
 }
 @media (max-width: 640px) {
   .album-bottom-navigation { min-height: calc(68px + env(safe-area-inset-bottom)); }
-  /* 40+ target: label floor is 14px. To keep 5 cells on one row at 360px, the label may
-     wrap to 2 lines and the icon/gap shrink — never shrink the label below 14px. */
+  /* 40+ target: label floor is 14px. 4 cells now fit one line at 360px (~90px/cell);
+     the icon/gap shrink on narrow widths — never shrink the label below 14px. */
   .album-bottom-navigation button, .album-bottom-navigation a { min-height: 68px; padding: 0.3rem 0.1rem; gap: 0.15rem; font-size: var(--t-xs); }
   .album-bottom-navigation button svg, .album-bottom-navigation a svg { width: 16px; height: 16px; }
 }

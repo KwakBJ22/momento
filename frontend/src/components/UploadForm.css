@@ -424,6 +424,17 @@
   font-weight: 600;
 }
 
+/* 안내(정보)는 실패가 아니다: 중립색 + 재시도 버튼 없음. 오류(--c-danger)와 시각 구분. */
+.upload-form__notice {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: var(--c-bg-soft);
+  border-radius: 12px;
+  color: var(--c-text-soft);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
 .upload-progress {
   position: fixed;
   inset: 0;

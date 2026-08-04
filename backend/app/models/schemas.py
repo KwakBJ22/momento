@@ -791,6 +791,10 @@ class JoinPreviewResponse(BaseModel):
     photo_count: int
     photo_limit: int
     collaboration_status: CollaborationStatus
+    # True when the requester is signed in AND already the owner/member of this album.
+    # The client uses it to send an owner/member to the album instead of the join form
+    # (a person opening their own invite link should land on their album).
+    viewer_is_member: bool = False
 
 
 AlbumDetailResponse.model_rebuild()

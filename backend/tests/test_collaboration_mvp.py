@@ -439,5 +439,64 @@ class CollaborationServiceTests(unittest.TestCase):
         })
 
 
+class JoinPreviewViewerMembershipTests(unittest.TestCase):
+    """The join preview tells the client whether the signed-in viewer already
+    owns/belongs to the album, so an owner opening their own invite link is sent to
+    the album instead of the participant join form (server-side permission, §10)."""
+
+    ALBUM_ID = "11111111-1111-1111-1111-111111111111"
+    OWNER_ID = "22222222-2222-2222-2222-222222222222"
+
+    def _client(self, *, viewer_id, can_read_private: bool):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api import collaboration as collab
+        from app.services.auth import optional_authenticated_user
+
+        app = FastAPI()
+        app.include_router(collab.router)
+        app.dependency_overrides[optional_authenticated_user] = lambda: viewer_id
+
+        album = {"id": self.ALBUM_ID, "title": "우리 앨범", "cover_photo_id": None,
+                 "photo_limit": 30, "collaboration_status": "collecting"}
+        access = SimpleNamespace(can_read_private=can_read_private)
+        self._patchers = [
+            patch.object(collab, "get_supabase_client", return_value=object()),
+            patch.object(collab, "get_album_for_invite", return_value=(album, {})),
+            patch.object(collab, "log_event", return_value=True),
+            patch.object(collab, "get_album_photo_records", return_value=[]),
+            patch.object(collab, "_owner_name", return_value="주인"),
+            patch.object(collab, "count_active_contributors", return_value=0),
+            patch.object(collab, "count_ready_photos", return_value=0),
+            patch.object(collab, "get_album_access", return_value=access),
+        ]
+        for p in self._patchers:
+            p.start()
+        return TestClient(app)
+
+    def tearDown(self) -> None:
+        for p in getattr(self, "_patchers", []):
+            p.stop()
+
+    def test_owner_or_member_is_flagged(self) -> None:
+        api = self._client(viewer_id=self.OWNER_ID, can_read_private=True)
+        resp = api.get("/api/join/some-token")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["viewer_is_member"])
+
+    def test_signed_in_non_member_is_not_flagged(self) -> None:
+        api = self._client(viewer_id=self.OWNER_ID, can_read_private=False)
+        resp = api.get("/api/join/some-token")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["viewer_is_member"])
+
+    def test_anonymous_viewer_is_not_flagged(self) -> None:
+        api = self._client(viewer_id=None, can_read_private=True)
+        resp = api.get("/api/join/some-token")
+        self.assertEqual(resp.status_code, 200)
+        # Anonymous: membership is never claimed even if the album would allow reads.
+        self.assertFalse(resp.json()["viewer_is_member"])
+
+
 if __name__ == "__main__":
     unittest.main()

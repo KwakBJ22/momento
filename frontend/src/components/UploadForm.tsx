@@ -56,8 +56,12 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
   // Eased 0–100 value for the thin prepare bar. The count text stays exact; the bar
   // glides between the coarse (2-at-a-time) completion counts so it doesn't jump.
   const [prepareDisplay, setPrepareDisplay] = useState(0);
-  // Reuse the existing error slot to prompt a re-pick after a restored step.
-  const [error, setError] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
+  // Two distinct slots: `notice` is neutral information (동영상 제외·중복 제외·장수 초과·
+  // 재선택 안내) — no "다시 시도". `error` is a genuine upload failure where retry is
+  // meaningful. Keeping them separate stops an informational message from rendering the
+  // retry button (which would (re)start an album upload the user never asked for).
+  const [notice, setNotice] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
+  const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const operationIdRef = useRef<string | null>(null);
@@ -111,18 +115,19 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     const { accepted, rejectedVideos, rejectedOther } = filterImageFiles(files);
     if (!accepted.length) {
       droppedVideoCountRef.current += rejectedVideos;
-      setError(noPhotosAddedNotice(rejectedVideos, rejectedOther > 0));
+      setNotice(noPhotosAddedNotice(rejectedVideos, rejectedOther > 0));
       return;
     }
     const { accepted: unique, duplicates } = dedupeSelectedPhotos(accepted, photos.map((photo) => photo.file));
     const { accepted: limited, skipped } = limitSelectedPhotos(unique, MAX_PHOTOS, photos.length);
     if (!limited.length) {
-      setError("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
+      setNotice("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
       return;
     }
 
     setIsPreparing(true);
     setError(null);
+    setNotice(null);
     setPreparingProgress({ done: 0, total: limited.length });
     const failures: string[] = [];
     let nextTotal = totalUploadBytes;
@@ -186,7 +191,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
       droppedVideoCountRef.current += rejectedVideos;
       failures.push(...droppedFileNotices(rejectedVideos, rejectedOther));
-      setError(failures.length ? failures.join(" ") : null);
+      setNotice(failures.length ? failures.join(" ") : null);
     } finally {
       setIsPreparing(false);
       setPreparingProgress(null);
@@ -216,7 +221,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
   const createAlbum = async () => {
     if (isPreparing || isSubmitting || uploadInFlightRef.current) return;
     if (!photos.length) {
-      setError("사진을 한 장 이상 선택해주세요.");
+      setNotice("사진을 한 장 이상 선택해주세요.");
       return;
     }
     uploadInFlightRef.current = true;
@@ -224,6 +229,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     albumCreationTiming("SUBMIT", { photo_count: photos.length });
     setIsSubmitting(true);
     setError(null);
+    setNotice(null);
     setProgressStep(0);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -329,6 +335,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           {isSubmitting ? "앨범 만드는 중..." : "앨범 만들기"}
         </button>
       ) : null}
+      {notice && <p className="upload-form__notice" aria-live="polite">{notice}</p>}
       {error && <p className="upload-form__error">{error}</p>}
       {error && photos.length > 0 && <button type="button" className="upload-form__retry" onClick={() => void createAlbum()}>다시 시도</button>}
       {progressStep !== null && (

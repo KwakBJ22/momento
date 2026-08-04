@@ -54,13 +54,14 @@ export default function AlbumBottomNavigation({
     );
   }
 
+  // "앨범 처음으로"는 네비에서 빼고 우측 하단 플로팅 버튼(↑ 맨 위로)으로 옮겼다.
+  // 4칸이 되어 라벨이 한 줄로 들어간다.
   return (
     <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
-      <button type="button" onClick={onTop}><Home size={17} /><span>앨범 처음으로</span></button>
       <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
-      <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>기억 남기기</span></button>
+      <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>기억 추가</span></button>
       <button type="button" onClick={onShare}><Share2 size={17} /><span>공유하기</span></button>
-      <button type="button" className="album-bottom-navigation__new-album" onClick={createAlbum}><PlusSquare size={17} /><span>새 앨범 만들기</span></button>
+      <button type="button" className="album-bottom-navigation__new-album" onClick={createAlbum}><PlusSquare size={17} /><span>앨범 만들기</span></button>
     </nav>
   );
 }

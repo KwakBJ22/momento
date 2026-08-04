@@ -1,8 +1,12 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowUp } from "lucide-react";
 import AlbumActionPanel from "./AlbumActionPanel";
 import AlbumBottomNavigation, { type AlbumBottomNavigationProps } from "./AlbumBottomNavigation";
 import AlbumScreenHeader from "./AlbumScreenHeader";
 import "./AlbumScreen.css";
+
+/** Show the "맨 위로" floating button only after the reader has scrolled a screenful down. */
+const SCROLL_TOP_REVEAL_PX = 480;
 
 interface AlbumScreenProps {
   title: string;
@@ -26,6 +30,17 @@ export default function AlbumScreen({
   title, subtitle, canEditTitle = false, onSaveTitle, headerSupplement,
   body, actionPanel, bottomNavigation, backHref, backLabel, className = "",
 }: AlbumScreenProps) {
+  // "앨범 처음으로"를 네비에서 뺀 대신, 충분히 내려갔을 때만 뜨는 플로팅 버튼으로 대체한다.
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > SCROLL_TOP_REVEAL_PX);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  // Always scroll the page to the top — the button's meaning is "맨 위로". (onTop from the
+  // nav is not reused: for some callers it navigates rather than scrolls.)
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>
       {backHref ? <a className="album-page__back-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
@@ -38,6 +53,11 @@ export default function AlbumScreen({
         {actionPanel ? <AlbumActionPanel>{actionPanel}</AlbumActionPanel> : null}
       </div>
       {bottomNavigation ? <AlbumBottomNavigation {...bottomNavigation} /> : null}
+      {bottomNavigation && showScrollTop ? (
+        <button type="button" className="album-screen__scroll-top" aria-label="맨 위로" onClick={scrollTop}>
+          <ArrowUp size={20} />
+        </button>
+      ) : null}
     </div>
   );
 }
