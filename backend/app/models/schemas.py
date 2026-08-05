@@ -136,6 +136,9 @@ class ViewerParticipation(BaseModel):
     relationship: str | None = None
     photo_count: int = 0
     memory_count: int = 0
+    # 앨범 전체의 활동 중 참여자 수 — 참여자 화면 메타("함께한 사람 N명")와
+    # 더보기 시트 행에 쓴다(참여자는 협업 상태 API 권한이 없을 수 있어 여기 실어 보낸다).
+    contributor_count: int = 0
 
 
 class AlbumDetailResponse(BaseModel):

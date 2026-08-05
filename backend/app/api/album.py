@@ -1899,6 +1899,11 @@ async def get_album(
                 owner_name = usable_owner_display_name(
                     str((profile_rows[0].get("display_name") if profile_rows else "") or ""), owner_email,
                 )
+            album_contributor_count = int(
+                client.table("album_contributors").select("id", count="exact")
+                .eq("album_id", album_id).eq("status", "active")
+                .limit(1).execute().count or 0
+            )
             first = contributor_rows[0]
             detail = detail.model_copy(update={
                 "owner_display_name": owner_name,
@@ -1907,6 +1912,7 @@ async def get_album(
                     relationship=str(first.get("relationship") or "").strip() or None,
                     photo_count=my_photo_count,
                     memory_count=my_memory_count,
+                    contributor_count=album_contributor_count,
                 ),
             })
     duration_ms = round((time.perf_counter() - started_at) * 1000)

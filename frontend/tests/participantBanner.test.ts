@@ -48,6 +48,20 @@ test("표기: 함께하고 붙여쓰기 + 이름 받침에 따른 로/으로", (
 // 프런트는 판정 결과(owner_display_name)만 받는다 — 여기서는 배선 계약만 확인한다.
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
+test("whoami 띠·내가 더한 것은 PDF·공유 렌더로 새지 않는다", () => {
+  // PDF 는 AlbumScreen 을 거치지 않고 AlbumRenderer(print)만 직접 마운트한다 —
+  // preHeader(whoami)·headerSupplement(mine)는 캡처 대상 밖. 공유 화면도 preHeader 가
+  // 없고, 공유 API 응답에는 viewer_participation 자체가 없다.
+  const pdf = read("lib/exportPdf.tsx");
+  assert.match(pdf, /<AlbumRenderer/);
+  assert.doesNotMatch(pdf, /AlbumScreen|preHeader|album-whoami|album-mine|viewer_participation/);
+  const share = read("components/PublicShareView.tsx");
+  assert.doesNotMatch(share, /preHeader|album-whoami|album-mine|viewer_participation/);
+  // 렌더러 자체도 참여 필드를 모른다(웹/공유/PDF 동일 렌더러 — §9).
+  const renderer = read("album-engine/AlbumRenderer.tsx");
+  assert.doesNotMatch(renderer, /viewer_participation|album-whoami/);
+});
+
 test("whoami 띠는 참여자에게만, 숫자 카드에는 버튼이 없다", () => {
   const view = read("components/AlbumView.tsx");
   assert.match(view, /participation = displayAlbum\?\.viewer_participation/);

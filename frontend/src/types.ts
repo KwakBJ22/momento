@@ -179,6 +179,7 @@ export interface AlbumResult {
     relationship?: string | null;
     photo_count: number;
     memory_count: number;
+    contributor_count: number;
   } | null;
 }
 

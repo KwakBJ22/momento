@@ -47,12 +47,19 @@ export default function AlbumScreen({
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>
-      {backHref ? <a className="album-page__back-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
+      {/* 목업(2a·3a) 헤더 바: 좌측 브랜드 "우리앨범/woorialbum", 우측 [뒤로 링크][더보기]. */}
+      <header className="album-screen__hdr">
+        <div className="album-screen__brand" aria-label="우리앨범">
+          <span className="album-screen__brand-ko"><b>우리</b><i>앨범</i></span>
+          <span className="album-screen__brand-en">woorialbum</span>
+        </div>
+        <div className="album-screen__hdr-right">
+          {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
+          {onMore ? <button type="button" className="album-screen__more" onClick={onMore}>더보기</button> : null}
+        </div>
+      </header>
       <div className="album-page__layout">
         <article className="album-page__book album-result album-screen__book">
-          {onMore ? (
-            <button type="button" className="album-screen__more" onClick={onMore}>더보기</button>
-          ) : null}
           {preHeader ? <div className="album-screen__pre-header">{preHeader}</div> : null}
           <AlbumScreenHeader title={title} subtitle={subtitle} canEdit={canEditTitle} onSaveTitle={onSaveTitle} />
           {headerSupplement ? <div className="album-screen__header-supplement">{headerSupplement}</div> : null}

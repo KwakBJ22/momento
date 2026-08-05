@@ -142,16 +142,20 @@ test("open sheet pins the body and unlock restores the exact scroll offset", () 
   assert.doesNotMatch(lock, /album-inline-action/);
 });
 
-test("owner-only buttons hide behind server capability flags; PDF stays for participants", () => {
+test("owner-only actions hide behind server capability flags; PDF stays for participants", () => {
   const source = component("AlbumView");
   // §10: the frontend never guesses — it renders from can_edit/can_delete that the
-  // backend derived from AlbumAccess. Backend checks stay (2중 방어).
-  assert.match(source, /displayAlbum\?\.can_edit \? <div className="album-result__hinted-action">[\s\S]{0,160}구경하라고 보내기/);
-  assert.match(source, /displayAlbum\?\.can_delete \? <button[\s\S]{0,120}btn--danger/);
+  // backend derived from AlbumAccess. Backend checks stay (2중 방어). The actions now
+  // live in the 공유하기/더보기 sheets (목업 2a), not in a bottom button row.
   assert.match(source, /requestedEdition === null && displayAlbum\?\.can_edit \? <CollaborationPanel/);
-  // PDF is NOT gated by can_edit/can_delete — participants keep it: the PDF block
-  // starts right AFTER the share ternary closes (": null}"), outside any gate.
-  assert.match(source, /: null\}<div className="album-result__hinted-action">[\s\S]{0,160}handlePdf/);
+  const moreSheet = source.split('className="album-inline-action album-more-sheet"')[1].split("</section>")[0];
+  assert.match(moreSheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,240}표지 사진 바꾸기/);
+  assert.match(moreSheet, /displayAlbum\?\.can_delete[\s\S]{0,340}이 앨범 지우기/);
+  // PDF row is NOT gated by can_edit/can_delete — participants keep it.
+  assert.doesNotMatch(moreSheet, /can_edit[^\n]*파일로 저장하기/);
+  const shareSheet = source.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
+  // 초대 카드(함께 만들기)는 소유자(can_edit)만.
+  assert.match(shareSheet, /displayAlbum\?\.can_edit \? <>/);
 });
 
 test("permission errors speak Korean and never offer 다시 시도", () => {
@@ -330,12 +334,15 @@ test("album viewing and collaboration invitation use distinct URLs and Kakao pay
 });
 
 test("share buttons are named for the view-only result, not the '공유' verb", () => {
-  for (const name of ["AlbumView", "AlbumResult", "PublicShareView"]) {
+  // AlbumView(앨범 화면)는 목업 2a의 공유하기 시트로 대체됐다: 버튼 대신 시트의
+  // "받은 사람은 보기만 할 수 있어요" 힌트가 같은 구분을 담당한다.
+  const albumView = component("AlbumView");
+  assert.match(albumView, /받은 사람은 보기만 할 수 있어요/);
+  assert.doesNotMatch(albumView, />앨범 공유하기<\/button>/);
+  for (const name of ["AlbumResult", "PublicShareView"]) {
     const source = component(name);
     assert.match(source, /구경하라고 보내기/);
     assert.match(source, /보기만 할 수 있어요/);
-    // The action-bar button no longer says the ambiguous "앨범 공유하기".
-    // (AlbumResult's share modal keeps that phrase as a dialog title — not an action button.)
     assert.doesNotMatch(source, />앨범 공유하기<\/button>/);
   }
 });

@@ -1,4 +1,4 @@
-import { CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
+import { ArrowUp, CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
@@ -12,7 +12,7 @@ export interface AlbumBottomNavigationProps {
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
-  variant?: "default" | "participant" | "app";
+  variant?: "default" | "participant" | "app" | "contributor";
   activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album" | "account";
 }
 
@@ -54,8 +54,20 @@ export default function AlbumBottomNavigation({
     );
   }
 
-  // 3칸: 만들기 행동(사진·한마디)과 대표 행동(공유)만 남긴다. "새 앨범"은 헤더의
-  // 더보기 시트로 옮겼다. 공유하기만 브랜드색 배경으로 대표 동작임을 드러낸다.
+  // 참여자(3a): 칸 수·위치는 소유자와 동일(학습 비용 0), 3번째 칸만 공유하기 →
+  // 앨범 처음으로. 참여자의 주 동작인 사진 추가를 브랜드 배경으로 강조한다.
+  if (variant === "contributor") {
+    return (
+      <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
+        <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
+        <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
+        <button type="button" onClick={onTop}><ArrowUp size={17} /><span>앨범 처음으로</span></button>
+      </nav>
+    );
+  }
+
+  // 소유자(2a) 3칸: 만들기 행동(사진·한마디)과 대표 행동(공유)만 남긴다. "새 앨범"은
+  // 헤더의 더보기 시트로 옮겼다. 공유하기만 브랜드 배경으로 이 화면의 목적을 표시.
   return (
     <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
       <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>

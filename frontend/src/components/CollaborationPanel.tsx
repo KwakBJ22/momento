@@ -43,6 +43,10 @@ interface CollaborationPanelProps {
   /** 0보다 큰 값으로 바뀔 때마다 기존 대표사진 픽커를 연다(헤더 더보기 시트의
    *  "표지 사진 바꾸기"). 픽커 소유는 이 패널 그대로 — 구조 변경 없음. */
   coverPickerRequest?: number;
+  /** 목업 2a 화면에서는 초대·링크 복사·대표사진 변경이 공유하기/더보기 시트로
+   *  옮겨졌다 — 중복 노출을 막기 위해 그 컨트롤만 숨긴다(새로운 추억 반영·
+   *  참여 중단·참여 현황·픽커 모달은 유지). */
+  hideDuplicatedActions?: boolean;
 }
 
 const shareUrlStorageKey = (albumId: string) => `momento-collaboration-share-url:${albumId}`;
@@ -106,7 +110,7 @@ function shareToken(url: string | null): string | null {
 
 export default function CollaborationPanel({
   albumId, shareUrl: initialShareUrl, imageUrl, title, photos = [], coverPhotoId,
-  onAlbumUpdated, onCoverUpdated, onOpenParticipants, coverPickerRequest = 0,
+  onAlbumUpdated, onCoverUpdated, onOpenParticipants, coverPickerRequest = 0, hideDuplicatedActions = false,
 }: CollaborationPanelProps) {
   const [status, setStatus] = useState<CollaborationStatus | null>(null);
   const [participation, setParticipation] = useState<Participation | null>(null);
@@ -354,7 +358,7 @@ export default function CollaborationPanel({
       </div>
     ) : (
       <>
-        {canManage ? <><div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => void shareKakao()}>사진·기억 받기</button></div><p className="collab-panel__invite-hint">상대가 자기 사진을 더할 수 있어요</p></> : null}
+        {canManage && !hideDuplicatedActions ? <><div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => void shareKakao()}>사진·기억 받기</button></div><p className="collab-panel__invite-hint">상대가 자기 사진을 더할 수 있어요</p></> : null}
         {started && canManage ? <>
           <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 기억 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "추억을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
@@ -362,7 +366,7 @@ export default function CollaborationPanel({
         </> : null}
         {canManage && (status.visitor_count ?? 0) > 0 ? <p className="collab-panel__visitors">✨ 지금까지 <strong>{status.visitor_count}</strong>명이 다녀갔어요.</p> : null}
         <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>기억 {status.memory_count}개</span></div>
-        {canManage && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
+        {canManage && !hideDuplicatedActions && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
       </>
     )}
 
