@@ -171,6 +171,15 @@ export interface AlbumResult {
   can_edit?: boolean;
   can_contribute?: boolean;
   can_delete?: boolean;
+  /** 참여자 화면(3a) 전용 — 소유자/무관 사용자는 null. owner_display_name 은
+   *  서버의 이메일 앞부분 판정을 통과한 값만 온다. */
+  owner_display_name?: string | null;
+  viewer_participation?: {
+    display_name?: string | null;
+    relationship?: string | null;
+    photo_count: number;
+    memory_count: number;
+  } | null;
 }
 
 export interface AlbumMediaSummary {

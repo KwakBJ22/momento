@@ -129,6 +129,15 @@ class CurrentEditionSummary(BaseModel):
     living_append_page_count: int = 0
 
 
+class ViewerParticipation(BaseModel):
+    """이 앨범에서 '나'(참여자)의 기록 — whoami 띠와 '내가 더한 것' 숫자의 근거."""
+
+    display_name: str | None = None
+    relationship: str | None = None
+    photo_count: int = 0
+    memory_count: int = 0
+
+
 class AlbumDetailResponse(BaseModel):
     """공유 링크(/album/{id}) 페이지용 앨범 상세."""
 
@@ -160,6 +169,11 @@ class AlbumDetailResponse(BaseModel):
     can_edit: bool = False
     can_contribute: bool = False
     can_delete: bool = False
+    # 참여자 화면(3a) 전용 additive 필드. 소유자/무관 사용자는 항상 None.
+    # owner_display_name 은 usable_owner_display_name 판정을 통과한 값만 —
+    # 이메일 앞부분(kbjkwak 류)은 서버가 걸러 None 을 보낸다.
+    owner_display_name: str | None = None
+    viewer_participation: ViewerParticipation | None = None
 
 
 class LivingAppendPagesResponse(BaseModel):

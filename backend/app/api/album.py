@@ -13,6 +13,7 @@ from app.models.album_photo_status import ALBUM_PHOTO_READY
 from app.models.album_styles import layout_for_template_type, normalize_template_type
 from app.models.categories import ALBUM_CATEGORIES, meeting_type_for_category, normalize_category
 from app.models.schemas import (
+    ViewerParticipation,
     AlbumDetailResponse,
     LivingAppendPagesResponse,
     CurrentEditionSummary,
@@ -126,6 +127,8 @@ from app.services.plan_limits import count_owned_albums, get_user_limits
 from app.services.operations import get_operation_id, get_operation_stage, set_operation_stage
 from app.services.membership import (
     get_album_access,
+    get_user_email,
+    usable_owner_display_name,
     get_family_membership,
     require_family_write_role,
     save_album_member,
@@ -1857,6 +1860,55 @@ async def get_album(
         "can_contribute": access.can_contribute,
         "can_delete": access.can_delete_album,
     })
+    # 참여자(3a) 전용: whoami 띠와 "내가 더한 것" 숫자의 재료. 소유자 이름은
+    # usable_owner_display_name 판정(이메일 앞부분 차단)을 통과한 값만 내려보낸다 —
+    # 판정에 계정 이메일이 필요해서 프런트가 아니라 여기서 한다.
+    if authenticated_user_id and access.album_role == "contributor" and not access.is_album_owner:
+        contributor_rows = (
+            client.table("album_contributors")
+            .select("id, display_name, relationship")
+            .eq("album_id", album_id)
+            .eq("user_id", authenticated_user_id)
+            .eq("status", "active")
+            .execute()
+            .data
+            or []
+        )
+        if contributor_rows:
+            contributor_ids = [str(row["id"]) for row in contributor_rows]
+            my_photo_count = int(
+                client.table("album_photos").select("id", count="exact")
+                .in_("uploaded_by_contributor_id", contributor_ids).is_("deleted_at", "null")
+                .limit(1).execute().count or 0
+            )
+            my_memory_count = int(
+                client.table("photo_memories").select("id", count="exact")
+                .in_("contributor_id", contributor_ids).is_("deleted_at", "null")
+                .limit(1).execute().count or 0
+            )
+            owner_name = None
+            owner_id = str(record.get("owner_id") or "")
+            if owner_id:
+                profile_rows = (
+                    client.table("profiles").select("display_name").eq("id", owner_id).limit(1).execute().data or []
+                )
+                try:
+                    owner_email = get_user_email(client, owner_id)
+                except Exception:
+                    owner_email = None
+                owner_name = usable_owner_display_name(
+                    str((profile_rows[0].get("display_name") if profile_rows else "") or ""), owner_email,
+                )
+            first = contributor_rows[0]
+            detail = detail.model_copy(update={
+                "owner_display_name": owner_name,
+                "viewer_participation": ViewerParticipation(
+                    display_name=str(first.get("display_name") or "").strip() or None,
+                    relationship=str(first.get("relationship") or "").strip() or None,
+                    photo_count=my_photo_count,
+                    memory_count=my_memory_count,
+                ),
+            })
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Cache-Control"] = "no-store"
     response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"

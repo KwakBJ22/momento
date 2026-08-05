@@ -55,3 +55,17 @@
 .album-share-sheet__who { font-size: var(--t-xs) !important; color: var(--c-text-muted) !important; }
 /* 시트 뒤 배경 어둡게(목업 .dim). 탭하면 닫힘. 네비(z70) 위, 시트(z90) 아래. */
 .album-sheet-dim { position: fixed; inset: 0; z-index: 85; background: rgba(61, 53, 48, 0.5); }
+
+/* 참여 정체성 띠(목업 3a whoami) — 참여자 화면에만, 제목보다 위. 두 줄 상한. */
+.album-screen__pre-header { padding: 0 0 0.25rem; }
+.album-whoami { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--c-brand); border-radius: 12px; background: var(--c-brand-soft); }
+.album-whoami__face { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-brand-text); font-size: 1rem; font-weight: 800; }
+.album-whoami p { margin: 0; min-width: 0; font-size: 0.9375rem; line-height: 1.5; font-weight: 600; color: var(--c-text); }
+.album-whoami b { font-weight: 800; }
+/* 앞칸(앨범 제목/소유자): 길어도 한 줄로 자르고 … 처리 — 띠가 두 줄을 넘지 않게. */
+.album-whoami__lead { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 내가 더한 것(목업 3a mine) — 숫자만, 버튼 없음(모아보기 화면이 없다). */
+.album-mine { display: flex; align-items: center; gap: 12px; width: min(100%, 480px); padding: 14px; border: 1px solid var(--c-border); border-radius: 12px; text-align: left; }
+.album-mine__title { margin: 0; font-size: 1rem; font-weight: 800; line-height: 1.4; color: var(--c-text); }
+.album-mine__count { margin: 4px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--c-text-soft); }

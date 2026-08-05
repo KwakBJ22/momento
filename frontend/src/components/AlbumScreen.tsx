@@ -14,6 +14,8 @@ interface AlbumScreenProps {
   canEditTitle?: boolean;
   onSaveTitle?: (title: string) => Promise<string>;
   headerSupplement?: ReactNode;
+  /** 제목보다 위, 본문 최상단에 렌더링(참여자 whoami 띠 — 목업 3a). */
+  preHeader?: ReactNode;
   body: ReactNode;
   actionPanel?: ReactNode;
   bottomNavigation?: AlbumBottomNavigationProps;
@@ -29,7 +31,7 @@ interface AlbumScreenProps {
  * while this component owns the shared header, desktop layout and mobile nav.
  */
 export default function AlbumScreen({
-  title, subtitle, canEditTitle = false, onSaveTitle, headerSupplement,
+  title, subtitle, canEditTitle = false, onSaveTitle, headerSupplement, preHeader,
   body, actionPanel, bottomNavigation, onMore, backHref, backLabel, className = "",
 }: AlbumScreenProps) {
   // "앨범 처음으로"를 네비에서 뺀 대신, 충분히 내려갔을 때만 뜨는 플로팅 버튼으로 대체한다.
@@ -51,6 +53,7 @@ export default function AlbumScreen({
           {onMore ? (
             <button type="button" className="album-screen__more" onClick={onMore}>더보기</button>
           ) : null}
+          {preHeader ? <div className="album-screen__pre-header">{preHeader}</div> : null}
           <AlbumScreenHeader title={title} subtitle={subtitle} canEdit={canEditTitle} onSaveTitle={onSaveTitle} />
           {headerSupplement ? <div className="album-screen__header-supplement">{headerSupplement}</div> : null}
           <div className="album-screen__body">{body}</div>

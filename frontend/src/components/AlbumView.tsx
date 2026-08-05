@@ -19,6 +19,7 @@ import type { AlbumPhoto, AlbumResult } from "../types";
 
 import { visibleChapterStories } from "../lib/storyRules";
 import { resolveShareImageUrl } from "../lib/shareImage";
+import { roParticle } from "../lib/participantBanner";
 
 import "./AlbumResult.css";
 
@@ -630,8 +631,38 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
       <p>사진 {missingCaptionCount}장에 아직 한마디가 없어요. <button type="button" className="album-caption-notice__link" onClick={() => void openContribution("memory")}>채우러 가기</button></p>
     </div>
   ) : null;
-  const headerExtras = editionLinks || captionNotice ? <>{editionLinks}{captionNotice}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={`사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  // 참여자 whoami 띠(목업 3a): 앞칸(소유자 이름/제목)과 뒷칸(관계/내 이름)은 독립 판정.
+  // viewer_participation 은 서버가 참여자(contributor)에게만 내려준다 — 소유자에겐 없음.
+  const participation = displayAlbum?.viewer_participation ?? null;
+  const whoamiBand = participation ? (
+    <div className="album-whoami">
+      <span className="album-whoami__face" aria-hidden="true">{((participation.display_name || "함")[0])}</span>
+      <p>
+        <span className="album-whoami__lead">
+          {displayAlbum?.owner_display_name
+            ? <><b>{displayAlbum.owner_display_name}</b>님이 만든 앨범에</>
+            : <>‘<b>{displayTitle}</b>’에</>}
+        </span>
+        {(() => {
+          const name = (participation.display_name || "").trim();
+          if (!name) return <>함께하고 있어요</>;
+          const relationship = (participation.relationship || "").trim();
+          return <>{relationship ? `${relationship} ` : ""}<b>{name}</b>{roParticle(name)} 함께하고 있어요</>;
+        })()}
+      </p>
+    </div>
+  ) : null;
+  const mineCard = participation ? (
+    <div className="album-mine">
+      <div>
+        <p className="album-mine__title">내가 더한 것</p>
+        {/* 모아보기 화면이 없으므로 버튼을 두지 않는다 — 숫자만. */}
+        <p className="album-mine__count">사진 {participation.photo_count}장 · 한마디 {participation.memory_count}개</p>
+      </div>
+    </div>
+  ) : null;
+  const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
+  return <AlbumScreen title={displayTitle} subtitle={`사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

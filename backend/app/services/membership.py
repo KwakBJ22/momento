@@ -72,6 +72,27 @@ def get_album_membership(client: Client, album_id: str, profile_id: str) -> dict
     return data[0] if data else None
 
 
+def usable_owner_display_name(display_name: str | None, email: str | None) -> str | None:
+    """참여자 화면 초대 문구의 앞칸 판정: 소유자 이름을 그대로 노출해도 되는가.
+
+    한글 포함 여부로 판정하지 않는다 — Jenny 같은 영문 실명이 걸린다.
+    주 조건: display_name 이 계정 이메일의 @ 앞부분과 같으면 아이디다(실측 kbjkwak).
+    보조 조건: @ 포함 / 숫자만 / 빈 값. 확실치 않으면 None — 앞칸은 앨범 제목으로
+    떨어지며, 소유자 이름을 잘못 노출하지 않는 쪽이 안전하다.
+    """
+    name = (display_name or "").strip()
+    if not name:
+        return None
+    if "@" in name:
+        return None
+    if name.isdigit():
+        return None
+    local_part = (email or "").split("@")[0].strip().lower()
+    if local_part and name.lower() == local_part:
+        return None
+    return name
+
+
 def get_album_contributor_membership(client: Client, album_id: str, user_id: str) -> dict[str, Any] | None:
     result = (
         client.table("album_contributors")
