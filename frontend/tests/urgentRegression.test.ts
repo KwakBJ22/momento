@@ -103,6 +103,17 @@ test("embedded 사진 추가 sheet opens the picker and hides the album's existi
   assert.match(source, /draftPhotoId === photo\.id \? \(/);
 });
 
+test("a full album (30/30) blocks the picker up front and says why on screen", () => {
+  const source = component("ContributeWorkspace");
+  // The production incident: at 30/30, limitSelectedPhotos silently cut the pick to
+  // zero and no request ever left the client. The limit must be visible, the input
+  // disabled, and the auto-open skipped — never a quiet no-op.
+  assert.match(source, /photoLimitReached = Boolean\(/);
+  assert.match(source, /disabled=\{isUploading \|\| photoLimitReached\}/);
+  assert.match(source, /앨범이 가득 찼어요\. 사진은 한 앨범에 최대/);
+  assert.match(source, /requestedAction === "photo" && !photoLimitReached/);
+});
+
 test("closing the contribution sheet refreshes the album behind it without a remount", () => {
   const source = component("AlbumView");
   const fn = source.slice(source.indexOf("const closeContribution"), source.indexOf("useEffect(() =>", source.indexOf("const closeContribution")));
