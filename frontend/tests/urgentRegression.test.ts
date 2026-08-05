@@ -95,9 +95,25 @@ test("embedded 사진 추가 sheet opens the picker and hides the album's existi
   assert.match(source, /isEmbeddedPhotoAdd = embedded && requestedAction === "photo"/);
   assert.match(source, /embedded && requestedAction === "photo"[\s\S]{0,120}uploadInputRef\.current\?\.click\(\)/);
   assert.match(source, /!isEmbeddedPhotoAdd \|\| newItemIds\.includes\(photo\.id\)/);
+  // Auto-open is best-effort only: the always-visible upload label is the guaranteed
+  // path, and an empty sheet shows a hint instead of a blank grid.
+  assert.match(source, /contribute__empty">위의 ‘사진 추가하기’를 눌러 사진을 골라 주세요\./);
   // 기억 추가 keeps the full grid to pick from, and the textarea stays bound to ONE
   // selected photo only.
   assert.match(source, /draftPhotoId === photo\.id \? \(/);
+});
+
+test("re-opening contribution with a stored session stays synchronous (gesture survives)", () => {
+  const source = component("AlbumView");
+  // With a stored session no share-token fetch is needed: the sheet opens with no
+  // await between the tap and setActiveAction, so iOS Safari keeps the user gesture
+  // alive for the photo sheet's auto file-picker click.
+  const fn = source.slice(source.indexOf("const openContribution"), source.indexOf("const closeContribution"));
+  const syncPath = fn.slice(0, fn.indexOf("setActionLoading(true)"));
+  assert.match(syncPath, /loadCollabSession\(albumId\)/);
+  assert.match(syncPath, /activateContribution\(action\)/);
+  // No actual `await <expr>` in the sync path (the comment may mention the word).
+  assert.equal(/await\s+\w/.test(syncPath), false);
 });
 
 test("public album reads a requested contribution action without a second route or album reload", () => {

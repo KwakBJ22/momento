@@ -328,27 +328,36 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
 
   };
 
+  const activateContribution = (action: "photo" | "memory") => {
+    setActiveAction(action);
+    const next = new URL(window.location.href);
+    next.searchParams.set("action", action);
+    window.history.pushState({}, "", next);
+    // Bring the just-opened participation panel into view (it renders inline below).
+    requestAnimationFrame(() => document.querySelector(".album-inline-action")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const openContribution = async (action: "photo" | "memory") => {
     if (actionLoading) return;
     setActionError(null);
+    // Second+ open: a stored session needs no share token, so this path stays fully
+    // synchronous (no await) — the user gesture survives and the photo sheet's
+    // auto file-picker open actually fires (iOS Safari drops clicks after an async gap).
+    const existingSession = contributionSession ?? loadCollabSession(albumId);
+    if (existingSession) {
+      if (!contributionSession) setContributionSession(existingSession);
+      activateContribution(action);
+      return;
+    }
     setActionLoading(true);
     try {
       const shareUrl = await resolvePublicShareUrl();
       const token = new URL(shareUrl, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
       if (!token) throw new Error("공유 링크를 준비하지 못했습니다.");
-      let session = contributionSession ?? loadCollabSession(albumId);
-      if (!session) {
-        const started = await startPublicContribution(token, null, "앨범지기");
-        session = { albumId: started.album_id, contributorId: started.contributor_id, guestId: started.guest_id, displayName: started.display_name };
-        saveCollabSession(session);
-        setContributionSession(session);
-      }
-      setActiveAction(action);
-      const next = new URL(window.location.href);
-      next.searchParams.set("action", action);
-      window.history.pushState({}, "", next);
-      // Bring the just-opened participation panel into view (it renders inline below).
-      requestAnimationFrame(() => document.querySelector(".album-inline-action")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      const started = await startPublicContribution(token, null, "앨범지기");
+      const session = { albumId: started.album_id, contributorId: started.contributor_id, guestId: started.guest_id, displayName: started.display_name };
+      saveCollabSession(session);
+      setContributionSession(session);
+      activateContribution(action);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
     } finally {

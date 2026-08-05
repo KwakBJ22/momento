@@ -518,6 +518,10 @@ export default function ContributeWorkspace({
             />
           </label> : null}
           {requestedAction !== "memory" ? <p className="contribute__limit">사진은 한 번에 최대 {workspace.photo_limit}장까지 추가할 수 있어요.</p> : null}
+          {/* 빈 시트 금지: 자동 파일창이 차단되거나 닫혀도 비어 보이지 않게 안내 한 줄. */}
+          {isEmbeddedPhotoAdd && !pendingUploads.length && !(workspace.photos || []).some((photo) => newItemIds.includes(photo.id))
+            ? <p className="contribute__empty">위의 ‘사진 추가하기’를 눌러 사진을 골라 주세요.</p>
+            : null}
           <div className="contribute__grid">
             {pendingUploads.map((pending) => (
               <article key={pending.id} className="contribute__card contribute__card--pending">
