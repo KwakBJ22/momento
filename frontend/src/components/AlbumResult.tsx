@@ -10,6 +10,7 @@ import {
   patchEpilogue,
   saveAlbumPhotoComment,
 } from "../lib/api";
+import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import {
   type AlbumPhoto,
@@ -281,7 +282,10 @@ export default function AlbumResultView({
         <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>구경하라고 보내기</button>
         <p className="album-result__action-hint">보기만 할 수 있어요</p>
       </div>
-      <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
+      <div className="album-result__hinted-action">
+        <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || stagePhotos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
+        {stagePhotos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}
+      </div>
     </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>
   );
 
@@ -414,9 +418,10 @@ export default function AlbumResultView({
             <button type="button" className="btn btn--secondary" onClick={() => setShowShareModal(true)}>
               공유하기
             </button>
-            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf}>
+            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || stagePhotos.length > PDF_PHOTO_SAFE_LIMIT}>
               {isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}
             </button>
+            {stagePhotos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}
             <button type="button" className="btn btn--ghost" onClick={onReset}>
               새 앨범 만들기
             </button>

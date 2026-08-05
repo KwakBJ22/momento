@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Respo
 from app.config import get_settings
 from app.models.album_photo_status import ALBUM_PHOTO_READY, ready_album_photo_query
 from app.models.schemas import (
+    DEFAULT_ALBUM_PHOTO_CAPACITY,
     CollaborationContributorResponse,
     CollaborationInviteStartResponse,
     CollaborationJoinRequest,
@@ -180,7 +181,7 @@ async def join_preview(
         cover_image_url=cover,
         contributor_count=count_active_contributors(client, str(album["id"])),
         photo_count=count_ready_photos(client, str(album["id"])),
-        photo_limit=int(album.get("photo_limit") or 30),
+        photo_limit=int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY),
         collaboration_status=album.get("collaboration_status") or "collecting",
         viewer_is_member=viewer_is_member,
     )
@@ -444,7 +445,7 @@ async def get_collaboration_status(
         last_built_at=album.get("last_built_at"),
         published_at=album.get("published_at"),
         photo_count=len(photos),
-        photo_limit=int(album.get("photo_limit") or 30),
+        photo_limit=int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY),
         contributor_count=len(active_contributors),
         contributor_limit=int(album.get("contributor_limit") or 10),
         memory_count=len(memories),
@@ -680,7 +681,7 @@ async def contribute_workspace(
         "album_version": int(album.get("album_version") or 0),
         "album_json": album.get("album_json"),
         "photo_count": len(photos),
-        "photo_limit": int(album.get("photo_limit") or 30),
+        "photo_limit": int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY),
         "contributor": {
             "id": contributor["id"],
             "display_name": contributor.get("display_name"),
@@ -727,7 +728,7 @@ async def contribute_upload_photos(
         raise HTTPException(status_code=400, detail=f"한 번에 최대 {MAX_BATCH_UPLOAD}장까지 올릴 수 있어요.")
 
     current = count_ready_photos(client, album_id)
-    limit = int(album.get("photo_limit") or 30)
+    limit = int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY)
     if current + len(photos) > limit:
         raise HTTPException(status_code=400, detail=f"앨범 사진은 최대 {limit}장까지예요.")
 

@@ -121,7 +121,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     const { accepted: unique, duplicates } = dedupeSelectedPhotos(accepted, photos.map((photo) => photo.file));
     const { accepted: limited, skipped } = limitSelectedPhotos(unique, MAX_PHOTOS, photos.length);
     if (!limited.length) {
-      setNotice("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
+      setNotice(`사진은 한 번에 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.`);
       return;
     }
 
@@ -188,7 +188,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         },
       );
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
-      if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
+      if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 번에 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`);
       droppedVideoCountRef.current += rejectedVideos;
       failures.push(...droppedFileNotices(rejectedVideos, rejectedOther));
       setNotice(failures.length ? failures.join(" ") : null);

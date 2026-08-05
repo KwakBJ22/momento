@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from supabase import Client
 
 from app.models.album_photo_status import is_deleted_album_photo, is_ready_album_photo, ready_album_photo_query
+from app.models.schemas import DEFAULT_ALBUM_PHOTO_CAPACITY
 from app.services.share_service import create_token, hash_token
 from app.services.supabase import soft_delete_album_photo_with_references
 
@@ -960,7 +961,7 @@ def apply_selected_contributions(
         } - append_memory_ids
 
     included_photo_ids = base_photo_ids | append_photo_ids | photo_ids
-    photo_limit = int(album.get("photo_limit") or 30)
+    photo_limit = int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY)
     if len(included_photo_ids) > photo_limit:
         existing_count = len(included_photo_ids) - len(photo_ids)
         raise HTTPException(

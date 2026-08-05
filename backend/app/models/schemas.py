@@ -6,6 +6,12 @@ from pydantic import BaseModel, Field
 
 from app.models.categories import CATEGORY_LABELS
 
+# 앨범 총 수용량 — albums.photo_limit 의 폴백·기본값 (PO 결정 B: 30 → 100).
+# "한 번에 올리는 상한"(settings.max_photos=30, 앨범 생성 1회 업로드)과는 별개다:
+# 30장은 업로드 성공률·40MB 가드 때문에 유지하고, 앨범이 담는 총량만 100이다.
+# DB DEFAULT 와 같이 움직인다: supabase/migrations/20260805…_album_photo_limit_100.sql
+DEFAULT_ALBUM_PHOTO_CAPACITY = 100
+
 MeetingType = Literal["family", "friend", "work", "university"]
 
 MEETING_TYPE_LABELS: dict[str, str] = {
@@ -279,7 +285,7 @@ class PublicShareAlbumResponse(BaseModel):
     media: list[PublicMediaItem]
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
     photo_count: int = 0
-    photo_limit: int = 30
+    photo_limit: int = DEFAULT_ALBUM_PHOTO_CAPACITY
     pending_items: list[PublicContributionItem] = Field(default_factory=list)
     living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
     edition_previous: int | None = None

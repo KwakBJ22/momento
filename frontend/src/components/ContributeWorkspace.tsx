@@ -8,6 +8,7 @@ import {
   updatePhotoMemory,
   uploadContributePhotos,
 } from "../lib/api";
+import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
@@ -193,7 +194,7 @@ export default function ContributeWorkspace({
   // limitSelectedPhotos and no request would ever leave the client — block the
   // picker up front and say WHY on screen instead of failing quietly.
   const photoLimitReached = Boolean(
-    workspace && (workspace.photo_count ?? 0) + pendingUploads.length >= (workspace.photo_limit ?? 30),
+    workspace && (workspace.photo_count ?? 0) + pendingUploads.length >= (workspace.photo_limit ?? ALBUM_PHOTO_CAPACITY),
   );
   useEffect(() => {
     if (requestedAction) setTab("photos");
@@ -283,14 +284,14 @@ export default function ContributeWorkspace({
     setError(rejected > 0 ? `${rejected}개 파일은 지원하지 않아 제외했어요.` : null);
     const existingCount = workspace?.photo_count ?? 0;
     const pendingCount = pendingUploadsRef.current.length;
-    const photoLimit = workspace?.photo_limit ?? 30;
+    const photoLimit = workspace?.photo_limit ?? ALBUM_PHOTO_CAPACITY;
     const { accepted: limited, skipped } = limitSelectedPhotos(accepted, photoLimit, existingCount + pendingCount);
     if (!limited.length) {
-      setError("사진은 한 앨범에 최대 30장까지 올릴 수 있습니다.");
+      setError(`앨범에는 사진을 최대 ${photoLimit}장까지 담을 수 있어요.`);
       return;
     }
     if (skipped > 0) {
-      setError(`사진 ${skipped}장은 추가되지 않았습니다. 한 앨범에는 최대 30장까지 올릴 수 있습니다.`);
+      setError(`사진 ${skipped}장은 추가되지 않았습니다. 앨범에는 최대 ${photoLimit}장까지 담을 수 있어요.`);
     }
     const items = limited.map((file) => ({
       id: `local-${localUploadId()}`,
@@ -529,7 +530,7 @@ export default function ContributeWorkspace({
           </label> : null}
           {requestedAction !== "memory" ? (photoLimitReached
             ? <p className="contribute__error" role="status">앨범이 가득 찼어요. 사진은 한 앨범에 최대 {workspace.photo_limit}장까지 담을 수 있어요.</p>
-            : <p className="contribute__limit">사진은 한 번에 최대 {workspace.photo_limit}장까지 추가할 수 있어요.</p>) : null}
+            : <p className="contribute__limit">앨범에는 사진을 최대 {workspace.photo_limit}장까지 담을 수 있어요. 지금 {workspace.photo_count}장이 담겨 있어요.</p>) : null}
           {/* 빈 시트 금지: 자동 파일창이 차단되거나 닫혀도 비어 보이지 않게 안내 한 줄. */}
           {isEmbeddedPhotoAdd && !photoLimitReached && !pendingUploads.length && !(workspace.photos || []).some((photo) => newItemIds.includes(photo.id))
             ? <p className="contribute__empty">위의 ‘사진 추가하기’를 눌러 사진을 골라 주세요.</p>

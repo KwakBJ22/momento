@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
+    DEFAULT_ALBUM_PHOTO_CAPACITY,
     GuestbookCreateRequest, GuestbookDeleteRequest, GuestbookItem,
     PublicContributionItem, PublicMediaItem,
     PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
@@ -340,7 +341,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         media=media,
         photos=photos,
         photo_count=len(photo_records),
-        photo_limit=int(album.get("photo_limit") or 30),
+        photo_limit=int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY),
         pending_items=pending_items[:30],
         living_append_pages=living_append_pages,
         edition_previous=_public_previous_edition(album, edition),
