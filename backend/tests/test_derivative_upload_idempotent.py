@@ -19,9 +19,11 @@ class DuplicateAwareProvider:
     def __init__(self) -> None:
         self.objects: dict[tuple[str, str], bytes] = {}
         self.uploads: list[tuple[str, bool]] = []
+        self.cache_controls: dict[str, str] = {}
 
-    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = "") -> None:
         self.uploads.append((path, upsert))
+        self.cache_controls[path] = cache_control
         if not upsert and (bucket, path) in self.objects:
             raise RuntimeError("StorageApiError 409 Duplicate")
         self.objects[(bucket, path)] = content
@@ -74,6 +76,23 @@ class DerivativeUploadIdempotencyTests(unittest.TestCase):
         display_path, thumbnail_path = self._upload_derivatives()
         self.assertEqual(self.provider.objects[("momento-private", display_path)], b"display-v1")
         self.assertIn(("momento-private", thumbnail_path), self.provider.objects)
+
+    def test_uploads_carry_the_default_cache_control(self) -> None:
+        # Objects stored without cache-control end up no-cache: neither the browser nor
+        # the CDN caches them and every view is a fresh download. Default = 30 days,
+        # passed as SECONDS (storage3 renders "max-age={n}" itself).
+        self._upload_derivatives()
+        for path, value in self.provider.cache_controls.items():
+            self.assertEqual(value, str(30 * 24 * 3600), path)
+
+    def test_supabase_provider_sends_cache_control_file_option(self) -> None:
+        from app.services.storage_service import SupabaseStorageProvider
+
+        client = MagicMock()
+        SupabaseStorageProvider(client).upload("albums", "a/display.webp", b"x", content_type="image/webp", upsert=True)
+        options = client.storage.from_.return_value.upload.call_args.kwargs["file_options"]
+        self.assertEqual(options["cache-control"], "2592000")
+        self.assertEqual(options["upsert"], "true")
 
     def test_original_upload_still_refuses_to_overwrite(self) -> None:
         # ★ The durable original keeps upsert=False: a duplicate stays an error.

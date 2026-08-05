@@ -24,7 +24,7 @@ class CountingProvider:
         self.batch_calls: list[list[str]] = []
         self._counter = 0
 
-    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = "") -> None:
         pass
 
     def delete(self, bucket: str, paths: list[str]) -> None:

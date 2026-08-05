@@ -79,8 +79,15 @@ def clear_signed_url_cache() -> None:
         _SIGNED_URL_CACHE.clear()
 
 
+# Objects are stored under photo_id-derived paths and their content is effectively
+# immutable (a regenerated derivative renders the same image), so browsers and the CDN
+# may cache for a long time. Without this every object is stored as no-cache and every
+# view is a fresh download. Value is SECONDS — storage3 itself renders "max-age={n}".
+_CACHE_CONTROL_SECONDS = str(30 * 24 * 3600)  # 30 days
+
+
 class StorageProvider(Protocol):
-    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None: ...
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = _CACHE_CONTROL_SECONDS) -> None: ...
     def delete(self, bucket: str, paths: list[str]) -> None: ...
     def download(self, bucket: str, path: str) -> bytes: ...
     def signed_url(self, bucket: str, path: str, expires_in: int) -> str: ...
@@ -96,8 +103,13 @@ class SupabaseStorageProvider:
     def __init__(self, client: Client):
         self.client = client
 
-    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
-        self.client.storage.from_(bucket).upload(path, content, file_options={"content-type": content_type, "upsert": str(upsert).lower()})
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = _CACHE_CONTROL_SECONDS) -> None:
+        self.client.storage.from_(bucket).upload(path, content, file_options={
+            "content-type": content_type,
+            "upsert": str(upsert).lower(),
+            # storage3 turns this seconds value into "max-age={n}" (header + metadata).
+            "cache-control": cache_control,
+        })
 
     def delete(self, bucket: str, paths: list[str]) -> None:
         if paths:
@@ -134,8 +146,8 @@ class StorageService:
     def for_supabase(cls, client: Client, settings: Settings) -> "StorageService":
         return cls(SupabaseStorageProvider(client), int(getattr(settings, "signed_url_ttl_seconds", 300)))
 
-    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
-        self.provider.upload(bucket, path, content, content_type=content_type, upsert=upsert)
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = _CACHE_CONTROL_SECONDS) -> None:
+        self.provider.upload(bucket, path, content, content_type=content_type, upsert=upsert, cache_control=cache_control)
         # The signed-URL cache assumes "same path = same content". An upsert replaces
         # the content under an existing path, so a cached URL (and the CDN entry behind
         # it) would keep serving the OLD image for up to half the TTL — drop it.
