@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
+import { pdfDownloadFilename } from "./pdfFilename";
 import { printPageStraddleGap } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
@@ -139,7 +140,7 @@ export function alignBlocksToPrintPages(element: HTMLElement): void {
 }
 
 function pdfFilename(input: AlbumPdfInput): string {
-  return `momento-${input.albumId}-v${input.albumVersion}.pdf`;
+  return pdfDownloadFilename(input.title);
 }
 
 async function waitForRenderer(host: HTMLElement): Promise<HTMLElement> {
