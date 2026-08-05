@@ -109,7 +109,14 @@ export async function signIn(provider: AuthProvider, returnTo?: string): Promise
   const callbackReturnTo = safeReturnTo(returnTo || `${window.location.pathname}${window.location.search}${window.location.hash}`);
   const { error } = await supabase.auth.signInWithOAuth({
     provider: oauthProvider,
-    options: { redirectTo: oauthCallbackRedirectUrl(callbackReturnTo) },
+    options: {
+      redirectTo: oauthCallbackRedirectUrl(callbackReturnTo),
+      // 카카오 콘솔의 동의항목과 정확히 일치해야 한다(콘솔과 이 값은 반드시 같이
+      // 움직인다): 카카오 식별자=필수, 닉네임=선택, 프로필사진=이용 중,
+      // 이메일=사용 안 함. Supabase 기본 scope는 account_email 을 포함하는데
+      // 콘솔에서 이메일이 꺼져 있으면 카카오가 KOE205 로 거부한다.
+      ...(oauthProvider === "kakao" ? { scopes: "profile_nickname profile_image" } : {}),
+    },
   });
   if (error) throw error;
 }

@@ -52,11 +52,18 @@ test("provider-specific Supabase identifiers stay inside the auth service", () =
   assert.equal(oauthProviderFor("naver"), "custom:naver");
 });
 
-test("Kakao OAuth uses Supabase provider defaults without forcing email consent scopes", () => {
+test("Kakao OAuth requests exactly the console-enabled scopes (never account_email)", () => {
+  // Supabase's DEFAULT kakao scope includes account_email, but the Kakao console has
+  // email consent disabled — Kakao then rejects the authorize request with KOE205.
+  // The scopes here must mirror the console exactly: 닉네임 + 프로필사진, 이메일 없음.
   const source = readFileSync(new URL("../src/services/authService.ts", import.meta.url), "utf8");
   const oauthCall = source.slice(source.indexOf("signInWithOAuth"), source.indexOf("export async function signOut"));
 
-  assert.equal(/account_email|scope\s*:|scopes\s*:/.test(oauthCall), false);
+  assert.match(oauthCall, /scopes: "profile_nickname profile_image"/);
+  // The scopes VALUE must never contain account_email (the comment may mention it).
+  assert.equal(/scopes:\s*"[^"]*account_email/.test(oauthCall), false);
+  // Kakao-only: the naver (custom:naver) path keeps provider defaults.
+  assert.match(oauthCall, /oauthProvider === "kakao"/);
   assert.match(oauthCall, /redirectTo/);
   assert.match(oauthCall, /oauthCallbackRedirectUrl/);
   assert.equal(/VITE_(APP_URL|SITE_URL)|vercel\.app|railway\.app/.test(oauthCall), false);
