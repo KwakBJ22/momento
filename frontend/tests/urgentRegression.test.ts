@@ -128,6 +128,18 @@ test("closing the contribution sheet refreshes the album behind it without a rem
   assert.match(source, /key=\{`collab-\$\{collabRefreshKey\}`\}/);
 });
 
+test("open sheet pins the body and unlock restores the exact scroll offset", () => {
+  const source = component("AlbumView");
+  const lock = source.slice(source.indexOf("const sheetOpen"), source.indexOf("}, [sheetOpen]"));
+  // iOS Safari ignores overflow:hidden for touch scroll — the lock must be the
+  // position:fixed + top:-scrollY pattern, and unlock must window.scrollTo back.
+  assert.match(lock, /style\.position = "fixed"/);
+  assert.match(lock, /style\.top = `-\$\{scrollY\}px`/);
+  assert.match(lock, /window\.scrollTo\(0, scrollY\)/);
+  // The sheet's own CSS stays untouched (structure guarded elsewhere).
+  assert.doesNotMatch(lock, /album-inline-action/);
+});
+
 test("re-opening contribution with a stored session stays synchronous (gesture survives)", () => {
   const source = component("AlbumView");
   // With a stored session no share-token fetch is needed: the sheet opens with no

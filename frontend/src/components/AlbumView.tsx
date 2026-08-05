@@ -385,6 +385,27 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     setCollabRefreshKey((value) => value + 1);
   };
 
+  // While the contribution sheet is open, the album behind it must not scroll.
+  // iOS Safari ignores body overflow:hidden for touch scrolling, so pin the body
+  // with position:fixed at the current offset and restore that exact offset on
+  // unlock — a jumped scroll position would be worse than the leak.
+  const sheetOpen = Boolean(activeAction && contributionSession);
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    const previous = { position: style.position, top: style.top, width: style.width };
+    style.position = "fixed";
+    style.top = `-${scrollY}px`;
+    style.width = "100%";
+    return () => {
+      style.position = previous.position;
+      style.top = previous.top;
+      style.width = previous.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, [sheetOpen]);
+
   useEffect(() => {
     const onAction = (event: Event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
