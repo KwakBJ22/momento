@@ -169,6 +169,15 @@ def _process_single_photo(client: Any, settings: Settings, album_id: str, photo:
         fallback_used = False
     except Exception:
         # A web derivative must never discard a successfully uploaded original.
+        # But a silent fallback leaves display_path = storage_path (the ~1MB original
+        # is served to every screen) with no trace — always log the actual exception.
+        logger.exception(
+            "event=derivative_fallback album_id=%s photo_id=%s mime=%s bytes=%s",
+            album_id,
+            photo.get("id"),
+            mime_type,
+            len(original),
+        )
         display_path = path
         thumbnail_path = path
         display = None
