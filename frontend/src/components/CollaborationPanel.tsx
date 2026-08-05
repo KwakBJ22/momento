@@ -80,6 +80,20 @@ function readStoredInviteUrl(albumId: string): string | null {
   }
 }
 
+/** 공유하기 시트(목업 화면 2)의 "사진·한마디 받기"가 쓰는 초대 링크. 패널의
+ *  read-or-rotate 로직과 같은 저장 키를 공유한다 — 중복 발급 없음. */
+export async function ensureAlbumInviteUrl(albumId: string): Promise<string> {
+  const stored = readStoredInviteUrl(albumId);
+  if (stored) return stored;
+  const created = await rotateCollaborationInvite(albumId);
+  try {
+    localStorage.setItem(inviteUrlStorageKey(albumId), created.invite_url);
+  } catch {
+    try { sessionStorage.setItem(inviteUrlStorageKey(albumId), created.invite_url); } catch { /* 저장 실패해도 링크는 유효 */ }
+  }
+  return created.invite_url;
+}
+
 function shareToken(url: string | null): string | null {
   try {
     const parts = new URL(url || "", window.location.origin).pathname.split("/");

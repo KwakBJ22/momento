@@ -27,14 +27,31 @@
 .album-caption-notice p { margin: 0; color: var(--c-text-soft); font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
 .album-caption-notice__link { padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
 
-/* 헤더 우측 "더보기" — 표지/참여자/PDF/새 앨범/지우기가 사는 시트를 연다. */
+/* ── 목업 docs/mockups/album-detail-owner.html (확정안 2a) 구현 ──
+   헤더 우측 "더보기": 텍스트 필 버튼(hdr__more). 아이콘 없음. */
 .album-screen__book { position: relative; }
-.album-screen__more { position: absolute; top: 0.9rem; right: 0.9rem; z-index: 5; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
+.album-screen__more { position: absolute; top: 0.9rem; right: 0.9rem; z-index: 5; min-width: 44px; min-height: 44px; display: grid; place-items: center; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
 
-/* 더보기 시트 — 셸은 .album-inline-action(고정 바텀시트) 재사용, 메뉴만 신규. */
-.album-more-sheet__body { display: grid; gap: 0.25rem; }
-.album-more-sheet__item { display: block; width: 100%; min-height: 48px; padding: 0.7rem 0.9rem; border: 0; border-radius: 10px; background: transparent; color: var(--c-text); font: inherit; font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; }
-.album-more-sheet__item:disabled { opacity: 0.45; cursor: default; }
+/* 더보기 시트(화면 3): 60px 목록 행 + 옅은 구분선 + 보조 라벨(em). */
+.album-more-sheet__list { display: flex; flex-direction: column; gap: 0; }
+/* #f0e4e1 = 목업의 --hairline (시안 신규값: --c-border 보다 옅은 시트 내부 구분선) */
+.album-more-sheet__row { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; border: 0; border-bottom: 1px solid #f0e4e1; background: none; font: inherit; text-align: left; cursor: pointer; }
+.album-more-sheet__row:last-of-type { border-bottom: 0; }
+.album-more-sheet__row:disabled { opacity: 0.45; cursor: default; }
+.album-more-sheet__row span { font-size: 1.0625rem; font-weight: 600; color: var(--c-text); }
+.album-more-sheet__row em { font-style: normal; font-size: var(--t-xs); font-weight: 400; color: var(--c-text-muted); text-align: right; }
 /* "이 앨범 지우기": 빨간 글자만, 배경 채우지 않음. */
-.album-more-sheet__item--danger { color: var(--c-danger); }
-.album-more-sheet__hint { margin: -0.15rem 0 0.35rem; padding: 0 0.9rem; color: var(--c-text-muted); font-size: var(--t-xs); line-height: 1.45; }
+.album-more-sheet__row--danger span { color: var(--c-danger); }
+.album-more-sheet__safe { margin: 10px 0 0; font-size: var(--t-xs); line-height: 1.6; color: var(--c-text-soft); }
+.album-more-sheet__hint { margin: 4px 0 0; font-size: var(--t-xs); line-height: 1.45; color: var(--c-text-muted); }
+
+/* 공유하기 시트(화면 2): 카카오 1개가 주 동작, 함께 만들기는 카드로 구분. */
+.album-share-sheet__body { display: flex; flex-direction: column; gap: 12px; }
+.album-share-sheet__hint { margin: -4px 0 4px; font-size: var(--t-xs); line-height: 1.5; color: var(--c-text-muted); text-align: center; }
+.album-share-sheet__hair { height: 1px; background: #f0e4e1; margin: 4px 0; } /* 목업 --hairline */
+.album-share-sheet__card { padding: 1rem; border: 1px solid var(--c-border); border-radius: 16px; display: flex; flex-direction: column; gap: 10px; }
+.album-share-sheet__card h3 { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--c-text); }
+.album-share-sheet__card p { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--c-text-soft); }
+.album-share-sheet__who { font-size: var(--t-xs) !important; color: var(--c-text-muted) !important; }
+/* 시트 뒤 배경 어둡게(목업 .dim). 탭하면 닫힘. 네비(z70) 위, 시트(z90) 아래. */
+.album-sheet-dim { position: fixed; inset: 0; z-index: 85; background: rgba(61, 53, 48, 0.5); }

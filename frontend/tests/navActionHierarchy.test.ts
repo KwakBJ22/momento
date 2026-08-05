@@ -17,28 +17,52 @@ test("default bottom nav is 3 items with 공유하기 as the only brand-colored 
   assert.equal((def.match(/<button/g) || []).length, 3);
   const css = read("components/AlbumBottomNavigation.css");
   assert.match(css, /\.album-bottom-navigation \{[^}]*grid-template-columns: repeat\(3/);
-  assert.match(css, /\.album-bottom-navigation__share \{[^}]*var\(--c-brand-action\)/);
+  // 목업(2a) is-primary: 공유하기는 --c-brand-soft 배경 + brand-text (채움 코랄 아님).
+  assert.match(css, /\.album-bottom-navigation__share \{[^}]*var\(--c-brand-soft\)/);
+  assert.match(css, /\.album-bottom-navigation__share \{[^}]*var\(--c-brand-text\)/);
 });
 
 // The header 더보기 sheet owns the moved actions: cover / participants / PDF / new album /
 // delete. Gating reuses 810af18's server flags: cover+participants = can_edit,
 // delete = can_delete. Delete is red TEXT only, with the reassurance line.
-test("header 더보기 sheet holds the moved actions with server-flag gating", () => {
+test("header 더보기 sheet matches the mockup: text pill trigger + 60px list rows", () => {
   const screen = read("components/AlbumScreen.tsx");
-  assert.match(screen, /aria-label="더보기"/);
+  // 목업 hdr__more: 텍스트 필 버튼(아이콘 아님).
+  assert.match(screen, /className="album-screen__more" onClick=\{onMore\}>더보기<\/button>/);
   const view = read("components/AlbumView.tsx");
   const sheet = view.split('className="album-inline-action album-more-sheet"')[1].split("</section>")[0];
-  assert.match(sheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,220}표지 사진 바꾸기/);
-  assert.match(sheet, /displayAlbum\?\.can_edit \? <button[\s\S]{0,220}함께 만든 사람/);
-  assert.match(sheet, /photos\.length > PDF_PHOTO_SAFE_LIMIT[\s\S]{0,200}파일로 저장하기/);
-  assert.match(sheet, /새 앨범 만들기/);
-  assert.match(sheet, /displayAlbum\?\.can_delete[\s\S]{0,300}이 앨범 지우기/);
+  assert.match(sheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,240}표지 사진 바꾸기/);
+  assert.match(sheet, /displayAlbum\?\.can_edit \? <button[\s\S]{0,260}함께 만든 사람/);
+  // 보조 라벨(em): 함께 만든 사람 N명 / 새 앨범 "이 앨범은 그대로 있어요".
+  assert.match(sheet, /<em>\{contributorCount\}명<\/em>/);
+  assert.match(sheet, /<span>새 앨범 만들기<\/span><em>이 앨범은 그대로 있어요<\/em>/);
+  assert.match(sheet, /photos\.length > PDF_PHOTO_SAFE_LIMIT[\s\S]{0,220}파일로 저장하기 \(PDF\)/);
+  assert.match(sheet, /displayAlbum\?\.can_delete[\s\S]{0,340}이 앨범 지우기/);
   assert.match(sheet, /지우기 전에 한 번 더 물어봐요\. 실수로 지워지지 않아요\./);
-  // 제목 고치기는 없다 — 제목 옆 인라인 수정과 중복.
-  assert.doesNotMatch(sheet, /제목/);
-  // Danger item: red text only, never a filled background.
+  // 제목 고치기 행은 없다(제목 옆 인라인 수정과 중복) — 주석이 아닌 메뉴 행 기준.
+  assert.doesNotMatch(sheet, /<span>[^<]*제목[^<]*<\/span>/);
+  // Danger row: red text only, never a filled background.
   const css = read("components/AlbumScreen.css");
-  assert.match(css, /\.album-more-sheet__item--danger \{ color: var\(--c-danger\); \}/);
+  assert.match(css, /\.album-more-sheet__row--danger span \{ color: var\(--c-danger\); \}/);
+  assert.match(css, /\.album-more-sheet__row \{ min-height: 60px/);
+});
+
+test("공유하기 opens the mockup share sheet instead of calling kakao directly", () => {
+  const view = read("components/AlbumView.tsx");
+  // 하단 네비 공유하기 → 시트. 시트 안: 카카오 1개(주 동작) + hint + 함께 만들기 카드(can_edit)
+  // + 링크 복사. 초대 링크는 패널과 같은 read-or-rotate 헬퍼를 재사용한다.
+  assert.match(view, /onShare: \(\) => setShareOpen\(true\)/);
+  const sheet = view.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
+  assert.match(sheet, /btn btn--kakao[\s\S]{0,80}카카오톡으로 보내기/);
+  assert.match(sheet, /받은 사람은 보기만 할 수 있어요/);
+  assert.match(sheet, /displayAlbum\?\.can_edit \? <>/);
+  assert.match(sheet, /<h3>함께 만들기<\/h3>/);
+  assert.match(sheet, /사진·한마디 받기/);
+  assert.match(sheet, /지금 \{contributorCount\}명이 함께 만들고 있어요/);
+  assert.match(sheet, /링크 복사/);
+  assert.match(view, /ensureAlbumInviteUrl\(albumId\)/);
+  // 제목 아래 메타(목업 albumhead__meta): 사진 N장 · 함께 만든 사람 M명.
+  assert.match(view, /사진 \$\{photos\.length\}장/);
 });
 
 // [2] The scroll-to-top control now lives as a floating button that appears only after
