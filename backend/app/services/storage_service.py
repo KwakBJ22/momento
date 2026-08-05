@@ -11,13 +11,84 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol, TypeVar
 
+import httpx
 from supabase import Client
 
 from app.config import Settings
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+# Transient connection failures against Supabase Storage. Observed three times in
+# production (8/2, 8/4, 8/5), always right as processing_images starts: the shared
+# httpx client multiplexes requests over one HTTP/2 connection, and when the server
+# drops an idle connection every in-flight request on it dies at once
+# (RemoteProtocolError). A short retry absorbs exactly that class of failure.
+_RETRYABLE_STORAGE_ERRORS = (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError)
+_STORAGE_RETRY_BACKOFF_SECONDS = (0.5, 1.5)
+
+
+def _path_prefix(path: str) -> str:
+    return path[:48]
+
+
+def _is_duplicate_error(exc: Exception) -> bool:
+    status = getattr(exc, "status", None) or getattr(exc, "statusCode", None)
+    try:
+        if status is not None and int(status) == 409:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return str(getattr(exc, "code", "")).lower() == "duplicate"
+
+
+def _run_with_storage_retry(
+    operation: Callable[[], T],
+    *,
+    action: str,
+    bucket: str,
+    path: str,
+    duplicate_means_success: bool = False,
+) -> T | None:
+    """Retry transient connection failures (2 retries, 0.5s/1.5s backoff).
+
+    Non-target exceptions propagate immediately; exhausted retries re-raise the last
+    connection error — the caller-facing contract is unchanged. Never silent: every
+    retry is logged so we can see how often this actually happens.
+
+    duplicate_means_success (uploads only): a 409 on a RETRY attempt means the first
+    request DID reach the server and created the object — only the response was lost
+    with the connection. The stored bytes are the ones we are re-sending, so this is a
+    success. A FIRST-attempt 409 still raises: the original-upload no-overwrite
+    contract stays intact.
+    """
+    attempts = 1 + len(_STORAGE_RETRY_BACKOFF_SECONDS)
+    for attempt in range(attempts):
+        try:
+            return operation()
+        except _RETRYABLE_STORAGE_ERRORS as exc:
+            if attempt >= len(_STORAGE_RETRY_BACKOFF_SECONDS):
+                raise
+            logger.warning(
+                "event=storage_retry action=%s bucket=%s path_prefix=%s attempt=%s error_type=%s",
+                action, bucket, _path_prefix(path), attempt + 1, type(exc).__name__,
+            )
+            time.sleep(_STORAGE_RETRY_BACKOFF_SECONDS[attempt])
+        except Exception as exc:
+            if duplicate_means_success and attempt > 0 and _is_duplicate_error(exc):
+                # Distinct event on purpose: this is the only signal that separates
+                # "request never arrived" from "response was lost after the write" —
+                # its frequency is what narrows the root cause later.
+                logger.warning(
+                    "event=storage_retry_duplicate action=%s bucket=%s path_prefix=%s attempt=%s",
+                    action, bucket, _path_prefix(path), attempt + 1,
+                )
+                return None
+            raise
+    return None  # unreachable; keeps type-checkers satisfied
 
 # In-process signed-URL cache.
 #
@@ -150,7 +221,10 @@ class StorageService:
         return cls(SupabaseStorageProvider(client), int(getattr(settings, "signed_url_ttl_seconds", 300)))
 
     def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False, cache_control: str = _CACHE_CONTROL_SECONDS) -> None:
-        self.provider.upload(bucket, path, content, content_type=content_type, upsert=upsert, cache_control=cache_control)
+        _run_with_storage_retry(
+            lambda: self.provider.upload(bucket, path, content, content_type=content_type, upsert=upsert, cache_control=cache_control),
+            action="upload", bucket=bucket, path=path, duplicate_means_success=True,
+        )
         # The signed-URL cache assumes "same path = same content". An upsert replaces
         # the content under an existing path, so a cached URL (and the CDN entry behind
         # it) would keep serving the OLD image for up to half the TTL — drop it.
@@ -164,7 +238,12 @@ class StorageService:
         _cache_invalidate(bucket, existing)
 
     def download(self, bucket: str, path: str) -> bytes:
-        return self.provider.download(bucket, path)
+        result = _run_with_storage_retry(
+            lambda: self.provider.download(bucket, path),
+            action="download", bucket=bucket, path=path,
+        )
+        # download never takes the duplicate path, so result is the provider's bytes.
+        return result  # type: ignore[return-value]
 
     def create_signed_url(self, bucket: str, path: str, expires_in: int | None = None) -> str:
         ttl = expires_in or self.signed_url_ttl_seconds
