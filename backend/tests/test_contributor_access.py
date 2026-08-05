@@ -13,6 +13,7 @@ from fastapi import HTTPException
 
 from app.services import membership
 from app.services.authorization import (
+    require_album_delete,
     require_album_edit_settings,
     require_album_read,
     resolve_album_access,
@@ -45,6 +46,20 @@ class ContributorCapabilityTests(unittest.TestCase):
         self.assertFalse(access.can_delete_album)
         self.assertFalse(access.can_manage_album_members)
         self.assertFalse(access.is_album_owner)
+        # The DELETE /albums/{id} endpoint calls require_album_delete — 403 for
+        # contributors even if the (hidden) button were somehow clicked.
+        with self.assertRaises(HTTPException) as ctx:
+            require_album_delete(access)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_detail_response_exposes_capability_flags(self) -> None:
+        # The frontend hides buttons ONLY from these server-derived flags (§10) —
+        # additive fields, default False.
+        from app.models.schemas import AlbumDetailResponse
+
+        for field in ("can_edit", "can_contribute", "can_delete"):
+            self.assertIn(field, AlbumDetailResponse.model_fields)
+            self.assertFalse(AlbumDetailResponse.model_fields[field].default)
 
 
 class ContributorFallbackWiringTests(unittest.TestCase):

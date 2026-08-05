@@ -1855,6 +1855,7 @@ async def get_album(
     detail = detail.model_copy(update={
         "can_edit": access.is_album_owner,
         "can_contribute": access.can_contribute,
+        "can_delete": access.can_delete_album,
     })
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Cache-Control"] = "no-store"

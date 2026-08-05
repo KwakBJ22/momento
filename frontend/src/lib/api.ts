@@ -135,7 +135,13 @@ export async function getAlbum(albumId: string, edition?: number | null, signal?
   const key = `album:${albumId}:${edition ?? "latest"}`;
   return dedupeRequest(key, async () => {
     const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}${suffix}`, { cache: "no-store", signal });
-    if (!response.ok) throw new Error(await parseError(response));
+    if (!response.ok) {
+      // Carry the HTTP status so the view can tell a permission error (403 — retry is
+      // pointless, needs Korean copy) apart from a transient failure (retry helps).
+      const error = new Error(await parseError(response)) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
     return (await response.json()) as AlbumResult;
   });
 }

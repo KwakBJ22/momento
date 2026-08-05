@@ -170,6 +170,7 @@ export interface AlbumResult {
   edition_is_latest?: boolean;
   can_edit?: boolean;
   can_contribute?: boolean;
+  can_delete?: boolean;
 }
 
 export interface AlbumMediaSummary {

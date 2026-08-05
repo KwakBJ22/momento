@@ -156,8 +156,10 @@ class AlbumDetailResponse(BaseModel):
     edition_is_latest: bool = False
     # UI capability flags are derived from the authenticated server-side access
     # check; clients must never infer edit rights from a local album id.
+    # (프런트는 이 값으로 버튼만 감춘다 — 실제 차단은 각 API의 백엔드 검사가 한다.)
     can_edit: bool = False
     can_contribute: bool = False
+    can_delete: bool = False
 
 
 class LivingAppendPagesResponse(BaseModel):

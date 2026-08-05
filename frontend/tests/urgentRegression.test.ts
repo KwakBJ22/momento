@@ -140,6 +140,29 @@ test("open sheet pins the body and unlock restores the exact scroll offset", () 
   assert.doesNotMatch(lock, /album-inline-action/);
 });
 
+test("owner-only buttons hide behind server capability flags; PDF stays for participants", () => {
+  const source = component("AlbumView");
+  // §10: the frontend never guesses — it renders from can_edit/can_delete that the
+  // backend derived from AlbumAccess. Backend checks stay (2중 방어).
+  assert.match(source, /displayAlbum\?\.can_edit \? <div className="album-result__hinted-action">[\s\S]{0,160}구경하라고 보내기/);
+  assert.match(source, /displayAlbum\?\.can_delete \? <button[\s\S]{0,120}btn--danger/);
+  assert.match(source, /requestedEdition === null && displayAlbum\?\.can_edit \? <CollaborationPanel/);
+  // PDF is NOT gated by can_edit/can_delete — participants keep it: the PDF block
+  // starts right AFTER the share ternary closes (": null}"), outside any gate.
+  assert.match(source, /: null\}<div className="album-result__hinted-action">[\s\S]{0,160}handlePdf/);
+});
+
+test("permission errors speak Korean and never offer 다시 시도", () => {
+  const albumView = component("AlbumView");
+  assert.match(albumView, /errorStatus === 403 \? "이 앨범을 볼 수 없어요"/);
+  assert.match(albumView, /권한이 없어요\. 앨범 주인이 보내 준 링크로 다시 열어 주세요\./);
+  // Retry renders ONLY for non-403 (transient) failures.
+  assert.match(albumView, /errorStatus === 403 \? null : <button[\s\S]{0,220}다시 시도/);
+  // The API layer carries the HTTP status so the view can distinguish the two.
+  const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
+  assert.match(api, /error\.status = response\.status/);
+});
+
 test("re-opening contribution with a stored session stays synchronous (gesture survives)", () => {
   const source = component("AlbumView");
   // With a stored session no share-token fetch is needed: the sheet opens with no
