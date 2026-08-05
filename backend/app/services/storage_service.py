@@ -7,6 +7,8 @@ not album, sharing, PDF, or upload flows.
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
@@ -16,6 +18,59 @@ from supabase import Client
 from app.config import Settings
 
 logger = logging.getLogger(__name__)
+
+# In-process signed-URL cache.
+#
+# Supabase signs every create_signed_url call with the request timestamp (`iat`), so two
+# calls in different seconds return different URLs for the same object. Different URLs
+# mean the CDN treats every view as a new resource — 100% uncached traffic at 3x the
+# cached rate. Re-serving the same URL while it is still fresh lets the CDN cache hit.
+#
+# Callers build a fresh StorageService per request (see get_signed_url /
+# get_signed_urls_batch), so the cache must be process-wide, not per-instance.
+#
+# key: (bucket, path) → value: (url, expires_at_epoch, ttl_at_issue_seconds)
+_SIGNED_URL_CACHE: dict[tuple[str, str], tuple[str, float, int]] = {}
+_SIGNED_URL_CACHE_LOCK = threading.Lock()
+# Hard cap so the cache cannot grow without bound (memory leak); expired entries are
+# evicted first, then the earliest-expiring ones.
+_SIGNED_URL_CACHE_MAX = 5000
+# ★ Reuse only while the URL still has more than half of the requested TTL left.
+# Serving a nearly-expired URL breaks the user's photos mid-view — this happened in
+# production before. Below 50%, issue a fresh URL and refresh the cache.
+_SIGNED_URL_REUSE_FRACTION = 0.5
+
+
+def _cache_get(bucket: str, path: str, expires_in: int) -> str | None:
+    with _SIGNED_URL_CACHE_LOCK:
+        entry = _SIGNED_URL_CACHE.get((bucket, path))
+        if not entry:
+            return None
+        url, expires_at, _ttl = entry
+        if expires_at - time.time() > expires_in * _SIGNED_URL_REUSE_FRACTION:
+            return url
+        return None
+
+
+def _cache_put(bucket: str, path: str, url: str, expires_in: int) -> None:
+    if not url:
+        return
+    now = time.time()
+    with _SIGNED_URL_CACHE_LOCK:
+        if len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
+            expired = [key for key, (_u, expires_at, _t) in _SIGNED_URL_CACHE.items() if expires_at <= now]
+            for key in expired:
+                _SIGNED_URL_CACHE.pop(key, None)
+            while len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
+                earliest = min(_SIGNED_URL_CACHE, key=lambda key: _SIGNED_URL_CACHE[key][1])
+                _SIGNED_URL_CACHE.pop(earliest, None)
+        _SIGNED_URL_CACHE[(bucket, path)] = (url, now + expires_in, expires_in)
+
+
+def clear_signed_url_cache() -> None:
+    """Test hook: reset the process-wide signed-URL cache."""
+    with _SIGNED_URL_CACHE_LOCK:
+        _SIGNED_URL_CACHE.clear()
 
 
 class StorageProvider(Protocol):
@@ -83,10 +138,37 @@ class StorageService:
         return self.provider.download(bucket, path)
 
     def create_signed_url(self, bucket: str, path: str, expires_in: int | None = None) -> str:
-        return self.provider.signed_url(bucket, path, expires_in or self.signed_url_ttl_seconds)
+        ttl = expires_in or self.signed_url_ttl_seconds
+        cached = _cache_get(bucket, path, ttl)
+        if cached is not None:
+            return cached
+        url = self.provider.signed_url(bucket, path, ttl)
+        _cache_put(bucket, path, url, ttl)
+        return url
 
     def create_signed_urls(self, bucket: str, paths: list[str], expires_in: int | None = None) -> list[dict[str, Any]]:
-        return self.provider.signed_urls(bucket, paths, expires_in or self.signed_url_ttl_seconds)
+        ttl = expires_in or self.signed_url_ttl_seconds
+        # Serve cached entries and only ask Supabase for the misses.
+        hits: list[dict[str, Any]] = []
+        misses: list[str] = []
+        for path in paths:
+            cached = _cache_get(bucket, path, ttl)
+            if cached is not None:
+                # Same row shape as the provider response (consumers read path + signedURL).
+                hits.append({"path": path, "signedURL": cached, "signedUrl": cached, "error": None})
+            else:
+                misses.append(path)
+        fresh: list[dict[str, Any]] = []
+        if misses:
+            fresh = list(self.provider.signed_urls(bucket, misses, ttl) or [])
+            for row in fresh:
+                if not isinstance(row, dict) or row.get("error"):
+                    continue
+                row_path = str(row.get("path") or "")
+                row_url = str(row.get("signedURL") or row.get("signedUrl") or "")
+                if row_path and row_url:
+                    _cache_put(bucket, row_path, row_url, ttl)
+        return hits + fresh
 
     def list(self, bucket: str, prefix: str = "") -> list[dict[str, Any]]:
         return self.provider.list(bucket, prefix)
