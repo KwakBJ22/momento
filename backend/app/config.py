@@ -60,9 +60,14 @@ class Settings(BaseSettings):
     # backend's album authorization, so they don't need to be short-lived. 5분(300s)
     # was too tight: album creation alone takes ~3.5min, and normal viewing (slow
     # scroll through 30 photos, or backgrounding the app briefly) easily exceeds it,
-    # so trailing photos expired to 403 and showed only their frame. 1시간이면 여유롭다.
+    # so trailing photos expired to 403 and showed only their frame.
+    # 24시간인 이유: 서명 URL 캐시는 TTL 앞 절반 동안 같은 URL을 재사용하므로 URL이
+    # 12시간 고정된다 — 브라우저 cache-control(30일)이 세션을 넘어 재방문에도 먹는다.
+    # (3600이면 URL이 30분마다 바뀌어 캐시가 세션 안에서만 유효했다.)
+    # 삭제는 안전하다: 사진 삭제 시 Storage 객체도 함께 지워져(album.py) 살아 있는
+    # 서명 URL도 무효가 된다 — "지웠는데 계속 보인다" 문제 없음.
     # Env: SIGNED_URL_TTL_SECONDS.
-    signed_url_ttl_seconds: int = 3600
+    signed_url_ttl_seconds: int = 86400
     allowed_image_types: tuple[str, ...] = (
         "image/jpeg",
         "image/png",

@@ -34,6 +34,9 @@ _SIGNED_URL_CACHE: dict[tuple[str, str], tuple[str, float, int]] = {}
 _SIGNED_URL_CACHE_LOCK = threading.Lock()
 # Hard cap so the cache cannot grow without bound (memory leak); expired entries are
 # evicted first, then the earliest-expiring ones.
+# Sizing: with TTL 24h an entry lives at most 12h (50% reuse rule). A photo holds up
+# to 3 entries (original/display/thumbnail), so 5000 covers ~1,600 photos viewed per
+# 12h window. Current library is ~150 photos — revisit when the library grows 10x.
 _SIGNED_URL_CACHE_MAX = 5000
 # ★ Reuse only while the URL still has more than half of the requested TTL left.
 # Serving a nearly-expired URL breaks the user's photos mid-view — this happened in
