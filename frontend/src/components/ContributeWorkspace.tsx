@@ -185,9 +185,16 @@ export default function ContributeWorkspace({
     void reload().catch((err: Error) => setError(err.message));
   }, [initialWorkspace, reload]);
 
+  // Embedded "사진 추가" (owner sheet): jump straight into picking files — the sheet's
+  // job is adding new photos, so the file dialog opens without an extra tap.
+  // (embedded=false standalone participant flow keeps its explicit buttons.)
+  const isEmbeddedPhotoAdd = embedded && requestedAction === "photo";
   useEffect(() => {
     if (requestedAction) setTab("photos");
-  }, [requestedAction]);
+    if (embedded && requestedAction === "photo") {
+      window.requestAnimationFrame(() => uploadInputRef.current?.click());
+    }
+  }, [embedded, requestedAction]);
 
   useEffect(() => {
     if (!newItemIds.length || tab !== "photos") return;
@@ -525,7 +532,13 @@ export default function ContributeWorkspace({
                 </div>
               </article>
             ))}
-            {(workspace.photos || []).map((photo) => (
+            {(workspace.photos || [])
+              // Embedded "사진 추가": show only what THIS session added (plus the
+              // pending uploads above). The album's existing photos already live in
+              // the album behind the sheet — repeating them here read as a "comment
+              // on every photo" screen instead of an add-photos sheet.
+              .filter((photo) => !isEmbeddedPhotoAdd || newItemIds.includes(photo.id))
+              .map((photo) => (
               <article
                 key={photo.id}
                 className={`contribute__card${newItemIds.includes(photo.id) ? " contribute__card--fresh" : ""}`}

@@ -87,6 +87,19 @@ test("album navigation opens the contribution panel without replacing the album 
   assert.doesNotMatch(source, /window\.location\.assign\(target\.toString\(\)\)/);
 });
 
+test("embedded 사진 추가 sheet opens the picker and hides the album's existing photos", () => {
+  const source = component("ContributeWorkspace");
+  // The sheet's job is ADDING photos: the file dialog opens immediately, and the grid
+  // shows only this session's additions — not the whole album (which read as a
+  // "comment on every photo" screen).
+  assert.match(source, /isEmbeddedPhotoAdd = embedded && requestedAction === "photo"/);
+  assert.match(source, /embedded && requestedAction === "photo"[\s\S]{0,120}uploadInputRef\.current\?\.click\(\)/);
+  assert.match(source, /!isEmbeddedPhotoAdd \|\| newItemIds\.includes\(photo\.id\)/);
+  // 기억 추가 keeps the full grid to pick from, and the textarea stays bound to ONE
+  // selected photo only.
+  assert.match(source, /draftPhotoId === photo\.id \? \(/);
+});
+
 test("public album reads a requested contribution action without a second route or album reload", () => {
   const source = component("PublicShareView");
   assert.match(source, /get\("contribute"\)/);
