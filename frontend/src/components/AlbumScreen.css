@@ -19,3 +19,10 @@
    데스크톱은 중앙 900px 책 컨테이너 우측 바깥에, 모바일은 우측 16px에 고정. */
 .album-screen__scroll-top { position: fixed; z-index: 75; right: max(16px, calc((100vw - 900px) / 2 + 16px)); bottom: calc(82px + 12px + env(safe-area-inset-bottom)); display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--c-border-strong); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); box-shadow: var(--sh-md); cursor: pointer; }
 @media (max-width: 640px) { .album-screen__scroll-top { right: 16px; bottom: calc(68px + 12px + env(safe-area-inset-bottom)); } }
+
+/* 미완성 안내(한마디 없는 사진) — 목업 docs/mockups/album-detail-owner.html.
+   제목 아래 supplement 영역에 추가만 한다. 기존 레이아웃 불변. */
+.album-caption-notice { display: flex; align-items: center; gap: 10px; width: min(100%, 480px); padding: 0.75rem 0.9rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg-soft); text-align: left; }
+.album-caption-notice__dot { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--c-warning); }
+.album-caption-notice p { margin: 0; color: var(--c-text-soft); font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
+.album-caption-notice__link { padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
