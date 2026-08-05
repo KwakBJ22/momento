@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, MoreHorizontal } from "lucide-react";
 import AlbumActionPanel from "./AlbumActionPanel";
 import AlbumBottomNavigation, { type AlbumBottomNavigationProps } from "./AlbumBottomNavigation";
 import AlbumScreenHeader from "./AlbumScreenHeader";
@@ -17,6 +17,8 @@ interface AlbumScreenProps {
   body: ReactNode;
   actionPanel?: ReactNode;
   bottomNavigation?: AlbumBottomNavigationProps;
+  /** 헤더 우측 "더보기" 버튼. 시트 자체는 호출자가 body 안에 렌더링한다. */
+  onMore?: () => void;
   backHref?: string;
   backLabel?: string;
   className?: string;
@@ -28,7 +30,7 @@ interface AlbumScreenProps {
  */
 export default function AlbumScreen({
   title, subtitle, canEditTitle = false, onSaveTitle, headerSupplement,
-  body, actionPanel, bottomNavigation, backHref, backLabel, className = "",
+  body, actionPanel, bottomNavigation, onMore, backHref, backLabel, className = "",
 }: AlbumScreenProps) {
   // "앨범 처음으로"를 네비에서 뺀 대신, 충분히 내려갔을 때만 뜨는 플로팅 버튼으로 대체한다.
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -46,6 +48,11 @@ export default function AlbumScreen({
       {backHref ? <a className="album-page__back-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
       <div className="album-page__layout">
         <article className="album-page__book album-result album-screen__book">
+          {onMore ? (
+            <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}>
+              <MoreHorizontal size={20} />
+            </button>
+          ) : null}
           <AlbumScreenHeader title={title} subtitle={subtitle} canEdit={canEditTitle} onSaveTitle={onSaveTitle} />
           {headerSupplement ? <div className="album-screen__header-supplement">{headerSupplement}</div> : null}
           <div className="album-screen__body">{body}</div>

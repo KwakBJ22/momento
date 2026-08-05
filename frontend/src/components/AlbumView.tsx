@@ -59,6 +59,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
   // Bumped when the contribution sheet closes: remounts CollaborationPanel only, so
   // its mount-time status fetch ("새로운 추억 N개") reflects what was just added.
   const [collabRefreshKey, setCollabRefreshKey] = useState(0);
+  // 헤더 "더보기" 시트 + 표지 사진 바꾸기 신호(CollaborationPanel 의 기존 픽커를 연다).
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [coverPickerRequest, setCoverPickerRequest] = useState(0);
   const [publicShareUrl, setPublicShareUrl] = useState("");
   const [activeAction, setActiveAction] = useState<"photo" | "memory" | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(() => loadCollabSession(albumId));
@@ -394,7 +397,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
   // iOS Safari ignores body overflow:hidden for touch scrolling, so pin the body
   // with position:fixed at the current offset and restore that exact offset on
   // unlock — a jumped scroll position would be worse than the leak.
-  const sheetOpen = Boolean(activeAction && contributionSession);
+  const sheetOpen = Boolean(activeAction && contributionSession) || moreOpen;
   useEffect(() => {
     if (!sheetOpen) return;
     const scrollY = window.scrollY;
@@ -510,6 +513,23 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     <>
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
+      {moreOpen ? (
+        <section className="album-inline-action album-more-sheet" aria-label="더보기">
+          <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setMoreOpen(false)}>닫기</button></div>
+          <div className="album-inline-action__body album-more-sheet__body">
+            {/* 권한 게이팅은 810af18 의 서버 플래그 그대로: 표지·참여자 = can_edit, 지우기 = can_delete. */}
+            {displayAlbum?.can_edit && photos.length ? <button type="button" className="album-more-sheet__item" onClick={() => { setMoreOpen(false); setCoverPickerRequest((value) => value + 1); }}>표지 사진 바꾸기</button> : null}
+            {displayAlbum?.can_edit ? <button type="button" className="album-more-sheet__item" onClick={() => window.location.assign(`/album/${albumId}/participants`)}>함께 만든 사람</button> : null}
+            <button type="button" className="album-more-sheet__item" disabled={isExportingPdf || photos.length > PDF_PHOTO_SAFE_LIMIT} onClick={() => { setMoreOpen(false); void handlePdf(); }}>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기"}</button>
+            {photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-more-sheet__hint">{PDF_BLOCKED_MESSAGE}</p> : null}
+            <button type="button" className="album-more-sheet__item" onClick={() => window.location.assign("/")}>새 앨범 만들기</button>
+            {displayAlbum?.can_delete ? <>
+              <button type="button" className="album-more-sheet__item album-more-sheet__item--danger" disabled={isDeleting} onClick={() => { setMoreOpen(false); void handleDeleteAlbum(); }}>{isDeleting ? "지우는 중..." : "이 앨범 지우기"}</button>
+              <p className="album-more-sheet__hint">지우기 전에 한 번 더 물어봐요. 실수로 지워지지 않아요.</p>
+            </> : null}
+          </div>
+        </section>
+      ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
         <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={canEdit ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } } : null} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} />
       </div>
@@ -528,7 +548,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     // 서버가 내려준 권한 플래그로만 감춘다(프런트 추측 금지, §10). 실제 차단은
     // 각 API의 백엔드 검사 그대로(2중 방어). 공유·초대·삭제 = 소유자 영역,
     // PDF·사진 추가·기억 추가는 참여자도 사용.
-    <><div className="album-result__actions">{displayAlbum?.can_edit ? <div className="album-result__hinted-action"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>구경하라고 보내기</button><p className="album-result__action-hint">보기만 할 수 있어요</p></div> : null}<div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album || photos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>{photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}</div>{displayAlbum?.can_delete ? <button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button> : null}</div>{requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel key={`collab-${collabRefreshKey}`} albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
+    <><div className="album-result__actions">{displayAlbum?.can_edit ? <div className="album-result__hinted-action"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>구경하라고 보내기</button><p className="album-result__action-hint">보기만 할 수 있어요</p></div> : null}<div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album || photos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>{photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}</div>{displayAlbum?.can_delete ? <button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button> : null}</div>{requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest} albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
   );
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
   // 미완성 안내(목업 docs/mockups/album-detail-owner.html): 한마디(캡션) 없는 사진 수.
@@ -542,7 +562,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     </div>
   ) : null;
   const headerExtras = editionLinks || captionNotice ? <>{editionLinks}{captionNotice}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => { void handleKakaoShare(); }, onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => { void handleKakaoShare(); }, onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*
@@ -766,7 +786,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
           </div>
 
           {requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel
-            key={`collab-${collabRefreshKey}`}
+            key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest}
             albumId={albumId}
             imageUrl={resolveShareImageUrl(displayAlbum)}
             title={displayTitle}

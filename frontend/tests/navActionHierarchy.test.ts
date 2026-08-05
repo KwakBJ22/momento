@@ -4,21 +4,41 @@ import test from "node:test";
 
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
-// [2] Default album bottom nav is 4 items: 사진 추가 / 기억 추가 / 공유하기 / 앨범 만들기.
-// "앨범 처음으로" moved out of the nav to the floating "맨 위로" button.
-test("default bottom nav is the 4 result-named items, without '앨범 처음으로'", () => {
+// Default album bottom nav is 3 items: 사진 추가 / 한마디 쓰기 / 공유하기.
+// "새 앨범" moved to the header 더보기 sheet; 공유하기 alone gets the brand background.
+test("default bottom nav is 3 items with 공유하기 as the only brand-colored one", () => {
   const nav = read("components/AlbumBottomNavigation.tsx");
   const def = nav.split('aria-label="앨범 메뉴"')[1].split("</nav>")[0];
   assert.match(def, /<span>사진 추가<\/span>/);
-  assert.match(def, /<span>기억 추가<\/span>/);
-  assert.match(def, /<span>공유하기<\/span>/);
-  assert.match(def, /<span>앨범 만들기<\/span>/);
-  assert.doesNotMatch(def, /앨범 처음으로/);
-  assert.doesNotMatch(def, /기억 남기기/);
-  // Exactly four buttons in the default nav.
-  assert.equal((def.match(/<button/g) || []).length, 4);
+  assert.match(def, /<span>한마디 쓰기<\/span>/);
+  assert.match(def, /album-bottom-navigation__share"[^>]*onClick=\{onShare\}[^>]*>[\s\S]{0,80}공유하기/);
+  assert.doesNotMatch(def, /앨범 만들기|앨범 처음으로|기억 추가/);
+  // Exactly three buttons in the default nav.
+  assert.equal((def.match(/<button/g) || []).length, 3);
   const css = read("components/AlbumBottomNavigation.css");
-  assert.match(css, /\.album-bottom-navigation \{[^}]*grid-template-columns: repeat\(4/);
+  assert.match(css, /\.album-bottom-navigation \{[^}]*grid-template-columns: repeat\(3/);
+  assert.match(css, /\.album-bottom-navigation__share \{[^}]*var\(--c-brand-action\)/);
+});
+
+// The header 더보기 sheet owns the moved actions: cover / participants / PDF / new album /
+// delete. Gating reuses 810af18's server flags: cover+participants = can_edit,
+// delete = can_delete. Delete is red TEXT only, with the reassurance line.
+test("header 더보기 sheet holds the moved actions with server-flag gating", () => {
+  const screen = read("components/AlbumScreen.tsx");
+  assert.match(screen, /aria-label="더보기"/);
+  const view = read("components/AlbumView.tsx");
+  const sheet = view.split('className="album-inline-action album-more-sheet"')[1].split("</section>")[0];
+  assert.match(sheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,220}표지 사진 바꾸기/);
+  assert.match(sheet, /displayAlbum\?\.can_edit \? <button[\s\S]{0,220}함께 만든 사람/);
+  assert.match(sheet, /photos\.length > PDF_PHOTO_SAFE_LIMIT[\s\S]{0,200}파일로 저장하기/);
+  assert.match(sheet, /새 앨범 만들기/);
+  assert.match(sheet, /displayAlbum\?\.can_delete[\s\S]{0,300}이 앨범 지우기/);
+  assert.match(sheet, /지우기 전에 한 번 더 물어봐요\. 실수로 지워지지 않아요\./);
+  // 제목 고치기는 없다 — 제목 옆 인라인 수정과 중복.
+  assert.doesNotMatch(sheet, /제목/);
+  // Danger item: red text only, never a filled background.
+  const css = read("components/AlbumScreen.css");
+  assert.match(css, /\.album-more-sheet__item--danger \{ color: var\(--c-danger\); \}/);
 });
 
 // [2] The scroll-to-top control now lives as a floating button that appears only after

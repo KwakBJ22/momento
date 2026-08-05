@@ -40,6 +40,9 @@ interface CollaborationPanelProps {
   onAlbumUpdated?: () => void;
   onCoverUpdated?: (coverPhotoId: string | null, coverImageUrl: string | null) => void;
   onOpenParticipants?: () => void;
+  /** 0보다 큰 값으로 바뀔 때마다 기존 대표사진 픽커를 연다(헤더 더보기 시트의
+   *  "표지 사진 바꾸기"). 픽커 소유는 이 패널 그대로 — 구조 변경 없음. */
+  coverPickerRequest?: number;
 }
 
 const shareUrlStorageKey = (albumId: string) => `momento-collaboration-share-url:${albumId}`;
@@ -89,7 +92,7 @@ function shareToken(url: string | null): string | null {
 
 export default function CollaborationPanel({
   albumId, shareUrl: initialShareUrl, imageUrl, title, photos = [], coverPhotoId,
-  onAlbumUpdated, onCoverUpdated, onOpenParticipants,
+  onAlbumUpdated, onCoverUpdated, onOpenParticipants, coverPickerRequest = 0,
 }: CollaborationPanelProps) {
   const [status, setStatus] = useState<CollaborationStatus | null>(null);
   const [participation, setParticipation] = useState<Participation | null>(null);
@@ -105,6 +108,11 @@ export default function CollaborationPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [livingMode, setLivingMode] = useState<LivingMode>("append_page");
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  // 헤더 더보기 시트의 "표지 사진 바꾸기": 신호가 올 때마다 픽커를 연다.
+  useEffect(() => {
+    if (coverPickerRequest > 0 && photos.length) setCoverPickerOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverPickerRequest]);
   const [selectedCoverId, setSelectedCoverId] = useState<string | null>(coverPhotoId || null);
   const [savingCover, setSavingCover] = useState(false);
   const refreshRequestId = useRef(0);

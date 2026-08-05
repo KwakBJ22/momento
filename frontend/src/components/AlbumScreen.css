@@ -26,3 +26,15 @@
 .album-caption-notice__dot { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--c-warning); }
 .album-caption-notice p { margin: 0; color: var(--c-text-soft); font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
 .album-caption-notice__link { padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
+
+/* 헤더 우측 "더보기" — 표지/참여자/PDF/새 앨범/지우기가 사는 시트를 연다. */
+.album-screen__book { position: relative; }
+.album-screen__more { position: absolute; top: 0.9rem; right: 0.9rem; z-index: 5; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
+
+/* 더보기 시트 — 셸은 .album-inline-action(고정 바텀시트) 재사용, 메뉴만 신규. */
+.album-more-sheet__body { display: grid; gap: 0.25rem; }
+.album-more-sheet__item { display: block; width: 100%; min-height: 48px; padding: 0.7rem 0.9rem; border: 0; border-radius: 10px; background: transparent; color: var(--c-text); font: inherit; font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; }
+.album-more-sheet__item:disabled { opacity: 0.45; cursor: default; }
+/* "이 앨범 지우기": 빨간 글자만, 배경 채우지 않음. */
+.album-more-sheet__item--danger { color: var(--c-danger); }
+.album-more-sheet__hint { margin: -0.15rem 0 0.35rem; padding: 0 0.9rem; color: var(--c-text-muted); font-size: var(--t-xs); line-height: 1.45; }

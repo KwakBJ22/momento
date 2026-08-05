@@ -30,8 +30,10 @@ test("bottom navigation uses executable button actions and guards disabled contr
   const source = component("AlbumBottomNavigation");
   assert.match(source, /runIfEnabled\(canAddPhoto, onAddPhoto\)/);
   assert.match(source, /runIfEnabled\(canAddMemory, onAddMemory\)/);
+  // 새 앨범 entry stays a real button in the app/participant variants (default nav
+  // moved it to the header 더보기 sheet).
   assert.match(source, /onCreateAlbum/);
-  assert.match(source, /<button type="button" className="album-bottom-navigation__new-album"/);
+  assert.match(source, /onClick=\{createAlbum\}/);
   assert.doesNotMatch(source, /<a href=\{newAlbumHref\}/);
 });
 
