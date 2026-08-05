@@ -113,9 +113,13 @@ def upload_album_photo_derivatives(
         display_path = original_path
     storage = StorageService.for_supabase(client, settings)
     try:
+        # upsert=True: derivatives are regenerable outputs keyed by photo_id, so
+        # overwriting is always correct. Without it, a partial failure (display
+        # uploaded, thumbnail failed, cleanup also failed) leaves an orphan
+        # display.webp that blocks every retry with 409 Duplicate — forever.
         if display_bytes is not None and display_path != original_path:
-            storage.upload(settings.supabase_private_storage_bucket, display_path, display_bytes, content_type="image/webp")
-        storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, thumbnail_bytes, content_type="image/webp")
+            storage.upload(settings.supabase_private_storage_bucket, display_path, display_bytes, content_type="image/webp", upsert=True)
+        storage.upload(settings.supabase_private_storage_bucket, thumbnail_path, thumbnail_bytes, content_type="image/webp", upsert=True)
     except Exception:
         # The original is durable; only clean up partially written derivatives.
         delete_storage_paths(client, settings.supabase_private_storage_bucket, [

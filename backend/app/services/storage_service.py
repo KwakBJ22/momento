@@ -67,6 +67,12 @@ def _cache_put(bucket: str, path: str, url: str, expires_in: int) -> None:
         _SIGNED_URL_CACHE[(bucket, path)] = (url, now + expires_in, expires_in)
 
 
+def _cache_invalidate(bucket: str, paths: list[str]) -> None:
+    with _SIGNED_URL_CACHE_LOCK:
+        for path in paths:
+            _SIGNED_URL_CACHE.pop((bucket, path), None)
+
+
 def clear_signed_url_cache() -> None:
     """Test hook: reset the process-wide signed-URL cache."""
     with _SIGNED_URL_CACHE_LOCK:
@@ -130,9 +136,17 @@ class StorageService:
 
     def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
         self.provider.upload(bucket, path, content, content_type=content_type, upsert=upsert)
+        # The signed-URL cache assumes "same path = same content". An upsert replaces
+        # the content under an existing path, so a cached URL (and the CDN entry behind
+        # it) would keep serving the OLD image for up to half the TTL — drop it.
+        if upsert:
+            _cache_invalidate(bucket, [path])
 
     def delete(self, bucket: str, paths: list[str]) -> None:
-        self.provider.delete(bucket, [path for path in paths if path])
+        existing = [path for path in paths if path]
+        self.provider.delete(bucket, existing)
+        # A cached URL for a deleted object would 404 (or serve a stale CDN copy).
+        _cache_invalidate(bucket, existing)
 
     def download(self, bucket: str, path: str) -> bytes:
         return self.provider.download(bucket, path)

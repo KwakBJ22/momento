@@ -24,6 +24,12 @@ class CountingProvider:
         self.batch_calls: list[list[str]] = []
         self._counter = 0
 
+    def upload(self, bucket: str, path: str, content: bytes, *, content_type: str, upsert: bool = False) -> None:
+        pass
+
+    def delete(self, bucket: str, paths: list[str]) -> None:
+        pass
+
     def signed_url(self, bucket: str, path: str, expires_in: int) -> str:
         self._counter += 1
         self.single_calls.append(path)
@@ -117,6 +123,29 @@ class SignedUrlCacheTests(unittest.TestCase):
                 self.assertIn(("albums", "a/new1.jpg"), storage_service._SIGNED_URL_CACHE)
                 self.assertIn(("albums", "a/new2.jpg"), storage_service._SIGNED_URL_CACHE)
                 self.assertNotIn(("albums", "a/old1.jpg"), storage_service._SIGNED_URL_CACHE)
+
+    def test_upsert_upload_invalidates_the_cached_url(self) -> None:
+        # upsert replaces content under the SAME path; a cached signed URL would keep
+        # serving the old image via the CDN for up to TTL/2 — the entry must go.
+        url = self.service.create_signed_url("albums", "a/display.webp")
+        self.service.upload("albums", "a/display.webp", b"new-bytes", content_type="image/webp", upsert=True)
+        self.assertNotIn(("albums", "a/display.webp"), storage_service._SIGNED_URL_CACHE)
+        refreshed = self.service.create_signed_url("albums", "a/display.webp")
+        self.assertNotEqual(url, refreshed)
+
+    def test_plain_upload_keeps_the_cache(self) -> None:
+        # A non-upsert upload can only create a NEW object (409 on duplicates), so
+        # existing cached URLs still point at unchanged content.
+        url = self.service.create_signed_url("albums", "a/display.webp")
+        self.service.upload("albums", "a/other.webp", b"bytes", content_type="image/webp")
+        self.assertEqual(self.service.create_signed_url("albums", "a/display.webp"), url)
+
+    def test_delete_invalidates_the_cached_url(self) -> None:
+        self.service.create_signed_url("albums", "a/1.jpg")
+        self.service.create_signed_url("albums", "a/2.jpg")
+        self.service.delete("albums", ["a/1.jpg"])
+        self.assertNotIn(("albums", "a/1.jpg"), storage_service._SIGNED_URL_CACHE)
+        self.assertIn(("albums", "a/2.jpg"), storage_service._SIGNED_URL_CACHE)
 
     def test_empty_urls_are_not_cached(self) -> None:
         class EmptyProvider(CountingProvider):
