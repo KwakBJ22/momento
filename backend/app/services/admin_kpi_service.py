@@ -119,6 +119,25 @@ def count_rows(client: Client, table: str, *, since: datetime | None = None, col
     return int(result.count or 0)
 
 
+def count_missing_display_photos(client: Client) -> int:
+    """Photos whose display derivative was never generated (display_path = storage_path).
+
+    Non-zero means the generation worker's fallback fired and screens are downloading
+    ~1MB originals instead of display webp — run scripts/backfill_photo_derivatives.
+    PostgREST cannot compare two columns server-side, so compare here.
+    """
+    rows = (
+        client.table("album_photos")
+        .select("storage_path,display_path")
+        .is_("deleted_at", "null")
+        .limit(10000)
+        .execute()
+        .data
+        or []
+    )
+    return sum(1 for row in rows if row.get("display_path") and row.get("display_path") == row.get("storage_path"))
+
+
 def count_analytics(client: Client, event_name: str, *, since: datetime | None = None) -> int:
     query = client.table("analytics_events").select("id", count="exact").eq("event_name", event_name)
     if since is not None:

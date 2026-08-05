@@ -44,6 +44,18 @@ class AdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["totals"]["albums"], 5)
 
+    def test_missing_display_photo_count_compares_paths(self) -> None:
+        # KPI: display_path = storage_path means the screen serves the ~1MB original.
+        from app.services.admin_kpi_service import count_missing_display_photos
+
+        client = MagicMock()
+        client.table.return_value.select.return_value.is_.return_value.limit.return_value.execute.return_value.data = [
+            {"storage_path": "a/original.jpg", "display_path": "a/original.jpg"},   # fallback
+            {"storage_path": "b/original.jpg", "display_path": "b/display.webp"},  # healthy
+            {"storage_path": "c/original.jpg", "display_path": None},              # no display yet
+        ]
+        self.assertEqual(count_missing_display_photos(client), 1)
+
     def test_admin_growth_ok(self) -> None:
         payload = {
             "living_album": {"living_album_ratio": 50.0, "avg_album_lifetime_days": 10.0, "avg_page_append_count": 1.0, "avg_edition_count": 0.5},

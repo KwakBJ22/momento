@@ -200,6 +200,7 @@ function OpsDashboardView({ data, funnel }: { data: AdminOpsDashboard; funnel: A
             { label: "총 기억", value: data.totals.memories ?? 0 },
             { label: "총 공유", value: data.totals.shares ?? 0 },
             { label: "총 PDF", value: data.totals.pdf_generated ?? 0 },
+            { label: "화면용 이미지 미생성", value: data.totals.missing_display_photos ?? 0 },
           ]}
         />
       </section>

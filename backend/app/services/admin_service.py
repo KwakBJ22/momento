@@ -25,6 +25,7 @@ from app.services.admin_kpi_service import (
     contributor_counts,
     count_analytics,
     count_by_album,
+    count_missing_display_photos,
     count_rows,
     daily_series,
     edition_count,
@@ -95,6 +96,7 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
     total_memories = count_rows(client, "photo_memories")
     total_shares = count_analytics(client, "share_link_created") or count_rows(client, "share_links")
     total_pdf = count_analytics(client, "pdf_generated")
+    missing_display = count_missing_display_photos(client)
 
     return {
         "today": {
@@ -113,6 +115,7 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
             "memories": total_memories,
             "shares": total_shares,
             "pdf_generated": total_pdf,
+            "missing_display_photos": missing_display,
         },
         "trends": {
             "new_albums": daily_series(buckets, "album_created", 14),
