@@ -103,6 +103,20 @@ test("embedded 사진 추가 sheet opens the picker and hides the album's existi
   assert.match(source, /draftPhotoId === photo\.id \? \(/);
 });
 
+test("closing the contribution sheet refreshes the album behind it without a remount", () => {
+  const source = component("AlbumView");
+  const fn = source.slice(source.indexOf("const closeContribution"), source.indexOf("useEffect(() =>", source.indexOf("const closeContribution")));
+  // Saved contributions must appear behind the sheet: photos + album are refetched
+  // through setState (props reconcile — AlbumRenderer is NOT remounted, §9), and the
+  // CollaborationPanel alone is remounted so its "새로운 추억" summary refreshes.
+  assert.match(fn, /getAlbumPhotos\(albumId, requestedEdition\)/);
+  assert.match(fn, /getAlbum\(albumId, requestedEdition\)/);
+  assert.match(fn, /setCollabRefreshKey/);
+  // No full reload path: closing must not toggle photosReady or retryKey.
+  assert.doesNotMatch(fn, /setPhotosReady|setRetryKey/);
+  assert.match(source, /key=\{`collab-\$\{collabRefreshKey\}`\}/);
+});
+
 test("re-opening contribution with a stored session stays synchronous (gesture survives)", () => {
   const source = component("AlbumView");
   // With a stored session no share-token fetch is needed: the sheet opens with no

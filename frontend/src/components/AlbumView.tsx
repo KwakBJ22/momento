@@ -53,6 +53,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
   const deletingRef = useRef(false);
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  // Bumped when the contribution sheet closes: remounts CollaborationPanel only, so
+  // its mount-time status fetch ("새로운 추억 N개") reflects what was just added.
+  const [collabRefreshKey, setCollabRefreshKey] = useState(0);
   const [publicShareUrl, setPublicShareUrl] = useState("");
   const [activeAction, setActiveAction] = useState<"photo" | "memory" | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(() => loadCollabSession(albumId));
@@ -370,6 +373,16 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
     const next = new URL(window.location.href);
     next.searchParams.delete("action");
     window.history.replaceState({}, "", next);
+    // Partial refresh so what was just contributed shows up behind the sheet.
+    // setPhotos/setAlbum flow through props (no photosReady toggle, no retryKey), so
+    // AlbumRenderer reconciles in place — it is NOT remounted (CLAUDE.md §9).
+    void getAlbumPhotos(albumId, requestedEdition)
+      .then((photoData) => { if (Array.isArray(photoData)) setPhotos(photoData); })
+      .catch(() => {});
+    void getAlbum(albumId, requestedEdition).then(setAlbum).catch(() => {});
+    // The "새로운 추억 N개" summary lives inside CollaborationPanel, which fetches on
+    // mount only — remount just the panel (cheap; §9 only protects AlbumRenderer).
+    setCollabRefreshKey((value) => value + 1);
   };
 
   useEffect(() => {
@@ -486,7 +499,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
       <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
     </div>
   ) : (
-    <><div className="album-result__actions"><div className="album-result__hinted-action"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>구경하라고 보내기</button><p className="album-result__action-hint">보기만 할 수 있어요</p></div><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button></div>{requestedEdition === null ? <CollaborationPanel albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
+    <><div className="album-result__actions"><div className="album-result__hinted-action"><button type="button" className="btn btn--secondary" onClick={() => void handleKakaoShare()}>구경하라고 보내기</button><p className="album-result__action-hint">보기만 할 수 있어요</p></div><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button><button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>{isDeleting ? "삭제하는 중..." : "앨범 삭제"}</button></div>{requestedEdition === null ? <CollaborationPanel key={`collab-${collabRefreshKey}`} albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
   );
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
   return <AlbumScreen title={displayTitle} subtitle="함께 보고 간직해 보세요." canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={editionLinks} body={albumBody} actionPanel={albumActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => { void handleKakaoShare(); }, onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
@@ -713,6 +726,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
           </div>
 
           {requestedEdition === null ? <CollaborationPanel
+            key={`collab-${collabRefreshKey}`}
             albumId={albumId}
             imageUrl={resolveShareImageUrl(displayAlbum)}
             title={displayTitle}
