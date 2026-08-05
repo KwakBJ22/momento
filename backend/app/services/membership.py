@@ -72,6 +72,20 @@ def get_album_membership(client: Client, album_id: str, profile_id: str) -> dict
     return data[0] if data else None
 
 
+def get_album_contributor_membership(client: Client, album_id: str, user_id: str) -> dict[str, Any] | None:
+    result = (
+        client.table("album_contributors")
+        .select("id, status")
+        .eq("album_id", album_id)
+        .eq("user_id", user_id)
+        .eq("status", "active")
+        .limit(1)
+        .execute()
+    )
+    data = result.data or []
+    return data[0] if data else None
+
+
 def get_album_access(client: Client, album: dict[str, Any], user_id: str) -> AlbumAccess:
     family_id = album.get("family_id")
     family_role = None
@@ -81,6 +95,16 @@ def get_album_access(client: Client, album: dict[str, Any], user_id: str) -> Alb
         family_role = membership["role"] if membership else None
     album_membership = get_album_membership(client, str(album["id"]), user_id)
     album_role = album_membership["role"] if album_membership else None
+    if family_role is None and album_role is None:
+        # Participants are recorded ONLY in album_contributors (the "함께 만드는 앨범"
+        # list reads the same table) — without this fallback they can see the album in
+        # their list but get 403 opening it. Fixed to "contributor" (read + own
+        # contributions), NEVER the row's own role: a contributors-table row must not
+        # grant settings/delete/member management. Guests (user_id NULL) never match,
+        # and remove_contributor sets status="removed", which drops the row here —
+        # revoking access.
+        if get_album_contributor_membership(client, str(album["id"]), user_id):
+            album_role = "contributor"
     return resolve_album_access(album, user_id, family_role, album_role)
 
 
