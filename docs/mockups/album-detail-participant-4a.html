@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우리앨범 — 참여자 수정판 + PDF 행 상태 (4a)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+/* ── 이 파일은 참고용 시안입니다. 실제 구현은 tokens.css 변수를 쓰세요. ──
+   :root 값은 확정 토큰과 동일합니다. 2a(소유자)·3a(참여자)와 같은 클래스 체계. */
+:root{
+  --c-bg:#fffdfb; --c-surface:#ffffff; --c-bg-soft:#fdf7f5;
+  --c-border:#e0caca; --c-border-strong:#c9a9a9;
+  --c-text:#2d2d2d; --c-text-soft:#5a5150; --c-text-muted:#7d716f; --c-text-subtle:#7e726f;
+  --c-brand:#ff6b6b; --c-brand-action:#b34a46; --c-brand-action-hover:#993d3a;
+  --c-brand-text:#8a2c2c; --c-brand-soft:#fff0f0;
+  --c-warning:#8a6212; --c-danger:#a3231f; --c-success:#2f6b44;
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-6:24px; --s-8:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
+  --font:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --t-xs:14px; --t-sm:16px; --t-lg:18px; --t-xl:24px; --t-2xl:32px;
+  --w-normal:400; --w-medium:600; --w-bold:800;
+  --lh-tight:1.3; --lh-base:1.6; --tap-min:44px;
+  --nav-h:76px;                /* 하단 3칸 높이 (토큰 아님) */
+  --hairline:#f0e4e1;          /* 옅은 구분선 (토큰 아님) */
+}
+*{box-sizing:border-box}
+body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
+.sheetwrap{display:flex;flex-wrap:wrap;gap:24px;padding:32px;align-items:flex-start}
+.cap{width:390px;margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--c-text-muted)}
+.cap b{color:var(--c-text-soft)}
+.col{display:flex;flex-direction:column}
+.frame{position:relative;width:390px;height:844px;background:var(--c-bg);border:1px solid var(--c-border-strong);border-radius:20px;overflow:hidden;box-shadow:0 4px 14px rgba(45,45,45,.09);display:flex;flex-direction:column}
+.frame--short{height:auto;min-height:0}
+
+/* ── 헤더 (화면 3에서 소유자·참여자 공통으로 확정) ── */
+.hdr{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;border-bottom:1px solid var(--hairline);background:var(--c-bg)}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand__ko{font-size:19px;font-weight:var(--w-bold);line-height:1;letter-spacing:-.02em}
+.brand__ko b{color:#1a1f2b;font-weight:inherit}
+.brand__ko i{color:var(--c-brand);font-style:normal}
+.brand__en{font-size:11px;font-weight:var(--w-medium);line-height:1;letter-spacing:.08em;color:#8a8f98}
+.hdr__right{display:flex;align-items:center;gap:10px}
+.hdr__link{min-height:var(--tap-min);display:grid;place-items:center;padding:0 4px;font-size:var(--t-xs);font-weight:var(--w-medium);color:var(--c-brand-text);background:none;border:0;font-family:inherit;cursor:pointer;text-decoration:none}
+/* 더보기: 알약(글자) → 원형 ⋯ 아이콘으로 되돌림. 44px 원, 테두리 --c-border.
+   글자 버튼이 둘이면 헤더가 무거워지고 좌측 브랜드와 경쟁한다. */
+.hdr__more{width:var(--tap-min);height:var(--tap-min);display:grid;place-items:center;padding:0;border:1px solid var(--c-border);border-radius:var(--r-full);background:var(--c-surface);color:var(--c-text-soft);font-family:inherit;font-size:20px;font-weight:var(--w-bold);line-height:1;cursor:pointer}
+
+/* ── 본문 (3a 그대로) ── */
+.body{flex:1 1 auto;overflow-y:auto;padding:0 20px}
+.whoami{margin-top:var(--s-4);display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) 14px;border:1px solid var(--c-brand);border-radius:var(--r-md);background:var(--c-brand-soft)}
+.whoami__face{width:36px;height:36px;flex:none;border-radius:var(--r-full);border:1px solid var(--c-border);background:linear-gradient(150deg,#e8c9b0,#b98a6f 60%,#5c4436)}
+.whoami p{margin:0;min-width:0;font-size:15px;line-height:1.5;font-weight:var(--w-medium);color:var(--c-text)}
+.whoami b{font-weight:var(--w-bold)}
+.whoami__lead{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.albumhead{padding:20px 0 var(--s-2);display:flex;flex-direction:column;gap:var(--s-2);align-items:center;text-align:center}
+.albumhead h1{margin:0;min-width:0;word-break:keep-all;font-size:var(--t-2xl);font-weight:var(--w-bold);line-height:var(--lh-tight);letter-spacing:-.03em;color:var(--c-text)}
+.albumhead__meta{margin:0;font-size:var(--t-sm);line-height:var(--lh-base);color:var(--c-text-muted)}
+.mine{margin-top:var(--s-2);display:flex;align-items:center;gap:var(--s-3);padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md)}
+.mine__title{margin:0;font-size:var(--t-sm);font-weight:var(--w-bold);line-height:1.4;color:var(--c-text)}
+.mine__count{margin:var(--s-1) 0 0;font-size:15px;line-height:1.5;color:var(--c-text-soft)}
+.rule{height:1px;background:var(--c-border-strong);margin:20px 0 0}
+.datehead{padding:20px 0 var(--s-3);text-align:center}
+.datehead__month{margin:0 0 6px;font-size:19px;font-weight:var(--w-bold);line-height:var(--lh-tight);color:var(--c-text)}
+.datehead__day{margin:0;font-size:var(--t-xs);font-weight:var(--w-medium);line-height:1.4;color:var(--c-text-muted)}
+.photo{border-radius:var(--r-sm);overflow:hidden;width:100%}
+.photo + .caption{margin:var(--s-3) 0 0}
+.caption{font-size:var(--t-sm);line-height:var(--lh-base);font-weight:var(--w-medium);color:var(--c-text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.caption .who{color:var(--c-text-subtle);font-weight:var(--w-medium)}
+.addmine{margin:var(--s-2) 0 0;padding:0;border:0;background:none;font-family:inherit;font-size:15px;font-weight:var(--w-medium);line-height:1.5;color:var(--c-brand-text);cursor:pointer}
+
+/* ── 하단 3칸 ── */
+.nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--c-border);background:rgba(255,253,251,.98)}
+.nav button{min-height:var(--nav-h);display:grid;place-content:center;justify-items:center;gap:5px;border:0;background:transparent;font-family:inherit;font-size:15px;font-weight:var(--w-medium);color:var(--c-text-soft);cursor:pointer;padding:8px 6px}
+.nav button.is-primary{background:var(--c-brand-soft);color:var(--c-brand-text);font-weight:var(--w-bold)}
+.ic{width:24px;height:24px;border:2px solid currentColor;border-radius:4px}
+.ic--pen{width:24px;height:2px;border:0;background:currentColor;transform:rotate(-45deg);margin:11px 0}
+.ic--plus{border-radius:var(--r-full);position:relative}
+.ic--plus::before{content:"+";position:absolute;inset:0;display:grid;place-items:center;font-size:17px;font-weight:var(--w-bold);border:0}
+/* 안 1(권장): 나가는 행동 = 테두리 칩. 칸 배경은 그대로, 라벨을 칩으로 감싼다. */
+.nav .chip{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border:1.5px solid var(--c-brand-action);border-radius:var(--r-full);color:var(--c-brand-text);font-weight:var(--w-medium);font-size:15px;line-height:1}
+/* 안 3: 나가는 행동 = 밑줄(링크 관습). */
+.nav .underline{color:var(--c-brand-text);font-weight:var(--w-medium);text-decoration:underline;text-underline-offset:3px}
+
+/* 미니 네비(3안 비교용) */
+.navdemo{width:390px;border:1px solid var(--c-border-strong);border-radius:var(--r-md);overflow:hidden;background:var(--c-bg);margin-top:10px}
+.navdemo .nav{border-top:0}
+.navdemo__label{margin:16px 0 0;font-size:var(--t-xs);font-weight:var(--w-bold);color:var(--c-text-soft)}
+
+/* ── 바텀시트 ── */
+.dim{position:absolute;inset:0;background:rgba(61,53,48,.5)}
+.sheet{position:absolute;right:0;bottom:0;left:0;background:var(--c-surface);border-radius:18px 18px 0 0;box-shadow:0 18px 44px rgba(45,45,45,.16)}
+.sheet__hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--c-border-strong)}
+.sheet__hdr h2{margin:0;font-size:19px;font-weight:var(--w-bold);color:var(--c-text)}
+.sheet__close{min-height:var(--tap-min);display:grid;place-items:center;border:0;background:none;font-family:inherit;font-size:var(--t-sm);font-weight:var(--w-medium);color:var(--c-brand-text);cursor:pointer}
+.list{padding:var(--s-2) 20px var(--s-6);display:flex;flex-direction:column}
+.list__row{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);border:0;border-bottom:1px solid var(--hairline);background:none;font-family:inherit;text-align:left;cursor:pointer}
+.list__row:last-of-type{border-bottom:0}
+.list__row span{font-size:17px;font-weight:var(--w-medium);color:var(--c-text)}
+.list__row em{font-style:normal;font-size:var(--t-xs);font-weight:var(--w-normal);color:var(--c-text-muted)}
+.absent{margin-top:var(--s-4);padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-bg-soft)}
+.absent h3{margin:0 0 6px;font-size:15px;font-weight:var(--w-bold);color:var(--c-text)}
+.absent p{margin:0;font-size:15px;line-height:var(--lh-base);color:var(--c-text-soft)}
+.absent b{font-weight:700}
+
+/* ── 화면 2: PDF 행 3상태 ── */
+.pdfdemo{width:420px;padding:var(--s-6);background:var(--c-surface);border:1px solid var(--c-border-strong);border-radius:var(--r-lg)}
+.pdfdemo h2{margin:0 0 6px;font-size:17px;font-weight:var(--w-bold)}
+.pdfdemo > p{margin:0 0 18px;font-size:var(--t-xs);line-height:var(--lh-base);color:var(--c-text-soft)}
+.state{border:1px solid var(--c-border);border-radius:var(--r-md);padding:4px 14px;margin-bottom:16px}
+.state__tag{display:inline-block;margin:10px 0 0;font-size:12px;font-weight:var(--w-bold);letter-spacing:.04em;color:var(--c-text-muted)}
+/* ① 저장 가능: 평범한 행 */
+.rowok{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
+.rowok span{font-size:17px;font-weight:var(--w-medium);color:var(--c-text)}
+/* ②③ 저장 불가: 라벨 subtle + 이유는 사람 말(warning) */
+.rowoff{padding:12px 0 14px;display:flex;flex-direction:column;gap:5px}
+.rowoff span{font-size:17px;font-weight:var(--w-medium);color:var(--c-text-subtle)}
+.rowoff em{font-style:normal;font-size:var(--t-xs);line-height:1.55;color:var(--c-warning)}
+/* ③ 예약 슬롯: 지금은 숫자 사실만 담는 조용한 행. 자리 자체가 목적이다. */
+.slot{margin:2px 0 12px;padding:10px 12px;border-radius:var(--r-sm);background:var(--c-bg-soft);font-size:var(--t-xs);line-height:1.5;color:var(--c-text-soft)}
+
+/* ── 화면 3: 헤더 비교 ── */
+.hdrdemo{width:390px;border:1px solid var(--c-border-strong);border-radius:var(--r-md);overflow:hidden;background:var(--c-bg);margin-top:10px}
+.measure{margin:6px 0 0;font-size:12px;color:var(--c-text-muted)}
+
+/* 문안·판단 카드 */
+.spec{width:420px;padding:var(--s-6);background:var(--c-surface);border:1px solid var(--c-border-strong);border-radius:var(--r-lg)}
+.spec h2{margin:0 0 6px;font-size:17px;font-weight:var(--w-bold)}
+.spec > p{margin:0 0 18px;font-size:var(--t-xs);line-height:var(--lh-base);color:var(--c-text-soft)}
+.branch{padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md);margin-bottom:14px}
+.branch--default{border-color:var(--c-brand);background:var(--c-brand-soft)}
+.branch h3{margin:0 0 var(--s-2);font-size:var(--t-xs);font-weight:var(--w-bold);color:var(--c-brand-text)}
+.branch p{margin:0;font-size:var(--t-xs);line-height:1.55;color:var(--c-text-soft)}
+
+.ph-a{background:radial-gradient(120% 80% at 30% 15%,rgba(255,244,225,.85),rgba(255,244,225,0) 55%),linear-gradient(158deg,#3b2f2b,#8a6247 48%,#d9b686)}
+</style>
+</head>
+<body>
+<div class="sheetwrap">
+
+<!-- ══════════ 화면 1: 참여자 앨범 화면 (수정판 · 안 1 적용) ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="참여자 앨범 (수정판)">
+  <header class="hdr">
+    <div class="brand"><div class="brand__ko"><b>우리</b><i>앨범</i></div><div class="brand__en">woorialbum</div></div>
+    <div class="hdr__right">
+      <a class="hdr__link" href="#">내 앨범</a>
+      <button type="button" class="hdr__more" aria-label="더보기">⋯</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="whoami">
+      <div class="whoami__face" aria-hidden="true"></div>
+      <p><span class="whoami__lead">‘<b>우리의 추억</b>’에</span><b>영희</b>로 함께하고 있어요</p>
+    </div>
+
+    <div class="albumhead">
+      <h1>우리의 추억</h1>
+      <p class="albumhead__meta">사진 34장 · 함께한 사람 4명</p>
+    </div>
+
+    <div class="mine">
+      <div>
+        <p class="mine__title">내가 더한 것</p>
+        <p class="mine__count">사진 4장 · 한마디 3개</p>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="datehead">
+      <p class="datehead__month">2018년 7월</p>
+      <p class="datehead__day">2018.07.08 · 사진 5장</p>
+    </div>
+
+    <div>
+      <div class="photo ph-a" style="height:230px"></div>
+      <p class="caption"><span class="who">엄마 </span>이 집 국수가 그렇게 맛있다더니, 진짜였네</p>
+      <button type="button" class="addmine">나도 한마디 남기기</button>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="앨범 메뉴">
+    <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+    <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+    <button type="button"><span class="chip"><span aria-hidden="true">＋</span>내 앨범 만들기</span></button>
+  </nav>
+</div>
+<p class="cap">3번째 칸 앨범 처음으로 → <b>내 앨범 만들기</b>. 맨 위로는 스크롤 플로팅 버튼이 이미 담당.
+사진 추가(면 채움)와 내 앨범 만들기(테두리 칩)는 <b>강조의 종류가 달라</b> 서로 경쟁하지 않는다.</p>
+</div>
+
+<!-- ══════════ ★ 핵심 과제: 두 강조를 구분하는 3안 ══════════ -->
+<div class="col">
+<p class="navdemo__label">안 1 (권장) — 면 vs 선: 채움 = 여기서 할 일, 테두리 칩 = 다른 곳으로 가는 일</p>
+<div class="navdemo"><nav class="nav">
+  <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+  <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+  <button type="button"><span class="chip"><span aria-hidden="true">＋</span>내 앨범 만들기</span></button>
+</nav></div>
+<p class="cap">둘 다 명확한 "버튼"으로 읽힌다(40~60대). 채움과 테두리는 같은 브랜드 색 안에서
+성격 차이를 말한다 — 면적은 사진 추가가 크므로 위계도 자연히 사진 추가가 위.</p>
+
+<p class="navdemo__label">안 2 — 같은 색, 무게만: 배경 유무 + 글자 굵기 차이</p>
+<div class="navdemo"><nav class="nav">
+  <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+  <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+  <button type="button" style="color:var(--c-brand-text)"><span class="ic ic--plus" aria-hidden="true"></span>내 앨범 만들기</button>
+</nav></div>
+<p class="cap">가장 조용하다. 다만 내 앨범 만들기가 한마디 쓰기와 같은 "맨 글자"라
+<b>눌리는 것인지 흐릿</b>할 수 있다 — 색만 다른 글자는 40~60대에게 약한 신호.</p>
+
+<p class="navdemo__label">안 3 — 밑줄(링크 관습): "여기서 나간다"를 문법으로 말함</p>
+<div class="navdemo"><nav class="nav">
+  <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+  <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+  <button type="button"><span class="underline">내 앨범 만들기</span></button>
+</nav></div>
+<p class="cap">밑줄은 "다른 곳으로 가는 링크"라는 오래된 관습이라 의미는 가장 정확하다.
+다만 하단 탭 안의 밑줄은 낯설고, 아이콘이 없어 칸이 비어 보인다.</p>
+
+<div class="spec" style="margin-top:16px">
+  <h2>판단 — 안 1을 권장</h2>
+  <p>제약: 브랜드 색은 하나. 그래서 <b>색이 아니라 형태</b>로 성격을 가른다.
+  채움(면) = 이 앨범에서의 주 행동, 테두리 칩(선) = 앨범 밖으로 나가는 행동.
+  두 강조가 같은 자원(색·면적)을 두고 경쟁하지 않으므로 하나를 죽일 필요가 없다.
+  안 2는 조용하지만 신호가 약하고, 안 3은 의미는 정확하나 자리(하단 탭)와 문법이 어긋난다.</p>
+</div>
+</div>
+
+<!-- ══════════ 화면 1-(3): 더보기 시트 (참여자 · 수정판) ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="더보기 시트 (참여자 수정판)">
+  <div style="position:absolute;inset:0;padding:20px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="brand__ko"><b>우리</b><i>앨범</i></div>
+      <span class="hdr__more" style="display:grid">⋯</span>
+    </div>
+    <h1 style="margin:22px 0 0;text-align:center;font-size:var(--t-2xl);font-weight:var(--w-bold)">우리의 추억</h1>
+    <div class="photo ph-a" style="height:250px;margin-top:22px"></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet" role="dialog" aria-label="더보기">
+    <div class="sheet__hdr"><h2>더보기</h2><button type="button" class="sheet__close">닫기</button></div>
+    <div class="list">
+      <button type="button" class="list__row"><span>함께한 사람</span><em>4명</em></button>
+      <button type="button" class="list__row"><span>파일로 저장하기 (PDF)</span></button>
+      <div class="absent">
+        <h3>여기에 없는 것</h3>
+        <p>제목·표지 바꾸기, 공유하기, 앨범 지우기는 <b>앨범을 만든 사람</b>만 할 수 있어요. 내가 더한 사진과 한마디는 내가 지울 수 있어요.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="cap"><b>내 앨범 만들기는 시트에서 뺐다</b> — 하단 3번째 칸으로 나갔으므로 중복 금지.
+시트에는 이 앨범에 "대한" 일만 남는다: 함께한 사람 / 파일로 저장하기 / 없는 것 안내.</p>
+</div>
+
+<!-- ══════════ 화면 2: PDF 행의 3가지 상태 ══════════ -->
+<div class="col">
+<div class="pdfdemo">
+  <h2>파일로 저장하기(PDF) — 행의 3가지 상태</h2>
+  <p>앨범은 100장까지 담기는데 저장은 30장까지라 사용자에게는 모순으로 보인다.
+  숫자 표기가 아니라 <b>막는 이유를 사람 말로</b> 먼저 말한다.</p>
+
+  <span class="state__tag">① 저장 가능 (30장 이하)</span>
+  <div class="state">
+    <div class="rowok"><span>파일로 저장하기 (PDF)</span></div>
+  </div>
+
+  <span class="state__tag">② 저장 불가 (31장 이상) — 이유가 보인다</span>
+  <div class="state">
+    <div class="rowoff">
+      <span>파일로 저장하기 (PDF)</span>
+      <em>사진이 많으면 한 파일에 다 담기지 않아요.<br>한 번에 사진 30장까지 저장할 수 있어요.</em>
+    </div>
+  </div>
+
+  <span class="state__tag">③ ② + 나중을 위한 자리 (지금은 사실만)</span>
+  <div class="state">
+    <div class="rowoff">
+      <span>파일로 저장하기 (PDF)</span>
+      <em>사진이 많으면 한 파일에 다 담기지 않아요.<br>한 번에 사진 30장까지 저장할 수 있어요.</em>
+    </div>
+    <div class="slot">이 앨범 사진 38장 · 한 파일 30장</div>
+  </div>
+
+  <div class="branch branch--default" style="margin-top:4px">
+    <h3>③의 구조 — 약속 없이 자리만 마련</h3>
+    <p>이유 문장 아래의 <b>연한 배경 한 행(slot)</b>이 예약석이다. 지금은 앨범의 숫자 사실만
+    담아서 비어 보이지 않는다. 다른 저장 방법이 실제로 생기면 같은 자리에 그 안내가
+    들어간다 — 그때까지 이 행은 어떤 것도 예고하지 않는다(없는 것을 약속하는 표현 금지 규칙 준수).</p>
+  </div>
+</div>
+</div>
+
+<!-- ══════════ 화면 3: 헤더 통일 (소유자 vs 참여자) ══════════ -->
+<div class="col">
+<p class="navdemo__label">소유자 헤더</p>
+<div class="hdrdemo">
+  <header class="hdr">
+    <div class="brand"><div class="brand__ko"><b>우리</b><i>앨범</i></div><div class="brand__en">woorialbum</div></div>
+    <div class="hdr__right">
+      <a class="hdr__link" href="#">내 앨범</a>
+      <button type="button" class="hdr__more" aria-label="더보기">⋯</button>
+    </div>
+  </header>
+</div>
+<p class="measure">우측: [내 앨범] 글자 링크 14px·brand-text → 10px 간격 → ⋯ 원형 44px(테두리 --c-border)</p>
+
+<p class="navdemo__label" style="margin-top:22px">참여자 헤더 — 소유자와 동일</p>
+<div class="hdrdemo">
+  <header class="hdr">
+    <div class="brand"><div class="brand__ko"><b>우리</b><i>앨범</i></div><div class="brand__en">woorialbum</div></div>
+    <div class="hdr__right">
+      <a class="hdr__link" href="#">내 앨범</a>
+      <button type="button" class="hdr__more" aria-label="더보기">⋯</button>
+    </div>
+  </header>
+</div>
+<p class="cap" style="margin-top:10px">헤더는 역할과 무관하게 <b>완전히 같다</b>(학습 비용 0).
+글자는 [내 앨범] 하나만 남아 좌측 브랜드와 경쟁하지 않고, 역할 차이는 전부
+⋯ 을 눌렀을 때의 <b>시트 내용</b>에서 갈린다. ⋯ 원은 44px로 누르는 영역 하한 준수.</p>
+</div>
+
+</div>
+</body>
+</html>
