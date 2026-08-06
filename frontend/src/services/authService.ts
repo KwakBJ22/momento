@@ -1,4 +1,5 @@
 import type { AuthChangeEvent, Provider, Session, User } from "@supabase/supabase-js";
+import { BRAND_DEFAULT_USER_NAME } from "../lib/brand";
 import { isSupabaseAuthConfigured, supabase } from "../lib/supabase";
 import { authDebug } from "../lib/authDebug";
 
@@ -53,7 +54,7 @@ export function toAppUser(user: User): AppUser {
   const metadata = (user.user_metadata || {}) as Record<string, unknown>;
   return {
     id: user.id,
-    displayName: metadataName(metadata) || text(user.email)?.split("@")[0] || "Momento 사용자",
+    displayName: metadataName(metadata) || text(user.email)?.split("@")[0] || BRAND_DEFAULT_USER_NAME,
     avatarUrl: text(metadata.avatar_url) || text(metadata.picture) || text(metadata.profile_image),
     email: text(user.email),
     phone: text(user.phone),

@@ -25,6 +25,7 @@ import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
+import { BRAND_NAME_KO } from "./lib/brand";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
@@ -250,6 +251,23 @@ function App() {
   };
   // A guest holding this album's session token may view/edit it without login;
   // everyone else falls back to the login wall. Backend re-checks the token.
+  // 앨범 상세는 자체 브랜드 헤더(AlbumScreen)를 가진다 — 전역 헤더(브랜드·계정 원·
+  // 게스트 로그인)를 여기서만 감춰 헤더가 두 겹이 되지 않게 한다. 다른 화면은 그대로.
+  const hidesGlobalHeader = Boolean(sharedAlbumId || shareToken);
+  // 계정 진입점(드롭다운 5항목: 이름·이메일·내 앨범·로그아웃·회원 탈퇴)은 한 곳에서
+  // 만들어 전역 헤더와 앨범 헤더가 같은 노드를 쓴다 — 자리만 옮기고 동작은 그대로.
+  // 40~60대 기준: 아이콘만 두지 않는다. 로그인 상태는 이름 첫 글자(아바타 있으면 사진),
+  // 게스트는 "로그인" 글자. 누르는 영역은 44px.
+  const accountEntry = user ? (
+    <div className="app__account">
+      <button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>
+        {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}
+      </button>
+      {accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}
+    </div>
+  ) : (
+    <button type="button" className="app__account-login" onClick={openLogin}>로그인</button>
+  );
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
   const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin(); };
@@ -272,9 +290,9 @@ function App() {
 
   return (
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
-      {!adminRoute ? <header className="app__header"><h1><a href="/">Momento</a></h1>{!user && !shareToken ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
-      {!adminRoute && user ? <div className="app__account app__account--global"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}</div> : null}
-      {!adminRoute && !user && shareToken ? <button type="button" className="app__login-global" onClick={openLogin}>로그인</button> : null}
+      {!adminRoute && !hidesGlobalHeader ? <header className="app__header"><h1><a href="/">{BRAND_NAME_KO}</a></h1>{!user && !shareToken ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
+      {!adminRoute && !hidesGlobalHeader && user ? <div className="app__account app__account--global"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}</div> : null}
+      {!adminRoute && !hidesGlobalHeader && !user && shareToken ? <button type="button" className="app__login-global" onClick={openLogin}>로그인</button> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
@@ -282,7 +300,7 @@ function App() {
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
           : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)
-          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} />)
+          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSlot={accountEntry} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
           : myAlbumsPage ? requiresLogin(<MyAlbums />)

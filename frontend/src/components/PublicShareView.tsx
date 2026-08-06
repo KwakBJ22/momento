@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
@@ -147,7 +148,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     if (seed) {
       setAlbumLoading(false);
       setLoadedToken(token);
-      document.title = `${seed.og_title} | Momento`;
+      document.title = `${seed.og_title} | ${BRAND_TITLE_SUFFIX}`;
       document.querySelector('meta[name="description"]')?.setAttribute("content", seed.og_description);
       return () => { active = false; };
     }
@@ -161,7 +162,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       setContributionSession(savedSession && hasParticipantName(savedSession.displayName) ? savedSession : null);
       setParticipantName(authenticatedUser?.displayName || savedSession?.displayName || "");
       setAlbumLoading(false);
-      document.title = `${data.og_title} | Momento`;
+      document.title = `${data.og_title} | ${BRAND_TITLE_SUFFIX}`;
       document.querySelector('meta[name="description"]')?.setAttribute("content", data.og_description);
     }).catch((cause) => {
       if (!active) return;

@@ -1,4 +1,5 @@
 import "./AlbumCover.css";
+import { BRAND_NAME_KO } from "../../lib/brand";
 
 interface AlbumCoverProps {
   title: string;
@@ -18,7 +19,7 @@ export default function AlbumCover({
 }: AlbumCoverProps) {
   return (
     <section className="album-cover" aria-label="앨범 표지">
-      <p className="album-cover__eyebrow">Momento</p>
+      <p className="album-cover__eyebrow">{BRAND_NAME_KO}</p>
       <h1 className="album-cover__title">{title}</h1>
       {coverDateLabel ? <p className="album-cover__period">{coverDateLabel}</p> : null}
       {heroSrc ? (

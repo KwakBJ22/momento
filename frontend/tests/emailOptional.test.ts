@@ -9,8 +9,9 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 
 test("toAppUser falls back to a nickname then a friendly default when email is absent", () => {
   const authService = read("services/authService.ts");
-  // nickname (metadata) → email prefix → "Momento 사용자"; email is optional (text()).
-  assert.match(authService, /displayName: metadataName\(metadata\) \|\| text\(user\.email\)\?\.split\("@"\)\[0\] \|\| "Momento 사용자"/);
+  // nickname (metadata) → email prefix → 브랜드 기본 표시명(BRAND_DEFAULT_USER_NAME).
+  // 브랜드 문자열은 lib/brand.ts 한 곳에서만 정의한다 — 여기서 리터럴을 다시 적지 않는다.
+  assert.match(authService, /displayName: metadataName\(metadata\) \|\| text\(user\.email\)\?\.split\("@"\)\[0\] \|\| BRAND_DEFAULT_USER_NAME/);
   assert.match(authService, /email: text\(user\.email\)/); // null when absent, not thrown
 });
 

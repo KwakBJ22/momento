@@ -40,7 +40,6 @@ export default function AlbumScreenHeader({ title, subtitle, canEdit = false, on
 
   return (
     <header className="album-screen-header">
-      <p className="album-screen-header__brand">Momento</p>
       {editing ? (
         <div className="album-screen-header__editor">
           <input aria-label="앨범 제목" value={draft} maxLength={120} onChange={(event) => setDraft(event.target.value)} autoFocus />

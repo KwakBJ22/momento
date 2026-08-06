@@ -12,6 +12,7 @@ import {
 } from "../lib/api";
 import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
+import { BRAND_SHARE_FALLBACK_TITLE } from "../lib/brand";
 import {
   type AlbumPhoto,
   type AlbumResult,
@@ -203,7 +204,7 @@ export default function AlbumResultView({
       const url = await resolveShareUrl();
       if (navigator.share) {
         await navigator.share({
-          title: albumTitle || "Momento 앨범",
+          title: albumTitle || BRAND_SHARE_FALLBACK_TITLE,
           text: epilogue.slice(0, 120) || "우리의 추억 앨범을 확인해보세요.",
           url,
         });

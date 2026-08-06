@@ -15,6 +15,7 @@ import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
 import { waitForAlbumAssets } from "./waitForAlbumAssets";
 import "./AlbumRenderer.css";
+import { BRAND_PDF_FOOTER } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
 export { waitForAlbumAssets } from "./waitForAlbumAssets";
@@ -287,7 +288,7 @@ export default function AlbumRenderer({
 
   const brandFooter = (
     <footer className="album-renderer__brand-footer">
-      <p>이 추억은 Momento에서 함께 만들었습니다.</p>
+      <p>{BRAND_PDF_FOOTER}</p>
       {mode === "screen" ? <a href="/">가족과 함께 추억을 이어가 보세요.</a> : <p>가족과 함께 추억을 이어가 보세요.</p>}
     </footer>
   );
@@ -453,7 +454,7 @@ export default function AlbumRenderer({
             </section>
           ))}
           <footer className="album-renderer__brand-footer">
-            <p>이 추억은 Momento에서 함께 만들었습니다.</p>
+            <p>{BRAND_PDF_FOOTER}</p>
             <a href="/">가족과 함께 추억을 이어가 보세요.</a>
           </footer>
         </div>

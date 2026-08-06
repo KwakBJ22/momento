@@ -683,3 +683,10 @@ body {
 }
 .app__withdraw-actions button:disabled { opacity: 0.6; cursor: default; }
 .app__withdraw-confirm { background: var(--c-danger); color: var(--c-bg-soft); }
+
+/* 앨범 헤더로 옮겨온 계정 진입점: 누르는 영역 44px(기존 34px 원은 하한 미달이었다).
+   게스트는 아이콘 대신 "로그인" 글자 — 40~60대에게 아이콘만으로는 뜻이 전달되지 않는다. */
+.album-screen__hdr .app__account { position: relative; width: auto; height: auto; }
+.album-screen__hdr .app__account-trigger { width: 44px; height: 44px; }
+.album-screen__hdr .app__account-menu { position: absolute; top: calc(100% + 0.45rem); right: 0; margin-top: 0; z-index: 90; }
+.app__account-login { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }

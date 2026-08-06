@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BRAND_NAME_KO } from "../lib/brand";
 import { getAlbum, getAlbumGenerationPreview, getAlbumGenerationStatus, retryAlbumGeneration, type AlbumGenerationStatus } from "../lib/api";
 import { albumCreationTiming, getAlbumCreationPreview, releaseAlbumCreationPreview } from "../lib/albumCreation";
 import { CREATION_PROGRESS_TICK_MS, estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../lib/creationProgress";
@@ -171,7 +172,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
   return (
     <section className="album-creating" aria-live="polite">
       <div className="album-creating__card">
-        <p className="album-creating__eyebrow">Momento</p>
+        <p className="album-creating__eyebrow">{BRAND_NAME_KO}</p>
         <h2>{failed ? "앨범을 완성하지 못했습니다" : "앨범을 만들고 있어요"}</h2>
         <div className="album-creating__previews" aria-label="선택한 사진 미리보기">
           {(visiblePreviews.length ? visiblePreviews : ["", "", ""]).map((url, index) => url ? (
