@@ -6,6 +6,7 @@ import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages,
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
+import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
 import { useSignedUrlRefresh } from "../lib/useSignedUrlRefresh";
 
@@ -83,6 +84,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  // PDF 결과 안내 — 성공도 실패도 여기 한 곳에 뜬다(조용히 끝나지 않는다).
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [isEditingEpilogue, setIsEditingEpilogue] = useState(false);
   const [epilogueDraft, setEpilogueDraft] = useState("");
   const [isSavingEpilogue, setIsSavingEpilogue] = useState(false);
@@ -297,10 +300,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     const source = album;
 
     setIsExportingPdf(true);
+    setPdfNotice(null);
 
     try {
 
-      await downloadAlbumPdf({
+      const delivery = await downloadAlbumPdf({
 
         albumId: source.album_id,
 
@@ -322,10 +326,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         livingAppendPages,
 
       });
+      setPdfNotice(pdfSuccessMessage(delivery));
 
-    } catch {
+    } catch (error) {
 
-      /* noop */
+      // 실패를 삼키지 않는다 — 이유를 그대로 화면에 띄운다(AlbumResult 와 같은 문구).
+      setPdfNotice(pdfFailureMessage(error));
 
     } finally {
 
@@ -586,6 +592,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     <>
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
+      {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { setMoreOpen(false); setShareOpen(false); }} /> : null}
       {moreOpen ? (
         <section className="album-inline-action album-more-sheet" aria-label="더보기">

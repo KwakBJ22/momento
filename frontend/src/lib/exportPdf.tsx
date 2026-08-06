@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
+import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
+import { isInAppWebView } from "./imageFile";
+import { PDF_GENERIC_MESSAGE, PDF_WEBVIEW_MESSAGE, pdfFailureMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
 import { printPageStraddleGap } from "./pdfPageBreak";
 
@@ -19,20 +22,65 @@ export interface AlbumPdfInput {
   livingAppendPages?: LivingAppendPage[];
 }
 
+/** html2canvas 는 앨범 전체를 캔버스 한 장으로 만든다. 크롬의 캔버스 한 변 상한(65,535px)을
+ *  넘으면 예외 없이 빈/잘린 결과가 나와 "오래 기다렸는데 빈 PDF"가 된다. 미리 잡아 던진다. */
+const CANVAS_SCALE = 2;
+const CANVAS_MAX_PX = 65_500;
+/** 이보다 작은 결과물은 정상 PDF 가 아니다(빈 캔버스). */
+const PDF_MIN_BLOB_BYTES = 1024;
+
+/** 원인이 검색되도록 event 이름을 붙여 남긴다(조용히 삼키지 않는다). */
+function logPdf(event: string, detail: Record<string, unknown> = {}): void {
+  const parts = Object.entries(detail).map(([key, value]) => `${key}=${value}`).join(" ");
+  console.warn(`[pdf] event=${event}${parts ? ` ${parts}` : ""}`);
+}
+
 /**
  * AlbumRenderer(print) DOM을 A4 PDF로 변환한다.
  * album_version 캐시가 있으면 서버 URL을 우선 반환한다.
  */
-export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<void> {
-  const cached = await getAlbumPdfUrl(input.albumId, input.albumVersion).catch(() => null);
+export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDelivery> {
+  const cached = await getAlbumPdfUrl(input.albumId, input.albumVersion).catch((error) => {
+    logPdf("pdf_cache_lookup_failed", { album: input.albumId, reason: pdfFailureMessage(error) });
+    return null;
+  });
+  // 서버 주소는 https 라 인앱 브라우저에서도 열린다 — 그대로 쓴다.
   if (cached?.url) {
     triggerFileDownload(cached.url, pdfFilename(input));
-    return;
+    return { via: "download" };
   }
 
   const blob = await renderAlbumPdfBlob(input);
-  await uploadAlbumPdf(input.albumId, input.albumVersion, blob).catch(() => undefined);
+  if (!blob || blob.size < PDF_MIN_BLOB_BYTES) {
+    logPdf("pdf_blob_empty", { album: input.albumId, photos: input.photos.length, bytes: blob?.size ?? 0 });
+    throw new Error(input.photos.length > PDF_PHOTO_SAFE_LIMIT ? PDF_BLOCKED_REASON : PDF_GENERIC_MESSAGE);
+  }
+
+  let uploaded = true;
+  try {
+    await uploadAlbumPdf(input.albumId, input.albumVersion, blob);
+  } catch (error) {
+    uploaded = false;
+    logPdf("pdf_upload_failed", { album: input.albumId, reason: pdfFailureMessage(error) });
+  }
+
+  // 인앱 브라우저(카카오톡 등)는 blob URL + a[download] 를 무시한다: 클릭해도 아무 일도
+  // 일어나지 않고 예외도 없다 — 예전에 "저장했어요"만 뜨던 원인이다. 서버에 올라간 파일
+  // 주소가 있으면 그것을 열고, 없으면 조용히 넘어가지 말고 이유를 말한다.
+  if (isInAppWebView(typeof navigator === "undefined" ? "" : navigator.userAgent)) {
+    const url = uploaded
+      ? await getAlbumPdfUrl(input.albumId, input.albumVersion).then((result) => result.url).catch(() => null)
+      : null;
+    if (url) {
+      triggerFileDownload(url, pdfFilename(input));
+      return { via: "browser-url", url };
+    }
+    logPdf("pdf_download_unsupported", { album: input.albumId, uploaded });
+    throw new Error(PDF_WEBVIEW_MESSAGE);
+  }
+
   triggerBlobDownload(blob, pdfFilename(input));
+  return { via: "download" };
 }
 
 export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
@@ -73,6 +121,13 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
     alignBlocksToPrintPages(element);
 
+    // 캔버스 상한을 넘으면 html2canvas 는 예외 대신 빈 결과를 준다 — 먼저 잡아 이유를 말한다.
+    const sourceHeightPx = element.scrollHeight * CANVAS_SCALE;
+    if (sourceHeightPx > CANVAS_MAX_PX) {
+      logPdf("pdf_canvas_overflow", { photos: input.photos.length, height: Math.round(sourceHeightPx), max: CANVAS_MAX_PX });
+      throw new Error(PDF_BLOCKED_REASON);
+    }
+
     const { default: html2pdf } = await import("html2pdf.js");
     const blob = await html2pdf()
       .set({
@@ -97,6 +152,9 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
       .outputPdf("blob");
 
     return blob as Blob;
+  } catch (error) {
+    logPdf("pdf_render_failed", { album: input.albumId, photos: input.photos.length, reason: pdfFailureMessage(error) });
+    throw error;
   } finally {
     root.unmount();
     host.remove();

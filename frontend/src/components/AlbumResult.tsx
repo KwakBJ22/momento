@@ -12,6 +12,7 @@ import {
 } from "../lib/api";
 import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
+import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import { BRAND_SHARE_FALLBACK_TITLE } from "../lib/brand";
 import {
   type AlbumPhoto,
@@ -240,7 +241,7 @@ export default function AlbumResultView({
     setIsExportingPdf(true);
     setNotice(null);
     try {
-      await downloadAlbumPdf({
+      const delivery = await downloadAlbumPdf({
         albumId: result.album_id,
         albumVersion: result.album_version ?? 0,
         title: albumTitle,
@@ -253,9 +254,9 @@ export default function AlbumResultView({
         coverPhotoId: result.cover_photo_id,
         livingAppendPages: result.living_append_pages,
       });
-      setNotice("PDF 파일을 저장했어요.");
+      setNotice(pdfSuccessMessage(delivery));
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "PDF 저장에 실패했어요.");
+      setNotice(pdfFailureMessage(err));
     } finally {
       setIsExportingPdf(false);
     }
