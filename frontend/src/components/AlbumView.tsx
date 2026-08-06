@@ -4,7 +4,7 @@ import { AlbumRenderer } from "../album-engine";
 
 import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoComment, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
-import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 
 import { useSignedUrlRefresh } from "../lib/useSignedUrlRefresh";
@@ -578,9 +578,13 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave }: 
               : participation ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign(`/album/${albumId}/participants`)}><span>함께한 사람</span><em>{participation.contributor_count}명</em></button> : null}
             {/* PDF 초과 시: opacity 로 흐리지 않고(대비 2.1:1) 라벨은 subtle, 이유는 warning. */}
             {photos.length > PDF_PHOTO_SAFE_LIMIT
-              ? <div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_MESSAGE} ({photos.length}장 / {PDF_PHOTO_SAFE_LIMIT}장까지)</em></div>
+              ? <><div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_REASON}</em></div>
+              {/* 예약 슬롯(4a·③): 지금은 숫자 사실만 — 어떤 것도 예고하지 않는다.
+                  다른 저장 방법이 실제로 생기면 같은 자리에 그 안내가 들어간다. */}
+              <p className="album-more-sheet__slot">이 앨범 사진 {photos.length}장 · 한 파일 {PDF_PHOTO_SAFE_LIMIT}장</p></>
               : <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { setMoreOpen(false); void handlePdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button>}
-            <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign("/")}><span>{displayAlbum?.can_edit ? "새 앨범 만들기" : "내 앨범 만들기"}</span><em>이 앨범은 그대로 있어요</em></button>
+            {/* 참여자의 내 앨범 만들기는 하단 네비 3번째 칸으로 이동(4a) — 시트에서는 소유자만. */}
+            {displayAlbum?.can_edit ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign("/")}><span>새 앨범 만들기</span><em>이 앨범은 그대로 있어요</em></button> : null}
             {displayAlbum?.can_delete ? <>
               <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" disabled={isDeleting} onClick={() => { setMoreOpen(false); void handleDeleteAlbum(); }}><span>{isDeleting ? "지우는 중..." : "이 앨범 지우기"}</span></button>
               <p className="album-more-sheet__safe">지우기 전에 한 번 더 물어봐요. 실수로 지워지지 않아요.</p>

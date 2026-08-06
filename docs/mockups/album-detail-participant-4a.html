@@ -78,7 +78,8 @@ body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
 .ic--plus{border-radius:var(--r-full);position:relative}
 .ic--plus::before{content:"+";position:absolute;inset:0;display:grid;place-items:center;font-size:17px;font-weight:var(--w-bold);border:0}
 /* 안 1(권장): 나가는 행동 = 테두리 칩. 칸 배경은 그대로, 라벨을 칩으로 감싼다. */
-.nav .chip{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border:1.5px solid var(--c-brand-action);border-radius:var(--r-full);color:var(--c-brand-text);font-weight:var(--w-medium);font-size:15px;line-height:1}
+.nav .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1.5px solid var(--c-brand-action);border-radius:var(--r-full);color:var(--c-brand-text);font-weight:var(--w-medium);font-size:15px;line-height:1}
+.nav .chip__label{text-align:left;line-height:1.25}
 /* 안 3: 나가는 행동 = 밑줄(링크 관습). */
 .nav .underline{color:var(--c-brand-text);font-weight:var(--w-medium);text-decoration:underline;text-underline-offset:3px}
 
@@ -184,7 +185,7 @@ body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
   <nav class="nav" aria-label="앨범 메뉴">
     <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
     <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
-    <button type="button"><span class="chip"><span aria-hidden="true">＋</span>내 앨범 만들기</span></button>
+    <button type="button"><span class="chip"><span aria-hidden="true">＋</span><span class="chip__label">내 앨범<br>만들기</span></span></button>
   </nav>
 </div>
 <p class="cap">3번째 칸 앨범 처음으로 → <b>내 앨범 만들기</b>. 맨 위로는 스크롤 플로팅 버튼이 이미 담당.
@@ -197,7 +198,7 @@ body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
 <div class="navdemo"><nav class="nav">
   <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
   <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
-  <button type="button"><span class="chip"><span aria-hidden="true">＋</span>내 앨범 만들기</span></button>
+  <button type="button"><span class="chip"><span aria-hidden="true">＋</span><span class="chip__label">내 앨범<br>만들기</span></span></button>
 </nav></div>
 <p class="cap">둘 다 명확한 "버튼"으로 읽힌다(40~60대). 채움과 테두리는 같은 브랜드 색 안에서
 성격 차이를 말한다 — 면적은 사진 추가가 크므로 위계도 자연히 사진 추가가 위.</p>

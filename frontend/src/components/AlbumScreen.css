@@ -38,7 +38,9 @@
 .album-screen__hdr-right { display: flex; align-items: center; gap: 10px; }
 .album-screen__hdr-link { min-height: 44px; display: grid; place-items: center; color: var(--c-brand-text); font-size: var(--t-xs); font-weight: 600; text-decoration: none; }
 .album-screen__book { position: relative; }
-.album-screen__more { min-width: 44px; min-height: 44px; display: grid; place-items: center; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
+/* 더보기(4a): 글자 알약 → ⋯ 원형 44px. 글자 버튼이 둘이면 헤더가 무거워지고
+   좌측 브랜드와 경쟁한다 — 글자는 [내 앨범] 하나만 남긴다. */
+.album-screen__more { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
 
 /* 더보기 시트(화면 3): 60px 목록 행 + 옅은 구분선 + 보조 라벨(em). */
 .album-more-sheet__list { display: flex; flex-direction: column; gap: 0; }
@@ -60,6 +62,8 @@
 .album-more-sheet__absent h3 { margin: 0 0 6px; font-size: 0.9375rem; font-weight: 800; color: var(--c-text); }
 .album-more-sheet__absent p { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--c-text-soft); }
 .album-more-sheet__absent b { font-weight: 700; }
+/* 예약 슬롯(4a·③): 연한 배경 한 행 — 지금은 앨범 숫자 사실만 담는다. */
+.album-more-sheet__slot { margin: 2px 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--c-bg-soft); font-size: var(--t-xs); line-height: 1.5; color: var(--c-text-soft); }
 .album-more-sheet__safe { margin: 10px 0 0; font-size: var(--t-xs); line-height: 1.6; color: var(--c-text-soft); }
 .album-more-sheet__hint { margin: 4px 0 0; font-size: var(--t-xs); line-height: 1.45; color: var(--c-text-muted); }
 

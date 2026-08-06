@@ -21,3 +21,7 @@ export const PDF_PHOTO_SAFE_LIMIT = 30;
 
 /** 가드 발동 시 버튼 아래 표시할 문구 — 사실만 말한다(§8: "곧 지원" 약속 금지). */
 export const PDF_BLOCKED_MESSAGE = "사진이 많은 앨범은 지금 PDF로 저장할 수 없어요.";
+
+/** 더보기 시트의 차단 이유(4a): 숫자 표기가 아니라 사람 말로 먼저 답한다 —
+ *  "100장 넣으라더니 30장까지냐"는 모순에 대한 설명. */
+export const PDF_BLOCKED_REASON = `사진이 많으면 한 파일에 다 담기지 않아요. 한 번에 사진 ${PDF_PHOTO_SAFE_LIMIT}장까지 저장할 수 있어요.`;

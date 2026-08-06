@@ -1,4 +1,4 @@
-import { ArrowUp, CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
+import { CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
@@ -54,14 +54,15 @@ export default function AlbumBottomNavigation({
     );
   }
 
-  // 참여자(3a): 칸 수·위치는 소유자와 동일(학습 비용 0), 3번째 칸만 공유하기 →
-  // 앨범 처음으로. 참여자의 주 동작인 사진 추가를 브랜드 배경으로 강조한다.
+  // 참여자(4a·안1 확정): 사진 추가(면 채움) / 한마디 쓰기 / 내 앨범 만들기(테두리 칩).
+  // 채움 = 이 앨범에서의 주 행동, 테두리 칩 = 앨범 밖으로 나가는 행동 — 강조의
+  // 종류가 달라 경쟁하지 않는다. 앨범 처음으로는 스크롤 플로팅 버튼이 담당.
   if (variant === "contributor") {
     return (
       <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
         <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
         <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
-        <button type="button" onClick={onTop}><ArrowUp size={17} /><span>앨범 처음으로</span></button>
+        <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범<br />만들기</span></span></button>
       </nav>
     );
   }

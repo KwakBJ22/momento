@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, MoreHorizontal } from "lucide-react";
 import AlbumActionPanel from "./AlbumActionPanel";
 import AlbumBottomNavigation, { type AlbumBottomNavigationProps } from "./AlbumBottomNavigation";
 import AlbumScreenHeader from "./AlbumScreenHeader";
@@ -55,7 +55,7 @@ export default function AlbumScreen({
         </div>
         <div className="album-screen__hdr-right">
           {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
-          {onMore ? <button type="button" className="album-screen__more" onClick={onMore}>더보기</button> : null}
+          {onMore ? <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
         </div>
       </header>
       <div className="album-page__layout">
