@@ -261,15 +261,41 @@ function App() {
   // 만들어 전역 헤더와 앨범 헤더가 같은 노드를 쓴다 — 자리만 옮기고 동작은 그대로.
   // 40~60대 기준: 아이콘만 두지 않는다. 로그인 상태는 이름 첫 글자(아바타 있으면 사진),
   // 게스트는 "로그인" 글자. 누르는 영역은 44px.
+  // 계정 메뉴 항목 — 헤더 밖(⋯ 시트)과 헤더 안(드롭다운)이 같은 목록을 쓴다.
+  // "내 앨범"은 넣지 않는다: 헤더 우측 [내 앨범] 링크와 중복이다.
+  const accountMenuItems = (
+    <>
+      <button type="button" onClick={() => void logout()}>로그아웃</button>
+      <button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button>
+    </>
+  );
   const accountEntry = user ? (
     <div className="app__account">
       <button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>
         {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}
       </button>
-      {accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}
+      {accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}{accountMenuItems}</div> : null}
     </div>
   ) : (
     <button type="button" className="app__account-login" onClick={openLogin}>로그인</button>
+  );
+  // 앨범 상세는 헤더 우측을 [내 앨범]+[⋯] 둘로 줄이고, 계정 진입점을 ⋯ 시트
+  // 최상단 행으로 넣는다 — 같은 동작(로그아웃·탈퇴·로그인)을 자리만 옮긴 것이다.
+  const accountSheetRow = user ? (
+    <div className="album-more-sheet__account">
+      <div className="album-more-sheet__account-head">
+        {user.avatarUrl
+          ? <img className="album-more-sheet__account-avatar" src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />
+          : <span className="album-more-sheet__account-avatar" aria-hidden="true">{user.displayName.slice(0, 1)}</span>}
+        <div>
+          <p className="app__account-name">{user.displayName}</p>
+          {user.email ? <p className="app__account-email">{user.email}</p> : null}
+        </div>
+      </div>
+      <div className="album-more-sheet__account-actions">{accountMenuItems}</div>
+    </div>
+  ) : (
+    <button type="button" className="album-more-sheet__row" onClick={openLogin}><span>로그인</span></button>
   );
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
@@ -303,7 +329,7 @@ function App() {
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
           : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)
-          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSlot={accountEntry} />)
+          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSheet={accountSheetRow} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
           : myAlbumsPage ? requiresLogin(<MyAlbums />)

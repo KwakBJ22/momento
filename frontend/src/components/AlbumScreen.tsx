@@ -22,9 +22,6 @@ interface AlbumScreenProps {
   bottomNavigation?: AlbumBottomNavigationProps;
   /** 헤더 우측 "더보기" 버튼. 시트 자체는 호출자가 body 안에 렌더링한다. */
   onMore?: () => void;
-  /** 헤더 우측 계정 진입점(전역 헤더에서 옮겨온 것). 렌더링은 호출자가 준 노드를
-   *  그대로 놓기만 한다 — 드롭다운 동작·내용은 App 의 기존 것을 재사용한다. */
-  accountSlot?: ReactNode;
   backHref?: string;
   backLabel?: string;
   className?: string;
@@ -36,7 +33,7 @@ interface AlbumScreenProps {
  */
 export default function AlbumScreen({
   title, subtitle, canEditTitle = false, onSaveTitle, headerSupplement, preHeader,
-  body, actionPanel, bottomNavigation, onMore, accountSlot, backHref, backLabel, className = "",
+  body, actionPanel, bottomNavigation, onMore, backHref, backLabel, className = "",
 }: AlbumScreenProps) {
   // "앨범 처음으로"를 네비에서 뺀 대신, 충분히 내려갔을 때만 뜨는 플로팅 버튼으로 대체한다.
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -51,10 +48,10 @@ export default function AlbumScreen({
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>
-      {/* 상단은 공용 AppHeader 하나. 앨범 상세의 우측 slot 만 [내 앨범]+[계정]+[⋯]. */}
+      {/* 상단은 공용 AppHeader 하나. 앨범 상세 우측은 [내 앨범]+[⋯] 둘뿐 —
+          계정 진입점은 ⋯ 시트 최상단 행으로 들어간다(헤더를 가볍게 유지). */}
       <AppHeader right={<>
         {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
-        {accountSlot}
         {onMore ? <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
       </>} />
       <div className="album-page__layout">

@@ -33,12 +33,12 @@ interface AlbumViewProps {
   guestOwner?: boolean;
   /** Start the save→login→claim flow. */
   onGuestSave?: () => void;
-  /** 헤더 우측 계정 진입점(App 이 만든 노드) — 앨범 화면에서 전역 헤더를 감췄으므로
-   *  이 자리로 옮겨 온다. 동작은 App 의 기존 드롭다운 그대로. */
-  accountSlot?: ReactNode;
+  /** ⋯ 시트 최상단 계정 행(App 이 만든 노드). 헤더 우측은 [내 앨범]+[⋯] 둘로 줄이고
+   *  계정 진입점은 시트 안으로 들어간다 — 동작은 App 의 기존 것을 그대로 쓴다. */
+  accountSheet?: ReactNode;
 
 }
-export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSlot }: AlbumViewProps) {
+export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet }: AlbumViewProps) {
 
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
@@ -591,6 +591,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         <section className="album-inline-action album-more-sheet" aria-label="더보기">
           <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setMoreOpen(false)}>닫기</button></div>
           <div className="album-inline-action__body album-more-sheet__list">
+            {/* 최상단 = 계정(이름·이메일 + 로그아웃·회원 탈퇴) / 게스트는 "로그인". */}
+            {accountSheet}
             {/* 목업 화면 3 그대로: 60px 목록 행 + 보조 라벨. 권한은 810af18 서버 플래그
                 (표지·참여자 = can_edit, 지우기 = can_delete). 제목 고치기는 없음. */}
             {displayAlbum?.can_edit && photos.length ? <button type="button" className="album-more-sheet__row" onClick={() => { setMoreOpen(false); setCoverPickerRequest((value) => value + 1); }}><span>표지 사진 바꾸기</span></button> : null}
@@ -697,7 +699,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     </div>
   ) : null;
   const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} accountSlot={accountSlot} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

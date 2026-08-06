@@ -61,24 +61,42 @@ test("앨범 상세는 헤더가 하나 — App 쪽 AppHeader 가 그 화면에�
   assert.doesNotMatch(app, /myAlbumsPage[^\n]*hidesGlobalHeader/);
 });
 
-test("계정 진입점은 앨범 헤더로 옮겨져도 드롭다운 5항목과 44px을 유지한다", () => {
+test("계정 진입점: 앨범 상세는 ⋯ 시트 안, 그 외 화면은 헤더 우측 — 동작은 하나", () => {
   const app = read("App.tsx");
-  // 같은 노드를 전역/앨범 양쪽이 재사용 — 동작(로그아웃·탈퇴 등)은 그대로.
-  assert.match(app, /const accountEntry = user \? \(/);
-  for (const item of ["내 앨범", "로그아웃", "회원 탈퇴"]) {
-    assert.ok(app.includes(item), `계정 메뉴 항목 누락: ${item}`);
+  // 항목 목록은 한 곳(accountMenuItems)에서 만들어 드롭다운과 시트가 함께 쓴다.
+  assert.match(app, /const accountMenuItems = \(/);
+  for (const item of ["로그아웃", "회원 탈퇴"]) {
+    assert.ok(app.includes(item), `계정 항목 누락: ${item}`);
   }
-  assert.match(app, /app__account-name[\s\S]{0,120}app__account-email/); // 이름·이메일 행
-  // 게스트는 아이콘이 아니라 "로그인" 글자.
-  assert.match(app, /className="app__account-login" onClick=\{openLogin\}>로그인/);
-  // 앨범 상세로 전달.
-  assert.match(app, /accountSlot=\{accountEntry\}/);
-  const screen = read("components/AlbumScreen.tsx");
-  assert.match(screen, /\{accountSlot\}/);
-  // 누르는 영역 44px (기존 전역 34px 원은 하한 미달이었다).
-  const css = read("App.css");
+  // "내 앨범"은 계정 메뉴에서 뺀다 — 헤더 우측 링크와 중복이다.
+  const menu = app.slice(app.indexOf("const accountMenuItems"), app.indexOf("const accountEntry"));
+  assert.doesNotMatch(menu, /내 앨범/);
+  // 앨범 상세로는 시트 행을 넘긴다(헤더 slot 이 아니다).
+  assert.match(app, /const accountSheetRow = user \? \(/);
+  assert.match(app, /accountSheet=\{accountSheetRow\}/);
+  assert.doesNotMatch(app, /accountSlot=/);
+  // 게스트는 시트 최상단이 "로그인".
+  assert.match(app, /album-more-sheet__row" onClick=\{openLogin\}><span>로그인/);
+  // 그 외 화면은 헤더 우측 계정 진입점 그대로.
+  assert.match(app, /<AppHeader right=\{isJoinSurface \? undefined : accountEntry\}/);
+  // 44px 유지(헤더 트리거·시트 아바타·시트 버튼).
+  const css = read("App.css") + read("components/AlbumScreen.css");
   assert.match(css, /\.album-screen__hdr \.app__account-trigger \{ width: 44px; height: 44px; \}/);
-  assert.match(css, /\.app__account-login \{[^}]*min-height: 44px/);
+  assert.match(css, /\.album-more-sheet__account-avatar \{ width: 44px; height: 44px/);
+  assert.match(css, /\.album-more-sheet__account-actions button \{ min-height: 44px/);
+});
+
+test("앨범 상세 헤더 우측은 컨트롤 2개 — [내 앨범] + [⋯]", () => {
+  const screen = read("components/AlbumScreen.tsx");
+  const right = screen.slice(screen.indexOf("<AppHeader right="), screen.indexOf("</>} />"));
+  assert.match(right, /album-screen__hdr-link/);   // 내 앨범
+  assert.match(right, /album-screen__more/);        // ⋯
+  // 계정 원은 헤더 밖에 두지 않는다.
+  assert.doesNotMatch(right, /accountSlot|app__account/);
+  assert.equal((right.match(/<a |<button /g) || []).length, 2);
+  // 계정 행은 ⋯ 시트 최상단에 들어간다.
+  const view = read("components/AlbumView.tsx");
+  assert.match(view, /album-more-sheet__list">\s*\{\/\*[\s\S]{0,90}\*\/\}\s*\{accountSheet\}/);
 });
 
 test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제거됐다", () => {
