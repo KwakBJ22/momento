@@ -51,15 +51,13 @@ test("소스에 'Momento' 리터럴이 남아 있지 않다 (보이지 않는 �
   assert.deepEqual(offenders, []);
 });
 
-test("앨범 상세는 헤더가 하나 — 전역 헤더 3조각이 그 화면에서만 감춰진다", () => {
+test("앨범 상세는 헤더가 하나 — App 쪽 AppHeader 가 그 화면에서만 꺼진다", () => {
   const app = read("App.tsx");
-  // 앨범 상세(sharedAlbumId / shareToken)에서만 전역 브랜드·계정 원·게스트 로그인을 숨긴다.
+  // 상단은 공용 AppHeader 하나로 통일됐다(인라인 3조각은 사라졌다).
   assert.match(app, /const hidesGlobalHeader = Boolean\(sharedAlbumId \|\| shareToken\)/);
-  assert.match(app, /!adminRoute && !hidesGlobalHeader \? <header className="app__header">/);
-  assert.match(app, /!adminRoute && !hidesGlobalHeader && user \? <div className="app__account app__account--global">/);
-  assert.match(app, /!adminRoute && !hidesGlobalHeader && !user && shareToken \? <button type="button" className="app__login-global"/);
-  // 다른 화면(랜딩·업로드·내 앨범 등)에는 전역 헤더가 그대로 남는다 — 조건은
-  // adminRoute 와 이 플래그뿐이므로 앨범 외 화면에서는 항상 렌더링된다.
+  assert.match(app, /!adminRoute && !hidesGlobalHeader \? <AppHeader/);
+  // 다른 화면(랜딩·업로드·내 앨범 등)에는 그대로 남는다 — 조건은 adminRoute 와
+  // 이 플래그뿐이므로 앨범 외 화면에서는 항상 렌더링된다.
   assert.doesNotMatch(app, /myAlbumsPage[^\n]*hidesGlobalHeader/);
 });
 
@@ -86,7 +84,9 @@ test("계정 진입점은 앨범 헤더로 옮겨져도 드롭다운 5항목과 
 test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제거됐다", () => {
   const header = read("components/AlbumScreenHeader.tsx");
   assert.doesNotMatch(header, /album-screen-header__brand/);
-  const screen = read("components/AlbumScreen.tsx");
-  assert.match(screen, /BRAND_NAME_KO_PARTS\.lead/);
-  assert.match(screen, /\{BRAND_NAME_EN\}/);
+  // 브랜드는 공용 AppHeader 한 곳에서만 그린다(AlbumScreen 은 그것을 쓴다).
+  assert.match(read("components/AlbumScreen.tsx"), /<AppHeader /);
+  const appHeader = read("components/AppHeader.tsx");
+  assert.match(appHeader, /BRAND_NAME_KO_PARTS\.lead/);
+  assert.match(appHeader, /\{BRAND_NAME_EN\}/);
 });

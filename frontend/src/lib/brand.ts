@@ -28,3 +28,21 @@ export const BRAND_DEFAULT_USER_NAME = `${BRAND_NAME_KO} 사용자`;
 
 /** document.title 접미사 — "앨범 제목 | 우리앨범". */
 export const BRAND_TITLE_SUFFIX = BRAND_NAME_KO;
+
+/** 사업자 정보 — docs/TERMS_OF_SERVICE.md "회사 정보"의 값을 그대로 옮긴 것이다.
+ *  ★ 문서에 없는 항목(통신판매업 신고번호·개인정보보호책임자 전화·호스팅 제공자)은
+ *  넣지 않는다. 지어내지 않는다. 통신판매업 신고는 유료 인쇄 판매를 열 때 필요하며
+ *  그때 이 목록에 한 줄이 추가된다(docs/PRODUCT_BACKLOG.md 참고). */
+export const BRAND_BUSINESS_INFO = [
+  { label: "상호", value: "인사이트네트" },
+  { label: "대표자", value: "곽병준" },
+  { label: "사업자등록번호", value: "206-30-85579" },
+  { label: "주소", value: "경기도 화성시 동탄구 동탄대로 646-2, A동 9층 916호(영천동, 메가비즈타워)" },
+  { label: "문의", value: "futuregram7@gmail.com" },
+] as const;
+
+/** 법적 고지 정적 페이지 — React 밖이라 상수를 못 읽는다(위 주석 목록 참고). */
+export const LEGAL_LINKS = [
+  { href: "/terms.html", label: "이용약관" },
+  { href: "/privacy.html", label: "개인정보처리방침" },
+] as const;

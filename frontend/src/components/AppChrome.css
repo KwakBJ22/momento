@@ -1,0 +1,65 @@
+/* 공용 상·하단 블록(AppHeader / AppFooter). 화면마다 복제하지 않는다. */
+
+:root {
+  /* 하단 고정 네비 높이 — 이 값을 읽는 곳은 네비 CSS와 푸터 여백 두 곳뿐이다.
+     두 곳에 숫자를 각각 적으면 한쪽만 바뀌어 푸터가 가려진다. */
+  --nav-height: 82px;
+}
+@media (max-width: 640px) {
+  :root { --nav-height: 68px; }
+}
+
+/* ── 헤더: 모든 화면 동일한 높이·간격·글자 크기 ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+}
+.app-header__brand { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
+/* 로고는 아이덴티티 색을 그대로 쓴다(WCAG 1.4.3 은 로고타입을 대비 요건에서 제외). */
+.app-header__brand-ko { font-size: 19px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.app-header__brand-ko b { color: var(--c-text); font-weight: inherit; }
+.app-header__brand-ko i { color: var(--c-brand); font-style: normal; }
+.app-header__brand-en { font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; color: var(--c-text-muted); }
+.app-header__right { display: flex; align-items: center; gap: 10px; }
+/* 우측 slot 안의 모든 컨트롤은 누르는 영역 44px 를 갖는다. */
+.app-header__right button,
+.app-header__right a { min-height: 44px; }
+
+/* ── 푸터: 눈에 띄지 않되 읽을 수 있게(14px 하한) ── */
+.app-footer {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 900px);
+  margin: 32px auto 0;
+  padding: 20px 20px 24px;
+  border-top: 1px solid var(--c-border);
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+  text-align: center;
+}
+.app-footer__brand { margin: 0; font-weight: 700; color: var(--c-text-soft); }
+.app-footer__legal { margin: 0; }
+.app-footer__legal a { color: var(--c-text-soft); text-decoration: underline; text-underline-offset: 2px; }
+.app-footer__business { margin: 0; overflow-wrap: anywhere; }
+.app-footer__business-item { white-space: normal; }
+
+/* 하단 고정 네비가 있는 화면에서만 그 높이만큼 비워, 끝까지 스크롤하면 푸터가 보이게
+   한다. 네비가 없는 화면에는 이 클래스를 붙이지 않는다(빈 공간이 생긴다). */
+.app-footer--above-nav {
+  margin-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 인쇄물에는 화면 크롬이 들어가지 않는다(PDF 는 AlbumRenderer 만 마운트하지만
+   브라우저 인쇄에도 대비한다). */
+@media print {
+  .app-header,
+  .app-footer { display: none !important; }
+}

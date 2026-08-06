@@ -3,7 +3,7 @@ import { ArrowUp, MoreHorizontal } from "lucide-react";
 import AlbumActionPanel from "./AlbumActionPanel";
 import AlbumBottomNavigation, { type AlbumBottomNavigationProps } from "./AlbumBottomNavigation";
 import AlbumScreenHeader from "./AlbumScreenHeader";
-import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_NAME_KO_PARTS } from "../lib/brand";
+import AppHeader from "./AppHeader";
 import "./AlbumScreen.css";
 
 /** Show the "맨 위로" floating button only after the reader has scrolled a screenful down. */
@@ -51,18 +51,12 @@ export default function AlbumScreen({
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>
-      {/* 목업(2a·3a) 헤더 바: 좌측 브랜드 "우리앨범/woorialbum", 우측 [뒤로 링크][더보기]. */}
-      <header className="album-screen__hdr">
-        <div className="album-screen__brand" aria-label={BRAND_NAME_KO}>
-          <span className="album-screen__brand-ko"><b>{BRAND_NAME_KO_PARTS.lead}</b><i>{BRAND_NAME_KO_PARTS.tail}</i></span>
-          <span className="album-screen__brand-en">{BRAND_NAME_EN}</span>
-        </div>
-        <div className="album-screen__hdr-right">
-          {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
-          {accountSlot}
-          {onMore ? <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
-        </div>
-      </header>
+      {/* 상단은 공용 AppHeader 하나. 앨범 상세의 우측 slot 만 [내 앨범]+[계정]+[⋯]. */}
+      <AppHeader right={<>
+        {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
+        {accountSlot}
+        {onMore ? <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
+      </>} />
       <div className="album-page__layout">
         <article className="album-page__book album-result album-screen__book">
           {preHeader ? <div className="album-screen__pre-header">{preHeader}</div> : null}

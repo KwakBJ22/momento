@@ -17,6 +17,8 @@ import QuestionFlow from "./components/QuestionFlow";
 import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
+import AppHeader from "./components/AppHeader";
+import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
@@ -25,7 +27,6 @@ import { readCreateStep, saveCreateStep } from "./lib/createStep";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
-import { BRAND_NAME_KO } from "./lib/brand";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
@@ -254,6 +255,8 @@ function App() {
   // 앨범 상세는 자체 브랜드 헤더(AlbumScreen)를 가진다 — 전역 헤더(브랜드·계정 원·
   // 게스트 로그인)를 여기서만 감춰 헤더가 두 겹이 되지 않게 한다. 다른 화면은 그대로.
   const hidesGlobalHeader = Boolean(sharedAlbumId || shareToken);
+  // 전역 네비(app variant) 또는 AlbumScreen 이 자체로 그리는 고정 네비가 있는 화면.
+  const hasBottomNavigation = showGlobalBottomNavigation || Boolean(sharedAlbumId || shareToken || contributeAlbumId || result);
   // 계정 진입점(드롭다운 5항목: 이름·이메일·내 앨범·로그아웃·회원 탈퇴)은 한 곳에서
   // 만들어 전역 헤더와 앨범 헤더가 같은 노드를 쓴다 — 자리만 옮기고 동작은 그대로.
   // 40~60대 기준: 아이콘만 두지 않는다. 로그인 상태는 이름 첫 글자(아바타 있으면 사진),
@@ -290,9 +293,9 @@ function App() {
 
   return (
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
-      {!adminRoute && !hidesGlobalHeader ? <header className="app__header"><h1><a href="/">{BRAND_NAME_KO}</a></h1>{!user && !shareToken ? <button type="button" className="app__logout" onClick={openLogin}>로그인</button> : null}</header> : null}
-      {!adminRoute && !hidesGlobalHeader && user ? <div className="app__account app__account--global"><button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}</button>{accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}<a href="/my-albums">내 앨범</a><button type="button" onClick={() => void logout()}>로그아웃</button><button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button></div> : null}</div> : null}
-      {!adminRoute && !hidesGlobalHeader && !user && shareToken ? <button type="button" className="app__login-global" onClick={openLogin}>로그인</button> : null}
+      {/* 상단은 화면당 하나(AppHeader). 앨범 상세·공유는 AlbumScreen 이 자체 헤더로
+          같은 블록을 렌더링하므로 여기서는 내지 않는다 — 두 겹 방지. */}
+      {!adminRoute && !hidesGlobalHeader ? <AppHeader right={isJoinSurface ? undefined : accountEntry} /> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
@@ -317,6 +320,9 @@ function App() {
           }} />
           : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} />}
       </main>
+      {/* 하단도 화면당 하나. 고정 네비가 있는 화면에서만 그 높이만큼 여백을 준다 —
+          네비가 없는 화면에 여백을 주면 빈 공간이 된다. */}
+      {!adminRoute ? <AppFooter withBottomNavigation={hasBottomNavigation} /> : null}
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} onAccount={() => setAccountMenuOpen(true)} />
