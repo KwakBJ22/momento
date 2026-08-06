@@ -237,7 +237,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         return AlbumPhotoUrlResponse(
             id=UUID(pid),
             sort_order=int(photo.get("sort_order") or 0),
-            comment=str(photo.get("comment") or "").strip() or None,
+            caption=str(photo.get("caption") or "").strip() or None,
             comments=[
                 {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
                 for m in mems
@@ -292,7 +292,7 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
                 author_name=author_name,
                 created_at=photo.get("created_at"),
                 thumbnail_url=signed_photo_url(photo, "thumbnail_bucket", "thumbnail_path"),
-                comment=str(photo.get("comment") or "").strip() or None,
+                caption=str(photo.get("caption") or "").strip() or None,
             )
         )
     for memory in pending_memories:

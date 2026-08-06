@@ -16,7 +16,7 @@ export default function AlbumPhotoComments({
   onSaveLocation,
 }: AlbumPhotoCommentsProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(photos.map((photo) => [photo.id, photo.comment ?? ""])),
+    Object.fromEntries(photos.map((photo) => [photo.id, photo.caption ?? ""])),
   );
   const [places, setPlaces] = useState<Record<string, string>>(() =>
     Object.fromEntries(photos.map((photo) => [photo.id, photo.location_name ?? ""])),

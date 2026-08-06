@@ -270,7 +270,7 @@ async def run_initial_album_generation(job_id: str) -> None:
         current_step = "arranging_photos"
         stories = [
             {"order": int(photo.get("sort_order") or 0), "user": str(photo.get("legacy_author_label") or ""),
-             "text": str(photo.get("comment") or photo.get("caption") or ""), "_path": str(photo.get("storage_path") or "")}
+             "text": str(photo.get("caption") or ""), "_path": str(photo.get("storage_path") or "")}
             for photo in photos
         ]
         media_records = [{"id": str(photo["id"]), "width": photo.get("width"), "height": photo.get("height"),

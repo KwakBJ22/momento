@@ -11,7 +11,7 @@ def _photos(date: str, count: int, commented: int = 0) -> list[dict]:
     for index in range(count):
         photo = {"taken_at": f"{date}T10:00:00Z"}
         if index < commented:
-            photo["comment"] = "한마디"
+            photo["caption"] = "한마디"
         photos.append(photo)
     return photos
 
@@ -47,7 +47,7 @@ class AlbumRenderingRulesTests(TestCase):
 
     def test_caption_counts_as_material(self) -> None:
         photos = _photos("2026-07-13", MIN_DATE_STORY_PHOTO_COUNT)
-        photos[0].pop("comment", None)
+        photos[0].pop("caption", None)
         photos[0]["caption"] = "캡션만 있어도 재료다"
         visible = visible_date_stories({"2026-07-13": "이야기"}, photos)
         self.assertEqual(visible, {"2026-07-13": "이야기"})

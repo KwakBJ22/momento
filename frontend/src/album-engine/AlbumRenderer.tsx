@@ -50,11 +50,11 @@ function toEnginePhoto(photo: AlbumPhoto, preferOriginal: boolean): EnginePhoto 
   return {
     id: photo.id,
     src,
-    alt: photo.comment || undefined,
+    alt: photo.caption || undefined,
     width,
     height,
     orientation: ensureOrientation(width, height, photo.orientation),
-    comment: photo.comment,
+    comment: photo.caption,
     comments: photo.comments ?? undefined,
     authorLabel: photo.author_label ?? null,
     sortOrder: photo.sort_order,
@@ -267,7 +267,7 @@ export default function AlbumRenderer({
             {page.photos.map((photo) => (
               <figure key={photo.id}>
                 <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
-                {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
+                {photo.caption?.trim() ? <figcaption>{photo.caption.trim()}</figcaption> : null}
               </figure>
             ))}
           </div>
@@ -436,7 +436,7 @@ export default function AlbumRenderer({
                   {page.photos.map((photo) => (
                     <figure key={photo.id}>
                       <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
-                      {photo.comment?.trim() ? <figcaption>{photo.comment.trim()}</figcaption> : null}
+                      {photo.caption?.trim() ? <figcaption>{photo.caption.trim()}</figcaption> : null}
                     </figure>
                   ))}
                 </div>

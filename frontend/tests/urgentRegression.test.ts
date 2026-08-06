@@ -172,7 +172,7 @@ test("permission errors speak Korean and never offer 다시 시도", () => {
 test("missing-caption notice renders only above zero and opens the memory sheet", () => {
   const source = component("AlbumView");
   // Count = photos whose comment is empty/whitespace; zero renders NOTHING.
-  assert.match(source, /missingCaptionCount = photos\.filter\(\(photo\) => !\(photo\.comment \|\| ""\)\.trim\(\)\)\.length/);
+  assert.match(source, /missingCaptionCount = photos\.filter\(\(photo\) => !\(photo\.caption \|\| ""\)\.trim\(\)\)\.length/);
   assert.match(source, /missingCaptionCount > 0 && !guestOwner && requestedEdition === null \? \(/);
   assert.match(source, /사진 \{missingCaptionCount\}장에 아직 한마디가 없어요\./);
   // "채우러 가기" opens the existing 한마디 쓰기 sheet (memory) — no new screens.

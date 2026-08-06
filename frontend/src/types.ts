@@ -201,8 +201,9 @@ export interface AlbumMediaSummary {
 export interface AlbumPhoto {
   id: string;
   sort_order: number;
-  comment: string | null;
-  /** 다중 작성자 메모 (Memory Merge) */
+  /** ① 캡션 — 그 사진을 올린 사람이 쓰는 설명. PDF·인쇄물에 들어간다.
+   *  (② 코멘트는 comments — photo_memories, 인쇄되지 않는다.) */
+  caption: string | null;
   comments?: Array<{ author?: string | null; text: string }> | null;
   author_label?: string | null;
   original_url: string;

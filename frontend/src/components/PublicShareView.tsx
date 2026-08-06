@@ -3,10 +3,10 @@ import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
+import AlbumGuestbook from "./AlbumGuestbook";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
-import { deleteGuestbookEntry, getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitGuestbookEntry, submitShareReaction, type CollabSession } from "../lib/api";
+import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
-import { GUESTBOOK_MESSAGE_MAX, GUESTBOOK_NAME_MAX, addMyGuestbookId, getGuestbookSessionKey, readMyGuestbookIds, removeMyGuestbookId } from "../lib/shareGuestbook";
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
 import { authDebug } from "../lib/authDebug";
@@ -42,7 +42,7 @@ function contributionGuestId(): string {
 
 function mapSharePhotos(photos: AlbumPhoto[] | undefined): AlbumPhoto[] {
   return (photos ?? []).map((photo) => ({
-    id: String(photo.id), sort_order: photo.sort_order, comment: photo.comment,
+    id: String(photo.id), sort_order: photo.sort_order, caption: photo.caption,
     comments: photo.comments ?? undefined, author_label: null, original_url: photo.original_url, display_url: photo.display_url,
     thumbnail_url: photo.thumbnail_url, width: photo.width, height: photo.height, taken_at: photo.taken_at,
     latitude: photo.latitude, longitude: photo.longitude, location_name: photo.location_name,
@@ -121,10 +121,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [pressedReactions, setPressedReactions] = useState<Set<ReactionCode>>(new Set());
   const reactionSessionRef = useRef<string>("");
   const [guestbook, setGuestbook] = useState<GuestbookItem[]>([]);
-  const [guestbookMine, setGuestbookMine] = useState<Set<string>>(new Set());
-  const [guestMessage, setGuestMessage] = useState("");
-  const [guestSubmitting, setGuestSubmitting] = useState(false);
-  const [guestError, setGuestError] = useState<string | null>(null);
   const photos = useMemo(() => mapSharePhotos(album?.photos), [album?.photos]);
   const { shareAlbum } = useKakaoSdk();
 
@@ -308,43 +304,10 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     setPressedReactions(readPressedReactions(albumId));
     reactionSessionRef.current = getReactionSessionKey();
     setGuestbook(album?.guestbook ?? []);
-    setGuestbookMine(readMyGuestbookIds(albumId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [albumId]);
 
-  const submitGuestbook = async () => {
-    if (!albumId || guestSubmitting) return;
-    const authorName = participantName.trim();
-    const message = guestMessage.trim();
-    if (!authorName) { setGuestError("이름을 입력해 주세요."); return; }
-    if (!message) { setGuestError("남기고 싶은 말을 적어 주세요."); return; }
-    setGuestSubmitting(true);
-    setGuestError(null);
-    try {
-      const entry = await submitGuestbookEntry(token, { author_name: authorName, message, session_key: getGuestbookSessionKey() });
-      setGuestbook((prev) => [entry, ...prev]);
-      setGuestbookMine((prev) => new Set(prev).add(entry.id));
-      addMyGuestbookId(albumId, entry.id);
-      setGuestMessage("");
-    } catch (cause) {
-      setGuestError(cause instanceof Error ? cause.message : "방명록을 남기지 못했어요. 다시 시도해 주세요.");
-    } finally {
-      setGuestSubmitting(false);
-    }
-  };
 
-  const removeGuestbook = async (entryId: string) => {
-    if (!albumId) return;
-    const previous = guestbook;
-    setGuestbook((prev) => prev.filter((entry) => entry.id !== entryId));
-    try {
-      await deleteGuestbookEntry(token, entryId, getGuestbookSessionKey());
-      setGuestbookMine((prev) => { const next = new Set(prev); next.delete(entryId); return next; });
-      removeMyGuestbookId(albumId, entryId);
-    } catch {
-      setGuestbook(previous); // restore on failure
-    }
-  };
 
   const react = async (code: ReactionCode) => {
     if (!albumId || pressedReactions.has(code)) return;
@@ -423,33 +386,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           );
         })}
       </section>
-      <section className="public-share__guestbook" aria-label="방명록">
-        <h3 className="public-share__guestbook-title">방명록</h3>
-        <p className="public-share__guestbook-hint">앨범 전체에 짧은 인사를 남겨보세요.</p>
-        <form className="public-share__guestbook-form" onSubmit={(event) => { event.preventDefault(); void submitGuestbook(); }}>
-          <input className="public-share__guestbook-name" value={participantName} maxLength={GUESTBOOK_NAME_MAX} autoComplete="name" placeholder="이름" aria-label="이름" onChange={(event) => setParticipantName(event.target.value)} />
-          <textarea className="public-share__guestbook-message" value={guestMessage} maxLength={GUESTBOOK_MESSAGE_MAX} rows={2} placeholder="남기고 싶은 말을 적어 주세요." aria-label="방명록 메시지" onChange={(event) => setGuestMessage(event.target.value)} />
-          <div className="public-share__guestbook-actions">
-            <span className="public-share__guestbook-count">{guestMessage.length}/{GUESTBOOK_MESSAGE_MAX}</span>
-            <button type="submit" className="upload-form__submit" disabled={guestSubmitting}>{guestSubmitting ? "남기는 중..." : "방명록 남기기"}</button>
-          </div>
-          {guestError ? <p className="public-share__guestbook-error" role="alert">{guestError}</p> : null}
-        </form>
-        {guestbook.length ? (
-          <ul className="public-share__guestbook-list">
-            {guestbook.map((entry) => (
-              <li key={entry.id} className="public-share__guestbook-item">
-                <div className="public-share__guestbook-item-head">
-                  <span className="public-share__guestbook-author">{entry.author_name}</span>
-                  <span className="public-share__guestbook-time">{formatContributionTime(entry.created_at)}</span>
-                  {guestbookMine.has(entry.id) ? <button type="button" className="public-share__guestbook-delete" onClick={() => void removeGuestbook(entry.id)}>삭제</button> : null}
-                </div>
-                <p className="public-share__guestbook-text">{entry.message}</p>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+      {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다. */}
+      <AlbumGuestbook token={token} albumId={albumId || ""} initialEntries={guestbook} defaultAuthorName={participantName} />
       {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 추억"><h3>새로 더해진 추억</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
       <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section>
       {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">추억을 남긴 분의 이름을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}

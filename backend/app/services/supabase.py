@@ -708,7 +708,7 @@ def update_album_photo_comment(
 ) -> dict[str, Any] | None:
     result = (
         client.table("album_photos")
-        .update({"comment": comment, "caption": comment})
+        .update({"caption": comment})
         .eq("album_id", album_id)
         .eq("id", photo_id)
         .is_("deleted_at", "null")

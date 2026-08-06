@@ -103,7 +103,7 @@ function hasSamePhotos(current: PublicShareAlbum["photos"], next: PublicShareAlb
     const other = nextPhotos[index];
     return photo.id === other?.id
       && photo.sort_order === other.sort_order
-      && photo.comment === other.comment
+      && photo.caption === other.caption
       && photo.taken_at === other.taken_at
       && photo.width === other.width
       && photo.height === other.height

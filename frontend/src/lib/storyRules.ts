@@ -9,7 +9,7 @@ export const MIN_DATE_STORY_COMMENT_COUNT = 1;
 
 /** AlbumPhoto·EnginePhoto 공통으로 코멘트/캡션(메모) 존재 여부만 본다. */
 type CommentablePhoto = {
-  comment?: string | null;
+  caption?: string | null;
   comments?: Array<{ text?: string | null }> | null;
 };
 
@@ -19,7 +19,7 @@ function photoDateKey(photo: AlbumPhoto): string {
 }
 
 export function photoHasComment(photo: CommentablePhoto): boolean {
-  if (photo.comment && photo.comment.trim().length > 0) return true;
+  if (photo.caption && photo.caption.trim().length > 0) return true;
   return Array.isArray(photo.comments) && photo.comments.some((c) => (c?.text ?? "").trim().length > 0);
 }
 

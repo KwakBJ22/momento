@@ -33,8 +33,8 @@ from app.models.schemas import (
     EpilogueUpdate,
     AlbumTitleUpdate,
     ChapterStoryUpdate,
-    PhotoCommentResponse,
-    PhotoCommentUpdate,
+    PhotoCaptionResponse,
+    PhotoCaptionUpdate,
     AlbumUploadResponse,
     GuestAlbumClaimRequest,
     AlbumGenerationStatusResponse,
@@ -137,6 +137,7 @@ from app.services.share_service import create_share_link
 from app.services.share_service import log_event
 from app.services.collaboration_service import (
     album_document_photo_ids,
+    ensure_owner_contributor,
     get_contributor,
     get_cached_pdf_path,
     get_cached_pdf_bucket,
@@ -199,11 +200,16 @@ def _require_photo_mutation_access(
     photo_id: str,
     authenticated_user_id: str,
     access: Any,
+    owner_override: bool = True,
 ) -> dict[str, Any]:
     """Allow contributors to mutate only the photo they submitted.
 
     The service-role client bypasses RLS, so this ownership relation must be
     checked before every authenticated photo mutation.
+
+    owner_override=False 는 캡션 전용이다(텍스트 3계층 §①): 캡션은 "그 사진을 올린
+    사람만" 쓴다 — 주최자도 남이 올린 사진의 캡션은 고칠 수 없다. 사진 삭제·장소
+    수정 같은 앨범 정리 권한은 종전대로 주최자에게 남는다.
     """
     require_album_contribute(access)
     result = (
@@ -218,7 +224,7 @@ def _require_photo_mutation_access(
     if not rows:
         raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
     photo = rows[0]
-    if access.can_edit_settings:
+    if owner_override and access.can_edit_settings:
         return photo
     if str(photo.get("contributor_profile_id") or "") == authenticated_user_id:
         return photo
@@ -620,7 +626,7 @@ async def upload_album(
                 "thumbnail_bucket": settings.supabase_private_storage_bucket, "thumbnail_path": original_path,
                 "original_filename": upload.filename, "mime_type": processed.original_mime_type,
                 "byte_size": len(processed.original_bytes), "checksum_sha256": processed.checksum_sha256,
-                "sort_order": sort_order, "caption": story["text"], "comment": story["text"].strip() or None,
+                "sort_order": sort_order, "caption": story["text"],
                 "contributor_profile_id": authenticated_user_id, "legacy_author_label": story["user"] or None,
                 # This row is inserted only after its original object upload
                 # has succeeded.  It is therefore a valid generation input;
@@ -670,6 +676,20 @@ async def upload_album(
         album_saved = True
         _log_upload_stage("album_db_insert", "completed", album_id=album_id)
         _log_upload_stage("photo_db_insert", "started", album_id=album_id, photo_count=len(photo_records))
+        # 업로더 기록(텍스트 3계층): "그 사진을 올린 사람만 캡션"의 유일한 근거가
+        # uploaded_by_contributor_id 다. 소유자 업로드도 예외 없이 채운다 —
+        # 기존 설계(album_contributors role='owner')를 그대로 쓰고 새 식별 경로를
+        # 만들지 않는다(식별이 두 갈래면 권한 표를 두 번 구현하게 된다).
+        # 게스트(비로그인) 앨범은 소유자 프로필이 아직 없어 claim 시점에 연결된다.
+        if authenticated_user_id:
+            owner_contributor = ensure_owner_contributor(
+                client, {"id": album_id, "created_by": authenticated_user_id}, authenticated_user_id,
+            )
+            owner_contributor_id = str(owner_contributor.get("id") or "")
+            if not owner_contributor_id:
+                raise HTTPException(status_code=500, detail="앨범을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.")
+            for record in photo_records:
+                record["uploaded_by_contributor_id"] = owner_contributor_id
         save_album_photo_records(client, photo_records)
         _log_upload_stage(
             "photo_db_insert", "completed", album_id=album_id, photo_count=len(photo_records),
@@ -803,7 +823,6 @@ async def upload_album(
                     "checksum_sha256": processed.checksum_sha256,
                     "sort_order": sort_order,
                     "caption": story["text"],
-                    "comment": story["text"].strip() or None,
                     "contributor_profile_id": authenticated_user_id,
                     "legacy_author_label": story["user"] or None,
                     "status": ALBUM_PHOTO_READY,
@@ -975,7 +994,7 @@ async def upload_album(
         AlbumPhotoUrlResponse(
             id=UUID(str(photo["id"])),
             sort_order=int(photo["sort_order"]),
-            comment=str(photo.get("comment") or "").strip() or None,
+            caption=str(photo.get("caption") or "").strip() or None,
             original_url=get_signed_url(
                 client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
             ),
@@ -1242,7 +1261,7 @@ async def update_photo_location(
     return AlbumPhotoUrlResponse(
         id=UUID(str(photo["id"])),
         sort_order=int(photo.get("sort_order") or 0),
-        comment=str(photo.get("comment") or "").strip() or None,
+        caption=str(photo.get("caption") or "").strip() or None,
         original_url=get_signed_url(
             client, str(photo["storage_bucket"]), str(photo["storage_path"]), settings.signed_url_ttl_seconds
         ),
@@ -1266,14 +1285,14 @@ async def update_photo_location(
     )
 
 
-@router.patch("/albums/{album_id}/photos/{photo_id}/comment", response_model=PhotoCommentResponse)
+@router.patch("/albums/{album_id}/photos/{photo_id}/comment", response_model=PhotoCaptionResponse)
 async def save_photo_comment(
     album_id: str,
     photo_id: str,
-    body: PhotoCommentUpdate,
+    body: PhotoCaptionUpdate,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
     guest_token: str | None = _GUEST_TOKEN_HEADER,
-) -> PhotoCommentResponse:
+) -> PhotoCaptionResponse:
     client = get_supabase_client()
     album = get_album_record(client, album_id)
     if not album:
@@ -1285,12 +1304,13 @@ async def save_photo_comment(
         photo_id=photo_id,
         authenticated_user_id=authenticated_user_id,
         access=access,
+        owner_override=False,  # 캡션은 올린 사람만 — 주최자도 예외가 아니다.
     )
-    comment = body.comment.strip() if body.comment else None
-    saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=comment)
+    caption = body.caption.strip() if body.caption else None
+    saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=caption)
     if not saved:
         raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
-    return PhotoCommentResponse(id=UUID(str(saved["id"])), comment=saved.get("comment"))
+    return PhotoCaptionResponse(id=UUID(str(saved["id"])), caption=saved.get("caption"))
 
 
 _STORY_INPUT_KEYS = {"memory_hint", "people", "highlight"}
@@ -1536,7 +1556,9 @@ def _album_photo_response(
         for memory in photo_memories
         if str(memory.get("comment") or memory.get("content") or "").strip()
     ] or None
-    photo_comment = str(photo.get("comment") or photo.get("caption") or "").strip() or None
+    # 캡션은 album_photos.caption 단일 출처다(텍스트 3계층 §①). comment 컬럼은
+    # 더 이상 읽지도 쓰지도 않는다 — 폴백을 두면 정의가 다시 흐려진다.
+    photo_caption = str(photo.get("caption") or "").strip() or None
     storage_bucket = str(photo["storage_bucket"])
     storage_path = str(photo["storage_path"])
     thumb_bucket = str(photo["thumbnail_bucket"])
@@ -1554,7 +1576,7 @@ def _album_photo_response(
     return AlbumPhotoUrlResponse(
         id=UUID(photo_id),
         sort_order=int(photo.get("sort_order") or 0),
-        comment=photo_comment,
+        caption=photo_caption,
         comments=memory_comments,
         original_url=original_url,
         display_url=display_url or original_url,

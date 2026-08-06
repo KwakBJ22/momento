@@ -150,15 +150,15 @@ class ShareApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["share_url"], "https://momento.example/s/opaque-token")
 
-    def test_public_share_hides_legacy_captions_and_ineligible_date_stories(self) -> None:
+    def test_public_share_shows_captions_and_hides_ineligible_date_stories(self) -> None:
+        # 캡션은 album_photos.caption 단일 출처다(텍스트 3계층 §①) — comment 폴백 없음.
         dated_photos = [
             {
                 "id": f"00000000-0000-0000-0000-{index:012d}",
                 "sort_order": index,
-                "caption": "자동 문구만 있는 사진" if index == 0 else "",
                 # index 1 → 07-12 (still hidden: only 4 photos); index 4 → 07-13 makes
-                # that date eligible (>=5 photos AND >=1 comment) so it is shown.
-                "comment": "사용자가 쓴 코멘트" if index in (1, 4) else None,
+                # that date eligible (>=5 photos AND >=1 caption) so it is shown.
+                "caption": "사용자가 쓴 캡션" if index in (1, 4) else None,
                 "storage_bucket": "private",
                 "storage_path": f"photos/{index}.jpg",
                 "thumbnail_bucket": "private",
@@ -188,8 +188,8 @@ class ShareApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["photos"][0]["comment"], None)
-        self.assertEqual(body["photos"][1]["comment"], "사용자가 쓴 코멘트")
+        self.assertEqual(body["photos"][0]["caption"], None)
+        self.assertEqual(body["photos"][1]["caption"], "사용자가 쓴 캡션")
         self.assertEqual(body["chapter_stories"], {"2026-07-13": "5장 날짜 이야기만 표시합니다."})
 
     def test_public_share_separates_unapplied_participant_contributions(self) -> None:

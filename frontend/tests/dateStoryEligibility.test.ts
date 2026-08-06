@@ -12,7 +12,7 @@ function photo(date: string, comment?: string): AlbumPhoto {
   return {
     id: `${date}-${Math.random()}`,
     sort_order: 0,
-    comment: comment ?? null,
+    caption: comment ?? null,
     original_url: "",
     thumbnail_url: "",
     taken_at: `${date}T10:00:00Z`,
@@ -48,7 +48,7 @@ test("participant memories count as material", () => {
 });
 
 test("isDateStoryEligible mirrors the chapter-level gate", () => {
-  const engineLike = (comment?: string) => ({ comment: comment ?? null });
+  const engineLike = (caption?: string) => ({ caption: caption ?? null });
   const enough = [
     engineLike("한마디"),
     ...Array.from({ length: MIN_DATE_STORY_PHOTO_COUNT - 1 }, () => engineLike()),

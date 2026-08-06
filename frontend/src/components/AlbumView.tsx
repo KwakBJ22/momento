@@ -14,6 +14,7 @@ import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import CollaborationPanel, { ensureAlbumInviteUrl } from "./CollaborationPanel";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
+import AlbumGuestbook from "./AlbumGuestbook";
 
 import type { AlbumPhoto, AlbumResult } from "../types";
 
@@ -69,6 +70,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 공유하기 시트(목업 화면 2): 하단 네비 공유하기가 바로 카카오를 부르지 않고 이 시트를 연다.
   const [shareOpen, setShareOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // ③ 방명록: 앨범 본문 밖 별도 구역. 공유 화면의 기존 구현·API(/s/<token>)를 그대로
+  // 재사용하므로 토큰이 필요하다 — 하단 네비 "한마디 쓰기"가 이 구역을 연다.
+  const [guestbookToken, setGuestbookToken] = useState<string | null>(null);
+  const guestbookRef = useRef<HTMLDivElement | null>(null);
   // 제목 아래 메타 "사진 N장 · 함께 만든 사람 M명"과 공유 시트의 참여 인원.
   const [contributorCount, setContributorCount] = useState<number | null>(null);
   const [publicShareUrl, setPublicShareUrl] = useState("");
@@ -91,6 +96,20 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [storySaveError, setStorySaveError] = useState<string | null>(null);
 
   const { shareAlbum } = useKakaoSdk();
+
+  // 방명록 토큰 확보(1회). 실패해도 앨범 열람에는 영향이 없다 — 구역만 렌더링되지 않는다.
+  useEffect(() => {
+    if (!album || requestedEdition !== null) return;
+    let active = true;
+    void resolvePublicShareUrl()
+      .then((url) => {
+        const token = new URL(url, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
+        if (active && token) setGuestbookToken(token);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [album?.album_id, requestedEdition]);
 
   // 함께 만든 사람 수: 소유자만 조회(참여자는 상태 API 권한이 없을 수 있음). 실패해도 조용히 생략.
   useEffect(() => {
@@ -621,6 +640,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}
+      {/* ③ 방명록 — 앨범 본문(AlbumRenderer) 밖의 별도 구역이다. 웹/공유 화면에만
+          나오고 PDF·인쇄에는 들어가지 않는다(§6 본문 구조 불변). */}
+      {guestbookToken ? <div ref={guestbookRef}><AlbumGuestbook token={guestbookToken} albumId={albumId} defaultAuthorName={displayAlbum?.viewer_participation?.display_name || ""} /></div> : null}
     </>
   );
   // A guest owner sees a save-first bar: sharing/deleting/collaboration all imply an
@@ -640,7 +662,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 미완성 안내(목업 docs/mockups/album-detail-owner.html): 한마디(캡션) 없는 사진 수.
   // 0장이면 렌더링하지 않고, "채우러 가기"는 기존 한마디 쓰기 시트(기억 남기기)를 연다.
   // 시트를 못 여는 상황(게스트 소유자·과거 에디션)에서는 안내도 띄우지 않는다.
-  const missingCaptionCount = photos.filter((photo) => !(photo.comment || "").trim()).length;
+  const missingCaptionCount = photos.filter((photo) => !(photo.caption || "").trim()).length;
   const captionNotice = missingCaptionCount > 0 && !guestOwner && requestedEdition === null ? (
     <div className="album-caption-notice">
       <span className="album-caption-notice__dot" aria-hidden="true" />
@@ -675,7 +697,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     </div>
   ) : null;
   const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} accountSlot={accountSlot} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { void openContribution("memory"); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} accountSlot={accountSlot} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

@@ -89,19 +89,41 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["narrative"], "Updated narrative")
 
-    def test_owner_can_save_a_photo_comment(self) -> None:
+    def _photo_lookup(self, photo: dict) -> None:
+        """다음 album_photos 단건 조회가 이 사진을 돌려주게 한다(캡션 권한 검사용)."""
+        chain = self.supabase_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
+        chain.execute.return_value = SimpleNamespace(data=[photo])
+
+    def test_owner_can_caption_their_own_photo(self) -> None:
+        # 텍스트 3계층 §①: 캡션은 "그 사진을 올린 사람만" — 소유자도 자기 사진에 한한다.
         self.as_user(OWNER_ID)
+        self._photo_lookup({"id": PHOTO_ID, "album_id": ALBUM_ID, "contributor_profile_id": OWNER_ID})
         with patch("app.api.album.get_album_record", return_value=album_record()), patch(
             "app.api.album.update_album_photo_comment",
-            return_value={"id": PHOTO_ID, "comment": "Updated photo comment"},
+            return_value={"id": PHOTO_ID, "caption": "Updated photo caption"},
         ):
             response = self.client.patch(
                 f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/comment",
-                json={"comment": "Updated photo comment"},
+                json={"caption": "Updated photo caption"},
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["comment"], "Updated photo comment")
+        self.assertEqual(response.json()["caption"], "Updated photo caption")
+
+    def test_owner_cannot_caption_someone_elses_photo(self) -> None:
+        # ★ 핵심: 앨범 주인이라도 남이 올린 사진의 캡션은 고칠 수 없다(설정 권한 우회 금지).
+        self.as_user(OWNER_ID)
+        self._photo_lookup({"id": PHOTO_ID, "album_id": ALBUM_ID, "contributor_profile_id": OTHER_USER_ID,
+                            "uploaded_by_contributor_id": "contrib-other"})
+        with patch("app.api.album.get_album_record", return_value=album_record()), patch(
+            "app.api.album.get_contributor", return_value=None
+        ):
+            response = self.client.patch(
+                f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/comment",
+                json={"caption": "남의 사진에 캡션"},
+            )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_owner_can_update_epilogue(self) -> None:
         self.as_user(OWNER_ID)
@@ -314,7 +336,7 @@ class AlbumAuthorizationTests(TestCase):
         photo = {
             "id": PHOTO_ID,
             "sort_order": 0,
-            "comment": "Owner caption",
+            "caption": "Owner caption",
             "storage_bucket": "private",
             "storage_path": "photos/photo.jpg",
             "thumbnail_bucket": "private",
@@ -346,7 +368,7 @@ class AlbumAuthorizationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         item = response.json()["photos"][0]
-        self.assertEqual(item["comment"], "Owner caption")
+        self.assertEqual(item["caption"], "Owner caption")
         self.assertEqual(item["comments"], [{"author": "Participant", "text": "Participant memory"}])
         media_records.assert_not_called()
 

@@ -16,7 +16,7 @@ def photo_date_key(photo: dict[str, Any]) -> str:
 
 
 def _photo_has_comment(photo: dict[str, Any]) -> bool:
-    return bool(str(photo.get("comment") or photo.get("caption") or "").strip())
+    return bool(str(photo.get("caption") or "").strip())
 
 
 def eligible_date_story_keys(photos: list[dict[str, Any]]) -> set[str]:

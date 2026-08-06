@@ -42,7 +42,9 @@ class AlbumPhotoCommentItem(BaseModel):
 class AlbumPhotoUrlResponse(BaseModel):
     id: UUID
     sort_order: int
-    comment: str | None = None
+    # 텍스트 3계층: caption = 사진 설명(album_photos.caption, PDF에 인쇄된다),
+    # comments = 코멘트(photo_memories, 인쇄되지 않는다). 이름이 곧 계층이다.
+    caption: str | None = None
     comments: list[AlbumPhotoCommentItem] | None = None
     original_url: str
     display_url: str | None = None
@@ -353,13 +355,15 @@ class AlbumPhotoUrlsResponse(BaseModel):
     photos: list[AlbumPhotoUrlResponse]
 
 
-class PhotoCommentUpdate(BaseModel):
-    comment: str | None = Field(default=None, max_length=300)
+class PhotoCaptionUpdate(BaseModel):
+    """캡션(①) 저장 요청 — album_photos.caption. 코멘트(photo_memories)와 다르다."""
+
+    caption: str | None = Field(default=None, max_length=300)
 
 
-class PhotoCommentResponse(BaseModel):
+class PhotoCaptionResponse(BaseModel):
     id: UUID
-    comment: str | None = None
+    caption: str | None = None
 
 
 class AlbumMediaSummary(BaseModel):

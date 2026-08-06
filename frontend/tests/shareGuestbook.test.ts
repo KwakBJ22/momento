@@ -22,16 +22,23 @@ test("own-entry set is empty when storage is unavailable", () => {
   assert.equal(readMyGuestbookIds("album-1").size, 0);
 });
 
-test("the guestbook renders on the public share, after the reactions", () => {
-  const src = readFileSync(new URL("../src/components/PublicShareView.tsx", import.meta.url), "utf8");
-  assert.match(src, /public-share__guestbook/);
-  const reactionsIdx = src.indexOf('public-share__reactions"');
-  const guestbookIdx = src.indexOf('public-share__guestbook"');
+test("방명록은 공용 컴포넌트로, 공유 화면에서는 반응 뒤에 온다", () => {
+  const share = readFileSync(new URL("../src/components/PublicShareView.tsx", import.meta.url), "utf8");
+  // 공유 화면은 공용 컴포넌트를 렌더링한다(구현 중복 없음).
+  assert.match(share, /<AlbumGuestbook /);
+  const reactionsIdx = share.indexOf('public-share__reactions"');
+  const guestbookIdx = share.indexOf("<AlbumGuestbook ");
   assert.ok(reactionsIdx >= 0 && guestbookIdx > reactionsIdx, "guestbook must come after reactions");
-  // name input is reused from the participation flow (required).
-  assert.match(src, /public-share__guestbook-name[\s\S]*?value=\{participantName\}/);
-  // delete control only for own entries.
-  assert.match(src, /guestbookMine\.has\(entry\.id\)/);
+
+  const component = readFileSync(new URL("../src/components/AlbumGuestbook.tsx", import.meta.url), "utf8");
+  // 이름 입력·본인 글 삭제 컨트롤은 컴포넌트가 그대로 들고 있다.
+  assert.match(component, /public-share__guestbook-name[\s\S]*?value=\{authorName\}/);
+  assert.match(component, /mine\.has\(entry\.id\)/);
+  // ③ 방명록은 앨범 상세에도 붙는다 — 본문(AlbumRenderer) 밖 별도 구역.
+  const view = readFileSync(new URL("../src/components/AlbumView.tsx", import.meta.url), "utf8");
+  assert.match(view, /<AlbumGuestbook token=\{guestbookToken\}/);
+  // 하단 네비 "한마디 쓰기"가 이 구역을 연다(앨범 단위 행동).
+  assert.match(view, /onAddMemory: \(\) => \{ guestbookRef\.current\?\.scrollIntoView/);
 });
 
 test("guestbook and reactions live outside AlbumRenderer, so neither appears in the PDF", () => {
