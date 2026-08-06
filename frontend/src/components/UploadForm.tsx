@@ -3,7 +3,7 @@ import { uploadAlbum } from "../lib/api";
 import { albumCreationTiming } from "../lib/albumCreation";
 import { CREATION_PROGRESS_TICK_MS, easeTowardTarget } from "../lib/creationProgress";
 import { createId } from "../lib/id";
-import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, IMAGE_ACCEPT, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
+import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
@@ -39,6 +39,9 @@ interface UploadFormProps {
   onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number; photoCount: number }) => void;
   onCancel?: () => void;
 }
+
+// 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
+const PHOTO_ACCEPT = imageAcceptFor(typeof navigator === "undefined" ? "" : navigator.userAgent);
 
 function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null): PhotoItem {
   // Prefer the small 800px preview; fall back to the upload file when it is null
@@ -303,7 +306,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
             "앨범 만들기" below becomes the single primary (DESIGN_SYSTEM §7). */}
         <label className={hasPhotos ? "gallery-btn gallery-btn--secondary" : "gallery-btn"}>
           {pickButtonLabel(photos.length)}
-          <input className={FILE_INPUT_CLASS} type="file" accept={IMAGE_ACCEPT} multiple onChange={handlePickerChange} />
+          <input className={FILE_INPUT_CLASS} type="file" accept={PHOTO_ACCEPT} multiple onChange={handlePickerChange} />
         </label>
         <label className="upload-form__camera-link">
           바로 촬영하기

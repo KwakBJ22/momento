@@ -14,6 +14,23 @@
 export const IMAGE_ACCEPT =
   "image/*,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif";
 
+// 인앱 웹뷰(카카오톡 등)는 파일 선택창을 브라우저가 아니라 앱이 직접 만든다. acceptTypes
+// 가 여러 값이면 인텐트 타입을 */* 로 넓혀 버려서, image/* 로 등록된 갤러리 앱이 선택
+// 후보에서 통째로 빠진다(= "작업 선택창은 뜨는데 갤러리가 없다"). 그래서 웹뷰에서만
+// 단일 값 image/* 를 준다. 크롬은 accept 가 전부 이미지 타입이면 갤러리를 붙여 주므로
+// 실기기에서 검증된 위 전체 목록을 그대로 쓴다(499d69d) — 어느 쪽도 되돌리지 않는다.
+const IN_APP_WEBVIEW = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i;
+
+/** True inside an in-app browser (KakaoTalk 등) rather than a real browser. */
+export function isInAppWebView(userAgent: string): boolean {
+  return IN_APP_WEBVIEW.test(userAgent || "");
+}
+
+/** accept value for the gallery multi-select input, chosen per environment (위 주석). */
+export function imageAcceptFor(userAgent: string): string {
+  return isInAppWebView(userAgent) ? "image/*" : IMAGE_ACCEPT;
+}
+
 const EXT_OK = new Set(["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"]);
 
 const MIME_OK = new Set([

@@ -256,7 +256,8 @@ test("share entry and callback keep authentication diagnostics scoped to safe ro
 
 test("new album gallery picker permits multiple supported images without capture mode", () => {
   const source = component("UploadForm");
-  assert.match(source, /type="file" accept=\{IMAGE_ACCEPT\} multiple onChange=\{handlePickerChange\}/);
+  // accept 값은 환경별로 정해진 PHOTO_ACCEPT 하나(imageAccept.test 참고). capture 는 없다.
+  assert.match(source, /type="file" accept=\{PHOTO_ACCEPT\} multiple onChange=\{handlePickerChange\}/);
   assert.match(source, /snapshotSelectedFiles\(event\.currentTarget\.files\)/);
   assert.match(source, /event\.currentTarget\.value = ""/);
   assert.match(source, /dedupeSelectedPhotos\(accepted, photos\.map\(\(photo\) => photo\.file\)\)/);
