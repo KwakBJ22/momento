@@ -70,3 +70,42 @@ test("한마디를 남긴 뒤 안내 상자가 없다 — 그 자리에 머문�
   assert.doesNotMatch(workspace, /방금 남긴 추억을 앨범에서 확인해 보세요/);
   assert.doesNotMatch(workspace, /앨범에서 확인하기/);
 });
+
+/**
+ * §7 — 사용자에게 보이는 문자열의 `추억` 은 규칙으로 판정한다(열거하지 않는다):
+ *   ① 글 하나를 가리키면            → `한마디`
+ *   ② 사진과 글을 아울러 가리키면    → `사진과 한마디`
+ *   ③ 서비스가 무엇인지 말하는 자리  → `추억` 그대로
+ *
+ * ★ 아래는 ③에 해당하는 **예외 전부**다. 여기 없는 `추억` 은 결함이다 — 다음에 또
+ *   열거하지 않도록 목록을 테스트 안에 박아 둔다.
+ */
+const MEMORY_WORD_EXCEPTIONS = [
+  "우리의 추억",                        // 기본 앨범 제목(DB 에 실제 값으로 들어 있다)
+  "함께 만든 추억 앨범",                 // 공유 화면 부제
+  "우리의 추억 앨범을 확인해보세요.",      // 카카오 공유 카드 설명(앨범을 부르는 말)
+  "추억을 저장하고 가족과 나눠보세요.",    // 랜딩 서사
+  "우리 모임의 추억 앨범",               // 랜딩 서사
+  "나만의 특별한 추억",                  // 카테고리 서사
+  "이 추억은 ",                         // PDF 브랜드 푸터(brand.ts)
+] as const;
+
+test("사용자에게 보이는 문자열의 `추억` 은 예외 목록에만 남는다", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles()) {
+    if (file.split(String.fromCharCode(92)).join("/").includes("/components/admin/")) continue; // 관리자 콘솔은 적용 제외
+    const code = readFileSync(file, "utf8")
+      .split(new RegExp("\\r?\\n"))
+      .filter((line) => {
+        const trimmed = line.trim();
+        return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+      })
+      .join(String.fromCharCode(10));
+    for (const match of code.matchAll(/(["'`>])([^"'`<>{}]*추억[^"'`<>{}]*)/g)) {
+      const text = match[2];
+      if (MEMORY_WORD_EXCEPTIONS.some((allowed) => text.includes(allowed))) continue;
+      offenders.push(`${file.replace(SRC, "")}: ${text.trim().slice(0, 40)}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});

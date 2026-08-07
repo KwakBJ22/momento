@@ -17,7 +17,7 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
   return (
     <section className="photo-comments" aria-label="선택한 사진">
       <p className="photo-comments__guide">
-        사진마다 짧은 추억을 남기면 더욱 생생하고 풍성한 앨범이 완성됩니다. (선택)
+        사진마다 짧은 한마디를 남기면 더욱 생생하고 풍성한 앨범이 완성됩니다. (선택)
       </p>
       <p className="photo-comments__cover-guide">
         앨범을 대표할 사진을 골라보세요. 선택하지 않으면 첫 번째 사진이 대표사진으로 사용됩니다.

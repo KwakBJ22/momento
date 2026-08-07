@@ -102,7 +102,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
             ) : <span className="my-albums__image-placeholder" aria-hidden="true"><Image size={24} /></span>}
           </div>
           <div className="my-albums__card-body">
-            <div className="my-albums__card-title-row"><h3>{album.title}</h3>{album.status === "processing" ? <span className="my-albums__status-badge">생성 중</span> : album.status === "failed" ? <span className="my-albums__status-badge my-albums__status-badge--failed">생성 실패</span> : album.new_memory_count > 0 ? <span className="my-albums__memory-badge">새로운 추억 {album.new_memory_count}개</span> : null}</div>
+            <div className="my-albums__card-title-row"><h3>{album.title}</h3>{album.status === "processing" ? <span className="my-albums__status-badge">생성 중</span> : album.status === "failed" ? <span className="my-albums__status-badge my-albums__status-badge--failed">생성 실패</span> : album.new_memory_count > 0 ? <span className="my-albums__memory-badge">새로 더해진 것 {album.new_memory_count}개</span> : null}</div>
             <p>{formatDate(album.created_at)} · 사진 {album.photo_count}장</p>
           </div>
         </a>

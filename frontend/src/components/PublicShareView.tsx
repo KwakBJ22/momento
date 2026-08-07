@@ -280,7 +280,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const startContribution = async () => {
     const displayName = (authenticatedUser?.displayName || participantName).trim();
     if ((!nameAction && !authenticatedUser) || !displayName) {
-      setContributionError("추억을 남긴 분의 이름을 입력해 주세요.");
+      setContributionError("참여자명을 입력해 주세요.");
       return;
     }
     setIsStartingContribution(true);

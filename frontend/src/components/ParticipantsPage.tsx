@@ -25,7 +25,7 @@ export default function ParticipantsPage({ albumId }: { albumId: string }) {
     {error ? <p className="family-panel__error">{error}</p> : null}
     <section className="family-panel__section">
       <ul className="member-list">
-        {participants.map((participant) => <li key={participant.id} className="member-card"><div><strong>{participant.name}</strong><span className="member-card__role">{participant.role === "host" ? "주최자" : "참여자"} · 사진 {participant.photo_count}장 · 추억 {participant.memory_count}개</span></div></li>)}
+        {participants.map((participant) => <li key={participant.id} className="member-card"><div><strong>{participant.name}</strong><span className="member-card__role">{participant.role === "host" ? "주최자" : "참여자"} · 사진 {participant.photo_count}장 · 한마디 {participant.memory_count}개</span></div></li>)}
       </ul>
       {!loading && !error && participants.length === 0 ? <p className="family-panel__notice">아직 참여자가 없습니다.</p> : null}
       {loading ? <p className="family-panel__notice">참여자를 불러오는 중...</p> : null}

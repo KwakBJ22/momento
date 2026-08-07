@@ -284,7 +284,7 @@ export default function CollaborationPanel({
     try {
       const next = await getPendingContributions(albumId);
       if (!next.items.length) {
-        setMessage("새로 추가된 추억이 없습니다.");
+        setMessage("새로 더해진 사진과 한마디가 없어요.");
         await refresh();
         return;
       }
@@ -292,7 +292,7 @@ export default function CollaborationPanel({
       setSelectedIds(new Set(next.items.map((item) => item.id)));
       setLivingMode(next.recommended_mode);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "새로 모인 추억을 불러오지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "새로 더해진 사진과 한마디을 불러오지 못했습니다.");
     } finally { setBusy(null); }
   };
 
@@ -307,7 +307,7 @@ export default function CollaborationPanel({
       const result = await applyContributions(albumId, photoIds, memoryIds, livingMode);
       if (result.mode === "append_page" && result.append_page_id) {
         try { sessionStorage.setItem(`momento-living-focus:${albumId}`, result.append_page_id); } catch { /* noop */ }
-        setMessage("새로운 추억이 추가되었습니다.");
+        setMessage("새로 더해진 사진과 한마디를 담았어요.");
       } else {
         setMessage("새로 더해진 것까지 담은 앨범입니다.");
       }
@@ -315,7 +315,7 @@ export default function CollaborationPanel({
       await refresh();
       onAlbumUpdated?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "앨범에 추억을 담지 못했습니다. 다시 시도해 주세요.");
+      setError(cause instanceof Error ? cause.message : "앨범에 담지 못했어요. 다시 시도해 주세요.");
     } finally { setBusy(null); }
   };
 
@@ -342,11 +342,11 @@ export default function CollaborationPanel({
   const recommendsEdition = participation?.recommended_mode === "edition";
 
   return <section className="collab-panel">
-    <div><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__copy">가족과 친구를 초대해 사진과 추억을 함께 모아보세요.</p></div>
+    <div><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__copy">가족과 친구를 초대해 사진과 한마디를 함께 모아 보세요.</p></div>
 
     {statusLoading ? (
       <div className="collab-panel__loading" aria-busy="true">
-        <p className="collab-panel__loading-hint">함께 만든 추억을 확인하고 있어요.</p>
+        <p className="collab-panel__loading-hint">새로 더해진 사진과 한마디를 확인하고 있어요.</p>
         <div className="collab-panel__skeleton-lines">
           <span /><span /><span />
         </div>
@@ -360,7 +360,7 @@ export default function CollaborationPanel({
       <>
         {canManage && !hideDuplicatedActions ? <><div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => void shareKakao()}>사진·한마디 받기</button></div><p className="collab-panel__invite-hint">상대가 자기 사진을 더할 수 있어요</p></> : null}
         {started && canManage ? <>
-          <div className="collab-panel__new-summary"><strong>새로운 추억</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 한마디 ${newMemories}개가 도착했습니다.` : "새롭게 추가된 추억이 없습니다."}</p></div>
+          <div className="collab-panel__new-summary"><strong>새로 더해진 것</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 한마디 ${newMemories}개가 도착했습니다.` : "새로 더해진 사진과 한마디가 없어요."}</p></div>
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "사진을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
           <button type="button" className="collab-panel__stop" disabled={busy !== null} onClick={() => void stop()}>{busy === "stop" ? "중단하는 중..." : "참여 중단"}</button>
         </> : null}
@@ -395,16 +395,16 @@ function LivingPicker({ pending, selectedIds, setSelectedIds, mode, setMode, bus
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelectedIds(next);
   };
-  return <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-label="새로 모인 추억">
+  return <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-label="새로 더해진 사진과 한마디">
     <section>
       <h4>새로 더해진 사진과 한마디가 있어요.</h4>
-      {pending.recommended_mode === "edition" ? <p className="collab-panel__picker-copy">새로운 추억이 많이 모였습니다. 새로운 에디션을 만들어보세요.</p> : <p className="collab-panel__picker-copy">현재 앨범에 이어 담거나, 새롭게 구성할 수 있어요.</p>}
+      {pending.recommended_mode === "edition" ? <p className="collab-panel__picker-copy">새로 더해진 것이 많아요. 새로운 에디션을 만들어 보세요.</p> : <p className="collab-panel__picker-copy">현재 앨범에 이어 담거나, 새롭게 구성할 수 있어요.</p>}
       <div className="collab-panel__living-modes">
         <label className={mode === "append_page" ? "is-selected" : ""}><input type="radio" name="living-mode" checked={mode === "append_page"} onChange={() => setMode("append_page")} /><span><strong>마지막 페이지에 추가하기</strong><small>빠르게 현재 앨범에 이어집니다.</small></span></label>
         <label className={mode === "edition" ? "is-selected" : ""}><input type="radio" name="living-mode" checked={mode === "edition"} onChange={() => setMode("edition")} /><span><strong>새로운 에디션 만들기</strong><small>사진 배치와 이야기를 새롭게 구성합니다.</small></span></label>
       </div>
       <label className="collab-panel__select-all"><input type="checkbox" checked={selectedIds.size === pending.items.length} onChange={(event) => setSelectedIds(event.target.checked ? new Set(pending.items.map((item) => item.id)) : new Set())} /> 전체 선택</label>
-      <ul className="collab-panel__pending-list">{pending.items.map((item) => <li key={item.id}><label><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggle(item.id)} /><span>{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="" loading="lazy" /> : null}</span><span><strong>{item.actor_name}님이 {item.type === "photo" ? "사진을 추가했습니다." : "한마디를 남겼어요."}</strong><small>{item.comment || item.content || "새로 도착한 추억"}</small></span></label></li>)}</ul>
+      <ul className="collab-panel__pending-list">{pending.items.map((item) => <li key={item.id}><label><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggle(item.id)} /><span>{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="" loading="lazy" /> : null}</span><span><strong>{item.actor_name}님이 {item.type === "photo" ? "사진을 추가했습니다." : "한마디를 남겼어요."}</strong><small>{item.comment || item.content || "새로 더해진 것"}</small></span></label></li>)}</ul>
       <p className="collab-panel__picker-copy">선택한 사진 {photoCount}장 · 한마디 {memoryCount}개</p>
       <div className="collab-panel__cover-actions"><button type="button" disabled={busy} onClick={onCancel}>취소</button><button type="button" className="collab-panel__primary" disabled={busy || selectedIds.size === 0} onClick={onApply}>{busy ? "사진을 앨범에 담는 중..." : mode === "append_page" ? "마지막 페이지에 추가하기" : "새로운 에디션 만들기"}</button></div>
     </section>

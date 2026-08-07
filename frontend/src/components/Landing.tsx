@@ -61,9 +61,9 @@ export default function Landing({
           <br />
           우리의 이야기가 시작돼요.
         </h1>
-        <p className="landing__copy">누구와 함께한 추억인가요?</p>
+        <p className="landing__copy">누구와 함께한 앨범인가요?</p>
 
-        <div className="landing__categories" role="group" aria-label="추억 유형">
+        <div className="landing__categories" role="group" aria-label="앨범 종류">
           {ALBUM_CATEGORY_OPTIONS.map((option) => {
             const selected = category === option.value;
             const Icon = CATEGORY_ICONS[option.value];
