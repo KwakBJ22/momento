@@ -21,7 +21,9 @@ test("상단은 화면당 하나 — AppHeader 만이 브랜드를 그린다", (
   // 브랜드 문자열은 상수에서만 읽는다.
   const header = read("components/AppHeader.tsx");
   assert.match(header, /BRAND_NAME_KO_PARTS\.lead/);
-  assert.match(header, /\{BRAND_NAME_EN\}/);
+  // ★ 헤더 브랜드는 한 줄이다 — 영문 표기(woorialbum)는 높이를 키우므로 헤더에서 뺐다.
+  //   랜딩 본문·푸터에서는 계속 쓴다(lib/brand.ts 는 그대로).
+  assert.doesNotMatch(header, /BRAND_NAME_EN/);
   assert.doesNotMatch(header, /우리앨범|woorialbum/);
 });
 

@@ -22,10 +22,10 @@ test("랜딩(로그인)·사진 고르기·만드는 중·내 앨범 = 원형 �
   // 컨트롤은 하나뿐이다(계정 원을 헤더에 따로 두지 않는다).
   assert.equal((entry.match(/<button/g) || []).length, 1);
   assert.doesNotMatch(entry, /img|avatarUrl/); // 프로필 사진은 헤더에 없다
-  // 프로필 사진은 ⋯ 시트 최상단 계정 행에 있다.
-  const sheetRow = app.slice(app.indexOf("const accountSheetRow = user ?"), app.indexOf("const albumSurface"));
-  assert.match(sheetRow, /album-more-sheet__account-avatar/);
-  assert.match(sheetRow, /user\.avatarUrl/);
+  // 프로필 사진은 ⋯ 시트 최상단 계정 행(AccountSheetRow)에 있다.
+  const row = read("components/AccountSheetRow.tsx");
+  assert.match(row, /account-row__avatar/);
+  assert.match(row, /user\.avatarUrl/);
 });
 
 test("앨범 상세 = [내 앨범] + 원형 ⋯, 이 순서", () => {
@@ -51,8 +51,52 @@ test("⋯ 는 원형 버튼이고 정의는 한 곳뿐이다", () => {
 test("헤더 높이는 모든 화면에서 같다 — 한 규칙이 정한다", () => {
   const chrome = read("components/AppChrome.css");
   const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
-  assert.match(header, /min-height: 58px/);
-  assert.match(header, /padding: 6px 20px/);
+  assert.match(header, /min-height: 52px/);
+  assert.match(header, /padding: 4px 16px/);
   // 화면별로 헤더를 다시 정의하지 않는다(AlbumScreen 은 AppHeader 를 쓴다).
   assert.match(read("components/AlbumScreen.tsx"), /<AppHeader /);
+});
+
+// SCREEN_SPEC §5 — ⋯ 시트 최상단 계정 행. 정보이지 버튼이 아니다.
+test("⋯ 시트 최상단 계정 행: 사진 + 이름(굵게) + 이메일(흐리게), 눌리지 않는다", () => {
+  const row = read("components/AccountSheetRow.tsx");
+  // 사진이 있으면 이미지, 없으면 이름 첫 글자.
+  assert.match(row, /user\.avatarUrl\s*\?\s*<img className="account-row__avatar"/);
+  assert.match(row, /<span className="account-row__avatar" aria-hidden="true">\{user\.displayName\.slice\(0, 1\)\}/);
+  assert.match(row, /<p className="account-row__name">\{user\.displayName\}<\/p>/);
+  // 이메일이 없으면 그 줄을 비운다.
+  assert.match(row, /\{user\.email \? <p className="account-row__email">\{user\.email\}<\/p> : null\}/);
+  // 이 행은 눌러도 아무 일이 없다 — 버튼·링크가 아니다(게스트의 로그인만 버튼).
+  const loggedIn = row.slice(row.indexOf("return (\n    <div className=\"account-row\">"));
+  assert.doesNotMatch(loggedIn, /<button[\s\S]{0,80}account-row__head|onClick=\{[^}]*\}>\s*<div className="account-row__head"/);
+  // 게스트는 이 자리가 로그인이다.
+  assert.match(row, /if \(!user\) \{[\s\S]{0,220}onClick=\{onLogin\}><span>로그인/);
+});
+
+test("계정 행 모양: 이름 16px 굵게 / 이메일 14px 흐린색 / 아바타 44px 원형 / 아래 구분선", () => {
+  const css = read("components/AppChrome.css");
+  const rule = (selector: string) => css.slice(css.indexOf(`${selector} {`), css.indexOf("}", css.indexOf(`${selector} {`)));
+  assert.match(rule(".account-row__name"), /font-size: 16px; font-weight: 700/);
+  assert.match(rule(".account-row__email"), /color: var\(--c-text-muted\); font-size: 14px/);
+  assert.match(rule(".account-row__avatar"), /width: 44px; height: 44px/);
+  assert.match(rule(".account-row__avatar"), /border-radius: 50%/);
+  assert.match(rule(".account-row"), /border-bottom: 1px solid var\(--c-border\)/); // 그 아래 구분선
+  assert.match(rule(".account-row__actions button"), /min-height: 44px/);
+});
+
+test("계정 행은 한 벌뿐 — 세 시트가 같은 컴포넌트를 쓴다", () => {
+  const app = read("App.tsx");
+  assert.match(app, /const accountSheetRow = \(\s*<AccountSheetRow/);
+  // 전역 ⋯ 시트 / 앨범 상세 / 공유 앨범 모두 같은 노드를 넘겨받는다.
+  assert.match(app, /album-more-sheet__list">\{accountSheetRow\}/);
+  assert.match(app, /accountSheet=\{accountSheetRow\}/);
+  assert.match(app, /<ShareEntryRouter[^>]*accountSheet=\{accountSheetRow\}/);
+  assert.match(read("components/AlbumMoreSheet.tsx"), /\{accountSheet\}/);
+});
+
+test("헤더 브랜드는 한 줄 — woorialbum 이 헤더에 없다", () => {
+  const header = read("components/AppHeader.tsx");
+  assert.doesNotMatch(header, /BRAND_NAME_EN|brand-en/);
+  // 영문 표기는 다른 자리에서 계속 쓴다(상수 모듈은 그대로).
+  assert.match(read("lib/brand.ts"), /BRAND_NAME_EN = "woorialbum"/);
 });

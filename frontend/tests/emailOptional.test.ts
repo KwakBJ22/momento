@@ -16,8 +16,9 @@ test("toAppUser falls back to a nickname then a friendly default when email is a
 });
 
 test("the account menu only renders the email row when an email exists", () => {
-  const app = read("App.tsx");
-  assert.match(app, /\{user\.email \? <p className="app__account-email">\{user\.email\}<\/p> : null\}/);
+  // 계정 행은 AccountSheetRow 한 곳에 있다(⋯ 시트 최상단 — SCREEN_SPEC §5).
+  const row = read("components/AccountSheetRow.tsx");
+  assert.match(row, /\{user\.email \? <p className="account-row__email">\{user\.email\}<\/p> : null\}/);
 });
 
 test("the admin user table falls back to display_name then user_id when email is absent", () => {

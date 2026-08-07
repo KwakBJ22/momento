@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
@@ -34,6 +34,8 @@ interface PublicShareViewProps {
   authenticatedUser?: AppUser | null;
   /** 헤더 우측 `로그인`(비로그인 구경꾼 — SCREEN_SPEC §3). App 의 로그인 모달을 연다. */
   onLogin?: () => void;
+  /** ⋯ 시트 최상단 계정 행(App 이 만든 것과 같은 노드 — §5). */
+  accountSheet?: ReactNode;
 }
 
 function contributionGuestId(): string {
@@ -95,7 +97,7 @@ async function copyPublicLink(value: string): Promise<void> {
   if (!copied) throw new Error("Clipboard is unavailable.");
 }
 
-export default function PublicShareView({ token, initialAlbum, authenticatedUser = null, onLogin }: PublicShareViewProps) {
+export default function PublicShareView({ token, initialAlbum, authenticatedUser = null, onLogin, accountSheet }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
   const contributionValue = new URLSearchParams(window.location.search).get("contribute");
@@ -410,6 +412,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {moreOpen ? (
         <AlbumMoreSheet
           onClose={() => setMoreOpen(false)}
+          accountSheet={accountSheet}
           canEdit={false}
           canDelete={false}
           photoCount={(album.photos || []).length}

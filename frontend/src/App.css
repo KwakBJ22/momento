@@ -122,7 +122,7 @@ body {
 
 /* 계정 원과 드롭다운은 없앴다(SCREEN_SPEC §3: 계정은 항상 ⋯ 시트 안).
    position:absolute 로 헤더 위에 겹쳐 그리던 잔재를 함께 지운다 — 공용 헤더 안에서는
-   상자 밖으로 떠 보였다. 이름·이메일 스타일(app__account-name/email)은 시트에서 쓴다. */
+   상자 밖으로 떠 보였다. 계정 행 스타일은 AppChrome.css 의 .account-row 에 있다. */
 
 
 
@@ -130,26 +130,12 @@ body {
 
 
 
-.app__account-menu a,
-.app__account-menu button {
-  padding: 0.48rem 0.55rem;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--c-text-soft);
-  font: inherit;
-  font-size: var(--t-sm);
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
 
-.app__account-menu a:hover,
-.app__account-menu button:hover { background: var(--c-brand-soft); }
-.app__account-name,
-.app__account-email { margin: 0; padding: 0.35rem 0.55rem; color: var(--c-text-soft); font-size: var(--t-xs); overflow-wrap: anywhere; }
-.app__account-name { font-weight: 700; }
-.app__account-email { color: var(--c-text-muted); font-size: var(--t-xs); }
+
+
+
+
+
 .app__header-actions { display: none; }
 .app__account--global { position: absolute; top: 1.25rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; width: 34px; height: 34px; }
 .app__account--global 

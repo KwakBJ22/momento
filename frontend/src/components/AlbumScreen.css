@@ -92,14 +92,7 @@
 .album-mine__title { margin: 0; font-size: 1rem; font-weight: 800; line-height: 1.4; color: var(--c-text); }
 .album-mine__count { margin: 4px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--c-text-soft); }
 
-/* ⋯ 시트 최상단 계정 행: 헤더 우측을 [내 앨범]+[⋯] 둘로 줄이고 계정을 여기로 옮겼다.
-   드롭다운과 같은 동작(로그아웃·회원 탈퇴)을 자리만 바꿔 재사용한다. */
-.album-more-sheet__account { padding: 12px 2px 14px; border-bottom: 1px solid #f0e4e1; }
-.album-more-sheet__account-head { display: flex; align-items: center; gap: 12px; }
-.album-more-sheet__account-avatar { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); font-size: 1rem; font-weight: 800; object-fit: cover; }
-.album-more-sheet__account-actions { display: flex; gap: 8px; margin-top: 10px; }
-.album-more-sheet__account-actions button { min-height: 44px; padding: 0 14px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text-soft); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
-.album-more-sheet__account-actions .app__account-withdraw { color: var(--c-text-muted); }
+/* 계정 행 스타일은 AppChrome.css 의 .account-row 한 곳에만 있다(AccountSheetRow). */
 
 /* 확인 시트(ConfirmSheet) — window.confirm 대신 쓰는 공용 물음창(SCREEN_SPEC §11).
    기존 시트 틀(album-inline-action)을 그대로 쓰고 본문만 정의한다. */

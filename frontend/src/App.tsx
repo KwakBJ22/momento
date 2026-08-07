@@ -18,6 +18,7 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { MoreHorizontal } from "lucide-react";
+import AccountSheetRow from "./components/AccountSheetRow";
 import AppHeader from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
@@ -281,23 +282,13 @@ function App() {
   ) : (
     <button type="button" className="app__account-login" onClick={openLogin}>로그인</button>
   );
-  // ⋯ 시트 최상단 계정 행 — 앨범 상세와 그 밖의 화면이 같은 노드를 쓴다.
-  // 같은 동작(로그아웃·탈퇴·로그인)을 자리만 옮긴 것이다.
-  const accountSheetRow = user ? (
-    <div className="album-more-sheet__account">
-      <div className="album-more-sheet__account-head">
-        {user.avatarUrl
-          ? <img className="album-more-sheet__account-avatar" src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />
-          : <span className="album-more-sheet__account-avatar" aria-hidden="true">{user.displayName.slice(0, 1)}</span>}
-        <div>
-          <p className="app__account-name">{user.displayName}</p>
-          {user.email ? <p className="app__account-email">{user.email}</p> : null}
-        </div>
-      </div>
-      <div className="album-more-sheet__account-actions">{accountMenuItems}</div>
-    </div>
-  ) : (
-    <button type="button" className="album-more-sheet__row" onClick={openLogin}><span>로그인</span></button>
+  // ⋯ 시트 최상단 계정 행 — 앨범 상세 시트와 전역 시트가 같은 컴포넌트를 쓴다(§5).
+  const accountSheetRow = (
+    <AccountSheetRow
+      user={user ? { displayName: user.displayName, email: user.email, avatarUrl: user.avatarUrl } : null}
+      actions={accountMenuItems}
+      onLogin={openLogin}
+    />
   );
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
@@ -326,7 +317,7 @@ function App() {
       {!adminRoute && !hidesGlobalHeader ? <AppHeader right={isJoinSurface ? undefined : accountEntry} /> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
-          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
+          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)

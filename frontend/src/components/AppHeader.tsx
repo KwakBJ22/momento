@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_NAME_KO_PARTS } from "../lib/brand";
+import { BRAND_NAME_KO, BRAND_NAME_KO_PARTS } from "../lib/brand";
 import "./AppChrome.css";
 
 /**
@@ -22,8 +22,9 @@ export default function AppHeader({ right }: AppHeaderProps) {
   return (
     <header className="app-header">
       <a className="app-header__brand" href="/" aria-label={BRAND_NAME_KO}>
+        {/* ★ 헤더 브랜드는 한 줄이다. 국문+영문 두 줄이 헤더 높이를 키우는 구조적
+            원인이었다. 영문 표기는 랜딩 본문·푸터에서 계속 쓴다(lib/brand.ts 불변). */}
         <span className="app-header__brand-ko"><b>{BRAND_NAME_KO_PARTS.lead}</b><i>{BRAND_NAME_KO_PARTS.tail}</i></span>
-        <span className="app-header__brand-en">{BRAND_NAME_EN}</span>
       </a>
       {right ? <div className="app-header__right">{right}</div> : null}
     </header>

@@ -17,19 +17,18 @@
   gap: 10px;
   width: min(100%, 900px);
   margin: 0 auto;
-  /* 높이는 모든 화면에서 같다. 우측 컨트롤(44px)이 들어가도 헤더가 커지지 않도록
-     패딩을 줄여 총 높이를 고정한다 — 계정 원(absolute)을 없앤 뒤 늘어난 여백을 되돌린다. */
-  min-height: 58px;
-  padding: 6px 20px;
+  /* 높이는 모든 화면에서 같고, 좁은 쪽으로 맞춘다(모바일 우선). 브랜드를 한 줄로
+     줄였고 상하 여백을 최소로 둔다 — 44px 누르는 영역은 그대로 유지한다. */
+  min-height: 52px;
+  padding: 4px 16px;
   border-bottom: 1px solid var(--c-border);
   background: var(--c-bg);
 }
-.app-header__brand { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
+.app-header__brand { display: flex; align-items: center; min-height: 44px; text-decoration: none; }
 /* 로고는 아이덴티티 색을 그대로 쓴다(WCAG 1.4.3 은 로고타입을 대비 요건에서 제외). */
 .app-header__brand-ko { font-size: 19px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
 .app-header__brand-ko b { color: var(--c-text); font-weight: inherit; }
 .app-header__brand-ko i { color: var(--c-brand); font-style: normal; }
-.app-header__brand-en { font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; color: var(--c-text-muted); }
 .app-header__right { display: flex; align-items: center; gap: 10px; }
 /* 우측 `⋯` — 원형 버튼. 알약·글자 버튼이 아니다. 이 정의 하나를 모든 화면이 쓴다
    (앨범 상세도 같은 클래스를 쓴다 — §3: 화면마다 다르지 않다). */
@@ -69,3 +68,16 @@
   .app-header,
   .app-footer { display: none !important; }
 }
+
+/* ── ⋯ 시트 최상단 계정 행(SCREEN_SPEC §5) ──
+   정보다. 버튼처럼 보이게 하지 않는다 — 눌러도 아무 일이 없다. */
+.account-row { display: grid; gap: 12px; padding: 4px 2px 14px; border-bottom: 1px solid var(--c-border); }
+.account-row__head { display: flex; align-items: center; gap: 12px; }
+.account-row__avatar { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); font-size: 1.05rem; font-weight: 800; object-fit: cover; }
+.account-row__name { margin: 0; color: var(--c-text); font-size: 16px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.account-row__email { margin: 2px 0 0; color: var(--c-text-muted); font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.account-row__actions { display: flex; gap: 8px; }
+.account-row__actions button { min-height: 44px; padding: 0 14px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text-soft); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.account-row__actions .app__account-withdraw { color: var(--c-text-muted); }
+/* 게스트 자리: 이 자리는 누르는 것이 맞다(로그인). */
+.account-row--guest { padding: 0; border-bottom: 1px solid var(--c-border); }

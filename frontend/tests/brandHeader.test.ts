@@ -78,17 +78,18 @@ test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC 
   // 비로그인은 `로그인` 하나(§3 랜딩 비로그인).
   assert.match(app, /className="app__account-login" onClick=\{openLogin\}>로그인/);
   // 앨범 상세는 시트 행을 넘긴다.
-  assert.match(app, /const accountSheetRow = user \? \(/);
+  assert.match(app, /const accountSheetRow = \(\s*<AccountSheetRow/);
   assert.match(app, /accountSheet=\{accountSheetRow\}/);
   // 전역 ⋯ 시트도 같은 행을 쓴다(두 벌 만들지 않는다).
   assert.match(app, /album-more-sheet__list">\{accountSheetRow\}/);
+  assert.match(read("components/AlbumView.tsx"), /accountSheet=\{accountSheet\}/);
   // 겹쳐 그리던 절대배치 잔재가 없다.
   assert.doesNotMatch(read("App.css"), /\.app__account \{[\s\S]{0,120}position: absolute/);
   // 44px 유지(헤더 ⋯·시트 아바타·시트 버튼).
   const css = read("components/AppChrome.css") + read("components/AlbumScreen.css");
   assert.match(css, /\.app-header__more \{[^}]*width: 44px; height: 44px/);
-  assert.match(css, /\.album-more-sheet__account-avatar \{ width: 44px; height: 44px/);
-  assert.match(css, /\.album-more-sheet__account-actions button \{ min-height: 44px/);
+  assert.match(css, /\.account-row__avatar \{ width: 44px; height: 44px/);
+  assert.match(css, /\.account-row__actions button \{ min-height: 44px/);
 });
 
 test("앨범 상세 헤더 우측은 컨트롤 2개 — [내 앨범] + [⋯]", () => {
@@ -112,5 +113,5 @@ test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제�
   assert.match(read("components/AlbumScreen.tsx"), /<AppHeader /);
   const appHeader = read("components/AppHeader.tsx");
   assert.match(appHeader, /BRAND_NAME_KO_PARTS\.lead/);
-  assert.match(appHeader, /\{BRAND_NAME_EN\}/);
+  assert.doesNotMatch(appHeader, /BRAND_NAME_EN/); // 헤더는 한 줄(높이 축소)
 });
