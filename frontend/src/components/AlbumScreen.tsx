@@ -55,7 +55,7 @@ export default function AlbumScreen({
       <AppHeader right={<>
         {headerRight}
         {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
-        {onMore ? <button type="button" className="album-screen__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
+        {onMore ? <button type="button" className="app-header__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
       </>} />
       <div className="album-page__layout">
         <article className="album-page__book album-result album-screen__book">

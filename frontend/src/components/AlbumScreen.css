@@ -40,7 +40,7 @@
 .album-screen__book { position: relative; }
 /* 더보기(4a): 글자 알약 → ⋯ 원형 44px. 글자 버튼이 둘이면 헤더가 무거워지고
    좌측 브랜드와 경쟁한다 — 글자는 [내 앨범] 하나만 남긴다. */
-.album-screen__more { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
+/* ⋯ 버튼 스타일은 AppChrome.css 의 .app-header__more 한 곳에만 있다(§3). */
 
 /* 더보기 시트(화면 3): 60px 목록 행 + 옅은 구분선 + 보조 라벨(em). */
 .album-more-sheet__list { display: flex; flex-direction: column; gap: 0; }

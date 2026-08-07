@@ -95,7 +95,7 @@ test("앨범 상세 헤더 우측은 컨트롤 2개 — [내 앨범] + [⋯]", (
   const screen = read("components/AlbumScreen.tsx");
   const right = screen.slice(screen.indexOf("<AppHeader right="), screen.indexOf("</>} />"));
   assert.match(right, /album-screen__hdr-link/);   // 내 앨범
-  assert.match(right, /album-screen__more/);        // ⋯
+  assert.match(right, /app-header__more/);         // ⋯ (정의는 AppChrome.css 한 곳)
   // 계정 원은 헤더 밖에 두지 않는다.
   assert.doesNotMatch(right, /accountSlot|app__account/);
   assert.equal((right.match(/<a |<button /g) || []).length, 2);

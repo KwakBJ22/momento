@@ -17,7 +17,10 @@
   gap: 10px;
   width: min(100%, 900px);
   margin: 0 auto;
-  padding: 14px 20px 12px;
+  /* 높이는 모든 화면에서 같다. 우측 컨트롤(44px)이 들어가도 헤더가 커지지 않도록
+     패딩을 줄여 총 높이를 고정한다 — 계정 원(absolute)을 없앤 뒤 늘어난 여백을 되돌린다. */
+  min-height: 58px;
+  padding: 6px 20px;
   border-bottom: 1px solid var(--c-border);
   background: var(--c-bg);
 }
@@ -28,8 +31,9 @@
 .app-header__brand-ko i { color: var(--c-brand); font-style: normal; }
 .app-header__brand-en { font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; color: var(--c-text-muted); }
 .app-header__right { display: flex; align-items: center; gap: 10px; }
-/* 우측 `⋯` — 앨범 상세의 것과 같은 크기·모양(§3: 화면마다 다르지 않다). */
-.app-header__more { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--c-text-soft); cursor: pointer; }
+/* 우측 `⋯` — 원형 버튼. 알약·글자 버튼이 아니다. 이 정의 하나를 모든 화면이 쓴다
+   (앨범 상세도 같은 클래스를 쓴다 — §3: 화면마다 다르지 않다). */
+.app-header__more { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
 /* 우측 slot 안의 모든 컨트롤은 누르는 영역 44px 를 갖는다. */
 .app-header__right button,
 .app-header__right a { min-height: 44px; }

@@ -40,7 +40,7 @@ test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목
 test("header 더보기 sheet matches the mockup: text pill trigger + 60px list rows", () => {
   const screen = read("components/AlbumScreen.tsx");
   // 목업 hdr__more: 텍스트 필 버튼(아이콘 아님).
-  assert.match(screen, /className="album-screen__more" aria-label="더보기"[\s\S]{0,60}MoreHorizontal/);
+  assert.match(screen, /className="app-header__more" aria-label="더보기"[\s\S]{0,60}MoreHorizontal/);
   // 시트는 공용 컴포넌트다(앨범 상세·공유 앨범이 같은 것을 쓴다 — §5).
   const sheet = read("components/AlbumMoreSheet.tsx");
   assert.match(sheet, /canEdit && photoCount && onChangeCover[\s\S]{0,200}표지 사진 바꾸기/);
