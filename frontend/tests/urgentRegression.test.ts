@@ -54,15 +54,18 @@ test("mobile collaboration invitation constrains its contents and keeps the cove
   assert.match(joinPage, /loading="eager" decoding="async" fetchPriority="high"/);
   assert.match(css, /\.join-page \{[\s\S]*width: 100%;[\s\S]*max-width: 420px;[\s\S]*min-width: 0;[\s\S]*box-sizing: border-box;/);
   assert.match(css, /\.join-page > \* \{[\s\S]*max-width: 100%;/);
-  assert.match(css, /\.join-page__cover \{[\s\S]*aspect-ratio: 3 \/ 2;[\s\S]*max-height: 240px;/);
-  assert.match(css, /\.join-page__relationship-chips \{[\s\S]*flex-wrap: wrap;/);
-  assert.match(css, /\.join-page__cta \{[\s\S]*width: 100%;[\s\S]*min-height: 56px;/);
+  // 표지는 전폭이 아니라 196×140 상자다(목업) — 전폭이면 세로 사진의 양옆이 크게 잘린다.
+  assert.match(css, /\.join-page__cover \{[\s\S]*width: 196px;[\s\S]*height: 140px;[\s\S]*object-fit: cover;/);
+  assert.match(css, /\.join-page__cta \{[\s\S]*width: 100%;[\s\S]*height: 56px;/);
 });
 
-test("collaboration relationship chips match the backend contract and validation details stay hidden", () => {
+test("collaboration validation details stay hidden (관계 칩은 화면에서 뺐다)", () => {
   const joinPage = component("JoinPage");
   const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
-  assert.match(joinPage, /RELATIONSHIPS = \["가족", "친구", "연인", "지인", "기타"\]/);
+  // 관계는 초대한 사람이 이미 아는 것이라 다시 묻지 않는다. 컬럼·API 는 그대로 두고
+  // 화면에서만 뺐다 — 요청에는 relationship: null 로 보낸다.
+  assert.doesNotMatch(joinPage, /RELATIONSHIPS/);
+  assert.match(joinPage, /relationship: null/);
   assert.match(api, /Array\.isArray\(detail\) \|\| response\.status === 422/);
   assert.match(api, /"입력 내용을 확인해주세요\."/);
   assert.doesNotMatch(api, /detail\.map\(\(d/);

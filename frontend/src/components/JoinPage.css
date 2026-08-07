@@ -1,10 +1,14 @@
+/* 참여하기 화면 — 목업: docs/mockups/album-detail-invite.html
+ *
+ * 색은 전부 tokens.css 변수에서 읽는다(목업의 hex 를 그대로 옮기지 않는다).
+ * 그림자·애니메이션·장식 없음 — 카드는 배경 색차로만 떠 보인다.
+ * 14px 미만 없음 / 누르는 영역: 입력·참여 56px, 카카오 52px. */
+
 .join-page {
   width: 100%;
   max-width: 420px;
   min-width: 0;
   margin: 0 auto;
-  display: grid;
-  gap: 0.75rem;
   padding: 0.4rem 16px calc(1.5rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
   overflow-wrap: anywhere;
@@ -15,130 +19,127 @@
   max-width: 100%;
 }
 
-.join-page__eyebrow {
-  justify-self: center;
-  text-align: center;
+/* ① 초대 한 줄 — 첫 줄은 초대한 사람의 이름이다. 이름도 본문과 같은 검정. */
+.join-page__invite {
+  margin: 0 0 14px;
+  color: var(--c-text);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.4;
+  word-break: keep-all;
 }
 
-.join-page__eyebrow {
-  margin: 0;
-  color: var(--c-text-subtle);
-  font-size: var(--t-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+/* ② 표지 카드 */
+.join-page__card {
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+
+/* 사진은 전폭이 아니라 196×140 상자에 가운데 정렬한다 — 전폭이면 세로·정사각 사진의
+   양옆이 크게 잘린다. 상자를 넘치는 부분만 잘리고 원본 비율은 유지된다. */
+.join-page__cover-box {
+  display: grid;
+  place-items: center;
+  padding: 12px 16px 0;
+  background: var(--c-surface);
 }
 
 .join-page__cover {
   display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  max-height: 240px;
+  width: 196px;
+  height: 140px;
+  max-width: 100%;
   object-fit: cover;
-  border: 1px solid var(--c-bg-soft);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--c-brand-soft);
-  box-shadow: var(--sh-md);
 }
 
 .join-page__cover--empty {
-  /* Image placeholder — keep the color; just a flat fill (same color, no gradient). */
   background: var(--c-brand-soft);
 }
 
-.join-page__album-info {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.15rem 0;
+.join-page__card-body {
+  padding: 14px 16px 16px;
+  text-align: center;
 }
 
 .join-page__album {
   margin: 0;
-  overflow-wrap: anywhere;
-  font-size: clamp(1.625rem, 7vw, 1.875rem);
-  line-height: 1.25;
-  letter-spacing: -0.03em;
   color: var(--c-text);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
-.join-page__invite-copy,
-.join-page__meta,
-.join-page__notice {
+.join-page__meta {
+  margin: 8px 0 0;
+  color: var(--c-text-muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.join-page__rule {
+  height: 1px;
+  margin: 14px 0;
+  background: var(--c-border);
+}
+
+/* 카카오 앞의 구분선은 더 크게 띄운다(위 38 / 아래 14) — 순서로 위계를 준다. */
+.join-page__rule--section {
+  margin: 38px 0 14px;
+}
+
+.join-page__motto {
   margin: 0;
-  color: var(--c-text-soft);
-  font-size: 1rem;
-  line-height: 1.55;
-}
-
-.join-page__notice {
   color: var(--c-brand-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.6;
 }
 
-.join-page__label,
-.join-page__relationship {
-  display: grid;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  color: var(--c-text-soft);
-  font-size: 1rem;
-  font-weight: 650;
-}
-
-.join-page__relationship legend {
-  padding: 0;
+/* ③ 참여자명 */
+.join-page__label {
+  display: block;
+  margin: 22px 0 8px;
+  color: var(--c-text);
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .join-page__input {
   width: 100%;
-  min-height: 54px;
+  height: 56px;
   box-sizing: border-box;
+  padding: 0 16px;
   border: 1px solid var(--c-border);
   border-radius: 12px;
-  padding: 0.65rem 1rem;
-  font: inherit;
-  font-size: 17px;
-  font-weight: 400;
   background: var(--c-surface);
-}
-
-.join-page__relationship-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.join-page__relationship-chips button {
-  min-height: 42px;
-  padding: 0.42rem 0.78rem;
-  border: 1px solid var(--c-border);
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-text-soft);
+  color: var(--c-text);
   font: inherit;
-  font-size: 0.94rem;
-  cursor: pointer;
+  font-size: 16px;
 }
 
-.join-page__relationship-chips button.is-selected {
-  border-color: var(--c-brand);
-  background: var(--c-brand-soft);
-  color: var(--c-text-soft);
+.join-page__input::placeholder {
+  color: var(--c-text-subtle);
 }
 
+/* ④ 참여 버튼 — 입력창에 바로 붙는다. 검은 버튼을 쓰지 않는다. */
 .join-page__cta {
   width: 100%;
-  min-height: 56px;
-  margin-top: 0.3rem;
+  height: 56px;
+  margin-top: 16px;
   box-sizing: border-box;
   border: 0;
-  border-radius: 16px;
-  padding: 0.72rem 1rem;
-  background: var(--c-text);
+  border-radius: 12px;
+  background: var(--c-brand-action);
   color: var(--c-surface);
   font: inherit;
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -148,30 +149,55 @@
   cursor: default;
 }
 
-.join-page__error {
+/* ⑥ 계정 안내 — 로고는 기존 브랜드 색 조합으로 그린다(로고 색이 두 벌이 되면 안 된다). */
+.join-page__account-copy {
   margin: 0;
+  color: var(--c-text-soft);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.join-page__logo {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.join-page__logo b { color: var(--c-text); font-weight: inherit; }
+.join-page__logo i { color: var(--c-brand); font-style: normal; }
+
+/* ⑦ 카카오 — 색이 아니라 순서·크기로 아래 위계를 갖는다(52px, 17/600). */
+.join-page__kakao {
+  width: 100%;
+  height: 52px;
+  margin-top: 12px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 12px;
+  background: var(--c-kakao);
+  color: var(--c-kakao-text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.join-page__error {
+  margin: 12px 0 0;
   color: var(--c-danger);
-  font-size: 0.9rem;
+  font-size: var(--t-xs);
 }
 
 .join-page__loading {
   margin: 2rem 0;
   color: var(--c-text-muted);
   text-align: center;
+  font-size: 16px;
 }
 
-@media (max-width: 640px) {
-
-
-  .join-page__eyebrow {
-    font-size: 0.9rem;
-  }
-}
-
-@media (max-width: 390px) {
-  .join-page { gap: 0.65rem; padding-inline: 16px; }
-  .join-page__cover { max-height: 210px; }
-  .join-page__album { font-size: 1.625rem; }
-  .join-page__relationship-chips { gap: 0.4rem; }
-  .join-page__relationship-chips button { min-height: 42px; padding-inline: 0.68rem; }
+/* 목업 기준 폭(390px)에서는 24px 그대로다. 더 좁은 기기(360px 이하)에서만 줄인다. */
+@media (max-width: 360px) {
+  .join-page { padding-inline: 16px; }
+  .join-page__invite { font-size: 22px; }
+  .join-page__album { font-size: 22px; }
 }
