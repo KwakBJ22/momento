@@ -438,8 +438,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   );
   const isParticipantMode = canContribute && Boolean(contributionSession);
   const publicNav = isParticipantMode ? {
-    variant: "participant" as const,
-    activeItem: contributionAction === "photo" ? "photo" as const : contributionAction === "memory" ? "memory" as const : "album" as const,
+    // §4 참여자 3칸: 사진 추가 / 한마디 남기기 / 내 앨범 만들기.
+    variant: "contributor" as const,
+    activeItem: contributionAction === "photo" ? "photo" as const : contributionAction === "memory" ? "memory" as const : undefined,
     onTop: scrollToAlbumStart,
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),

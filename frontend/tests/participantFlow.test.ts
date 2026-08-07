@@ -5,24 +5,29 @@ import test from "node:test";
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
 // [2] Participant bottom menu must be 4 items: 앨범 / 사진 추가 / 기억 / 내 앨범 만들기.
-test("participant bottom nav adds '내 앨범 만들기' as the 4th item, keeping the first three", () => {
+test("참여자 네비는 §4 표대로 3칸 — 스크롤로 되는 '앨범' 칸을 쓰지 않는다", () => {
   const nav = read("components/AlbumBottomNavigation.tsx");
-  const participant = nav.split('variant === "participant"')[1].split("if (variant")[0];
-  // First three unchanged.
-  assert.match(participant, /<span>앨범<\/span>/);
-  assert.match(participant, /<span>사진 추가<\/span>/);
-  assert.match(participant, /<span>한마디<\/span>/); // §7 — 이름은 한마디 하나다
-  // Fourth added, wired to createAlbum (goes to "/" — works without login).
-  assert.match(participant, /<span>내 앨범 만들기<\/span>/);
-  assert.match(participant, /onClick=\{createAlbum\}[^]*내 앨범 만들기/);
-  const css = read("components/AlbumBottomNavigation.css");
-  assert.match(css, /\.album-bottom-navigation--participant \{ grid-template-columns: repeat\(4/);
+  const contributor = nav.slice(nav.indexOf('if (variant === "contributor")'), nav.indexOf("// 소유자(2a) 3칸"));
+  assert.equal((contributor.match(/<button /g) || []).length, 3);
+  assert.match(contributor, /<span>사진 추가<\/span>/);
+  assert.match(contributor, /<span>한마디 쓰기<\/span>/);
+  assert.match(contributor, /내 앨범<br \/>만들기/);
+  // "앨범"(스크롤·이동으로 되는 것)에는 칸을 쓰지 않는다(§4).
+  assert.doesNotMatch(contributor, /<span>앨범<\/span>/);
+  // 강조 방식이 서로 다르다: 사진 추가는 면 채움, 3번째 칸은 테두리 칩.
+  assert.match(contributor, /album-bottom-navigation__primary[\s\S]{0,120}사진 추가/);
+  assert.match(contributor, /album-bottom-navigation__chip/);
+  // participant 변형은 사라졌다(같은 구성을 두 벌로 두지 않는다).
+  assert.doesNotMatch(nav, /variant === "participant"/);
 });
 
-test("PublicShareView participant nav supplies onCreateAlbum to '/'", () => {
-  const view = read("components/PublicShareView.tsx");
-  const participantNav = view.split('variant: "participant"')[1].split("} : {")[0];
-  assert.match(participantNav, /onCreateAlbum:\s*\(\)\s*=>\s*window\.location\.assign\("\/"\)/);
+test("참여·공유 화면이 같은 참여자 네비를 쓴다", () => {
+  const share = read("components/PublicShareView.tsx");
+  const workspace = read("components/ContributeWorkspace.tsx");
+  assert.match(share, /variant: "contributor" as const/);
+  assert.match(workspace, /variant: "contributor"/);
+  const shareNav = share.split('variant: "contributor" as const')[1].split("} : {")[0];
+  assert.match(shareNav, /onCreateAlbum:\s*\(\)\s*=>\s*window\.location\.assign\("\/"\)/);
 });
 
 // [1] The fixed bottom-sheet must keep its close control visible: header pinned (flex:0),

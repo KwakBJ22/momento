@@ -135,7 +135,6 @@ export default function ContributeWorkspace({
   const [previewRevision, setPreviewRevision] = useState(-1);
   const [preview, setPreview] = useState<PreviewSnapshot | null>(null);
   const [latestPhotoId, setLatestPhotoId] = useState<string | null>(null);
-  const [activeParticipantItem, setActiveParticipantItem] = useState<"album" | "photo" | "memory">("album");
   const latestPhotoRef = useRef<HTMLElement | null>(null);
   const participantRootRef = useRef<HTMLElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -276,7 +275,6 @@ export default function ContributeWorkspace({
   }, [addUploadedPhotos, albumId, session]);
 
   const onUpload = async (files: File[] | FileList | null) => {
-    setActiveParticipantItem("photo");
     const { accepted, rejected } = filterImageFiles(files);
     if (!accepted.length) {
       setError(rejected ? "선택한 파일을 사진으로 읽지 못했어요. JPG, PNG, WEBP, HEIC를 골라 주세요." : "사진을 선택해 주세요.");
@@ -446,7 +444,6 @@ export default function ContributeWorkspace({
   /** 파일 선택창을 열기 전에 화면 상태만 정리한다(선택창 자체는 label 이 연다). */
   const prepareForPhotoPick = () => {
     setTab("photos");
-    setActiveParticipantItem("photo");
   };
 
   /** 하단 네비처럼 label 로 만들 수 없는 자리에서만 쓴다. rAF·setTimeout·await 를 거치지
@@ -458,7 +455,6 @@ export default function ContributeWorkspace({
 
   const openMemoryEditor = (targetPhotoId?: string) => {
     setTab("photos");
-    setActiveParticipantItem("memory");
     const photoId = targetPhotoId || latestPhotoId || workspace?.photos?.[0]?.id || null;
     if (!photoId) {
       setError("한마디를 남길 사진을 먼저 추가해 주세요.");
@@ -470,7 +466,6 @@ export default function ContributeWorkspace({
   };
 
   const viewParticipantAlbum = () => {
-    setActiveParticipantItem("album");
     participantRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -671,8 +666,8 @@ export default function ContributeWorkspace({
       subtitle="사진과 한마디를 더할 수 있어요."
       body={workspaceBody}
       bottomNavigation={{
-        variant: "participant",
-        activeItem: activeParticipantItem,
+        // §4 참여자 3칸. "앨범"(스크롤로 되는 것)에는 칸을 쓰지 않는다.
+        variant: "contributor",
         onTop: viewParticipantAlbum,
         onAddPhoto: openPhotoPicker,
         onAddMemory: openMemoryEditor,

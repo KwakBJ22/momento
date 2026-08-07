@@ -137,7 +137,7 @@ test("upload retry button is bound to the error slot, never the notice slot", ()
 // B-2 (§4·§3) — 전역 네비는 3칸이고, 계정 진입점은 화면당 하나(헤더 ⋯)다.
 test("전역 하단 네비는 3칸 — '내 설정'이 없다", () => {
   const nav = read("components/AlbumBottomNavigation.tsx");
-  const app = nav.slice(nav.indexOf('if (variant === "app")'), nav.indexOf('if (variant === "participant")'));
+  const app = nav.slice(nav.indexOf('if (variant === "app")'), nav.indexOf('// 구경꾼(SCREEN_SPEC §4)'));
   assert.equal((app.match(/<button /g) || []).length, 3);
   assert.match(app, /처음으로/);
   assert.match(app, /내 앨범/);

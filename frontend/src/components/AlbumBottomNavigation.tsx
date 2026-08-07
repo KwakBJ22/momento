@@ -11,8 +11,8 @@ export interface AlbumBottomNavigationProps {
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
-  variant?: "default" | "participant" | "app" | "contributor" | "visitor";
-  activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album";
+  variant?: "default" | "app" | "contributor" | "visitor";
+  activeItem?: "photo" | "memory" | "home" | "my-albums" | "new-album";
 }
 
 /** One fixed navigation surface shared by every screen-mode album. */
@@ -41,22 +41,6 @@ export default function AlbumBottomNavigation({
       </nav>
     );
   }
-  if (variant === "participant") {
-    return (
-      <nav className="album-bottom-navigation album-bottom-navigation--participant" aria-label="앨범 참여 메뉴">
-        <button type="button" className={activeItem === "album" ? "is-active" : ""} onClick={onTop}><Home size={17} /><span>앨범</span></button>
-        <button type="button" className={activeItem === "photo" ? "is-active" : ""} onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
-        <button type="button" className={activeItem === "memory" ? "is-active" : ""} onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디</span></button>
-        {/* Growth entry point: an invited participant can start their own album (works
-            without login — creation goes to "/"). Always the 4th item. */}
-        <button type="button" className={activeItem === "new-album" ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>내 앨범 만들기</span></button>
-      </nav>
-    );
-  }
-
-  // 참여자(4a·안1 확정): 사진 추가(면 채움) / 한마디 쓰기 / 내 앨범 만들기(테두리 칩).
-  // 채움 = 이 앨범에서의 주 행동, 테두리 칩 = 앨범 밖으로 나가는 행동 — 강조의
-  // 종류가 달라 경쟁하지 않는다. 앨범 처음으로는 스크롤 플로팅 버튼이 담당.
   // 구경꾼(SCREEN_SPEC §4): 2칸이다. 사진 추가·공유하기는 권한이 없으므로 보이면 안 된다 —
   // 할 수 없는 행동을 보여주고 눌렀을 때 막는 것이 가장 나쁜 경험이다.
   if (variant === "visitor") {
