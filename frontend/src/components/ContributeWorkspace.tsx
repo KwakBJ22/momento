@@ -351,7 +351,7 @@ export default function ContributeWorkspace({
       setDraftText("");
       setLatestPhotoId(photoId);
       markFresh([memory.id]);
-      showToast("기억이 저장되었습니다.");
+      showToast("한마디를 남겼어요.");
       showCompletion({ hasPhoto: false, hasMemory: true });
       onContributionAdded?.([{
         id: memory.id,
@@ -372,7 +372,7 @@ export default function ContributeWorkspace({
           }
         : current);
       setWorkspaceRevision((revision) => revision + 1);
-      setError("기억을 저장하지 못했습니다. 다시 시도해 주세요.");
+      setError("한마디를 저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       setSavingPhotoId(null);
     }
@@ -380,7 +380,7 @@ export default function ContributeWorkspace({
 
   const editMemory = async (memory: PhotoMemory) => {
     if (!session) return;
-    const next = window.prompt("기억 수정", memory.comment);
+    const next = window.prompt("한마디 수정", memory.comment);
     if (!next?.trim()) return;
     try {
       const updated = await updatePhotoMemory(albumId, memory.id, session, next.trim()) as PhotoMemory;
@@ -402,7 +402,7 @@ export default function ContributeWorkspace({
         content: updated.comment,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기억을 수정하지 못했습니다.");
+      setError(err instanceof Error ? err.message : "한마디를 수정하지 못했습니다.");
     }
   };
 
@@ -422,7 +422,7 @@ export default function ContributeWorkspace({
       setWorkspaceRevision((revision) => revision + 1);
       onContributionRemoved?.(memory.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기억을 삭제하지 못했습니다.");
+      setError(err instanceof Error ? err.message : "한마디를 지우지 못했어요.");
     }
   };
 
@@ -454,7 +454,7 @@ export default function ContributeWorkspace({
     setActiveParticipantItem("memory");
     const photoId = targetPhotoId || latestPhotoId || workspace?.photos?.[0]?.id || null;
     if (!photoId) {
-      setError("기억을 남길 사진을 먼저 추가해 주세요.");
+      setError("한마디를 남길 사진을 먼저 추가해 주세요.");
       return;
     }
     setDraftPhotoId(photoId);
@@ -542,7 +542,7 @@ export default function ContributeWorkspace({
       />
       {tab === "photos" ? (
         <div className="contribute__panel">
-          {requestedAction === "memory" ? <p className="contribute__notice">기억을 남길 사진을 골라 주세요.</p> : null}
+          {requestedAction === "memory" ? <p className="contribute__notice">한마디를 남길 사진을 골라 주세요.</p> : null}
           {requestedAction !== "memory"
             ? <label className="contribute__upload" htmlFor={PHOTO_INPUT_ID}>사진 추가하기</label>
             : null}
@@ -597,7 +597,7 @@ export default function ContributeWorkspace({
                   ))}
                 </div>
                 <button type="button" className="contribute__memory-btn" onClick={() => openMemoryEditor(photo.id)}>
-                  이 사진에 기억 남기기
+                  이 사진에 한마디 남기기
                 </button>
                 {draftPhotoId === photo.id ? (
                   <div className="contribute__draft">
@@ -624,7 +624,7 @@ export default function ContributeWorkspace({
               <p className="contribute__memory-author">{memory.author_name || "참여자"}</p>
               <p className="contribute__memory-text">{memory.comment}</p>
             </article>
-          )) : <p className="contribute__empty">사진에 남긴 기억은 사진 탭에서 바로 볼 수 있어요.</p>}
+          )) : <p className="contribute__empty">사진에 남긴 한마디는 사진 탭에서 바로 볼 수 있어요.</p>}
         </div>
       ) : null}
 
@@ -646,25 +646,25 @@ export default function ContributeWorkspace({
           <button type="button" className="contribute__completion-close" aria-label="완료 안내 닫기" onClick={() => setCompletion(null)}>×</button>
           <p className="contribute__completion-title">
             {completion.hasPhoto && completion.hasMemory
-              ? "사진과 기억이 추가되었습니다."
+              ? "사진과 한마디를 남겼어요."
               : completion.hasPhoto
                 ? "사진이 추가되었습니다."
-                : "기억이 저장되었습니다."}
+                : "한마디를 남겼어요."}
           </p>
           <p className="contribute__completion-copy">방금 남긴 추억을 앨범에서 확인해 보세요.</p>
           <div className="contribute__completion-actions">
             <button type="button" className="contribute__completion-primary" onClick={viewAddedItems}>앨범에서 확인하기</button>
             {completion.hasPhoto
               ? <label className="contribute__completion-secondary" htmlFor={PHOTO_INPUT_ID} onClick={prepareForPhotoPick}>사진 더 추가하기</label>
-              : <button type="button" className="contribute__completion-secondary" onClick={() => openMemoryEditor()}>기억 더 남기기</button>}
+              : <button type="button" className="contribute__completion-secondary" onClick={() => openMemoryEditor()}>한마디 더 남기기</button>}
           </div>
         </section>
       ) : null}
       {pendingMemoryDelete ? (
         <ConfirmSheet
-          title="이 기억을 지울까요?"
+          title="이 한마디를 지울까요?"
           description="지운 글은 되돌릴 수 없어요."
-          confirmLabel="기억 지우기"
+          confirmLabel="한마디 지우기"
           danger
           onConfirm={() => { const target = pendingMemoryDelete; setPendingMemoryDelete(null); void removeMemory(target); }}
           onCancel={() => setPendingMemoryDelete(null)}

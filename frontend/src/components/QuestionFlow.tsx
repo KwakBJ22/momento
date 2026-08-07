@@ -146,7 +146,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
   };
 
   if (loading) {
-    return <p className="question-flow__notice">기억 질문을 준비하고 있어요...</p>;
+    return <p className="question-flow__notice">한마디 질문을 준비하고 있어요...</p>;
   }
 
   if (error && questions.length === 0) {
@@ -168,7 +168,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
     <div className="question-flow">
       <header className="question-flow__header">
         <p className="question-flow__album">{albumTitle}</p>
-        <h2>기억 질문 {currentIndex + 1} / {questions.length}</h2>
+        <h2>한마디 질문 {currentIndex + 1} / {questions.length}</h2>
         <div className="question-flow__toolbar">
           {canAnalyzeMedia && (
             <button type="button" className="btn btn--secondary" onClick={() => void handleAnalyze()} disabled={analyzing}>
@@ -194,7 +194,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
             className="field__input field__textarea"
             rows={4}
             value={draft}
-            placeholder="떠오르는 기억을 자유롭게 적어주세요."
+            placeholder="떠오르는 한마디를 자유롭게 적어주세요."
             onChange={(event) => setDraft(event.target.value)}
           />
         </label>

@@ -11,7 +11,7 @@ test("participant bottom nav adds '내 앨범 만들기' as the 4th item, keepin
   // First three unchanged.
   assert.match(participant, /<span>앨범<\/span>/);
   assert.match(participant, /<span>사진 추가<\/span>/);
-  assert.match(participant, /<span>기억<\/span>/);
+  assert.match(participant, /<span>한마디<\/span>/); // §7 — 이름은 한마디 하나다
   // Fourth added, wired to createAlbum (goes to "/" — works without login).
   assert.match(participant, /<span>내 앨범 만들기<\/span>/);
   assert.match(participant, /onClick=\{createAlbum\}[^]*내 앨범 만들기/);

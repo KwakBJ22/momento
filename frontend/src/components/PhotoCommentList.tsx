@@ -9,7 +9,7 @@ interface PhotoCommentListProps {
   onCoverChange: (id: string) => void;
 }
 
-const COMMENT_PLACEHOLDER = "기억을 남겨보세요...";
+const COMMENT_PLACEHOLDER = "한마디를 남겨보세요...";
 
 export default function PhotoCommentList({ photos, onCommentChange, onRemove, coverPhotoId, onCoverChange }: PhotoCommentListProps) {
   if (!photos.length) return null;

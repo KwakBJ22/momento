@@ -87,7 +87,7 @@ export default function JoinPage({ token }: JoinPageProps) {
         <h2 className="join-page__album">{preview.title}</h2>
         <p className="join-page__invite-copy">{preview.owner_name ? `${preview.owner_name}님이 함께 만들자고 초대했어요.` : "함께 만들자고 초대했어요."}</p>
         <p className="join-page__meta">사진 {preview.photo_count}장 · 함께한 사람 {preview.contributor_count}명</p>
-        <p className="join-page__notice">사진과 기억을 함께 남길 수 있어요.</p>
+        <p className="join-page__notice">사진과 한마디를 함께 남길 수 있어요.</p>
       </div>
 
       <label className="join-page__label">

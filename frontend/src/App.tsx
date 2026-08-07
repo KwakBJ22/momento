@@ -369,7 +369,7 @@ function App() {
           <section className="app__withdraw-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
             <h2 id="withdraw-title">정말 떠나시겠어요?</h2>
             <p>탈퇴하면 내가 만든 앨범과 사진이 모두 사라지고, 다시 되돌릴 수 없어요.</p>
-            <p className="app__withdraw-hint">남기고 싶은 앨범이 있다면 먼저 PDF로 저장해 주세요. 함께 만든 앨범에 남긴 사진과 기억은 이름 없이 그 앨범에 남아요.</p>
+            <p className="app__withdraw-hint">남기고 싶은 앨범이 있다면 먼저 PDF로 저장해 주세요. 함께 만든 앨범에 남긴 사진과 한마디는 이름 없이 그 앨범에 남아요.</p>
             {withdrawError ? <p className="app__withdraw-error">{withdrawError}</p> : null}
             <div className="app__withdraw-actions">
               <button type="button" disabled={withdrawing} onClick={() => setWithdrawOpen(false)}>더 써볼게요</button>

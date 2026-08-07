@@ -5,7 +5,8 @@ export const DAY_GAP_SPLIT_DAYS = 3;
 /** 대략 50km — 같은 날이라도 장소가 크게 다르면 이벤트 분리 */
 export const PLACE_SPLIT_KM = 50;
 
-const NEUTRAL_TITLES = ["함께한 순간", "우리의 추억", "기억 속의 하루"] as const;
+// 실제로 쓰는 것은 [0] 하나다(§6 이후 그룹 제목은 화면에 나오지 않는다).
+const NEUTRAL_TITLES = ["함께한 순간"] as const;
 
 export function toDateKey(iso: string | null | undefined): string | null {
   if (!iso) return null;

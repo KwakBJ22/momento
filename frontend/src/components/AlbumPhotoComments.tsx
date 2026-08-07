@@ -8,7 +8,7 @@ interface AlbumPhotoCommentsProps {
   onSaveLocation?: (photoId: string, locationName: string) => Promise<void>;
 }
 
-const COMMENT_PLACEHOLDER = "기억을 남겨보세요...";
+const COMMENT_PLACEHOLDER = "한마디를 남겨보세요...";
 
 export default function AlbumPhotoComments({
   photos,

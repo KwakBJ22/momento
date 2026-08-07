@@ -336,8 +336,9 @@ test("album viewing and collaboration invitation use distinct URLs and Kakao pay
   assert.match(source, /pathname\.startsWith\("\/join\/"\)/);
   assert.match(source, /title: "우리 앨범에 추억을 더해주세요"/);
   assert.match(source, /buttonTitle: "추억 추가하기"/);
-  // Result-named wording (동사 대신 결과로 이름): 초대 = "사진·기억 받기", 복사 = "링크 복사".
-  assert.match(source, /사진·기억 받기/);
+  // Result-named wording (동사 대신 결과로 이름): 초대 = "사진·한마디 받기", 복사 = "링크 복사".
+  // 이름은 §7 대로 "한마디" 하나다(옛 이름 "기억"에서 바뀌었다).
+  assert.match(source, /사진·한마디 받기/);
   assert.match(source, /링크 복사/);
   assert.match(source, /상대가 자기 사진을 더할 수 있어요/);
   assert.doesNotMatch(source, /함께 만들도록 초대/);

@@ -105,7 +105,7 @@ function GrowthPanels({ growth }: { growth: AdminGrowthDashboard }) {
           items={[
             { label: "앨범당 평균 참여자", value: `${growth.collaboration.avg_participants_per_album}명` },
             { label: "평균 추가 사진", value: growth.collaboration.avg_added_photos },
-            { label: "평균 추가 기억", value: growth.collaboration.avg_added_memories },
+            { label: "평균 추가 한마디", value: growth.collaboration.avg_added_memories },
             { label: "참여율", value: `${growth.collaboration.participation_rate}%` },
           ]}
         />
@@ -123,7 +123,7 @@ function GrowthPanels({ growth }: { growth: AdminGrowthDashboard }) {
               { label: "30일 재방문", value: `${growth.retention.return_visit_30d_rate}%` },
               { label: "다시 열린 앨범", value: `${growth.retention.reopened_album_ratio}%` },
               { label: "총 사진", value: growth.content.total_photos },
-              { label: "총 기억", value: growth.content.total_memories },
+              { label: "총 한마디", value: growth.content.total_memories },
               { label: "총 페이지", value: growth.content.total_pages },
               { label: "총 에디션", value: growth.content.total_editions },
             ]}
@@ -198,7 +198,7 @@ function OpsDashboardView({ data, funnel }: { data: AdminOpsDashboard; funnel: A
             { label: "총 사용자", value: data.totals.users ?? 0 },
             { label: "총 앨범", value: data.totals.albums ?? 0 },
             { label: "총 사진", value: data.totals.photos ?? 0 },
-            { label: "총 기억", value: data.totals.memories ?? 0 },
+            { label: "총 한마디", value: data.totals.memories ?? 0 },
             { label: "총 공유", value: data.totals.shares ?? 0 },
             { label: "총 PDF", value: data.totals.pdf_generated ?? 0 },
             { label: "화면용 이미지 미생성", value: data.totals.missing_display_photos ?? 0 },
@@ -245,7 +245,7 @@ function AlbumExplorer() {
               <th>앨범</th>
               <th>생성</th>
               <th>사진</th>
-              <th>기억</th>
+              <th>한마디</th>
               <th>참여</th>
               <th>공유</th>
               <th>업데이트</th>

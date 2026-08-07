@@ -635,7 +635,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
   const albumBody = (
     <>
-      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
+      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "한마디 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "한마디 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {deleteConfirmOpen ? (
@@ -713,7 +713,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   );
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
   // 미완성 안내(목업 docs/mockups/album-detail-owner.html): 한마디(캡션) 없는 사진 수.
-  // 0장이면 렌더링하지 않고, "채우러 가기"는 기존 한마디 쓰기 시트(기억 남기기)를 연다.
+  // 0장이면 렌더링하지 않고, "채우러 가기"는 기존 한마디 쓰기 시트(한마디 남기기)를 연다.
   // 시트를 못 여는 상황(게스트 소유자·과거 에디션)에서는 안내도 띄우지 않는다.
   const missingCaptionCount = photos.filter((photo) => !(photo.caption || "").trim()).length;
   const captionNotice = missingCaptionCount > 0 && !guestOwner && requestedEdition === null ? (

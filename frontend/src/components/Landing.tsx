@@ -32,7 +32,7 @@ const CATEGORY_ICONS: Record<AlbumCategory, LucideIcon> = {
 const CATEGORY_HINTS: Record<AlbumCategory, string> = {
   family: "함께여서 따뜻했던 순간",
   friend: "웃음이 끊이지 않았던 날",
-  couple: "둘만의 특별한 기억",
+  couple: "둘만의 특별한 한마디",
   colleague: "함께 만들어낸 시간",
   pet: "곁에 있어 준 소중한 친구",
   travel: "다시 떠올리고 싶은 장면",
