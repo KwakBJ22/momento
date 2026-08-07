@@ -418,7 +418,8 @@ async def get_collaboration_status(
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, album, authenticated_user_id)
     require_album_read(access)
-    owner_id = str(album.get("created_by") or album.get("owner_id") or "").strip()
+    # §1 — 소유자는 owner_id 다. created_by 는 "처음 만든 사람"의 기록일 뿐이다.
+    owner_id = str(album.get("owner_id") or album.get("created_by") or "").strip()
     if owner_id:
         await asyncio.to_thread(ensure_owner_contributor, client, album, owner_id)
 
@@ -477,7 +478,8 @@ async def get_album_participation(
     if not album:
         raise HTTPException(status_code=404, detail="Album not found.")
     require_album_read(get_album_access(client, album, authenticated_user_id))
-    owner_id = str(album.get("created_by") or album.get("owner_id") or "").strip()
+    # §1 — 소유자는 owner_id 다. created_by 는 "처음 만든 사람"의 기록일 뿐이다.
+    owner_id = str(album.get("owner_id") or album.get("created_by") or "").strip()
     if owner_id:
         await asyncio.to_thread(ensure_owner_contributor, client, album, owner_id)
     contributors, photos, memories = await asyncio.gather(

@@ -237,6 +237,7 @@ def start_collaboration(client: Client, album: dict[str, Any], created_by: str, 
     ).eq("id", album_id).execute()
 
     # Ensure owner contributor row
+    # 소유자 판정은 함수 안에서 owner_id 로 한다(넘기는 것은 '이 요청을 한 사람').
     ensure_owner_contributor(client, album, created_by)
     return invite_row, token
 
@@ -278,13 +279,38 @@ def publish_album(client: Client, album_id: str) -> None:
     ).eq("id", album_id).execute()
 
 
-def ensure_owner_contributor(client: Client, album: dict[str, Any], owner_id: str) -> dict[str, Any]:
+def _album_owner_id(client: Client, album: dict[str, Any]) -> str:
+    """이 앨범의 소유자(SCREEN_SPEC §1 — albums.owner_id 하나로 판정한다).
+
+    호출자가 넘긴 dict 에 owner_id 가 없으면 앨범 행에서 읽는다. created_by 는 쓰지
+    않는다 — 그것이 owner_id 와 어긋나 owner 행이 둘 생긴 원인이었다.
+    """
+    owner = str(album.get("owner_id") or "").strip()
+    if owner:
+        return owner
+    album_id = str(album.get("id") or "").strip()
+    if not album_id:
+        return ""
+    result = client.table("albums").select("owner_id").eq("id", album_id).limit(1).execute()
+    rows = result.data or []
+    return str((rows[0].get("owner_id") if rows else "") or "").strip()
+
+
+def ensure_owner_contributor(client: Client, album: dict[str, Any], actor_id: str) -> dict[str, Any]:
+    """이 사람의 참여자 행을 보장한다. role 은 **앨범의 소유자인지**로 정한다.
+
+    예전에는 호출자가 넘긴 사람을 무조건 role='owner' 로 넣었고, 호출부 3곳이 서로 다른
+    것을 소유자로 넘겨서(업로드한 계정 / created_by / owner_id) owner_id 와 created_by 가
+    어긋난 앨범에 owner 행이 **두 개** 생겼다(f9572069). 소유자는 하나다.
+
+    소유자가 아직 없는 앨범(게스트가 만든 것 — claim 전)은 호출자를 소유자로 본다.
+    """
     album_id = str(album["id"])
     existing = (
         client.table("album_contributors")
         .select("*")
         .eq("album_id", album_id)
-        .eq("user_id", owner_id)
+        .eq("user_id", actor_id)
         .eq("status", "active")
         .limit(1)
         .execute()
@@ -292,17 +318,19 @@ def ensure_owner_contributor(client: Client, album: dict[str, Any], owner_id: st
     if existing.data:
         return existing.data[0]
 
-    profile = client.table("profiles").select("display_name").eq("id", owner_id).limit(1).execute()
+    profile = client.table("profiles").select("display_name").eq("id", actor_id).limit(1).execute()
     name = "앨범 주인"
     if profile.data:
         name = (profile.data[0].get("display_name") or "").strip() or name
 
+    owner_id = _album_owner_id(client, album)
+    is_owner = not owner_id or owner_id == str(actor_id)
     row = {
         "album_id": album_id,
-        "user_id": owner_id,
+        "user_id": actor_id,
         "guest_id": None,
         "display_name": name[:40],
-        "role": "owner",
+        "role": "owner" if is_owner else "contributor",
         "status": "active",
     }
     inserted = client.table("album_contributors").insert(row).execute()
