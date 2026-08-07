@@ -56,3 +56,25 @@ test("헤더 높이는 한 규칙이 정한다 — 모든 화면 52px", () => {
     assert.doesNotMatch(read(file), /\.app__header\b|\.album-screen__hdr\b/, `${file}: 옛 헤더 규칙 잔재`);
   }
 });
+
+// ★ 높이만 재면 놓친다 — 실기기에서는 **바깥 컨테이너** 때문에 화면마다 위 여백과 좌우
+// 들여쓰기가 달라 보였다(.app: padding 24px 16px, max-width 480px). 위치와 좌우 여백까지
+// 계약으로 잠근다.
+test("헤더는 페이지 컨테이너 밖에 있다 — 컨테이너 여백이 헤더에 걸리지 않는다", () => {
+  const app = read("App.tsx");
+  // 헤더가 .app 컨테이너보다 **먼저**, 그 바깥에 온다.
+  const headerAt = app.indexOf("{!adminRoute ? <AppHeader /> : null}");
+  const containerAt = app.indexOf('<div className={adminRoute ? "app app--album admin-app"');
+  assert.ok(headerAt > -1 && containerAt > -1, "둘 다 있어야 한다");
+  assert.ok(headerAt < containerAt, "헤더가 컨테이너 밖(앞)에 있어야 한다");
+});
+
+test("헤더 막대는 화면 좌우 끝까지 닿는다 — 안쪽 내용만 모은다", () => {
+  const css = read("components/AppChrome.css");
+  const header = css.slice(css.indexOf(".app-header {"), css.indexOf("}", css.indexOf(".app-header {")));
+  assert.match(header, /width: 100%/);
+  // 넓은 화면에서 내용을 모으는 것은 padding 으로 한다(margin auto 로 막대를 줄이지 않는다).
+  assert.match(header, /padding: 4px max\(16px, calc\(\(100% - 900px\) \/ 2\)\)/);
+  assert.doesNotMatch(header, /margin: 0 auto/);
+  assert.doesNotMatch(header, /max-width/);
+});

@@ -316,10 +316,13 @@ function App() {
   ) : null;
 
   return (
+    <>
+    {/* ★ 헤더는 페이지 컨테이너(.app) **밖**에 둔다. 컨테이너는 화면마다 다른 여백·
+        최대 너비·배경을 갖고 있어서, 안에 두면 같은 컴포넌트인데도 화면마다 위 여백과
+        좌우 들여쓰기가 달라 보인다(실기기에서 그렇게 보였다). 밖에 두면 어느 화면에서든
+        화면 좌우 끝까지 닿고 위 여백이 없다. */}
+    {!adminRoute ? <AppHeader /> : null}
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
-      {/* 상단은 화면당 하나(AppHeader). 앨범 상세·공유는 AlbumScreen 이 자체 헤더로
-          같은 블록을 렌더링하므로 여기서는 내지 않는다 — 두 겹 방지. */}
-      {!adminRoute ? <AppHeader /> : null}
       {/* 우측 slot: §3 표. 참여 화면은 비우고, 앨범 화면은 자기 것을 채운다. */}
       {!adminRoute && !albumOwnsHeaderSlot && !isJoinSurface ? <HeaderRight>{accountEntry}</HeaderRight> : null}
       <main className="app__main">
@@ -381,6 +384,7 @@ function App() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }
 

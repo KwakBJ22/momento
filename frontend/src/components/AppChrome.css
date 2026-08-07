@@ -15,12 +15,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  width: min(100%, 900px);
-  margin: 0 auto;
+  /* ★ 막대는 화면 좌우 끝까지 닿는다(어느 화면에서든 top 0, 좌우 0). 안쪽 내용만
+     넓은 화면에서 900px 로 모은다 — 페이지 컨테이너의 여백에 기대지 않는다. */
+  width: 100%;
   /* 높이는 모든 화면에서 같고, 좁은 쪽으로 맞춘다(모바일 우선). 브랜드를 한 줄로
      줄였고 상하 여백을 최소로 둔다 — 44px 누르는 영역은 그대로 유지한다. */
   min-height: 52px;
-  padding: 4px 16px;
+  padding: 4px max(16px, calc((100% - 900px) / 2));
   border-bottom: 1px solid var(--c-border);
   background: var(--c-bg);
 }
