@@ -68,3 +68,33 @@ test("공유 화면은 능력에 따라 네비를 고른다 — 구경꾼이면 
   // 한마디 남기기는 방명록 구역으로 내려간다(§4 라벨=행동, 구역=이름).
   assert.match(view, /onAddMemory: \(\) => guestbookRef\.current\?\.scrollIntoView/);
 });
+
+// SCREEN_SPEC §5 — 공유 앨범 화면에도 ⋯ 시트가 있어야 한다. 없으면 공유 링크로 들어온
+// 참여자가 PDF·함께한 사람에 아예 접근할 수 없다. 앨범 상세의 시트를 재사용한다.
+test("공유 앨범에도 같은 ⋯ 시트가 있다 — 새로 만들지 않고 재사용", () => {
+  const share = read("components/PublicShareView.tsx");
+  const detail = read("components/AlbumView.tsx");
+  // 두 화면이 같은 컴포넌트를 쓴다(시트 markup 이 두 벌 존재하지 않는다).
+  for (const [name, source] of [["PublicShareView", share], ["AlbumView", detail]] as const) {
+    assert.match(source, /import AlbumMoreSheet from ".\/AlbumMoreSheet"/, `${name}: 공용 시트 사용`);
+    assert.match(source, /<AlbumMoreSheet\b/, `${name}: 시트 렌더링`);
+    assert.doesNotMatch(source, /aria-label="더보기"/, `${name}: 시트 markup 이 남아 있으면 안 된다`);
+  }
+  // 헤더 ⋯ 버튼이 공유 화면에도 있다.
+  assert.match(share, /onMore=\{\(\) => setMoreOpen\(true\)\}/);
+});
+
+test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
+  const share = read("components/PublicShareView.tsx");
+  const sheet = share.slice(share.indexOf("<AlbumMoreSheet"), share.indexOf("/>", share.indexOf("<AlbumMoreSheet")));
+  // 주최자 전용 행(표지 바꾸기·새 앨범·지우기)은 공유 화면에 없다.
+  assert.match(sheet, /canEdit=\{false\}/);
+  assert.match(sheet, /canDelete=\{false\}/);
+  assert.doesNotMatch(sheet, /onChangeCover|onDeleteAlbum/);
+  // 참여자에게 필요한 두 가지 — 함께한 사람 · PDF.
+  assert.match(sheet, /contributorCount=\{album\.contributor_count \?\? null\}/);
+  assert.match(sheet, /onExportPdf=/);
+  // PDF 실패를 조용히 삼키지 않는다(§11) — 앨범 상세와 같은 문구 모듈.
+  assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
+  assert.match(share, /\{pdfNotice \? <p className="album-inline-action__error" role="status">/);
+});

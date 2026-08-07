@@ -3,7 +3,10 @@ import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
+import { downloadAlbumPdf } from "../lib/exportPdf";
+import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import AlbumGuestbook from "./AlbumGuestbook";
+import AlbumMoreSheet from "./AlbumMoreSheet";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
@@ -109,6 +112,11 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
   // 하단 "한마디 남기기"가 방명록 구역으로 스크롤한다(§4·§7 진입 규칙).
   const guestbookRef = useRef<HTMLDivElement | null>(null);
+  // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
+  // 참여자가 PDF·함께한 사람에 아예 접근할 수 없다.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
   // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
   const canContribute = album?.can_contribute === true;
@@ -398,6 +406,21 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           );
         })}
       </section>
+      {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => setMoreOpen(false)} /> : null}
+      {moreOpen ? (
+        <AlbumMoreSheet
+          onClose={() => setMoreOpen(false)}
+          canEdit={false}
+          canDelete={false}
+          photoCount={(album.photos || []).length}
+          contributorCount={album.contributor_count ?? null}
+          albumId={albumId || ""}
+          onExportPdf={() => { void handleSharePdf(); }}
+          isExportingPdf={isExportingPdf}
+          showAbsentNotice={canContribute}
+        />
+      ) : null}
+      {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
           하단 "한마디 남기기"가 이 구역으로 내려온다(§4: 버튼은 행동, 구역은 이름). */}
       <div ref={guestbookRef}>
@@ -443,11 +466,38 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     </div>
   );
   const editionLink = album.edition_is_latest === false ? <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p> : album.edition_previous ? <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p> : null;
+  // 공유 화면의 PDF 저장 — 앨범 상세와 같은 전달·문구 규칙을 쓴다(§11: 조용히 실패하지 않는다).
+  const handleSharePdf = async () => {
+    if (!album) return;
+    setIsExportingPdf(true);
+    setPdfNotice(null);
+    try {
+      const delivery = await downloadAlbumPdf({
+        albumId: album.album_id,
+        albumVersion: 0,
+        title: album.title,
+        photos: (album.photos || []) as AlbumPhoto[],
+        epilogue: album.epilogue ?? album.narrative ?? "",
+        coverDateLabel: album.date,
+        category: album.category,
+        templateType: album.template_type,
+        chapterStories: album.chapter_stories,
+        coverPhotoId: album.cover_photo_id,
+        livingAppendPages: album.living_append_pages,
+      });
+      setPdfNotice(pdfSuccessMessage(delivery));
+    } catch (error) {
+      setPdfNotice(pdfFailureMessage(error));
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   // 비로그인 구경꾼에게는 헤더 우측에 `로그인`(§3). 이 화면이 서비스의 첫인상이다.
   const headerRight = !authenticatedUser && onLogin
     ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
     : undefined;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={() => setMoreOpen(true)} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

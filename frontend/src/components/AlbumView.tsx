@@ -4,7 +4,7 @@ import { AlbumRenderer } from "../album-engine";
 
 import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoComment, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
-import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
@@ -16,6 +16,7 @@ import CollaborationPanel, { ensureAlbumInviteUrl } from "./CollaborationPanel";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
 import AlbumGuestbook from "./AlbumGuestbook";
+import AlbumMoreSheet from "./AlbumMoreSheet";
 
 import type { AlbumPhoto, AlbumResult } from "../types";
 
@@ -623,34 +624,21 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { setMoreOpen(false); setShareOpen(false); }} /> : null}
       {moreOpen ? (
-        <section className="album-inline-action album-more-sheet" aria-label="더보기">
-          <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setMoreOpen(false)}>닫기</button></div>
-          <div className="album-inline-action__body album-more-sheet__list">
-            {/* 최상단 = 계정(이름·이메일 + 로그아웃·회원 탈퇴) / 게스트는 "로그인". */}
-            {accountSheet}
-            {/* 목업 화면 3 그대로: 60px 목록 행 + 보조 라벨. 권한은 810af18 서버 플래그
-                (표지·참여자 = can_edit, 지우기 = can_delete). 제목 고치기는 없음. */}
-            {displayAlbum?.can_edit && photos.length ? <button type="button" className="album-more-sheet__row" onClick={() => { setMoreOpen(false); setCoverPickerRequest((value) => value + 1); }}><span>표지 사진 바꾸기</span></button> : null}
-            {/* 소유자 "함께 만든 사람" / 참여자 "함께한 사람"(목업 3a) — 인원 수 출처가 다르다. */}
-            {displayAlbum?.can_edit
-              ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign(`/album/${albumId}/participants`)}><span>함께 만든 사람</span>{contributorCount !== null ? <em>{contributorCount}명</em> : null}</button>
-              : participation ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign(`/album/${albumId}/participants`)}><span>함께한 사람</span><em>{participation.contributor_count}명</em></button> : null}
-            {/* PDF 초과 시: opacity 로 흐리지 않고(대비 2.1:1) 라벨은 subtle, 이유는 warning. */}
-            {photos.length > PDF_PHOTO_SAFE_LIMIT
-              ? <><div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_REASON}</em></div>
-              {/* 예약 슬롯(4a·③): 지금은 숫자 사실만 — 어떤 것도 예고하지 않는다.
-                  다른 저장 방법이 실제로 생기면 같은 자리에 그 안내가 들어간다. */}
-              <p className="album-more-sheet__slot">이 앨범 사진 {photos.length}장 · 한 파일 {PDF_PHOTO_SAFE_LIMIT}장</p></>
-              : <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { setMoreOpen(false); void handlePdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button>}
-            {/* 참여자의 내 앨범 만들기는 하단 네비 3번째 칸으로 이동(4a) — 시트에서는 소유자만. */}
-            {displayAlbum?.can_edit ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign("/")}><span>새 앨범 만들기</span><em>이 앨범은 그대로 있어요</em></button> : null}
-            {displayAlbum?.can_delete ? <>
-              <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" disabled={isDeleting} onClick={() => { setMoreOpen(false); void handleDeleteAlbum(); }}><span>{isDeleting ? "지우는 중..." : "이 앨범 지우기"}</span></button>
-              <p className="album-more-sheet__safe">지우기 전에 한 번 더 물어봐요. 실수로 지워지지 않아요.</p>
-            </> : null}
-            {!displayAlbum?.can_edit && participation ? <div className="album-more-sheet__absent"><h3>여기에 없는 것</h3><p>제목·표지 바꾸기, 공유하기, 앨범 지우기는 <b>앨범을 만든 사람</b>만 할 수 있어요. 내가 더한 사진과 한마디는 내가 지울 수 있어요.</p></div> : null}
-          </div>
-        </section>
+        <AlbumMoreSheet
+          onClose={() => setMoreOpen(false)}
+          accountSheet={accountSheet}
+          canEdit={Boolean(displayAlbum?.can_edit)}
+          canDelete={Boolean(displayAlbum?.can_delete)}
+          photoCount={photos.length}
+          contributorCount={displayAlbum?.can_edit ? contributorCount : participation?.contributor_count ?? null}
+          albumId={albumId}
+          onChangeCover={() => setCoverPickerRequest((value) => value + 1)}
+          onExportPdf={() => { void handlePdf(); }}
+          isExportingPdf={isExportingPdf}
+          onDeleteAlbum={() => { void handleDeleteAlbum(); }}
+          isDeleting={isDeleting}
+          showAbsentNotice={!displayAlbum?.can_edit && Boolean(participation)}
+        />
       ) : null}
       {shareOpen ? (
         <section className="album-inline-action album-share-sheet" aria-label="공유하기">

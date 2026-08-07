@@ -240,6 +240,8 @@ export interface LivingAppendPage {
 
 export interface PublicShareAlbum {
   album_id: string;
+  /** 함께한 사람 수 — 더보기 시트 행(§5). */
+  contributor_count?: number;
   /** 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가. 백엔드가 내려주는 값이며
    *  프런트는 링크 종류를 알지 않는다(SCREEN_SPEC §1). 값이 없으면 보수적으로 구경꾼. */
   can_contribute?: boolean;

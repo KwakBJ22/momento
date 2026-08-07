@@ -153,11 +153,15 @@ test("owner-only actions hide behind server capability flags; PDF stays for part
   // backend derived from AlbumAccess. Backend checks stay (2중 방어). The actions now
   // live in the 공유하기/더보기 sheets (목업 2a), not in a bottom button row.
   assert.match(source, /requestedEdition === null && displayAlbum\?\.can_edit \? <CollaborationPanel/);
-  const moreSheet = source.split('className="album-inline-action album-more-sheet"')[1].split("</section>")[0];
-  assert.match(moreSheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,240}표지 사진 바꾸기/);
-  assert.match(moreSheet, /displayAlbum\?\.can_delete[\s\S]{0,340}이 앨범 지우기/);
+  // 시트는 공용 컴포넌트(AlbumMoreSheet)로 옮겼다 — 앨범 상세와 공유 앨범이 같은 것을
+  // 쓴다(§5). 호출자는 서버 플래그를 그대로 넘기기만 한다.
+  assert.match(source, /canEdit=\{Boolean\(displayAlbum\?\.can_edit\)\}/);
+  assert.match(source, /canDelete=\{Boolean\(displayAlbum\?\.can_delete\)\}/);
+  const moreSheet = readFileSync(new URL("../src/components/AlbumMoreSheet.tsx", import.meta.url), "utf8");
+  assert.match(moreSheet, /canEdit && photoCount && onChangeCover[\s\S]{0,200}표지 사진 바꾸기/);
+  assert.match(moreSheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   // PDF row is NOT gated by can_edit/can_delete — participants keep it.
-  assert.doesNotMatch(moreSheet, /can_edit[^\n]*파일로 저장하기/);
+  assert.doesNotMatch(moreSheet, /canEdit[^\n]*파일로 저장하기/);
   const shareSheet = source.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
   // 초대 카드(함께 만들기)는 소유자(can_edit)만.
   assert.match(shareSheet, /displayAlbum\?\.can_edit \? <>/);

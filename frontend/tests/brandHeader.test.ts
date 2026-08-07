@@ -94,9 +94,10 @@ test("앨범 상세 헤더 우측은 컨트롤 2개 — [내 앨범] + [⋯]", (
   // 계정 원은 헤더 밖에 두지 않는다.
   assert.doesNotMatch(right, /accountSlot|app__account/);
   assert.equal((right.match(/<a |<button /g) || []).length, 2);
-  // 계정 행은 ⋯ 시트 최상단에 들어간다.
-  const view = read("components/AlbumView.tsx");
-  assert.match(view, /album-more-sheet__list">\s*\{\/\*[\s\S]{0,90}\*\/\}\s*\{accountSheet\}/);
+  // 계정 행은 ⋯ 시트 최상단에 들어간다(시트는 공용 컴포넌트 — 앨범 상세·공유가 함께 쓴다).
+  const sheet = read("components/AlbumMoreSheet.tsx");
+  assert.match(sheet, /album-more-sheet__list">\s*\{\/\*[\s\S]{0,90}\*\/\}\s*\{accountSheet\}/);
+  assert.match(read("components/AlbumView.tsx"), /accountSheet=\{accountSheet\}/);
 });
 
 test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제거됐다", () => {

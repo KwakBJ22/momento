@@ -41,19 +41,20 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
   const screen = read("components/AlbumScreen.tsx");
   // 목업 hdr__more: 텍스트 필 버튼(아이콘 아님).
   assert.match(screen, /className="album-screen__more" aria-label="더보기"[\s\S]{0,60}MoreHorizontal/);
-  const view = read("components/AlbumView.tsx");
-  const sheet = view.split('className="album-inline-action album-more-sheet"')[1].split("</section>")[0];
-  assert.match(sheet, /displayAlbum\?\.can_edit && photos\.length[\s\S]{0,240}표지 사진 바꾸기/);
-  // 소유자 "함께 만든 사람"(상태 조회 수) / 참여자 "함께한 사람"(participation 수) 분기.
-  assert.match(sheet, /displayAlbum\?\.can_edit[\s\S]{0,340}함께 만든 사람/);
-  assert.match(sheet, /participation \? <button[\s\S]{0,260}함께한 사람/);
-  assert.match(sheet, /<em>\{participation\.contributor_count\}명<\/em>/);
+  // 시트는 공용 컴포넌트다(앨범 상세·공유 앨범이 같은 것을 쓴다 — §5).
+  const sheet = read("components/AlbumMoreSheet.tsx");
+  assert.match(sheet, /canEdit && photoCount && onChangeCover[\s\S]{0,200}표지 사진 바꾸기/);
+  // 소유자 "함께 만든 사람" / 참여자 "함께한 사람" — 라벨만 다르고 행은 하나다.
+  assert.match(sheet, /canEdit \? "함께 만든 사람" : "함께한 사람"/);
+  assert.match(sheet, /<em>\{contributorCount\}명<\/em>/);
   // 참여자의 "내 앨범 만들기"는 하단 칸으로 나갔으므로 시트에는 소유자 행만.
-  assert.match(sheet, /displayAlbum\?\.can_edit \? <button[\s\S]{0,200}<span>새 앨범 만들기<\/span><em>이 앨범은 그대로 있어요<\/em>/);
+  assert.match(sheet, /canEdit \? <button[\s\S]{0,200}<span>새 앨범 만들기<\/span><em>이 앨범은 그대로 있어요<\/em>/);
+  // 호출자가 서버 플래그를 그대로 넘긴다.
+  assert.match(read("components/AlbumView.tsx"), /canEdit=\{Boolean\(displayAlbum\?\.can_edit\)\}/);
   // PDF 초과: 이유를 사람 말로 + 예약 슬롯(숫자 사실만).
   assert.match(sheet, /album-more-sheet__row--off[\s\S]{0,200}\{PDF_BLOCKED_REASON\}/);
-  assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photos\.length\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);
-  assert.match(sheet, /displayAlbum\?\.can_delete[\s\S]{0,340}이 앨범 지우기/);
+  assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photoCount\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);
+  assert.match(sheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   assert.match(sheet, /지우기 전에 한 번 더 물어봐요\. 실수로 지워지지 않아요\./);
   // 참여자: 없는 기능을 감추지 않고 이유와 함께 적는다(absent 카드).
   assert.match(sheet, /여기에 없는 것/);

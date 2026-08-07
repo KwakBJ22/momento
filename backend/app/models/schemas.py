@@ -325,6 +325,8 @@ class PublicShareAlbumResponse(BaseModel):
     # Anonymous per-album aggregate, e.g. {"love": 3, "moved": 1, "smile": 0}.
     reaction_counts: dict[str, int] = Field(default_factory=dict)
     guestbook: list[GuestbookItem] = Field(default_factory=list)
+    # 함께한 사람 수 — 공유 화면의 더보기 시트 행(§5). 이미 조회한 참여자 목록에서 센다.
+    contributor_count: int = 0
     # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
     # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
     can_contribute: bool = True
