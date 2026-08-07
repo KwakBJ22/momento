@@ -96,6 +96,15 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
   const [photoCommentSaveError, setPhotoCommentSaveError] = useState<string | null>(null);
   // 남의 사진 캡션을 열기 전 확인 단계(§7). window.confirm 을 쓰지 않는다 — 웹뷰에서 막힌다.
+  // 게스트 주최자의 저장 안내(§1). 앨범이 막 만들어진 직후 한 번 크게 보여주고, 닫아도
+  // 하단 CTA 로 언제든 다시 찾을 수 있다 — 이 진입점을 잃으면 사용자가 앨범을 잃는다.
+  const [guestSaveHidden, setGuestSaveHidden] = useState(() => {
+    try { return sessionStorage.getItem(`momento-guest-save-dismissed:${albumId}`) === "1"; } catch { return false; }
+  });
+  const dismissGuestSave = () => {
+    setGuestSaveHidden(true);
+    try { sessionStorage.setItem(`momento-guest-save-dismissed:${albumId}`, "1"); } catch { /* 저장 실패해도 화면은 닫힌다 */ }
+  };
   // 앨범 지우기 확인 — window.confirm 을 쓰지 않는다(§11). 시트로 묻는다.
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [confirmingCaptionPhotoId, setConfirmingCaptionPhotoId] = useState<string | null>(null);
@@ -687,6 +696,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // account, so we lead them to "저장하기" (login → claim). PDF stays (client-side).
   const albumActions = guestOwner ? (
     <div className="album-result__actions">
+      {/* 닫아도 남는 진입점(§1) — 큰 안내를 닫은 뒤에도 여기서 저장할 수 있다. */}
       <button type="button" className="btn btn--primary" onClick={() => onGuestSave?.()}>내 앨범으로 저장하기</button>
       <div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album || photos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>{photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}</div>
     </div>
@@ -707,6 +717,19 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       <p>사진 {missingCaptionCount}장에 아직 한마디가 없어요. <button type="button" className="album-caption-notice__link" onClick={() => void openContribution("memory")}>채우러 가기</button></p>
     </div>
   ) : null;
+  // §1 저장 안내 — 명령이 아니라 물음이다. "로그인하세요"·"가입하세요"라고 쓰지 않는다:
+  // 사용자는 로그인을 하고 싶은 게 아니라 앨범을 잃고 싶지 않은 것이다. 얻는 것을 말한다.
+  const guestSaveCard = guestOwner && !guestSaveHidden ? (
+    <div className="album-guest-save">
+      <p className="album-guest-save__title">이 앨범을 내 앨범으로 저장할까요?</p>
+      <p className="album-guest-save__copy">저장해 두면 다음에도 이 앨범을 찾을 수 있어요.</p>
+      <div className="album-guest-save__actions">
+        <button type="button" className="btn btn--primary" onClick={() => onGuestSave?.()}>저장하기</button>
+        <button type="button" className="album-guest-save__close" onClick={dismissGuestSave}>나중에</button>
+      </div>
+    </div>
+  ) : null;
+
   const whoamiBand = participation ? (
     <div className="album-whoami">
       <span className="album-whoami__face" aria-hidden="true">{((participation.display_name || "함")[0])}</span>
@@ -735,7 +758,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     </div>
   ) : null;
   const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

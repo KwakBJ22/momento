@@ -797,3 +797,12 @@ a.btn {
     grid-column: 1 / -1;
   }
 }
+
+/* 게스트 주최자의 저장 안내(SCREEN_SPEC §1) — 명령이 아니라 물음이다. 앨범이 막
+   만들어진 직후 제목 위에 한 번 크게 보여주고, 닫아도 하단 CTA 로 다시 찾을 수 있다. */
+.album-guest-save { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-brand-soft); }
+.album-guest-save__title { margin: 0; color: var(--c-text); font-size: 1.05rem; font-weight: 800; line-height: 1.4; }
+.album-guest-save__copy { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; }
+.album-guest-save__actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.album-guest-save__actions .btn { min-height: 48px; padding: 0 20px; }
+.album-guest-save__close { min-height: 48px; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
