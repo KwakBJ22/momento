@@ -35,7 +35,8 @@ test("사진 추가는 label htmlFor 로 연다 — JS 호출 자체가 없다",
   // input 은 화면에 하나, 탭·완료 화면과 무관하게 항상 존재한다(label 이 가리킬 대상).
   assert.match(workspace, /const PHOTO_INPUT_ID = "contribute-photo-input";/);
   assert.equal((workspace.match(/id=\{PHOTO_INPUT_ID\}/g) || []).length, 1);
-  assert.equal((workspace.match(/htmlFor=\{PHOTO_INPUT_ID\}/g) || []).length, 2); // 시트 버튼 + 완료 화면
+  // 완료 안내 상자를 없앤 뒤(§11) 남는 label 은 시트의 "사진 추가하기" 하나다.
+  assert.equal((workspace.match(/htmlFor=\{PHOTO_INPUT_ID\}/g) || []).length, 1);
   // 시트가 열릴 때 자동으로 여는 코드가 없다.
   assert.doesNotMatch(workspace, /requestAnimationFrame\([^)]*click/);
 });

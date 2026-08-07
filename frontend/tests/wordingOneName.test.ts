@@ -58,3 +58,15 @@ test("변수·필드 이름은 그대로 둔다 (보이지 않는 자리)", () =
   // 이름을 바꾸는 작업이 아니다 — 문자열만 바꿨다는 것을 못 박는다.
   assert.match(view, /memory_count/);
 });
+
+// §11 "한 단계 적게, 한 번 덜 클릭하게" — 남긴 뒤 안내 상자를 띄우지 않는다.
+// 사용자는 자기가 쓴 한마디가 화면에 나타나는 것을 이미 본다.
+test("한마디를 남긴 뒤 안내 상자가 없다 — 그 자리에 머문다", () => {
+  const workspace = readFileSync(new URL("../src/components/ContributeWorkspace.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/components/ContributeWorkspace.css", import.meta.url), "utf8");
+  assert.doesNotMatch(workspace, /contribute__completion|CompletionState|showCompletion|setCompletion/);
+  assert.doesNotMatch(css, /contribute__completion/);
+  // 상자와 함께 사라진 것들: "추억" 문구와 검은 버튼.
+  assert.doesNotMatch(workspace, /방금 남긴 추억을 앨범에서 확인해 보세요/);
+  assert.doesNotMatch(workspace, /앨범에서 확인하기/);
+});

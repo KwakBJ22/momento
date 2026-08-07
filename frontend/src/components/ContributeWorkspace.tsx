@@ -75,11 +75,6 @@ type PreviewSnapshot = {
   photos: WorkspacePhoto[];
 };
 
-type CompletionState = {
-  hasPhoto: boolean;
-  hasMemory: boolean;
-};
-
 function debugTiming(label: string, startedAt: number): void {
   if (import.meta.env.DEV && typeof performance !== "undefined") {
     console.debug(`[Momento] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
@@ -136,7 +131,6 @@ export default function ContributeWorkspace({
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [previewRevision, setPreviewRevision] = useState(-1);
   const [preview, setPreview] = useState<PreviewSnapshot | null>(null);
-  const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [latestPhotoId, setLatestPhotoId] = useState<string | null>(null);
   const [activeParticipantItem, setActiveParticipantItem] = useState<"album" | "photo" | "memory">("album");
   const latestPhotoRef = useRef<HTMLElement | null>(null);
@@ -169,12 +163,9 @@ export default function ContributeWorkspace({
     freshTimerRef.current = window.setTimeout(() => setNewItemIds([]), 4500);
   }, []);
 
-  const showCompletion = useCallback((next: CompletionState) => {
-    setCompletion((current) => ({
-      hasPhoto: Boolean(current?.hasPhoto || next.hasPhoto),
-      hasMemory: Boolean(current?.hasMemory || next.hasMemory),
-    }));
-  }, []);
+  // 남긴 뒤 안내 상자를 띄우지 않는다(§11 "한 단계 적게"). 사용자는 자기가 쓴 한마디가
+  // 화면에 나타나는 것을 이미 본다 — 한 번 더 알리고 다음 행동을 고르라고 묻지 않는다.
+  // 남긴 자리에 그대로 머문다.
 
   const reload = useCallback(async () => {
     if (initialWorkspace) return;
@@ -250,8 +241,7 @@ export default function ContributeWorkspace({
       created_at: photo.created_at || new Date().toISOString(),
       thumbnail_url: photo.thumbnail_url || photo.original_url || null,
     })));
-    showCompletion({ hasPhoto: true, hasMemory: false });
-  }, [markFresh, onContributionAdded, session?.displayName, showCompletion, showToast]);
+  }, [markFresh, onContributionAdded, session?.displayName, showToast]);
 
   const uploadPending = useCallback(async (items: PendingUpload[]) => {
     if (!session || !items.length) return;
@@ -352,7 +342,6 @@ export default function ContributeWorkspace({
       setLatestPhotoId(photoId);
       markFresh([memory.id]);
       showToast("한마디를 남겼어요.");
-      showCompletion({ hasPhoto: false, hasMemory: true });
       onContributionAdded?.([{
         id: memory.id,
         type: "memory",
@@ -436,7 +425,6 @@ export default function ContributeWorkspace({
 
   /** 파일 선택창을 열기 전에 화면 상태만 정리한다(선택창 자체는 label 이 연다). */
   const prepareForPhotoPick = () => {
-    setCompletion(null);
     setTab("photos");
     setActiveParticipantItem("photo");
   };
@@ -449,7 +437,6 @@ export default function ContributeWorkspace({
   };
 
   const openMemoryEditor = (targetPhotoId?: string) => {
-    setCompletion(null);
     setTab("photos");
     setActiveParticipantItem("memory");
     const photoId = targetPhotoId || latestPhotoId || workspace?.photos?.[0]?.id || null;
@@ -462,21 +449,7 @@ export default function ContributeWorkspace({
     window.requestAnimationFrame(() => draftInputRef.current?.focus());
   };
 
-  const viewAddedItems = () => {
-    setCompletion(null);
-    setActiveParticipantItem("album");
-    if (embedded) {
-      document.querySelector<HTMLElement>(".album-screen__book")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    setTab("photos");
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(".contribute__card--fresh")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-  };
-
   const viewParticipantAlbum = () => {
-    setCompletion(null);
     setActiveParticipantItem("album");
     participantRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -641,25 +614,6 @@ export default function ContributeWorkspace({
         </div>
       ) : null}
 
-      {completion ? (
-        <section className="contribute__completion" role="status" aria-live="polite">
-          <button type="button" className="contribute__completion-close" aria-label="완료 안내 닫기" onClick={() => setCompletion(null)}>×</button>
-          <p className="contribute__completion-title">
-            {completion.hasPhoto && completion.hasMemory
-              ? "사진과 한마디를 남겼어요."
-              : completion.hasPhoto
-                ? "사진이 추가되었습니다."
-                : "한마디를 남겼어요."}
-          </p>
-          <p className="contribute__completion-copy">방금 남긴 추억을 앨범에서 확인해 보세요.</p>
-          <div className="contribute__completion-actions">
-            <button type="button" className="contribute__completion-primary" onClick={viewAddedItems}>앨범에서 확인하기</button>
-            {completion.hasPhoto
-              ? <label className="contribute__completion-secondary" htmlFor={PHOTO_INPUT_ID} onClick={prepareForPhotoPick}>사진 더 추가하기</label>
-              : <button type="button" className="contribute__completion-secondary" onClick={() => openMemoryEditor()}>한마디 더 남기기</button>}
-          </div>
-        </section>
-      ) : null}
       {pendingMemoryDelete ? (
         <ConfirmSheet
           title="이 한마디를 지울까요?"
