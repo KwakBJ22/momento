@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
+import BrandMark from "./components/BrandMark";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
@@ -15,7 +16,7 @@ import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
 import { waitForAlbumAssets } from "./waitForAlbumAssets";
 import "./AlbumRenderer.css";
-import { BRAND_PDF_FOOTER } from "../lib/brand";
+import { BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
 export { waitForAlbumAssets } from "./waitForAlbumAssets";
@@ -288,8 +289,9 @@ export default function AlbumRenderer({
 
   const brandFooter = (
     <footer className="album-renderer__brand-footer">
+      <BrandMark label={BRAND_NAME_KO} />
       <p>{BRAND_PDF_FOOTER}</p>
-      {mode === "screen" ? <a href="/">가족과 함께 추억을 이어가 보세요.</a> : <p>가족과 함께 추억을 이어가 보세요.</p>}
+      {mode === "screen" ? <a href="/">{BRAND_PDF_INVITE}</a> : <p>{BRAND_PDF_INVITE}</p>}
     </footer>
   );
 
@@ -454,8 +456,9 @@ export default function AlbumRenderer({
             </section>
           ))}
           <footer className="album-renderer__brand-footer">
+            <BrandMark label={BRAND_NAME_KO} />
             <p>{BRAND_PDF_FOOTER}</p>
-            <a href="/">가족과 함께 추억을 이어가 보세요.</a>
+            <a href="/">{BRAND_PDF_INVITE}</a>
           </footer>
         </div>
         </DateStoryEditProvider>

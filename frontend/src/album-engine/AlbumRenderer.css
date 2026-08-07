@@ -335,3 +335,26 @@
 .album-renderer--screen .album-living-page__new,
 .album-renderer--screen .album-living-page__photos figcaption,
 .album-renderer--screen .album-renderer__brand-footer { font-size: var(--t-xs); }
+
+/* 브랜드 표시(로고 + 이름). 사진이 주인공이므로 작게 둔다 — 본문 글자보다 크지 않다.
+   색은 tokens.css 값만 쓴다(--c-brand: 아이콘, --c-text-soft: 상속받는 글자색). */
+.album-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  margin-bottom: 0.4rem;
+}
+
+.album-brand-mark__icon {
+  width: 14px;
+  height: 14px;
+  color: var(--c-brand);
+  flex: none;
+}
+
+.album-brand-mark__word {
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  color: var(--c-brand-text);
+}

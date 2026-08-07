@@ -20,6 +20,11 @@ export const BRAND_NAME_EN = "woorialbum";
  *  무료 PDF 전용이라는 결정은 그대로 유지한다(docs/PRINT_LAYOUT.md §8). */
 export const BRAND_PDF_FOOTER = `이 추억은 ${BRAND_NAME_KO}에서 함께 만들었습니다.`;
 
+/** PDF·화면 마지막 줄, 브랜드 표시 아래 한 줄. docs/PRINT_LAYOUT.md §8 의 "우리도
+ *  만들어볼까?" 방향 — 읽는 사람이 자기도 만들 수 있다는 것을 알게 하되, 없는 것을
+ *  약속하지 않는다("곧"·"준비 중"·"가입하면" 금지). 주소는 적지 않는다(도메인 미확정). */
+export const BRAND_PDF_INVITE = "우리 가족의 앨범도 이렇게 만들 수 있어요.";
+
 /** 카카오 공유 카드 제목 등, 앨범 제목이 없을 때 쓰는 기본 이름. */
 export const BRAND_SHARE_FALLBACK_TITLE = BRAND_NAME_KO;
 
