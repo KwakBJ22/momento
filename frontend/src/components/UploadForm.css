@@ -260,16 +260,18 @@
   .upload-form__preparing-bar span { transition: none; }
 }
 
+/* 주 버튼 기준값(B-6): 56 / 18px / 800 / brand-action / radius 12.
+   예전에는 59.2×19.2×radius 16 이라 이 화면만 유독 크게 튀었다. */
 .upload-form__submit {
   width: 100%;
-  min-height: 52px;
-  padding: 1.15rem;
+  min-height: 56px;
+  padding: 0 1rem;
   border: none;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--c-brand-action);
   color: var(--c-surface);
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   cursor: pointer;
   touch-action: manipulation;
   transition: background 0.2s;

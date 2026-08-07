@@ -55,3 +55,12 @@ test("하단 네비의 강조 칸은 버튼 규격에서 제외한다", () => {
   const nav = rule(read("components/AlbumBottomNavigation.css"), ".album-bottom-navigation__share, .album-bottom-navigation__primary");
   assert.doesNotMatch(nav, /min-height: 56px/);
 });
+
+test("업로드 화면의 주 버튼도 같은 기준값이다 (11곳 — 마지막에 따로 바꿨다)", () => {
+  const submit = rule(read("components/UploadForm.css"), ".upload-form__submit");
+  assert.match(submit, /min-height: 56px/);
+  assert.match(submit, /font-size: 18px/);
+  assert.match(submit, /font-weight: 800/);
+  assert.match(submit, /border-radius: 12px/);
+  assert.match(submit, /background: var\(--c-brand-action\)/);
+});
