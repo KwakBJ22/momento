@@ -86,17 +86,21 @@
 /* 주 버튼은 브랜드 액션 색이다. 검은 버튼을 쓰지 않는다.
    !important 를 없앤다 — 있으면 다음에 또 여기만 안 바뀐다(클래스가 단독으로 붙으므로
    덮어쓸 다른 규칙이 없다). */
-.collab-panel__primary {
+/* ★ .collab-panel button (0,1,1) 이 단일 클래스(0,1,0)를 이긴다 — 예전 !important 가
+   있던 이유다. 특이도로 이기게 부모 클래스를 함께 적어 !important 없이 해결한다. */
+.collab-panel .collab-panel__primary,
+.collab-panel__cover-modal .collab-panel__primary {
   width: 100%;
-  min-height: 44px;
+  /* 주 버튼 기준값(B-6): 56 / 18px / 800 / brand-action / radius 12. */
+  min-height: 56px;
   border: 0;
   border-radius: 12px;
   padding: 0 16px;
   background: var(--c-brand-action);
   color: var(--c-surface);
   font: inherit;
-  font-size: var(--t-sm);
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   cursor: pointer;
 }
 

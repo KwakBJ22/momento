@@ -1,0 +1,62 @@
+/* 버튼 정의는 이 파일 한 곳에 있다(B-6). 화면마다 따로 만들지 않는다.
+ *
+ * 주 버튼 기준값(PO 확정): 높이 56 / 글자 18px / 굵기 800 / 배경 --c-brand-action /
+ * 글자 흰색 / 둥글기 12. 근거는 참여 화면(가장 중요한 화면)의 주 버튼이 이미 이 값이고
+ * 목업 확정값이라는 것 — 52 로 잡으면 그 화면이 예외가 되어 또 갈라진다.
+ * 44px 은 누르는 영역 하한이지 주 버튼 크기가 아니다.
+ *
+ * ★ 하단 네비의 강조 칸(album-bottom-navigation__primary)은 이 규격에서 제외한다.
+ *   네비 칸이지 자립 버튼이 아니다(높이 68·radius 0·연한 배경).
+ */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+a.btn {
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.btn__icon {
+  font-size: 1.2rem;
+}
+.btn--kakao {
+  background: var(--c-kakao);
+  color: var(--c-brand-text);
+}
+.btn--secondary {
+  background: var(--c-brand-action);
+  color: var(--c-surface);
+}
+.btn--ghost {
+  background: transparent;
+  color: var(--c-text-muted);
+  border: 1px solid var(--c-border);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.btn--danger { color: var(--c-danger); }
+
+/* 주 버튼 — 화면에서 가장 중요한 한 가지 행동에만 쓴다. */
+.btn--primary {
+  min-height: 56px;
+  background: var(--c-brand-action);
+  color: var(--c-surface);
+  font-size: 18px;
+  font-weight: 800;
+}

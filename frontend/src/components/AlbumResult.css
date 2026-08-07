@@ -1,3 +1,5 @@
+@import "./Button.css";
+
 /* =========================================================
    Album result page shell — responsive web layout
    Root cause of narrow desktop: .app { max-width: 480px }
@@ -108,7 +110,6 @@
 .album-result__back-link { color: var(--c-brand-text); font-size: 0.92rem; font-weight: 700; text-decoration: none; }
 .album-result__back-link:hover { text-decoration: underline; }.album-result__skeleton-stage { min-height: 280px; border-radius: 16px; background: linear-gradient(90deg, var(--c-brand-soft) 25%, var(--c-surface) 50%, var(--c-brand-soft) 75%); background-size: 200% 100%; animation: album-skeleton-shimmer 1.2s infinite; }
 @keyframes album-skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-.btn--danger { color: var(--c-danger); }
 
 .album-result__intro {
   display: grid;
@@ -400,53 +401,12 @@
   line-height: 1.4;
 }
 
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 44px;
-  padding: 0.85rem 1rem;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
-}
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
 
-a.btn {
-  text-decoration: none;
-  box-sizing: border-box;
-}
 
-.btn__icon {
-  font-size: 1.2rem;
-}
 
-.btn--kakao {
-  background: var(--c-kakao);
-  color: var(--c-brand-text);
-}
 
-.btn--secondary {
-  background: var(--c-brand-action);
-  color: var(--c-surface);
-}
 
-.btn--ghost {
-  background: transparent;
-  color: var(--c-text-muted);
-  border: 1px solid var(--c-border);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
 
 /* Legacy .album-result without album-page (AlbumView error states) */
 .album-result:not(.album-page__book) {
