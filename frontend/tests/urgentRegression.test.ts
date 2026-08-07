@@ -71,16 +71,14 @@ test("collaboration validation details stay hidden (관계 칩은 화면에서 �
   assert.doesNotMatch(api, /detail\.map\(\(d/);
 });
 
-test("login dialog uses one visual container with focus and scroll handling", () => {
+test("login dialog uses one visual container (동작은 sheetDialogBehavior 가 본다)", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../src/App.css", import.meta.url), "utf8");
-  assert.match(app, /className="auth-modal"/);
-  assert.match(app, /className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title"/);
-  assert.match(app, /document\.body\.style\.overflow = "hidden"/);
-  assert.match(app, /event\.key === "Escape"/);
-  assert.match(app, /loginReturnFocusRef\.current\?\.focus\(\)/);
+  // 로그인·회원 탈퇴가 같은 대화상자를 쓴다. 상자 하나에 담긴다는 사실만 잠근다.
+  assert.match(app, /<SheetDialog open=\{showLogin\} labelledBy="auth-dialog-title"/);
   assert.match(app, /<AuthPanel titleId="auth-dialog-title" \/>/);
-  assert.match(css, /\.auth-modal \.auth-panel \{[\s\S]*padding: 0;[\s\S]*border: 0;/);
+  // 상자 안에서는 인증 패널이 자기 테두리를 걷어낸다(상자가 이미 테두리를 갖는다).
+  assert.match(css, /\.sheet-dialog \.auth-panel \{[\s\S]*padding: 0;[\s\S]*border: 0;/);
   assert.match(css, /\.auth-modal__later \{[\s\S]*width: auto;[\s\S]*border: 0;/);
 });
 

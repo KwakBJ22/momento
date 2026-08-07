@@ -48,10 +48,11 @@ test("inline participation sheet pins the header and scrolls only the body", () 
 // [1] Every body-scroll-lock path must release on close/unmount (the past freeze was a
 // lock left on). Both known locks are guarded and restore the previous overflow.
 test("both body scroll locks are guarded and release the previous overflow on cleanup", () => {
-  for (const file of ["App.tsx", "components/CollaborationPanel.tsx"]) {
+  // App 의 대화상자 잠금은 sheetDialogBehavior 가 실제 렌더로 확인한다(위치를 잠그지 않는다).
+  for (const file of ["components/CollaborationPanel.tsx"]) {
     const source = read(file);
-    // guarded: the effect returns early unless the modal/picker is open
-    assert.match(source, /if \(!(showLogin|coverPickerOpen)\) return;/);
+    // guarded: the effect returns early unless the picker is open
+    assert.match(source, /if \(!coverPickerOpen\) return;/);
     // captures the previous value and restores it in cleanup
     assert.match(source, /const previousOverflow = document\.body\.style\.overflow;/);
     assert.match(source, /document\.body\.style\.overflow = previousOverflow;/);

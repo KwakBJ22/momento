@@ -140,8 +140,8 @@ body {
 
 /* 딤은 다른 시트와 같은 공용 element(.album-sheet-dim)가 담당한다. 이 층은 대화상자를
    가운데 두기만 하는 투명한 층이라, 딤 클릭이 막히지 않게 이벤트를 받지 않는다. */
-.auth-modal,
-.app__withdraw {
+/* 공용 대화상자 층(SheetDialog). 화면별 클래스는 여백만 얹는다. */
+.sheet-dialog {
   position: fixed;
   inset: 0;
   z-index: 95;
@@ -152,8 +152,7 @@ body {
 }
 
 /* 대화상자 자체는 시트와 같은 결(흰 배경·테두리·둥근 모서리)이되 가운데에 뜬다. */
-.auth-modal__dialog,
-.app__withdraw-dialog {
+.sheet-dialog__box {
   position: relative;
   pointer-events: auto;
   width: min(100%, 420px);
@@ -166,7 +165,7 @@ body {
   box-shadow: var(--sh-lg);
 }
 
-.auth-modal .auth-panel {
+.sheet-dialog .auth-panel {
   display: grid;
   gap: 12px;
   padding: 0;
@@ -175,7 +174,7 @@ body {
   background: transparent;
 }
 
-.auth-modal .auth-panel h2 {
+.sheet-dialog .auth-panel h2 {
   margin: 0;
   padding-right: 28px;
   color: var(--c-text);
@@ -183,15 +182,15 @@ body {
   line-height: 1.25;
 }
 
-.auth-modal .auth-panel > p:not(.auth-panel__notice) {
+.sheet-dialog .auth-panel > p:not(.auth-panel__notice) {
   margin: 0;
   color: var(--c-text-soft);
   font-size: 1rem;
   line-height: 1.55;
 }
 
-.auth-modal .auth-panel .upload-form__submit,
-.auth-modal .auth-panel .btn {
+.sheet-dialog .auth-panel .upload-form__submit,
+.sheet-dialog .auth-panel .btn {
   width: 100%;
   min-height: 56px;
   margin: 0;
@@ -239,7 +238,7 @@ body {
     padding-inline: 20px;
   }
 
-  .auth-modal__dialog {
+  .sheet-dialog__box {
     padding: 24px;
     border-radius: 16px;
   }

@@ -82,25 +82,26 @@ test("한마디 수정은 글이 있던 자리에서 열린다 — 새 편집기
 // B-7 (§11) — 로그인·회원 탈퇴 모달을 시트 계열로. 딤·Esc·스크롤 잠금이 제각각이라
 // 카카오 웹뷰에서 갇히는 사고가 났던 유형이다.
 test("두 모달이 공용 딤을 쓴다 — 딤을 누르면 닫힌다", () => {
-  const app = read("App.tsx");
-  const login = app.slice(app.indexOf("const loginModal = showLogin ?"), app.indexOf("{withdrawOpen ? ("));
-  assert.match(login, /className="album-sheet-dim" aria-hidden="true" onClick=\{closeLogin\}/);
-  const withdraw = app.slice(app.indexOf("{withdrawOpen ? ("));
-  assert.match(withdraw, /className="album-sheet-dim" aria-hidden="true"/);
-  assert.match(withdraw, /if \(!withdrawing\) setWithdrawOpen\(false\)/);
+  const dialog = read("components/SheetDialog.tsx");
+  // 딤은 대화상자 컴포넌트 한 곳에만 있다(둘이 각자 만들지 않는다).
+  assert.match(dialog, /className="album-sheet-dim" aria-hidden="true" onClick=\{close\}/);
+  // 처리 중에는 닫히지 않는다 — 탈퇴가 이 상태를 쓴다.
+  assert.match(dialog, /const close = \(\) => \{ if \(!locked\) onClose\(\); \}/);
+  assert.match(read("App.tsx"), /locked=\{withdrawing\}/);
   // 딤 위의 가운데 정렬 층은 이벤트를 받지 않아 딤 클릭을 막지 않는다.
   const css = read("App.css");
-  const start = css.indexOf(".auth-modal,");
+  const start = css.indexOf(".sheet-dialog {");
   assert.match(css.slice(start, css.indexOf("}", start)), /pointer-events: none/);
 });
 
 test("두 모달이 같은 잠금·Esc·포커스 복원 동작을 쓴다", () => {
-  const app = read("App.tsx");
+  const dialog = read("components/SheetDialog.tsx");
   const hook = read("lib/useSheetDialog.ts");
-  assert.match(app, /useSheetDialog\(withdrawOpen, withdrawDialogRef/);
+  // 동작이 실제로 걸리는지는 tests/sheetDialogBehavior.test.ts 가 렌더해서 본다.
+  // 여기서는 "한 벌만 있다"는 사실만 잠근다 — 구현 위치·클래스는 잠그지 않는다.
+  assert.match(dialog, /useSheetDialog\(open, dialogRef, close, returnFocusRef\)/);
   for (const behavior of [/document\.body\.style\.overflow = "hidden"/, /event\.key === "Escape"/, /returnFocusRef\?\.current\?\.focus\(\)/]) {
     assert.match(hook, behavior);
   }
-  // ★ 로그인 쪽 효과는 App 안에 그대로 둔다 — 기존 접근성 테스트가 그 자리를 잠그고 있다.
-  assert.match(app, /if \(!showLogin\) return;[\s\S]*?document\.body\.style\.overflow = "hidden"/);
+  assert.doesNotMatch(read("App.tsx"), /document\.body\.style\.overflow/);
 });

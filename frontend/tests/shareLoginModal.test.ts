@@ -7,37 +7,28 @@ const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8
 test("login modal is hoisted to a top-level const gated only by showLogin", () => {
   // The modal must exist independently of any single route branch so it can
   // render on the share page, not only on Landing.
-  assert.match(appSource, /const loginModal = showLogin \?/);
-  assert.match(appSource, /className="auth-modal"/);
+  // 어느 클래스·어느 파일인지는 잠그지 않는다(동작은 sheetDialogBehavior 가 본다).
+  // 여기서 지키는 것은 "화면 분기와 무관하게 항상 렌더 트리에 있다"는 사실뿐이다.
+  assert.match(appSource, /const loginModal = \(/);
+  assert.match(appSource, /<SheetDialog open=\{showLogin\}/);
 });
 
 test("the login modal renders at the app root, beside the withdraw modal (branch-independent)", () => {
   // {loginModal} must sit at the app root so every surface (share, join, album,
   // landing) shows it when showLogin is true.
-  assert.match(appSource, /\{loginModal\}\s*\{withdrawOpen \?/);
+  assert.match(appSource, /\{loginModal\}\s*<SheetDialog open=\{withdrawOpen\}/);
 });
 
 test("the login modal is no longer nested inside the Landing-only branch", () => {
-  // Exactly one auth-modal container — inside the hoisted const, not duplicated
-  // in the Landing branch.
-  const occurrences = appSource.match(/className="auth-modal"/g) ?? [];
+  // 로그인 대화상자는 한 번만 만들어진다(랜딩 분기에서 다시 만들지 않는다).
+  const occurrences = appSource.match(/<SheetDialog open=\{showLogin\}/g) ?? [];
   assert.equal(occurrences.length, 1);
   // The Landing render branch ends right after the <Landing/> element with no
   // trailing modal fragment (additive props after hideLogin are allowed).
   assert.match(appSource, /<Landing[\s\S]*?hideLogin=\{Boolean\(user\)\}[\s\S]*?\/>\}/);
   // Nothing between <Landing and its closing "/>}" reintroduces the modal.
-  assert.doesNotMatch(appSource, /<Landing[\s\S]*?auth-modal[\s\S]*?\/>\}/);
+  assert.doesNotMatch(appSource, /<Landing[\s\S]*?SheetDialog[\s\S]*?\/>\}/);
 });
 
-test("body scroll lock is guarded by the same showLogin gate that renders the modal", () => {
-  // Guarantees there is no path that locks the body without a renderable modal:
-  // the lock only runs when showLogin is true, and the modal renders whenever
-  // showLogin is true.
-  assert.match(
-    appSource,
-    /if \(!showLogin\) return;[\s\S]*?document\.body\.style\.overflow = "hidden"/,
-  );
-  // The overflow:hidden lock appears exactly once (only inside that effect).
-  const locks = appSource.match(/document\.body\.style\.overflow = "hidden"/g) ?? [];
-  assert.equal(locks.length, 1);
-});
+// body 스크롤 잠금·Esc·딤·포커스 복원은 tests/sheetDialogBehavior.test.ts 가 실제 렌더로
+// 확인한다(구현 위치를 잠그지 않기 위해 여기서 소스 문자열로 검사하지 않는다).
