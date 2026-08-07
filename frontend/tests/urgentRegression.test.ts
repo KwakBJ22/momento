@@ -95,7 +95,10 @@ test("embedded 사진 추가 sheet opens the picker and hides the album's existi
   // shows only this session's additions — not the whole album (which read as a
   // "comment on every photo" screen).
   assert.match(source, /isEmbeddedPhotoAdd = embedded && requestedAction === "photo"/);
-  assert.match(source, /embedded && requestedAction === "photo"[\s\S]{0,120}uploadInputRef\.current\?\.click\(\)/);
+  // 자동 열기는 제거됐다(SCREEN_SPEC §11): effect 는 사용자 제스처와 다른 tick 이라
+  // iOS 사파리·카카오 웹뷰에서 조용히 실패한다. label htmlFor 가 유일·확실한 경로다.
+  assert.doesNotMatch(source, /requestAnimationFrame\([^)]*click/);
+  assert.match(source, /htmlFor=\{PHOTO_INPUT_ID\}/);
   assert.match(source, /!isEmbeddedPhotoAdd \|\| newItemIds\.includes\(photo\.id\)/);
   // Auto-open is best-effort only: the always-visible upload label is the guaranteed
   // path, and an empty sheet shows a hint instead of a blank grid.
@@ -113,7 +116,9 @@ test("a full album (30/30) blocks the picker up front and says why on screen", (
   assert.match(source, /photoLimitReached = Boolean\(/);
   assert.match(source, /disabled=\{isUploading \|\| photoLimitReached\}/);
   assert.match(source, /앨범이 가득 찼어요\. 사진은 한 앨범에 최대/);
-  assert.match(source, /requestedAction === "photo" && !photoLimitReached/);
+  // 가득 찬 앨범에서는 input 자체가 disabled 라 label 을 눌러도 선택창이 열리지 않는다
+  // (예전에는 자동 열기를 건너뛰는 것으로 막았다 — 이제 열 방법 자체가 막힌다).
+  assert.match(source, /ALBUM_PHOTO_CAPACITY\),\s*\);/);
 });
 
 test("closing the contribution sheet refreshes the album behind it without a remount", () => {

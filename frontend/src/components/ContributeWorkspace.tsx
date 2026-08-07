@@ -17,6 +17,8 @@ import "./ContributeWorkspace.css";
 
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
+/** label htmlFor 가 가리킬 파일 input. 화면에 하나만 존재한다. */
+const PHOTO_INPUT_ID = "contribute-photo-input";
 
 
 interface ContributeWorkspaceProps {
@@ -203,12 +205,10 @@ export default function ContributeWorkspace({
   );
   useEffect(() => {
     if (requestedAction) setTab("photos");
-    // Reads photoLimitReached from the mount render on purpose: the sheet mounts with
-    // initialWorkspace already set, and re-running on workspace changes would re-open
-    // the file dialog mid-session.
-    if (embedded && requestedAction === "photo" && !photoLimitReached) {
-      window.requestAnimationFrame(() => uploadInputRef.current?.click());
-    }
+    // 파일 선택창을 여기서 자동으로 열지 않는다(SCREEN_SPEC §11). 효과(effect)는 사용자
+    // 클릭과 다른 tick 이라 iOS 사파리·카카오 웹뷰에서 조용히 실패한다 — 데스크톱에서만
+    // 되므로 자동 테스트로도 잡히지 않는다. 시트 최상단의 "사진 추가하기" 라벨이
+    // 유일하고 확실한 경로다(라벨 클릭 = 브라우저가 여는 것, JS 호출 없음).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embedded, requestedAction]);
 
@@ -431,11 +431,18 @@ export default function ContributeWorkspace({
     setTab(nextTab);
   };
 
-  const openPhotoPicker = () => {
+  /** 파일 선택창을 열기 전에 화면 상태만 정리한다(선택창 자체는 label 이 연다). */
+  const prepareForPhotoPick = () => {
     setCompletion(null);
     setTab("photos");
     setActiveParticipantItem("photo");
-    window.requestAnimationFrame(() => uploadInputRef.current?.click());
+  };
+
+  /** 하단 네비처럼 label 로 만들 수 없는 자리에서만 쓴다. rAF·setTimeout·await 를 거치지
+   *  않고 사용자 클릭과 같은 tick 에서 호출해야 웹뷰에서 열린다(SCREEN_SPEC §11). */
+  const openPhotoPicker = () => {
+    prepareForPhotoPick();
+    uploadInputRef.current?.click();
   };
 
   const openMemoryEditor = (targetPhotoId?: string) => {
@@ -514,29 +521,32 @@ export default function ContributeWorkspace({
         ))}
       </nav> : null}
 
+      {/* 파일 input 은 탭·완료 화면과 무관하게 항상 한 번만 둔다. label htmlFor 로 여는
+          방식이라 JS .click() 이 필요 없고, 사용자 제스처가 그대로 브라우저에 전달된다. */}
+      <input
+        id={PHOTO_INPUT_ID}
+        ref={uploadInputRef}
+        className={FILE_INPUT_CLASS}
+        type="file"
+        accept={PHOTO_ACCEPT}
+        multiple
+        disabled={isUploading || photoLimitReached}
+        onChange={(event) => {
+          const selected = snapshotSelectedFiles(event.currentTarget.files);
+          void onUpload(selected);
+          event.target.value = "";
+        }}
+      />
       {tab === "photos" ? (
         <div className="contribute__panel">
           {requestedAction === "memory" ? <p className="contribute__notice">기억을 남길 사진을 골라 주세요.</p> : null}
-          {requestedAction !== "memory" ? <label className="contribute__upload">
-            사진 추가하기
-            <input
-              ref={uploadInputRef}
-              className={FILE_INPUT_CLASS}
-              type="file"
-              accept={PHOTO_ACCEPT}
-              multiple
-              disabled={isUploading || photoLimitReached}
-              onChange={(event) => {
-                const selected = snapshotSelectedFiles(event.currentTarget.files);
-                void onUpload(selected);
-                event.target.value = "";
-              }}
-            />
-          </label> : null}
+          {requestedAction !== "memory"
+            ? <label className="contribute__upload" htmlFor={PHOTO_INPUT_ID}>사진 추가하기</label>
+            : null}
           {requestedAction !== "memory" ? (photoLimitReached
             ? <p className="contribute__error" role="status">앨범이 가득 찼어요. 사진은 한 앨범에 최대 {workspace.photo_limit}장까지 담을 수 있어요.</p>
             : <p className="contribute__limit">앨범에는 사진을 최대 {workspace.photo_limit}장까지 담을 수 있어요. 지금 {workspace.photo_count}장이 담겨 있어요.</p>) : null}
-          {/* 빈 시트 금지: 자동 파일창이 차단되거나 닫혀도 비어 보이지 않게 안내 한 줄. */}
+          {/* 빈 시트 금지: 파일창은 자동으로 열지 않으므로(§11) 무엇을 누르면 되는지 적는다. */}
           {isEmbeddedPhotoAdd && !photoLimitReached && !pendingUploads.length && !(workspace.photos || []).some((photo) => newItemIds.includes(photo.id))
             ? <p className="contribute__empty">위의 ‘사진 추가하기’를 눌러 사진을 골라 주세요.</p>
             : null}
@@ -641,9 +651,9 @@ export default function ContributeWorkspace({
           <p className="contribute__completion-copy">방금 남긴 추억을 앨범에서 확인해 보세요.</p>
           <div className="contribute__completion-actions">
             <button type="button" className="contribute__completion-primary" onClick={viewAddedItems}>앨범에서 확인하기</button>
-            <button type="button" className="contribute__completion-secondary" onClick={completion.hasPhoto ? openPhotoPicker : () => openMemoryEditor()}>
-              {completion.hasPhoto ? "사진 더 추가하기" : "기억 더 남기기"}
-            </button>
+            {completion.hasPhoto
+              ? <label className="contribute__completion-secondary" htmlFor={PHOTO_INPUT_ID} onClick={prepareForPhotoPick}>사진 더 추가하기</label>
+              : <button type="button" className="contribute__completion-secondary" onClick={() => openMemoryEditor()}>기억 더 남기기</button>}
           </div>
         </section>
       ) : null}

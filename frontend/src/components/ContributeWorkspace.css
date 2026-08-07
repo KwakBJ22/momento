@@ -441,6 +441,9 @@
   color: var(--c-surface);
 }
 
+/* label 로도 쓴다(파일 선택창을 JS 없이 여는 자리) — 버튼과 같아 보여야 한다. */
+label.contribute__completion-secondary { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+
 .contribute__completion-secondary {
   border: 1px solid var(--c-border);
   background: var(--c-surface);
