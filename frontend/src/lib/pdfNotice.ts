@@ -20,7 +20,7 @@ export const PDF_GENERIC_MESSAGE = "PDF를 만들지 못했어요. 잠시 후 �
 /** 결과 문구. "저장했다"고 단정하지 않고 실제로 일어난 일을 말한다. */
 export function pdfSuccessMessage(delivery: PdfDelivery): string {
   return delivery.via === "browser-url"
-    ? "PDF 파일을 열었어요. 저장이 시작되지 않으면 메뉴(⋯)에서 ‘다른 브라우저로 열기’로 다시 열어 주세요."
+    ? "PDF를 저장했어요. 휴대전화 알림을 누르면 열려요. 알림이 지나갔다면 파일 앱의 ‘다운로드’ 폴더에 있어요."
     : "PDF를 내려받고 있어요. 기기의 다운로드에서 확인해 주세요.";
 }
 

@@ -44,10 +44,9 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
     logPdf("pdf_cache_lookup_failed", { album: input.albumId, reason: pdfFailureMessage(error) });
     return null;
   });
-  // 서버 주소는 https 라 인앱 브라우저에서도 열린다 — 그대로 쓴다.
+  // 서버 주소는 https 라 인앱 브라우저에서도 받아진다 — 그대로 쓴다.
   if (cached?.url) {
-    triggerFileDownload(cached.url, pdfFilename(input));
-    return { via: "download" };
+    return deliverStoredPdf(cached.url, pdfFilename(input));
   }
 
   const blob = await renderAlbumPdfBlob(input);
@@ -70,8 +69,7 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
   // 않고 저장된 파일 주소로 이동시키면 웹뷰의 다운로드 처리기가 받는다.
   if (isInAppWebView(currentUserAgent())) {
     if (storedUrl) {
-      window.location.assign(withDownloadName(storedUrl, pdfFilename(input)));
-      return { via: "browser-url", url: storedUrl };
+      return deliverStoredPdf(storedUrl, pdfFilename(input));
     }
     logPdf("pdf_download_unsupported", { album: input.albumId, reason: "no_stored_url" });
     throw new Error(webviewSaveMessage(currentUserAgent()));
@@ -195,6 +193,17 @@ export function alignBlocksToPrintPages(element: HTMLElement): void {
   }
 }
 
+/** 저장된 PDF 주소로 파일을 받게 한다.
+ *
+ *  ★ 새 창(window.open / target=_blank)을 쓰지 않는다. 안드로이드 웹뷰는 첨부 파일 주소를
+ *  다운로드 관리자로 넘기면서 그 창에는 아무것도 그리지 않는다 — 그래서 "빈 새 창"이 남았다.
+ *  같은 창에서 이동하면 창이 새로 생기지 않고, 첨부(download) 표시 때문에 화면이 바뀌지도
+ *  않는다. 브라우저는 그 자리에서 파일만 받는다. */
+function deliverStoredPdf(url: string, filename: string): PdfDelivery {
+  window.location.assign(withDownloadName(url, filename));
+  return { via: "browser-url", url };
+}
+
 /** 서명 URL 에 download 표시를 붙인다 — 웹뷰가 화면에 열지 않고 파일로 받게 한다.
  *  Supabase 서명 URL 은 추가 쿼리를 허용하므로 서명이 깨지지 않는다. */
 function withDownloadName(url: string, filename: string): string {
@@ -226,13 +235,3 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function triggerFileDownload(url: string, filename: string): void {
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-}

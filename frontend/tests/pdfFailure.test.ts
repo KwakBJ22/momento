@@ -11,10 +11,9 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 // 다운로드를 무시하므로 파일은 없고 문구만 떴다. 문구는 실제로 일어난 일만 말한다.
 test("성공 문구는 경로별로 사실만 말한다 — '저장했다'고 단정하지 않는다", () => {
   assert.match(pdfSuccessMessage({ via: "download" }), /내려받고 있어요/);
-  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /PDF 파일을 열었어요/);
-  for (const message of [pdfSuccessMessage({ via: "download" }), pdfSuccessMessage({ via: "browser-url", url: "u" })]) {
-    assert.doesNotMatch(message, /저장했어요/);
-  }
+  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /PDF를 저장했어요/);
+  // blob 경로는 저장 완료를 알 수 없으므로 끝까지 단정하지 않는다.
+  assert.doesNotMatch(pdfSuccessMessage({ via: "download" }), /저장했어요/);
 });
 
 test("실패 문구는 원인을 그대로 보여주고, 없으면 기본 문구로 떨어진다", () => {
@@ -64,7 +63,7 @@ test("웹뷰에서는 blob 대신 저장된 파일 주소로 보낸다 — 기�
   // 업로드 응답의 URL 을 버리지 않는다(추가 요청 없이 그 자리에서 받는다).
   assert.match(exportPdf, /storedUrl = \(await uploadAlbumPdf\(/);
   assert.match(exportPdf, /if \(isInAppWebView\(currentUserAgent\(\)\)\) \{/);
-  assert.match(exportPdf, /window\.location\.assign\(withDownloadName\(storedUrl/);
+  assert.match(exportPdf, /return deliverStoredPdf\(storedUrl, pdfFilename\(input\)\)/);
   // 화면에 열지 않고 파일로 받게 하는 표시.
   assert.match(exportPdf, /download=\$\{encodeURIComponent\(filename\)\}/);
   // 주소조차 없으면 조용히 끝내지 않는다.
@@ -94,5 +93,27 @@ test("웹뷰 판정은 한 곳에만 있다 — 갤러리와 PDF 가 같은 함�
   // 판정 정규식이 다른 파일에 복제되지 않았다.
   for (const other of ["lib/imageFile.ts", "lib/exportPdf.tsx"]) {
     assert.doesNotMatch(read(other), /KAKAOTALK/);
+  }
+});
+
+// 빈 새 창 결함: 안드로이드 웹뷰는 첨부 주소를 다운로드로 넘기면서 그 창에 아무것도
+// 그리지 않는다. 새 창을 아예 만들지 않으면 남을 창도 없다.
+test("PDF 전달은 새 창을 만들지 않는다 — 빈 창이 남지 않게", () => {
+  const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
+  // 주석 줄은 제외한다 — 설명에 등장하는 window.open 이 검사에 걸리지 않게.
+  const code = exportPdf.split(/\r?\n/).filter((line) => !line.trim().startsWith("*")).join("\n");
+  assert.doesNotMatch(code, /window\.open\(/);
+  assert.doesNotMatch(code, /target = "_blank"|target="_blank"/);
+  // 캐시된 PDF 도, 방금 올린 PDF 도 같은 전달 함수를 쓴다(경로가 갈라지지 않는다).
+  assert.equal((code.match(/deliverStoredPdf\(/g) || []).length, 3); // 정의 1 + 호출 2
+  assert.match(code, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
+});
+
+test("저장 뒤 안내는 어디서 볼 수 있는지·무엇을 하면 되는지까지 말한다", () => {
+  const message = pdfSuccessMessage({ via: "browser-url", url: "u" });
+  assert.match(message, /알림을 누르면 열려요/);      // 무엇을 하면 되는지
+  assert.match(message, /‘다운로드’ 폴더/);            // 알림이 지나갔을 때 어디서 보는지
+  for (const forbidden of ["곧", "준비 중", "출시 예정", "AI", "GPT", "인공지능"]) {
+    assert.equal(message.includes(forbidden), false, `쓰지 않는 표현: ${forbidden}`);
   }
 });
