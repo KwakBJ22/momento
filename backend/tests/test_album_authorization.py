@@ -110,20 +110,23 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["caption"], "Updated photo caption")
 
-    def test_owner_cannot_caption_someone_elses_photo(self) -> None:
-        # ★ 핵심: 앨범 주인이라도 남이 올린 사진의 캡션은 고칠 수 없다(설정 권한 우회 금지).
+    def test_owner_can_caption_someone_elses_photo(self) -> None:
+        # SCREEN_SPEC §7: 인쇄되는 것(캡션)만 주최자가 고칠 수 있다. 캡션은 종이에 박혀
+        # 되돌릴 수 없으므로 포토북의 편집자인 주최자에게 수정 권한이 있다.
+        # (코멘트·방명록은 인쇄되지 않으므로 주최자도 고치지 못한다 — test_text_layers 참고.)
         self.as_user(OWNER_ID)
         self._photo_lookup({"id": PHOTO_ID, "album_id": ALBUM_ID, "contributor_profile_id": OTHER_USER_ID,
                             "uploaded_by_contributor_id": "contrib-other"})
         with patch("app.api.album.get_album_record", return_value=album_record()), patch(
             "app.api.album.get_contributor", return_value=None
         ):
-            response = self.client.patch(
-                f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/comment",
-                json={"caption": "남의 사진에 캡션"},
-            )
+            with patch("app.api.album.update_album_photo_comment", return_value={"id": PHOTO_ID, "caption": "남의 사진에 캡션"}):
+                response = self.client.patch(
+                    f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/comment",
+                    json={"caption": "남의 사진에 캡션"},
+                )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
     def test_owner_can_update_epilogue(self) -> None:
         self.as_user(OWNER_ID)

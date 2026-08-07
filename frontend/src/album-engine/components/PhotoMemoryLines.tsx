@@ -37,10 +37,18 @@ export default function PhotoMemoryLines({
   const lines = buildPhotoMemoryDisplayLines(segments, text).slice(0, 2);
   const hasExplicitEditableText = editableText !== undefined;
   const canInlineEdit = Boolean(
-    edit?.canEdit
-      && photoId
+    edit && photoId && edit.canEditPhoto(photoId)
       && (hasExplicitEditableText || (!photoMemoryHasAuthors(lines) && lines.length <= 1)),
   );
+  // 남의 사진 캡션을 열 때는 한 번 묻는다(§7). 경고색을 쓰지 않는다 — 잘못을 지적하는
+  // 말이 아니다. 내 사진이면 authorName 이 없어 확인 단계가 아예 뜨지 않는다.
+  const captionAuthor = photoId ? edit?.authorNameOf?.(photoId) ?? null : null;
+  const isConfirming = canInlineEdit && photoId != null && edit?.confirmingPhotoId === photoId;
+  const openEditor = (text: string) => {
+    if (!photoId || !edit) return;
+    if (edit.requestEdit) edit.requestEdit(photoId, text);
+    else edit.startEdit(photoId, text);
+  };
   const isEditing = canInlineEdit && edit?.editingPhotoId === photoId;
   const isSaving = canInlineEdit && edit?.savingPhotoId === photoId;
 
@@ -60,6 +68,20 @@ export default function PhotoMemoryLines({
   ]
     .filter(Boolean)
     .join(" ");
+
+  if (isConfirming && edit && photoId) {
+    return (
+      <div className={classes} data-photo-memory-lines="" data-memory-block="">
+        <div className="photo-memory-lines__confirm">
+          <p className="photo-memory-lines__confirm-text">{captionAuthor ? `${captionAuthor}님이 쓴 글이에요. 고칠까요?` : "이 글을 고칠까요?"}</p>
+          <div className="photo-memory-lines__edit-actions">
+            <button type="button" className="photo-memory-lines__action photo-memory-lines__action--save" onClick={() => edit.confirmEdit?.(photoId)}>고치기</button>
+            <button type="button" className="photo-memory-lines__action photo-memory-lines__action--cancel" onClick={() => edit.cancelConfirm?.()}>그만두기</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isEditing && edit && photoId) {
     return (
@@ -108,7 +130,7 @@ export default function PhotoMemoryLines({
           <button
             type="button"
             className="photo-memory-lines__edit-btn"
-            onClick={() => edit.startEdit(photoId, "")}
+            onClick={() => openEditor("")}
             aria-label="사진 코멘트 수정"
           >
             <Pencil size={15} aria-hidden="true" />
@@ -136,7 +158,7 @@ export default function PhotoMemoryLines({
             <button
               type="button"
               className="photo-memory-lines__edit-btn"
-              onClick={() => edit.startEdit(photoId, displayText)}
+              onClick={() => openEditor(displayText)}
               aria-label="사진 코멘트 수정"
             >
               <Pencil size={15} aria-hidden="true" />

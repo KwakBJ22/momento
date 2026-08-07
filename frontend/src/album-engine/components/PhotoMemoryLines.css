@@ -219,3 +219,8 @@
 .album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: clamp(0.875rem, 1.55vw, 0.9rem); }
 .album-renderer--screen .photo-memory-lines__edit-btn,
 .album-renderer--screen .photo-memory-lines__action { font-size: var(--t-xs); }
+
+/* 남의 캡션을 열기 전 확인 한 단계(SCREEN_SPEC §7). 경고색을 쓰지 않는다 —
+   잘못을 지적하는 말이 아니라 한 번 묻는 말이다. */
+.photo-memory-lines__confirm { display: grid; gap: 8px; padding: 10px 0 2px; }
+.photo-memory-lines__confirm-text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.5; }

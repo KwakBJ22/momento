@@ -93,6 +93,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [photoCommentDraft, setPhotoCommentDraft] = useState("");
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
   const [photoCommentSaveError, setPhotoCommentSaveError] = useState<string | null>(null);
+  // 남의 사진 캡션을 열기 전 확인 단계(§7). window.confirm 을 쓰지 않는다 — 웹뷰에서 막힌다.
+  const [confirmingCaptionPhotoId, setConfirmingCaptionPhotoId] = useState<string | null>(null);
+  const [confirmingCaptionText, setConfirmingCaptionText] = useState("");
   const [editingStoryKey, setEditingStoryKey] = useState<string | null>(null);
   const [storyDraft, setStoryDraft] = useState("");
   const [isSavingStory, setIsSavingStory] = useState(false);
@@ -590,6 +593,29 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     photo_limit: ALBUM_PHOTO_CAPACITY,
     photos: photos.map((photo) => ({ id: photo.id, thumbnail_url: photo.thumbnail_url, original_url: photo.original_url, memories: [] })),
   };
+  // 캡션 권한은 사진마다 백엔드가 내려준다(can_edit_caption). 화면은 그것만 본다 —
+  // 주최자는 모든 사진, 참여자는 자기가 올린 사진(SCREEN_SPEC §7).
+  const photoById = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
+  const captionEdit = {
+    canEditPhoto: (photoId: string) => photoById.get(photoId)?.can_edit_caption === true,
+    authorNameOf: (photoId: string) => photoById.get(photoId)?.caption_author_name ?? null,
+    requestEdit: (photoId: string, text: string) => {
+      // 남이 올린 사진이면 한 번 묻고, 내 사진이면 바로 연다.
+      if (photoById.get(photoId)?.caption_author_name) {
+        setConfirmingCaptionPhotoId(photoId);
+        setConfirmingCaptionText(text);
+        return;
+      }
+      handleStartPhotoCommentEdit(photoId, text);
+    },
+    confirmingPhotoId: confirmingCaptionPhotoId,
+    confirmEdit: (photoId: string) => {
+      setConfirmingCaptionPhotoId(null);
+      handleStartPhotoCommentEdit(photoId, confirmingCaptionText);
+    },
+    cancelConfirm: () => { setConfirmingCaptionPhotoId(null); setConfirmingCaptionText(""); },
+  };
+
   const albumBody = (
     <>
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
@@ -647,7 +673,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         </section>
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
-        <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={canEdit ? { canEdit: true, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } } : null} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} />
+        <AlbumRenderer photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}

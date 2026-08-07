@@ -47,10 +47,15 @@ class CaptionSingleSourceTests(unittest.TestCase):
 class WritePermissionTableTests(unittest.TestCase):
     """권한 표 9칸 — 캡션 / 코멘트 / 방명록 × 주최자 / 참여자 / 구경꾼."""
 
-    def test_caption_is_uploader_only_even_for_the_owner(self) -> None:
+    def test_caption_is_writable_by_the_uploader_and_by_the_owner(self) -> None:
+        """SCREEN_SPEC §7 — 인쇄되는 것(캡션)만 주최자가 고칠 수 있다.
+
+        캡션은 종이에 박혀 되돌릴 수 없다: 포토북에는 편집자가 있어야 하고 그게 주최자다.
+        참여자는 자기가 올린 사진만 쓴다(아래 소유 검사).
+        """
         album = source("app/api/album.py")
-        # 캡션 엔드포인트는 소유자 우회를 끈다.
-        self.assertIn("owner_override=False", album)
+        # 캡션 엔드포인트는 주최자 예외를 켠다.
+        self.assertNotIn("owner_override=False", album)
         guard = album.split("def _require_photo_mutation_access")[1].split("\ndef ")[0]
         self.assertIn("if owner_override and access.can_edit_settings:", guard)
         self.assertIn("본인이 추가한 사진만 수정할 수 있습니다.", guard)
