@@ -139,3 +139,16 @@ test("헤더 높이는 slot 내용과 무관하다 — 44px 컨트롤이 들어�
   const link = css.slice(css.indexOf(".app-header__link {"), css.indexOf("}", css.indexOf(".app-header__link {")));
   assert.match(link, /min-height: 44px/);
 });
+
+// §3 — 앨범 화면의 `내 앨범` 진입점은 헤더 우측 하나다. 예전 화면의 "← 내 앨범" 줄이
+// 헤더 아래에 또 있어 같은 것이 두 개였다.
+test("앨범 화면에 `내 앨범` 진입점이 하나뿐이다", () => {
+  const view = read("components/AlbumView.tsx");
+  // 실제로 그려지는 부분만 본다(주석 처리된 legacy shell 제외).
+  const live = view.slice(0, view.indexOf("/* Legacy shell intentionally disabled"));
+  assert.doesNotMatch(live, /album-page__back-link/);
+  // 헤더 우측의 링크는 그대로다.
+  assert.match(read("components/AlbumScreen.tsx"), /app-header__link[\s\S]{0,80}backLabel \|\| "내 앨범"/);
+  // 쓰지 않게 된 여백 규칙도 남기지 않는다.
+  assert.doesNotMatch(read("components/AlbumResult.css"), /\.album-page__back-link/);
+});

@@ -567,8 +567,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
       <div className="album-page">
 
-        <a className="album-page__back-link" href="/my-albums">← 내 앨범</a>
-
         <div className="album-page__layout">
 
           <article className="album-page__book album-result album-result--skeleton">
