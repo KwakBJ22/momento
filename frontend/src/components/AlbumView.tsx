@@ -17,6 +17,7 @@ import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace"
 import AlbumScreen from "./AlbumScreen";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import ConfirmSheet from "./ConfirmSheet";
 
 import type { AlbumPhoto, AlbumResult } from "../types";
 
@@ -95,6 +96,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [isSavingPhotoComment, setIsSavingPhotoComment] = useState(false);
   const [photoCommentSaveError, setPhotoCommentSaveError] = useState<string | null>(null);
   // 남의 사진 캡션을 열기 전 확인 단계(§7). window.confirm 을 쓰지 않는다 — 웹뷰에서 막힌다.
+  // 앨범 지우기 확인 — window.confirm 을 쓰지 않는다(§11). 시트로 묻는다.
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [confirmingCaptionPhotoId, setConfirmingCaptionPhotoId] = useState<string | null>(null);
   const [confirmingCaptionText, setConfirmingCaptionText] = useState("");
   const [editingStoryKey, setEditingStoryKey] = useState<string | null>(null);
@@ -349,7 +352,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
   const handleDeleteAlbum = async () => {
     if (deletingRef.current) return;
-    if (!window.confirm("이 앨범을 삭제할까요? 삭제한 앨범은 복구할 수 없습니다.")) return;
     deletingRef.current = true;
     setIsDeleting(true);
     try {
@@ -622,6 +624,17 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "기억 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "기억 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
+      {deleteConfirmOpen ? (
+        <ConfirmSheet
+          title="이 앨범을 지울까요?"
+          description="지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요. 함께 만든 사람들이 남긴 것도 함께 사라져요."
+          confirmLabel="앨범 지우기"
+          danger
+          busy={isDeleting}
+          onConfirm={() => { setDeleteConfirmOpen(false); void handleDeleteAlbum(); }}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      ) : null}
       {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { setMoreOpen(false); setShareOpen(false); }} /> : null}
       {moreOpen ? (
         <AlbumMoreSheet
@@ -635,7 +648,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onChangeCover={() => setCoverPickerRequest((value) => value + 1)}
           onExportPdf={() => { void handlePdf(); }}
           isExportingPdf={isExportingPdf}
-          onDeleteAlbum={() => { void handleDeleteAlbum(); }}
+          onDeleteAlbum={() => setDeleteConfirmOpen(true)}
           isDeleting={isDeleting}
           showAbsentNotice={!displayAlbum?.can_edit && Boolean(participation)}
         />

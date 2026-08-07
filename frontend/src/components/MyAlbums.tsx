@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
 import { deleteAlbum, getMyAlbums, type MyAlbum } from "../lib/api";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
+import ConfirmSheet from "./ConfirmSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 
 function formatDate(value: string): string {
@@ -38,6 +39,8 @@ export default function MyAlbums() {
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const deletingIdsRef = useRef<Set<string>>(new Set());
+  // 지우기 전 물음 — window.confirm 을 쓰지 않는다(§11). 확인 대상 앨범을 담아 둔다.
+  const [pendingDelete, setPendingDelete] = useState<MyAlbum | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -58,7 +61,6 @@ export default function MyAlbums() {
 
   const handleDelete = async (album: MyAlbum) => {
     if (deletingIdsRef.current.has(album.album_id)) return;
-    if (!window.confirm(`"${album.title}" 앨범을 삭제할까요?`)) return;
     deletingIdsRef.current.add(album.album_id);
     setDeletingId(album.album_id);
     try {
@@ -103,7 +105,7 @@ export default function MyAlbums() {
             type="button"
             className="my-albums__delete"
             disabled={deletingId === album.album_id}
-            onClick={() => void handleDelete(album)}
+            onClick={() => setPendingDelete(album)}
           >
             {deletingId === album.album_id ? "삭제 중" : "삭제"}
           </button>
@@ -147,6 +149,17 @@ export default function MyAlbums() {
             {participating.map((album, index) => renderCard(album, index, false))}
           </div>
         </>
+      ) : null}
+      {pendingDelete ? (
+        <ConfirmSheet
+          title={`"${pendingDelete.title}" 앨범을 지울까요?`}
+          description="지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요."
+          confirmLabel="앨범 지우기"
+          danger
+          busy={deletingId === pendingDelete.album_id}
+          onConfirm={() => { const target = pendingDelete; setPendingDelete(null); void handleDelete(target); }}
+          onCancel={() => setPendingDelete(null)}
+        />
       ) : null}
     </section>
   );

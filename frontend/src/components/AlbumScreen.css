@@ -100,3 +100,15 @@
 .album-more-sheet__account-actions { display: flex; gap: 8px; margin-top: 10px; }
 .album-more-sheet__account-actions button { min-height: 44px; padding: 0 14px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text-soft); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
 .album-more-sheet__account-actions .app__account-withdraw { color: var(--c-text-muted); }
+
+/* 확인 시트(ConfirmSheet) — window.confirm 대신 쓰는 공용 물음창(SCREEN_SPEC §11).
+   기존 시트 틀(album-inline-action)을 그대로 쓰고 본문만 정의한다. */
+.album-confirm-sheet { z-index: 90; }
+.album-confirm-sheet__body { display: grid; gap: 14px; padding: 16px; }
+.album-confirm-sheet__text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; }
+.album-confirm-sheet__actions { display: grid; gap: 8px; }
+.album-confirm-sheet__confirm, .album-confirm-sheet__cancel { min-height: 52px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: var(--t-sm); font-weight: 700; cursor: pointer; }
+/* 되돌릴 수 없는 것은 빨간 "글자"만 — 배경을 채우지 않는다(§5). */
+.album-confirm-sheet__confirm--danger { color: var(--c-danger); }
+.album-confirm-sheet__cancel { font-weight: 600; color: var(--c-text-soft); }
+.album-confirm-sheet__confirm:disabled, .album-confirm-sheet__cancel:disabled { opacity: 0.5; cursor: default; }

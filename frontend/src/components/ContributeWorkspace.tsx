@@ -14,6 +14,7 @@ import { currentUserAgent } from "../lib/webview";
 import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
 import "./ContributeWorkspace.css";
+import ConfirmSheet from "./ConfirmSheet";
 
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
@@ -126,6 +127,8 @@ export default function ContributeWorkspace({
   const [toast, setToast] = useState<string | null>(null);
   const [draftPhotoId, setDraftPhotoId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
+  // 지우기 전 물음 — window.confirm 을 쓰지 않는다(§11).
+  const [pendingMemoryDelete, setPendingMemoryDelete] = useState<PhotoMemory | null>(null);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [savingPhotoId, setSavingPhotoId] = useState<string | null>(null);
@@ -404,7 +407,7 @@ export default function ContributeWorkspace({
   };
 
   const removeMemory = async (memory: PhotoMemory) => {
-    if (!session || !window.confirm("이 기억을 삭제할까요?")) return;
+    if (!session) return;
     try {
       await deletePhotoMemory(albumId, memory.id, session);
       setWorkspace((current) => current
@@ -587,7 +590,7 @@ export default function ContributeWorkspace({
                       {memory.mine && !memory.pending ? (
                         <div className="contribute__memory-actions">
                           <button type="button" onClick={() => void editMemory(memory)}>수정</button>
-                          <button type="button" onClick={() => void removeMemory(memory)}>삭제</button>
+                          <button type="button" onClick={() => setPendingMemoryDelete(memory)}>삭제</button>
                         </div>
                       ) : null}
                     </div>
@@ -656,6 +659,16 @@ export default function ContributeWorkspace({
               : <button type="button" className="contribute__completion-secondary" onClick={() => openMemoryEditor()}>기억 더 남기기</button>}
           </div>
         </section>
+      ) : null}
+      {pendingMemoryDelete ? (
+        <ConfirmSheet
+          title="이 기억을 지울까요?"
+          description="지운 글은 되돌릴 수 없어요."
+          confirmLabel="기억 지우기"
+          danger
+          onConfirm={() => { const target = pendingMemoryDelete; setPendingMemoryDelete(null); void removeMemory(target); }}
+          onCancel={() => setPendingMemoryDelete(null)}
+        />
       ) : null}
     </section>
   );

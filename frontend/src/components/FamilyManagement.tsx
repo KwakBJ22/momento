@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import type { FamilyInvitationItem, FamilyMemberItem, FamilySummary, InvitableFamilyRole } from "../types";
 import "./FamilyManagement.css";
+import ConfirmSheet from "./ConfirmSheet";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "소유자",
@@ -37,6 +38,8 @@ function canManageFamily(role: string): boolean {
 
 export default function FamilyManagement() {
   const [family, setFamily] = useState<FamilySummary | null>(null);
+  // 내보내기 전 물음 — window.confirm 을 쓰지 않는다(§11).
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [members, setMembers] = useState<FamilyMemberItem[]>([]);
   const [invitations, setInvitations] = useState<FamilyInvitationItem[]>([]);
   const [email, setEmail] = useState("");
@@ -109,7 +112,6 @@ export default function FamilyManagement() {
 
   const handleRemoveMember = async (memberId: string) => {
     if (!family) return;
-    if (!window.confirm("이 구성원을 가족에서 보낼까요?")) return;
     try {
       await removeFamilyMember(family.family_id, memberId);
       await load();
@@ -214,7 +216,7 @@ export default function FamilyManagement() {
                       </option>
                     ))}
                   </select>
-                  <button type="button" className="member-card__remove" onClick={() => handleRemoveMember(member.id)}>
+                  <button type="button" className="member-card__remove" onClick={() => setPendingRemoveId(member.id)}>
                     제거
                   </button>
                 </div>
@@ -255,6 +257,15 @@ export default function FamilyManagement() {
       <a className="btn btn--ghost family-panel__back" href="/">
         앨범 만들기로 돌아가기
       </a>
+      {pendingRemoveId ? (
+        <ConfirmSheet
+          title="이 구성원을 가족에서 내보낼까요?"
+          description="내보내도 그 사람이 앨범에 남긴 사진과 글은 그대로 있어요."
+          confirmLabel="내보내기"
+          onConfirm={() => { const target = pendingRemoveId; setPendingRemoveId(null); void handleRemoveMember(target); }}
+          onCancel={() => setPendingRemoveId(null)}
+        />
+      ) : null}
     </div>
   );
 }

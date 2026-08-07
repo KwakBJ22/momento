@@ -25,6 +25,7 @@ import {
 } from "../../lib/adminApi";
 import type { AdminRoute } from "./adminRoute";
 import "./AdminConsole.css";
+import ConfirmSheet from "../ConfirmSheet";
 
 export type { AdminRoute } from "./adminRoute";
 export { parseAdminRoute } from "./adminRoute";
@@ -276,6 +277,8 @@ function AlbumExplorer() {
 }
 
 function AlbumDetailView({ albumId }: { albumId: string }) {
+  // 지우기 전 물음 — window.confirm 을 쓰지 않는다(§11: 웹뷰에서 막힐 수 있다).
+  const [pendingDeleteAlbumId, setPendingDeleteAlbumId] = useState<string | null>(null);
   const [album, setAlbum] = useState<AdminAlbumDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -319,16 +322,25 @@ function AlbumDetailView({ albumId }: { albumId: string }) {
             <button
               type="button"
               className="danger"
-              onClick={() => {
-                if (!window.confirm("이 앨범을 삭제할까요?")) return;
-                void deleteAdminAlbum(albumId).then(() => {
-                  window.location.assign("/admin/albums");
-                });
-              }}
+              onClick={() => setPendingDeleteAlbumId(albumId)}
             >
               삭제
             </button>
           </div>
+          {pendingDeleteAlbumId ? (
+            <ConfirmSheet
+              title="이 앨범을 지울까요?"
+              description="지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요."
+              confirmLabel="앨범 지우기"
+              danger
+              onConfirm={() => {
+                const target = pendingDeleteAlbumId;
+                setPendingDeleteAlbumId(null);
+                void deleteAdminAlbum(target).then(() => window.location.assign("/admin/albums"));
+              }}
+              onCancel={() => setPendingDeleteAlbumId(null)}
+            />
+          ) : null}
         </div>
       </div>
       <section className="admin__section">

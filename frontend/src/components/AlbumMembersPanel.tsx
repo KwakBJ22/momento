@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import type { AlbumMemberItem, AlbumMemberRole, FamilyMemberItem } from "../types";
 import "./FamilyManagement.css";
+import ConfirmSheet from "./ConfirmSheet";
 
 const ALBUM_ROLE_LABELS: Record<AlbumMemberRole, string> = {
   owner: "소유자",
@@ -25,6 +26,8 @@ interface AlbumMembersPanelProps {
 
 export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
   const [members, setMembers] = useState<AlbumMemberItem[]>([]);
+  // 내보내기 전 물음 — window.confirm 을 쓰지 않는다(§11).
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMemberItem[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [selectedRole, setSelectedRole] = useState<AlbumMemberRole>("contributor");
@@ -71,7 +74,6 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
   };
 
   const handleRemove = async (memberId: string) => {
-    if (!window.confirm("이 참여자를 앨범에서 제거할까요?")) return;
     try {
       await removeAlbumMember(albumId, memberId);
       await load();
@@ -111,7 +113,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
                     </option>
                   ))}
                 </select>
-                <button type="button" className="member-card__remove" onClick={() => handleRemove(member.id)}>
+                <button type="button" className="member-card__remove" onClick={() => setPendingRemoveId(member.id)}>
                   제거
                 </button>
               </div>
@@ -155,6 +157,15 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
           </button>
         </div>
       )}
+      {pendingRemoveId ? (
+        <ConfirmSheet
+          title="이 참여자를 앨범에서 내보낼까요?"
+          description="내보내도 그 사람이 남긴 사진과 글은 앨범에 남아요."
+          confirmLabel="내보내기"
+          onConfirm={() => { const target = pendingRemoveId; setPendingRemoveId(null); void handleRemove(target); }}
+          onCancel={() => setPendingRemoveId(null)}
+        />
+      ) : null}
     </section>
   );
 }
