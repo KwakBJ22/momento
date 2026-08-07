@@ -17,7 +17,7 @@ function sourceFiles(dir = SRC): string[] {
 
 // SCREEN_SPEC §11 — window.confirm·alert 은 카카오 웹뷰에서 막힐 수 있다. 막히면
 // 삭제·제거를 아예 못 하고, "한 번 더 물어봐요"라는 화면의 말이 거짓이 된다.
-test("소스에 window.confirm / alert 이 없다 (주석 제외)", () => {
+test("소스에 window.confirm / alert / prompt 가 없다 (주석 제외)", () => {
   const offenders: string[] = [];
   for (const file of sourceFiles()) {
     const code = readFileSync(file, "utf8")
@@ -26,6 +26,8 @@ test("소스에 window.confirm / alert 이 없다 (주석 제외)", () => {
       .join("\n");
     if (/window\.confirm\s*\(/.test(code)) offenders.push(`${file}: confirm`);
     if (/window\.alert\s*\(|(?<![\w.])alert\s*\(/.test(code)) offenders.push(`${file}: alert`);
+    // prompt 도 같은 이유로 금지한다 — 디자인이 없고 웹뷰에서 막힐 수 있다(§11).
+    if (/window\.prompt\s*\(|(?<![\w.])prompt\s*\(/.test(code)) offenders.push(`${file}: prompt`);
   }
   assert.deepEqual(offenders, []);
 });
@@ -56,4 +58,23 @@ test("확인 시트는 기존 시트 틀을 쓰고, 되돌릴 수 없는 것은 
   const danger = css.slice(css.indexOf(".album-confirm-sheet__confirm--danger"));
   assert.match(danger.split("}")[0], /color: var\(--c-danger\)/); // 글자색만
   assert.doesNotMatch(danger.split("}")[0], /background/);        // 배경을 채우지 않는다(§5)
+});
+
+// 한마디 수정은 대화상자가 아니라 **그 자리에서 고치는 인라인 편집**이다.
+test("한마디 수정은 글이 있던 자리에서 열린다 — 새 편집기를 만들지 않았다", () => {
+  const workspace = read("components/ContributeWorkspace.tsx");
+  // 주석은 제외한다("prompt 를 쓰지 않는다"는 설명은 화면 동작이 아니다).
+  const code = workspace.split(new RegExp("\\r?\\n")).filter((line) => {
+    const trimmed = line.trim();
+    return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+  }).join(String.fromCharCode(10));
+  assert.doesNotMatch(code, /window\.prompt\s*\(/);
+  // 새로 남길 때와 같은 편집기(draftText·draftInputRef)를 그대로 쓴다.
+  assert.match(workspace, /const \[editingMemoryId, setEditingMemoryId\] = useState<string \| null>\(null\)/);
+  assert.match(workspace, /setDraftText\(memory\.comment \|\| ""\)/);
+  assert.match(workspace, /editingMemoryId === memory\.id \? \(/);
+  assert.match(workspace, /className="contribute__draft">[\s\S]{0,200}aria-label="한마디 수정"/);
+  // 저장·취소가 그 자리에 함께 있다.
+  assert.match(workspace, /onClick=\{\(\) => void saveEditedMemory\(memory\)\}/);
+  assert.match(workspace, /onClick=\{cancelEditMemory\}/);
 });

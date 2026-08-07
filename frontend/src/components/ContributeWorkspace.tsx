@@ -121,6 +121,9 @@ export default function ContributeWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [draftPhotoId, setDraftPhotoId] = useState<string | null>(null);
+  // 수정 중인 한마디. 새 대화상자를 띄우지 않고 **글이 있던 자리**에서 같은 편집기를
+  // 연다(§11: window.prompt 금지 — 디자인이 없고 웹뷰에서 막힐 수 있다).
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   // 지우기 전 물음 — window.confirm 을 쓰지 않는다(§11).
   const [pendingMemoryDelete, setPendingMemoryDelete] = useState<PhotoMemory | null>(null);
@@ -367,12 +370,25 @@ export default function ContributeWorkspace({
     }
   };
 
-  const editMemory = async (memory: PhotoMemory) => {
-    if (!session) return;
-    const next = window.prompt("한마디 수정", memory.comment);
-    if (!next?.trim()) return;
+  /** 고칠 글이 있던 자리에서 편집기를 연다 — 무엇을 고치는지 보이게. */
+  const startEditMemory = (memory: PhotoMemory) => {
+    setError(null);
+    setDraftPhotoId(null);
+    setEditingMemoryId(memory.id);
+    setDraftText(memory.comment || "");
+    window.requestAnimationFrame(() => draftInputRef.current?.focus());
+  };
+
+  const cancelEditMemory = () => {
+    setEditingMemoryId(null);
+    setDraftText("");
+  };
+
+  const saveEditedMemory = async (memory: PhotoMemory) => {
+    if (!session || !draftText.trim() || savingPhotoId) return;
+    setSavingPhotoId(memory.id);
     try {
-      const updated = await updatePhotoMemory(albumId, memory.id, session, next.trim()) as PhotoMemory;
+      const updated = await updatePhotoMemory(albumId, memory.id, session, draftText.trim()) as PhotoMemory;
       setWorkspace((current) => current
         ? {
             ...current,
@@ -383,6 +399,8 @@ export default function ContributeWorkspace({
           }
         : current);
       setWorkspaceRevision((revision) => revision + 1);
+      setEditingMemoryId(null);
+      setDraftText("");
       onContributionUpdated?.({
         id: updated.id,
         type: "memory",
@@ -392,6 +410,8 @@ export default function ContributeWorkspace({
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "한마디를 수정하지 못했습니다.");
+    } finally {
+      setSavingPhotoId(null);
     }
   };
 
@@ -557,15 +577,31 @@ export default function ContributeWorkspace({
                 <div className="contribute__photo-memories">
                   {(photo.memories || []).map((memory) => (
                     <div key={memory.id} className="contribute__photo-memory">
-                      <p className="contribute__memory-text">{memory.comment}</p>
-                      {memory.pending ? <p className="contribute__memory-pending" role="status">저장 중...</p> : null}
-                      {newItemIds.includes(memory.id) ? <span className="contribute__fresh">방금 추가됨</span> : null}
-                      {memory.mine && !memory.pending ? (
-                        <div className="contribute__memory-actions">
-                          <button type="button" onClick={() => void editMemory(memory)}>수정</button>
-                          <button type="button" onClick={() => setPendingMemoryDelete(memory)}>삭제</button>
+                      {editingMemoryId === memory.id ? (
+                        // 글이 있던 자리에서 그대로 고친다(새로 남길 때와 같은 편집기).
+                        <div className="contribute__draft">
+                          <textarea ref={draftInputRef} disabled={savingPhotoId === memory.id} maxLength={500} value={draftText} onChange={(event) => setDraftText(event.target.value)} aria-label="한마디 수정" />
+                          <p className="contribute__count">{draftText.length}/500</p>
+                          <div className="contribute__draft-actions">
+                            <button type="button" disabled={savingPhotoId === memory.id || !draftText.trim()} onClick={() => void saveEditedMemory(memory)}>
+                              {savingPhotoId === memory.id ? "저장 중..." : "저장"}
+                            </button>
+                            <button type="button" disabled={savingPhotoId === memory.id} onClick={cancelEditMemory}>취소</button>
+                          </div>
                         </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          <p className="contribute__memory-text">{memory.comment}</p>
+                          {memory.pending ? <p className="contribute__memory-pending" role="status">저장 중...</p> : null}
+                          {newItemIds.includes(memory.id) ? <span className="contribute__fresh">방금 추가됨</span> : null}
+                          {memory.mine && !memory.pending ? (
+                            <div className="contribute__memory-actions">
+                              <button type="button" onClick={() => startEditMemory(memory)}>수정</button>
+                              <button type="button" onClick={() => setPendingMemoryDelete(memory)}>삭제</button>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
