@@ -607,7 +607,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   };
   // 캡션 권한은 사진마다 백엔드가 내려준다(can_edit_caption). 화면은 그것만 본다 —
   // 주최자는 모든 사진, 참여자는 자기가 올린 사진(SCREEN_SPEC §7).
-  const photoById = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
+  //
+  // ★ 훅(useMemo)을 쓰지 않는다. 이 자리는 위쪽 early return(로딩·오류 화면) 뒤라서
+  // 훅을 두면 렌더마다 훅 개수가 달라진다 — React #310("Rendered more hooks than during
+  // the previous render")로 앨범이 흰 화면이 된다. 실제로 그렇게 깨졌다.
+  // Map 생성은 사진 수십~백 장 규모에서 무시할 수 있는 비용이라 매 렌더 만든다.
+  const photoById = new Map(photos.map((photo) => [photo.id, photo]));
   const captionEdit = {
     canEditPhoto: (photoId: string) => photoById.get(photoId)?.can_edit_caption === true,
     authorNameOf: (photoId: string) => photoById.get(photoId)?.caption_author_name ?? null,
