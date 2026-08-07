@@ -12,6 +12,7 @@ import InviteAccept from "./components/InviteAccept";
 import JoinPage from "./components/JoinPage";
 import Landing from "./components/Landing";
 import MyAlbums from "./components/MyAlbums";
+import { discardMyAlbumRequests } from "./lib/myAlbumsRequest";
 import { parseAdminRoute } from "./components/admin/adminRoute";
 import QuestionFlow from "./components/QuestionFlow";
 import ShareEntryRouter from "./components/ShareEntryRouter";
@@ -161,6 +162,8 @@ function App() {
   const logout = async () => {
     await signOut();
     setUser(null);
+    // 진행 중인 내 앨범 요청을 버린다 — 결과가 도착해도 다음 계정이 쓰지 않는다.
+    discardMyAlbumRequests();
     setAccountMenuOpen(false);
     // A public share link stays open after logout and re-enters Guest mode.
     if (shareToken) {
@@ -329,7 +332,7 @@ function App() {
           : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSheet={accountSheetRow} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
-          : myAlbumsPage ? requiresLogin(<MyAlbums />)
+          : myAlbumsPage ? requiresLogin(<MyAlbums userId={user?.id ?? null} />)
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: resolveShareImageUrl(result), linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={resolveShareImageUrl(result)} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />

@@ -32,7 +32,13 @@ function MyAlbumsSkeleton() {
   );
 }
 
-export default function MyAlbums() {
+interface MyAlbumsProps {
+  /** 지금 로그인한 사람. 진행 중인 목록 요청을 사용자별로 가르는 키다(다른 계정의
+   *  목록을 물려받지 않게 — myAlbumsRequest 참고). */
+  userId?: string | null;
+}
+
+export default function MyAlbums({ userId }: MyAlbumsProps) {
   const [albums, setAlbums] = useState<MyAlbum[] | null>(null);
   const [participating, setParticipating] = useState<MyAlbum[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export default function MyAlbums() {
     let active = true;
     const startedAt = performance.now();
 
-    void requestMyAlbumList(getMyAlbums)
+    void requestMyAlbumList(getMyAlbums, userId)
       .then((data) => {
         if (!active) return;
         setAlbums(data.albums);
