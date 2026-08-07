@@ -1,5 +1,7 @@
 /** Mobile-safe image file helpers (iOS/Android often omit or mangle MIME). */
 
+import { isInAppWebView } from "./webview";
+
 // Full accept list (image/* + explicit MIME types + extensions). Verified on a
 // real Android device:
 //   - full list      → 카메라 / 내 파일 / 사진 및 동영상  (gallery IS offered)
@@ -19,12 +21,7 @@ export const IMAGE_ACCEPT =
 // 후보에서 통째로 빠진다(= "작업 선택창은 뜨는데 갤러리가 없다"). 그래서 웹뷰에서만
 // 단일 값 image/* 를 준다. 크롬은 accept 가 전부 이미지 타입이면 갤러리를 붙여 주므로
 // 실기기에서 검증된 위 전체 목록을 그대로 쓴다(499d69d) — 어느 쪽도 되돌리지 않는다.
-const IN_APP_WEBVIEW = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i;
-
-/** True inside an in-app browser (KakaoTalk 등) rather than a real browser. */
-export function isInAppWebView(userAgent: string): boolean {
-  return IN_APP_WEBVIEW.test(userAgent || "");
-}
+// 판정 자체는 webview.ts 한 곳에 있다(PDF 저장 경로도 같은 판정을 쓴다).
 
 /** accept value for the gallery multi-select input, chosen per environment (위 주석). */
 export function imageAcceptFor(userAgent: string): string {

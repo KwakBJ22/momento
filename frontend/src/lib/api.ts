@@ -316,7 +316,9 @@ export async function getAlbumPdfUrl(
   return (await response.json()) as { url: string | null; album_version: number; cached: boolean };
 }
 
-export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob: Blob): Promise<void> {
+/** 업로드 응답은 저장된 PDF 의 서명 URL 을 그대로 돌려준다 — 인앱 브라우저는 blob 저장이
+ *  막혀 있어 이 주소가 유일한 전달 경로다. 버리지 않고 반환한다(추가 요청 없음). */
+export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob: Blob): Promise<{ url: string | null; album_version: number; cached: boolean }> {
   const form = new FormData();
   form.append("file", blob, `momento-${albumId}-v${albumVersion}.pdf`);
   const response = await authenticatedFetch(
@@ -324,6 +326,7 @@ export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob
     { method: "PUT", body: form },
   );
   if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { url: string | null; album_version: number; cached: boolean };
 }
 
 export async function updateAlbumPhotoLocation(

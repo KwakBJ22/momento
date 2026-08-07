@@ -10,12 +10,13 @@ import {
 } from "../lib/api";
 import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
+import { currentUserAgent } from "../lib/webview";
 import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
 import "./ContributeWorkspace.css";
 
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
-const PHOTO_ACCEPT = imageAcceptFor(typeof navigator === "undefined" ? "" : navigator.userAgent);
+const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
 
 
 interface ContributeWorkspaceProps {

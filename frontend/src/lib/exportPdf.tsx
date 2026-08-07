@@ -3,8 +3,8 @@ import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
 import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
-import { isInAppWebView } from "./imageFile";
-import { PDF_GENERIC_MESSAGE, PDF_WEBVIEW_MESSAGE, pdfFailureMessage, type PdfDelivery } from "./pdfNotice";
+import { currentUserAgent, isInAppWebView } from "./webview";
+import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
 import { printPageStraddleGap } from "./pdfPageBreak";
 
@@ -56,27 +56,25 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
     throw new Error(input.photos.length > PDF_PHOTO_SAFE_LIMIT ? PDF_BLOCKED_REASON : PDF_GENERIC_MESSAGE);
   }
 
-  let uploaded = true;
+  // 저장 경로는 이미 있다: PUT /albums/{id}/pdf 가 momento-private 에 올리고 서명 URL 을
+  // 돌려준다(새 API 를 만들지 않는다). 인앱 브라우저에서는 이 주소가 유일한 전달 경로다.
+  let storedUrl: string | null = null;
   try {
-    await uploadAlbumPdf(input.albumId, input.albumVersion, blob);
+    storedUrl = (await uploadAlbumPdf(input.albumId, input.albumVersion, blob)).url;
   } catch (error) {
-    uploaded = false;
     logPdf("pdf_upload_failed", { album: input.albumId, reason: pdfFailureMessage(error) });
   }
 
-  // 인앱 브라우저(카카오톡 등)는 blob URL + a[download] 를 무시한다: 클릭해도 아무 일도
-  // 일어나지 않고 예외도 없다 — 예전에 "저장했어요"만 뜨던 원인이다. 서버에 올라간 파일
-  // 주소가 있으면 그것을 열고, 없으면 조용히 넘어가지 말고 이유를 말한다.
-  if (isInAppWebView(typeof navigator === "undefined" ? "" : navigator.userAgent)) {
-    const url = uploaded
-      ? await getAlbumPdfUrl(input.albumId, input.albumVersion).then((result) => result.url).catch(() => null)
-      : null;
-    if (url) {
-      triggerFileDownload(url, pdfFilename(input));
-      return { via: "browser-url", url };
+  // 인앱 브라우저(카카오톡 등)는 blob URL + a[download] 를 무시한다: 눌러도 아무 일도
+  // 일어나지 않고 예외도 없다 — 예전에 "저장했어요"만 뜨던 원인이다. blob 을 아예 쓰지
+  // 않고 저장된 파일 주소로 이동시키면 웹뷰의 다운로드 처리기가 받는다.
+  if (isInAppWebView(currentUserAgent())) {
+    if (storedUrl) {
+      window.location.assign(withDownloadName(storedUrl, pdfFilename(input)));
+      return { via: "browser-url", url: storedUrl };
     }
-    logPdf("pdf_download_unsupported", { album: input.albumId, uploaded });
-    throw new Error(PDF_WEBVIEW_MESSAGE);
+    logPdf("pdf_download_unsupported", { album: input.albumId, reason: "no_stored_url" });
+    throw new Error(webviewSaveMessage(currentUserAgent()));
   }
 
   triggerBlobDownload(blob, pdfFilename(input));
@@ -195,6 +193,12 @@ export function alignBlocksToPrintPages(element: HTMLElement): void {
     }
     if (!pushed) break;
   }
+}
+
+/** 서명 URL 에 download 표시를 붙인다 — 웹뷰가 화면에 열지 않고 파일로 받게 한다.
+ *  Supabase 서명 URL 은 추가 쿼리를 허용하므로 서명이 깨지지 않는다. */
+function withDownloadName(url: string, filename: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(filename)}`;
 }
 
 function pdfFilename(input: AlbumPdfInput): string {

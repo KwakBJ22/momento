@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { pdfFailureMessage, pdfSuccessMessage } from "../src/lib/pdfNotice";
+import { pdfFailureMessage, pdfSuccessMessage, webviewSaveMessage } from "../src/lib/pdfNotice";
 
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
@@ -11,7 +11,7 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 // 다운로드를 무시하므로 파일은 없고 문구만 떴다. 문구는 실제로 일어난 일만 말한다.
 test("성공 문구는 경로별로 사실만 말한다 — '저장했다'고 단정하지 않는다", () => {
   assert.match(pdfSuccessMessage({ via: "download" }), /내려받고 있어요/);
-  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /새 창에서 PDF를 열었어요/);
+  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /PDF 파일을 열었어요/);
   for (const message of [pdfSuccessMessage({ via: "download" }), pdfSuccessMessage({ via: "browser-url", url: "u" })]) {
     assert.doesNotMatch(message, /저장했어요/);
   }
@@ -54,5 +54,45 @@ test("실패 원인이 event 이름으로 남는다 (검색 가능)", () => {
   for (const event of ["pdf_render_failed", "pdf_canvas_overflow", "pdf_blob_empty",
     "pdf_upload_failed", "pdf_download_unsupported", "pdf_cache_lookup_failed"]) {
     assert.match(exportPdf, new RegExp(`logPdf\\("${event}"`), `누락된 이벤트: ${event}`);
+  }
+});
+
+// 커밋 B: 카카오 웹뷰에서 실제로 받게 한다 — blob 을 아예 쓰지 않고, 이미 있는 저장 경로
+// (PUT /albums/{id}/pdf → momento-private, 응답의 서명 URL)로 보낸다. 새 API 없음.
+test("웹뷰에서는 blob 대신 저장된 파일 주소로 보낸다 — 기존 업로드 경로 재사용", () => {
+  const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
+  // 업로드 응답의 URL 을 버리지 않는다(추가 요청 없이 그 자리에서 받는다).
+  assert.match(exportPdf, /storedUrl = \(await uploadAlbumPdf\(/);
+  assert.match(exportPdf, /if \(isInAppWebView\(currentUserAgent\(\)\)\) \{/);
+  assert.match(exportPdf, /window\.location\.assign\(withDownloadName\(storedUrl/);
+  // 화면에 열지 않고 파일로 받게 하는 표시.
+  assert.match(exportPdf, /download=\$\{encodeURIComponent\(filename\)\}/);
+  // 주소조차 없으면 조용히 끝내지 않는다.
+  assert.match(exportPdf, /logPdf\("pdf_download_unsupported"[\s\S]{0,80}throw new Error\(webviewSaveMessage/);
+  // 새 API·새 페이지를 만들지 않았다(기존 두 엔드포인트만 쓴다).
+  assert.match(exportPdf, /import \{ getAlbumPdfUrl, uploadAlbumPdf \} from "\.\/api"/);
+});
+
+test("웹뷰 안내 문구: 앱 이름을 정확히 부르고, 사실만 말한다", () => {
+  const kakao = webviewSaveMessage("Mozilla/5.0 (Linux; Android 14) KAKAOTALK 10.5.0");
+  assert.match(kakao, /카카오톡 안에서는 파일 저장이 막혀 있어요/);
+  assert.match(kakao, /다른 브라우저로 열기/);   // 사용자가 찾을 수 있게 메뉴 이름 그대로
+  assert.match(kakao, /크롬이나 사파리/);         // 어느 브라우저인지 구체적으로
+  for (const forbidden of ["곧", "준비 중", "출시 예정", "업그레이드", "AI", "GPT", "인공지능"]) {
+    assert.equal(kakao.includes(forbidden), false, `쓰지 않는 표현: ${forbidden}`);
+  }
+  // 카카오가 아닌 웹뷰에서는 앱 이름을 지어내지 않는다.
+  assert.match(webviewSaveMessage("Mozilla/5.0 Instagram 300.0"), /지금 쓰는 앱 안에서는/);
+});
+
+test("웹뷰 판정은 한 곳에만 있다 — 갤러리와 PDF 가 같은 함수를 쓴다", () => {
+  const webview = readFileSync(new URL("../src/lib/webview.ts", import.meta.url), "utf8");
+  assert.match(webview, /export function isInAppWebView/);
+  for (const consumer of ["lib/imageFile.ts", "lib/exportPdf.tsx", "lib/pdfNotice.ts"]) {
+    assert.match(read(consumer), /from "\.\/webview"/, `${consumer} 가 판정 모듈을 쓴다`);
+  }
+  // 판정 정규식이 다른 파일에 복제되지 않았다.
+  for (const other of ["lib/imageFile.ts", "lib/exportPdf.tsx"]) {
+    assert.doesNotMatch(read(other), /KAKAOTALK/);
   }
 });

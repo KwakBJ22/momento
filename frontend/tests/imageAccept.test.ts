@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { IMAGE_ACCEPT, imageAcceptFor, isInAppWebView } from "../src/lib/imageFile";
+import { IMAGE_ACCEPT, imageAcceptFor } from "../src/lib/imageFile";
+import { isInAppWebView } from "../src/lib/webview"; // 판정은 한 곳에만 있다
 
 // Android picker regression (verified on a real device): `image/*` ALONE drops the
 // gallery from the intent chooser (only 카메라/파일 appear). The full list — image/*
