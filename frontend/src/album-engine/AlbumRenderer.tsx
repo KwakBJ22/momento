@@ -259,7 +259,7 @@ export default function AlbumRenderer({
         <header className="album-living-page__header">
           <div>
             <p>함께 만든 이야기</p>
-            <h2>새롭게 더해진 추억</h2>
+            <h2>새로 더해진 사진과 한마디</h2>
           </div>
           {mode === "screen" && newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
         </header>
@@ -267,7 +267,7 @@ export default function AlbumRenderer({
           <div className="album-living-page__photos">
             {page.photos.map((photo) => (
               <figure key={photo.id}>
-                <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
+                <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새로 더해진 사진과 한마디" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
                 {photo.caption?.trim() ? <figcaption>{photo.caption.trim()}</figcaption> : null}
               </figure>
             ))}
@@ -429,7 +429,7 @@ export default function AlbumRenderer({
               <header className="album-living-page__header">
                 <div>
                   <p>함께 자라는 앨범</p>
-                  <h2>새롭게 더해진 추억</h2>
+                  <h2>새로 더해진 사진과 한마디</h2>
                 </div>
                 {mode === "screen" && newAppendPageIds.has(page.id) ? <span className="album-living-page__new">NEW</span> : null}
               </header>
@@ -437,7 +437,7 @@ export default function AlbumRenderer({
                 <div className="album-living-page__photos">
                   {page.photos.map((photo) => (
                     <figure key={photo.id}>
-                      <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새롭게 더해진 추억" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
+                      <img src={selectAlbumPhotoUrl(photo, mode === "print" ? "print" : "screen")} alt="새로 더해진 사진과 한마디" loading={resolveImageLoading(mode, "lazy")} decoding="async" />
                       {photo.caption?.trim() ? <figcaption>{photo.caption.trim()}</figcaption> : null}
                     </figure>
                   ))}

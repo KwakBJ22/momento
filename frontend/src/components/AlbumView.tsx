@@ -147,9 +147,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       shareAlbum({
         imageUrl: resolveShareImageUrl(album),
         linkUrl,
-        title: "우리 앨범에 추억을 더해주세요",
+        title: "함께 앨범을 만들어요",
         description: "가족과 친구가 자기 사진과 한마디를 더할 수 있어요.",
-        buttonTitle: "추억 추가하기",
+        buttonTitle: "함께 만들기",
       });
     } catch {
       try {
@@ -789,7 +789,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
               </p>
             ) : null}
             {requestedEdition === null && displayAlbum?.edition_is_latest && displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? (
-              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></p>
+              <p className="album-result__subtitle">새로 더해진 것까지 담은 앨범입니다. <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></p>
             ) : null}
 
             <p className="album-result__cover">{coverLineForCategory(category)}</p>

@@ -317,7 +317,7 @@ export default function AlbumResultView({
               onSaveTitle={handleSaveTitle}
             />
             {result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? (
-              <p className="album-result__subtitle">새로운 추억을 반영한 최신 앨범입니다. <a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p>
+              <p className="album-result__subtitle">새로 더해진 것까지 담은 앨범입니다. <a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p>
             ) : null}
             <p className="album-result__cover">{coverLineForCategory(result.category)}</p>
             <h2 className="album-result__title">앨범이 완성됐어요!</h2>

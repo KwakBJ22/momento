@@ -337,8 +337,10 @@ test("album viewing and collaboration invitation use distinct URLs and Kakao pay
   assert.match(source, /rotateCollaborationInvite/);
   assert.match(source, /isContributionInviteUrl/);
   assert.match(source, /pathname\.startsWith\("\/join\/"\)/);
-  assert.match(source, /title: "우리 앨범에 추억을 더해주세요"/);
-  assert.match(source, /buttonTitle: "추억 추가하기"/);
+  // 카카오 카드는 초대받은 사람이 가장 먼저 보는 문장이다 — 참여 화면의
+  // "함께 만들자고 초대했어요"와 말이 이어져야 한다.
+  assert.match(source, /title: "함께 앨범을 만들어요"/);
+  assert.match(source, /buttonTitle: "함께 만들기"/);
   // Result-named wording (동사 대신 결과로 이름): 초대 = "사진·한마디 받기", 복사 = "링크 복사".
   // 이름은 §7 대로 "한마디" 하나다(옛 이름 "기억"에서 바뀌었다).
   assert.match(source, /사진·한마디 받기/);

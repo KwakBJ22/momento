@@ -668,7 +668,7 @@ export default function ContributeWorkspace({
   return (
     <AlbumScreen
       title={workspace.title}
-      subtitle="함께 추억을 더해보세요."
+      subtitle="사진과 한마디를 더할 수 있어요."
       body={workspaceBody}
       bottomNavigation={{
         variant: "participant",
