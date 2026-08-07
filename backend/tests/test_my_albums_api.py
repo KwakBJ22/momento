@@ -145,7 +145,13 @@ class MyAlbumsApiTests(TestCase):
         self.assertEqual([a["album_id"] for a in body["participating"]], [part_id])
         self.assertNotIn(NEW_ALBUM_ID, [a["album_id"] for a in body["participating"]])
 
-    def test_owner_membership_recovers_legacy_claimed_album_and_sorts_it_first(self) -> None:
+    def test_ownership_is_decided_by_owner_id_alone(self) -> None:
+        """SCREEN_SPEC §1 — "내가 만든 앨범" 판정은 albums.owner_id 하나다.
+
+        예전에는 album_members(role=owner) 도 함께 봐서, owner_id 가 다른 계정인 앨범이
+        두 사람 모두의 "내가 만든 앨범"에 떴다(프로덕션에 실제로 있었다). 이제 멤버십
+        행이 있어도 owner_id 가 내 것이 아니면 이 목록에 들어오지 않는다.
+        """
         client = _OwnedListClient(
             direct=[{"id": OLD_ALBUM_ID, "created_at": "2026-07-22T12:00:00+00:00", "updated_at": "2026-07-22T12:00:00+00:00"}],
             member_ids=[{"album_id": NEW_ALBUM_ID}],
@@ -154,7 +160,8 @@ class MyAlbumsApiTests(TestCase):
 
         records = list_owned_album_list_records(client, PROFILE_ID)
 
-        self.assertEqual([record["id"] for record in records], [NEW_ALBUM_ID, OLD_ALBUM_ID])
+        # owner_id 로 직접 조회된 것만 나온다. 멤버십으로 끌어오지 않는다.
+        self.assertEqual([record["id"] for record in records], [OLD_ALBUM_ID])
 
 
 class ParticipatingAlbumQueryTests(TestCase):

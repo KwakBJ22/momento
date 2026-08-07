@@ -424,52 +424,29 @@ def list_owned_album_records(client: Client, profile_id: str) -> list[dict[str, 
 
 
 def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
-    """Return the minimal, newest-first fields needed by the customer album list.
+    """"내가 만든 앨범" 목록 — 판정은 albums.owner_id 하나다(SCREEN_SPEC §1).
 
-    Older guest claims can have an owner membership even when the legacy
-    ``owner_id``/``created_by`` columns were not populated.  Keep that owner
-    relationship visible without exposing participant-only albums.
+    예전에는 created_by / owner_id / album_members(role=owner) 셋을 함께 봤다. 셋이
+    어긋난 데이터가 실제로 생겨(한 앨범이 두 계정 모두의 "내가 만든 앨범"에 떴다) 근거를
+    하나로 좁힌다.
+
+    - created_by 는 "누가 처음 만들었는지"의 기록이다. 판정에 쓰지 않고 지우지도 않는다.
+    - album_members 의 owner 행은 참여자 목록에만 쓴다.
+    - 게스트 앨범을 계정으로 가져올 때(claim_guest_album_ownership RPC)도 owner_id 를
+      채우므로 이 경로로 앨범을 잃지 않는다.
     """
     columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous, status"
     result = (
         client.table("albums")
         .select(columns)
-        .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
+        .eq("owner_id", profile_id)
         .is_("deleted_at", "null")
         .order("updated_at", desc=True)
         .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
-    rows = result.data or []
-    known_ids = {str(row.get("id") or "") for row in rows}
-    membership_result = (
-        client.table("album_members")
-        .select("album_id")
-        .eq("profile_id", profile_id)
-        .eq("role", "owner")
-        .eq("status", "active")
-        .execute()
-    )
-    member_album_ids = [
-        str(row.get("album_id") or "")
-        for row in (membership_result.data or [])
-        if str(row.get("album_id") or "") and str(row.get("album_id")) not in known_ids
-    ]
-    if member_album_ids:
-        recovered = (
-            client.table("albums")
-            .select(columns)
-            .in_("id", member_album_ids)
-            .is_("deleted_at", "null")
-            .execute()
-        )
-        rows.extend(recovered.data or [])
-    rows.sort(
-        key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
-        reverse=True,
-    )
-    return rows[:limit]
+    return result.data or []
 
 
 def list_participating_album_list_records(
