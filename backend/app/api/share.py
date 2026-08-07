@@ -35,7 +35,7 @@ from app.services.supabase import (
     get_supabase_client,
 )
 from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, unpack_edition_snapshot
-from app.services.collaboration_service import join_as_contributor, new_guest_id
+from app.services.collaboration_service import count_active_contributors, join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
 
@@ -348,8 +348,8 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         edition_is_latest=edition is None,
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
-        # 주최자를 뺀 참여자 수(위에서 이미 조회한 목록을 그대로 센다).
-        contributor_count=len([row for row in contributors if str(row["id"]) not in owner_ids]),
+        # 함께한 사람 수 — 주최자를 포함한다(§1). 세는 식은 count_active_contributors 한 곳.
+        contributor_count=count_active_contributors(client, album_id),
         # 프런트는 링크 종류를 알지 않는다. "무엇을 할 수 있는가"만 본다(SCREEN_SPEC §1).
         can_contribute=contribution_block_reason(share, album) is None,
         reaction_counts=reaction_counts(client, album_id),

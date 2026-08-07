@@ -137,6 +137,7 @@ from app.services.share_service import create_share_link
 from app.services.share_service import log_event
 from app.services.collaboration_service import (
     album_document_photo_ids,
+    count_active_contributors,
     ensure_owner_contributor,
     get_contributor,
     list_contributors,
@@ -1978,11 +1979,8 @@ async def get_album(
                 owner_name = usable_owner_display_name(
                     str((profile_rows[0].get("display_name") if profile_rows else "") or ""), owner_email,
                 )
-            album_contributor_count = int(
-                client.table("album_contributors").select("id", count="exact")
-                .eq("album_id", album_id).eq("status", "active")
-                .limit(1).execute().count or 0
-            )
+            # 세는 식은 count_active_contributors 한 곳이다(§1 — 주최자 포함).
+            album_contributor_count = count_active_contributors(client, album_id)
             first = contributor_rows[0]
             detail = detail.model_copy(update={
                 "owner_display_name": owner_name,

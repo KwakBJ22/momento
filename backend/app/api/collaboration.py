@@ -36,6 +36,7 @@ from app.services.collaboration_service import (
     LIVING_APPEND_PHOTO_THRESHOLD,
     MAX_BATCH_UPLOAD,
     close_collaboration,
+    active_contributor_count,
     count_active_contributors,
     count_ready_photos,
     create_photo_memory,
@@ -430,7 +431,9 @@ async def get_collaboration_status(
         asyncio.to_thread(_invite_is_active, client, album_id),
     )
     participation_payload = build_participation_payload(album, contributors, photos, memories)
+    # 세는 규칙은 collaboration_service 한 곳이다(§1 — 주최자 포함).
     active_contributors = [row for row in contributors if row.get("status") == "active"]
+    contributor_total = active_contributor_count(contributors)
     # "누가 다녀갔다" counter — owners only (§10). Non-owners never see it.
     visitor_count = await asyncio.to_thread(album_visitor_count, client, album_id) if access.can_edit_settings else 0
     duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -447,7 +450,7 @@ async def get_collaboration_status(
         published_at=album.get("published_at"),
         photo_count=len(photos),
         photo_limit=int(album.get("photo_limit") or DEFAULT_ALBUM_PHOTO_CAPACITY),
-        contributor_count=len(active_contributors),
+        contributor_count=contributor_total,
         contributor_limit=int(album.get("contributor_limit") or 10),
         memory_count=len(memories),
         visitor_count=visitor_count,

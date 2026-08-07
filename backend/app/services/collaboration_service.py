@@ -337,7 +337,20 @@ def ensure_owner_contributor(client: Client, album: dict[str, Any], actor_id: st
     return (inserted.data or [row])[0]
 
 
+def active_contributor_count(rows: list[dict[str, Any]]) -> int:
+    """이미 조회한 참여자 목록에서 "함께한 사람 수"를 센다 — 규칙은 아래 count_active_
+    contributors 와 같다(주최자 포함, status='active' 만). 질의를 한 번 더 하지 않기
+    위한 같은 규칙의 다른 입구다."""
+    return len([row for row in rows if str(row.get("status") or "") == "active"])
+
+
 def count_active_contributors(client: Client, album_id: str) -> int:
+    """이 앨범을 **함께 만든 사람 수**. 세는 곳은 여기 하나다(SCREEN_SPEC §1).
+
+    ★ 주최자를 포함한다. 이 앨범을 같이 만든 사람 전부가 "함께한 사람"이다.
+    예전에는 앨범 상세·협업 현황·공유 응답이 각자 셌고 owner 포함 여부가 갈려서, 같은
+    앨범인데 소유자 화면과 공유 화면의 수가 1 차이로 어긋났다.
+    """
     result = (
         client.table("album_contributors")
         .select("id", count="exact")
