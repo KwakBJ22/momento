@@ -1,10 +1,16 @@
+import { useState } from "react";
+
 import { BRAND_BUSINESS_INFO, BRAND_NAME_KO, LEGAL_LINKS } from "../lib/brand";
 import "./AppChrome.css";
 
 /**
  * 모든 화면(관리자 콘솔 제외)의 단 하나의 하단 블록.
  *
- * 1행 브랜드 / 2행 약관·개인정보 / 3행 사업자 정보. 눈에 띄지 않되 읽을 수 있게
+ * 두 줄이다(§6): 1행 브랜드 / 2행 약관·개인정보·회사 정보. 사업자 정보는 늘어놓지 않고
+ * `회사 정보` 안에 둔다 — 법적 표시 의무는 "찾을 수 있는 곳에 있으면" 충족된다.
+ * 새 페이지를 만들지 않고 이미 있는 시트 껍데기로 연다(§11).
+ *
+ * 원래 설명: 눈에 띄지 않되 읽을 수 있게
  * (--c-text-muted, 14px 하한). 구경꾼이 보는 공유 화면에도 넣는다 — 이 서비스를
  * 처음 보는 사람에게 브랜드와 약관이 보여야 한다.
  *
@@ -18,7 +24,8 @@ interface AppFooterProps {
 }
 
 export default function AppFooter({ withBottomNavigation = false }: AppFooterProps) {
-  return (
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const footer = (
     <footer className={`app-footer${withBottomNavigation ? " app-footer--above-nav" : ""}`}>
       <p className="app-footer__brand">{BRAND_NAME_KO}</p>
       <p className="app-footer__legal">
@@ -28,15 +35,33 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
             <a href={link.href} target="_blank" rel="noopener">{link.label}</a>
           </span>
         ))}
-      </p>
-      <p className="app-footer__business">
-        {BRAND_BUSINESS_INFO.map((item, index) => (
-          <span key={item.label} className="app-footer__business-item">
-            {index > 0 ? <span aria-hidden="true"> · </span> : null}
-            {item.label} {item.value}
-          </span>
-        ))}
+        <span aria-hidden="true"> · </span>
+        <button type="button" className="app-footer__company-link" onClick={() => setCompanyOpen(true)}>회사 정보</button>
       </p>
     </footer>
+  );
+
+  return (
+    <>
+      {footer}
+      {companyOpen ? (
+        <>
+          <div className="album-sheet-dim" aria-hidden="true" onClick={() => setCompanyOpen(false)} />
+          <section className="album-inline-action album-more-sheet" aria-label="회사 정보">
+            <div className="album-inline-action__header"><h2>회사 정보</h2><button type="button" onClick={() => setCompanyOpen(false)}>닫기</button></div>
+            <div className="album-inline-action__body app-footer__company">
+              {/* 문서(TERMS_OF_SERVICE.md 회사 정보)에 있는 것만. 지어내지 않는다.
+                  통신판매업 신고번호는 유료 판매를 열 때 한 줄이 추가된다. */}
+              {BRAND_BUSINESS_INFO.map((item) => (
+                <p key={item.label} className="app-footer__company-row">
+                  <span>{item.label}</span>
+                  <em>{item.value}</em>
+                </p>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
+    </>
   );
 }

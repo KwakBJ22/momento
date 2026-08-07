@@ -37,11 +37,18 @@ test("하단도 화면당 하나 — 관리자 제외 모든 화면에 AppFooter
   assert.doesNotMatch(read("components/AlbumScreen.tsx"), /<AppFooter/);
 });
 
-test("푸터: 브랜드 + 약관·개인정보 + 사업자 정보 5개(문서에 있는 것만)", () => {
+test("푸터는 두 줄 — 사업자 정보는 `회사 정보` 안에 있다 (§6)", () => {
   const footer = read("components/AppFooter.tsx");
   assert.match(footer, /BRAND_NAME_KO/);
   assert.match(footer, /LEGAL_LINKS/);
-  assert.match(footer, /BRAND_BUSINESS_INFO/);
+  // 본문에 늘어놓지 않는다: 사업자 정보는 시트 안에서만 그린다.
+  const body = footer.slice(footer.indexOf("const footer = ("), footer.indexOf("</footer>"));
+  assert.doesNotMatch(body, /BRAND_BUSINESS_INFO/);
+  assert.match(footer, /app-footer__company-link[\s\S]{0,80}회사 정보/);
+  // 새 페이지를 만들지 않고 이미 있는 시트 껍데기를 쓴다(§11).
+  assert.match(footer, /className="album-inline-action album-more-sheet" aria-label="회사 정보"/);
+  assert.match(footer, /className="album-sheet-dim"/);
+  assert.match(footer, /BRAND_BUSINESS_INFO\.map/);
   // 문서(TERMS_OF_SERVICE.md 회사 정보)에 있는 5개.
   assert.deepEqual(BRAND_BUSINESS_INFO.map((item) => item.label),
     ["상호", "대표자", "사업자등록번호", "주소", "문의"]);

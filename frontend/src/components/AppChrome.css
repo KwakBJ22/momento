@@ -73,8 +73,7 @@
 .app-footer__brand { margin: 0; font-weight: 700; color: var(--c-text-soft); }
 .app-footer__legal { margin: 0; }
 .app-footer__legal a { color: var(--c-text-soft); text-decoration: underline; text-underline-offset: 2px; }
-.app-footer__business { margin: 0; overflow-wrap: anywhere; }
-.app-footer__business-item { white-space: normal; }
+
 
 /* 하단 고정 네비가 있는 화면에서만 그 높이만큼 비워, 끝까지 스크롤하면 푸터가 보이게
    한다. 네비가 없는 화면에는 이 클래스를 붙이지 않는다(빈 공간이 생긴다). */
@@ -101,3 +100,11 @@
 .account-row__actions .app__account-withdraw { color: var(--c-text-muted); }
 /* 게스트 자리: 이 자리는 누르는 것이 맞다(로그인). */
 .account-row--guest { padding: 0; border-bottom: 1px solid var(--c-border); }
+
+/* 푸터의 `회사 정보` — 링크처럼 보이는 버튼(같은 줄의 약관·개인정보와 나란히). */
+.app-footer__company-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+/* 시트 안의 사업자 정보. 늘어놓지 않고 라벨·값을 줄로 나눈다. */
+.app-footer__company { display: grid; gap: 12px; padding: 16px 2px; }
+.app-footer__company-row { display: grid; gap: 2px; margin: 0; }
+.app-footer__company-row span { color: var(--c-text-muted); font-size: var(--t-xs); }
+.app-footer__company-row em { color: var(--c-text); font-size: var(--t-sm); font-style: normal; line-height: 1.5; overflow-wrap: anywhere; }
