@@ -27,13 +27,11 @@
 .album-caption-notice p { margin: 0; color: var(--c-text-soft); font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
 .album-caption-notice__link { padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
 
-/* ── 목업 2a·3a 헤더 바: 좌측 브랜드(우리앨범/woorialbum), 우측 [뒤로][더보기]. ──
-   #1a1f2b·#8a8f98 은 시안(brand__ko b / brand__en) 값 — 토큰 아님. */
-.album-screen__brand { display: flex; flex-direction: column; gap: 2px; }
-.album-screen__brand-ko { font-size: 19px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
-.album-screen__brand-ko b { color: #1a1f2b; font-weight: inherit; }
-.album-screen__brand-ko i { color: var(--c-brand); font-style: normal; }
-.album-screen__brand-en { font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; color: #8a8f98; }
+/* 헤더는 AppHeader 한 곳에서만 그린다(326d8d8). 이 파일의 옛 헤더 규칙은 지웠다. */
+
+
+
+
 .album-screen__book { position: relative; }
 /* 더보기(4a): 글자 알약 → ⋯ 원형 44px. 글자 버튼이 둘이면 헤더가 무거워지고
    좌측 브랜드와 경쟁한다 — 글자는 [내 앨범] 하나만 남긴다. */
@@ -41,7 +39,6 @@
 
 /* 더보기 시트(화면 3): 60px 목록 행 + 옅은 구분선 + 보조 라벨(em). */
 .album-more-sheet__list { display: flex; flex-direction: column; gap: 0; }
-/* #f0e4e1 = 목업의 --hairline (시안 신규값: --c-border 보다 옅은 시트 내부 구분선) */
 .album-more-sheet__row { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; border: 0; border-bottom: 1px solid #f0e4e1; background: none; font: inherit; text-align: left; cursor: pointer; }
 .album-more-sheet__row:last-of-type { border-bottom: 0; }
 .album-more-sheet__row:disabled { opacity: 0.45; cursor: default; }

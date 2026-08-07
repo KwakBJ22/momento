@@ -108,3 +108,33 @@ test("헤더 안쪽 좌측 x 가 본문 좌측 x 와 같은 식으로 계산된�
   const app = read("App.tsx");
   assert.match(app, /className=\{`app-shell\$\{isAlbumSurface \|\| adminRoute \? " app-shell--album" : ""\}`\}/);
 });
+
+// 검은 버튼과 토큰 밖 색을 남기지 않는다. 값이 CSS 안에 직접 적히면 다음에 여기만 안 바뀐다.
+test("실사용 화면 CSS 에 토큰 밖 검정 계열 hex 가 없다", () => {
+  // 실사용 화면만 본다(관리자 콘솔은 이 문서 적용 제외).
+  const files = ["App.css", "components/AlbumScreen.css", "components/AppChrome.css",
+    "components/JoinPage.css", "components/ContributeWorkspace.css", "components/CollaborationPanel.css",
+    "components/AlbumResult.css", "components/AlbumBottomNavigation.css", "components/UploadForm.css",
+    "components/AlbumScreenHeader.css", "components/PhotoCommentList.css"];
+  const offenders: string[] = [];
+  for (const file of files) {
+    const text = read(file).split(new RegExp("\r?\n"))
+      .filter((line) => !line.trim().startsWith("/*") && !line.trim().startsWith("*"))
+      .join(String.fromCharCode(10));
+    for (const hex of text.match(/#[0-9a-fA-F]{6}\b/g) || []) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      // 상대 밝기가 낮은(검정 계열) 값만 잡는다 — 그런 색은 토큰에서 와야 한다.
+      if (0.2126 * r + 0.7152 * g + 0.0722 * b < 90) offenders.push(`${file}: ${hex}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test("주 버튼은 브랜드 액션 색이다 — 검은 배경을 쓰지 않는다", () => {
+  const collab = read("components/CollaborationPanel.css");
+  const primary = collab.slice(collab.indexOf(".collab-panel__primary {"), collab.indexOf("}", collab.indexOf(".collab-panel__primary {")));
+  assert.match(primary, /background: var\(--c-brand-action\)/);
+  assert.doesNotMatch(primary, /var\(--c-text\)/);
+  // ★ !important 를 남기지 않는다 — 있으면 다음에 또 여기만 안 바뀐다.
+  assert.doesNotMatch(primary, /!important/);
+});

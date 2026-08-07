@@ -83,12 +83,26 @@
   cursor: default;
 }
 
+/* 주 버튼은 브랜드 액션 색이다. 검은 버튼을 쓰지 않는다.
+   !important 를 없앤다 — 있으면 다음에 또 여기만 안 바뀐다(클래스가 단독으로 붙으므로
+   덮어쓸 다른 규칙이 없다). */
 .collab-panel__primary {
   width: 100%;
-  border-color: var(--c-text) !important;
-  background: var(--c-text) !important;
-  color: var(--c-surface) !important;
-  font-weight: 700 !important;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 0 16px;
+  background: var(--c-brand-action);
+  color: var(--c-surface);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.collab-panel__primary:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .collab-panel__stop {
