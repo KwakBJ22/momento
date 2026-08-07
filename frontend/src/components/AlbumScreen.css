@@ -63,12 +63,7 @@
 
 /* 공유하기 시트(화면 2): 카카오 1개가 주 동작, 함께 만들기는 카드로 구분. */
 .album-share-sheet__body { display: flex; flex-direction: column; gap: 12px; }
-.album-share-sheet__hint { margin: -4px 0 4px; font-size: var(--t-xs); line-height: 1.5; color: var(--c-text-muted); text-align: center; }
-.album-share-sheet__hair { height: 1px; background: #f0e4e1; margin: 4px 0; } /* 목업 --hairline */
-.album-share-sheet__card { padding: 1rem; border: 1px solid var(--c-border); border-radius: 16px; display: flex; flex-direction: column; gap: 10px; }
-.album-share-sheet__card h3 { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--c-text); }
-.album-share-sheet__card p { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--c-text-soft); }
-.album-share-sheet__who { font-size: var(--t-xs) !important; color: var(--c-text-muted) !important; }
+ /* 목업 --hairline */
 /* 시트 뒤 배경 어둡게(목업 .dim). 탭하면 닫힘. 네비(z70) 위, 시트(z90) 아래. */
 .album-sheet-dim { position: fixed; inset: 0; z-index: 85; background: rgba(61, 53, 48, 0.5); }
 
@@ -99,3 +94,10 @@
 .album-confirm-sheet__confirm--danger { color: var(--c-danger); }
 .album-confirm-sheet__cancel { font-weight: 600; color: var(--c-text-soft); }
 .album-confirm-sheet__confirm:disabled, .album-confirm-sheet__cancel:disabled { opacity: 0.5; cursor: default; }
+
+/* 공유하기 시트(§5): 목적이 다른 세 항목. 이름 아래 설명 한 줄을 함께 보여준다 —
+   이름만으로는 차이를 모르고, 잘못 보내면 되돌릴 수 없다. 더보기 시트 행과 같은 모양. */
+.album-share-sheet__row { width: 100%; min-height: 60px; display: grid; gap: 2px; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--c-border); background: none; font: inherit; text-align: left; cursor: pointer; }
+.album-share-sheet__row:last-child { border-bottom: 0; }
+.album-share-sheet__row span { color: var(--c-text); font-size: var(--t-sm); font-weight: 700; }
+.album-share-sheet__row em { color: var(--c-text-muted); font-size: var(--t-xs); font-style: normal; line-height: 1.5; }

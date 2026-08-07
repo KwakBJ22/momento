@@ -98,3 +98,29 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
   assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
   assert.match(share, /\{pdfNotice \? <p className="album-inline-action__error" role="status">/);
 });
+
+// B-1 (§5) — 공유하기는 목적이 다른 두 링크를 갈라 보낸다. 발급도 갈라져 있다(A-7).
+test("공유하기 시트: 세 항목·설명 줄·서로 다른 종류의 링크·주최자 전용", () => {
+  const view = read("components/AlbumView.tsx");
+  const sheet = view.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
+  // 세 항목이고 각각 설명 줄(em)이 있다.
+  assert.equal((sheet.match(/album-share-sheet__row/g) || []).length, 3);
+  assert.equal((sheet.match(/<em>/g) || []).length, 3);
+  // 두 항목이 서로 다른 종류의 링크를 쓴다: 초대(/join/…) vs 감상(/s/…, kind=view).
+  assert.match(view, /ensureAlbumInviteUrl\(albumId\)/);          // 함께 만들자고
+  assert.match(view, /createAlbumShareLink\(album\.album_id, "view"\)/); // 구경하라고
+  // 주최자에게만 열린다.
+  assert.match(view, /\{shareOpen && displayAlbum\?\.can_edit \? \(/);
+  // 카카오를 바로 열지 않는다 — 시트를 먼저 연다.
+  assert.match(view, /onShare: \(\) => setShareOpen\(true\)/);
+});
+
+test("두 링크의 카카오 카드 문구가 다르다 — 받는 사람이 무엇을 받았는지 알아야 한다", () => {
+  const view = read("components/AlbumView.tsx");
+  // 함께 만들자고
+  assert.match(view, /title: "함께 앨범을 만들어요"/);
+  assert.match(view, /buttonTitle: "함께 만들기"/);
+  // 구경하라고
+  assert.match(view, /title: "앨범을 함께 봐요"/);
+  assert.match(view, /buttonTitle: "앨범 보기"/);
+});

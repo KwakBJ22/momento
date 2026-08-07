@@ -415,7 +415,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
         description: (album.epilogue ?? album.narrative ?? "").trim(),
 
-        title: album.title,
+        // §5 — 두 링크의 카드 문구가 달라야 한다. 이건 "구경하라고" 보내는 쪽이다.
+        title: "앨범을 함께 봐요",
+
+        buttonTitle: "앨범 보기",
 
       });
 
@@ -665,23 +668,27 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           showAbsentNotice={!displayAlbum?.can_edit && Boolean(participation)}
         />
       ) : null}
-      {shareOpen ? (
+      {/* 주최자에게만 보인다(§5). 하단 네비의 공유하기도 소유자 변형에만 있지만,
+          여기서도 서버 플래그로 한 번 더 막는다 — 프런트가 추측하지 않는다(§10). */}
+      {shareOpen && displayAlbum?.can_edit ? (
         <section className="album-inline-action album-share-sheet" aria-label="공유하기">
           <div className="album-inline-action__header"><h2>공유하기</h2><button type="button" onClick={() => setShareOpen(false)}>닫기</button></div>
           <div className="album-inline-action__body album-share-sheet__body">
-            {/* 목업 화면 2: 주 동작은 카카오 1개. 함께 만들기는 카드로 묶어 다른 성질임을 표시. */}
-            <button type="button" className="btn btn--kakao" onClick={() => { void handleKakaoShare(); }}>카카오톡으로 보내기</button>
-            <p className="album-share-sheet__hint">받은 사람은 보기만 할 수 있어요</p>
-            {displayAlbum?.can_edit ? <>
-              <div className="album-share-sheet__hair" aria-hidden="true" />
-              <div className="album-share-sheet__card">
-                <h3>함께 만들기</h3>
-                <p>가족과 친구가 자기 사진과 한마디를 더할 수 있어요.</p>
-                <button type="button" className="btn btn--secondary" onClick={() => { void handleInviteKakao(); }}>사진·한마디 받기</button>
-                {contributorCount ? <p className="album-share-sheet__who">지금 {contributorCount}명이 함께 만들고 있어요</p> : null}
-              </div>
-            </> : null}
-            <button type="button" className="btn btn--ghost" onClick={() => void handleCopyShareLink()}>{shareCopied ? "링크를 복사했어요" : "링크 복사"}</button>
+            {/* §5 — 보내는 목적이 둘로 다르다. 이름만으로는 차이를 모르므로 설명 한 줄을
+                함께 보여준다(잘못 보내면 되돌릴 수 없다). 누르는 순간 카카오가 열린다. */}
+            <button type="button" className="album-share-sheet__row" onClick={() => { setShareOpen(false); void handleInviteKakao(); }}>
+              <span>함께 만들자고 보내기</span>
+              <em>받는 사람이 사진과 한마디를 더할 수 있어요</em>
+            </button>
+            <button type="button" className="album-share-sheet__row" onClick={() => { setShareOpen(false); void handleKakaoShare(); }}>
+              <span>구경하라고 보내기</span>
+              <em>받는 사람은 보기만 해요</em>
+            </button>
+            {/* 링크 복사의 기본은 더 안전한 쪽(구경용)이다. 무엇을 복사했는지 알린다. */}
+            <button type="button" className="album-share-sheet__row" onClick={() => void handleCopyShareLink()}>
+              <span>{shareCopied ? "구경용 링크를 복사했어요" : "링크 복사"}</span>
+              <em>구경용 링크를 복사해요</em>
+            </button>
           </div>
         </section>
       ) : null}

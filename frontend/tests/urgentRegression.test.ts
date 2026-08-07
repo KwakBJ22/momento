@@ -165,9 +165,8 @@ test("owner-only actions hide behind server capability flags; PDF stays for part
   assert.match(moreSheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   // PDF row is NOT gated by can_edit/can_delete — participants keep it.
   assert.doesNotMatch(moreSheet, /canEdit[^\n]*파일로 저장하기/);
-  const shareSheet = source.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
-  // 초대 카드(함께 만들기)는 소유자(can_edit)만.
-  assert.match(shareSheet, /displayAlbum\?\.can_edit \? <>/);
+  // 공유하기 시트 자체가 주최자에게만 열린다(§5) — 서버 플래그로 막는다.
+  assert.match(source, /\{shareOpen && displayAlbum\?\.can_edit \? \(/);
 });
 
 test("permission errors speak Korean and never offer 다시 시도", () => {
@@ -350,10 +349,10 @@ test("album viewing and collaboration invitation use distinct URLs and Kakao pay
 });
 
 test("share buttons are named for the view-only result, not the '공유' verb", () => {
-  // AlbumView(앨범 화면)는 목업 2a의 공유하기 시트로 대체됐다: 버튼 대신 시트의
-  // "받은 사람은 보기만 할 수 있어요" 힌트가 같은 구분을 담당한다.
+  // AlbumView 는 §5 공유하기 시트로 대체됐다: 항목 이름이 목적(결과)을 말하고 설명
+  // 한 줄이 차이를 담당한다.
   const albumView = component("AlbumView");
-  assert.match(albumView, /받은 사람은 보기만 할 수 있어요/);
+  assert.match(albumView, /구경하라고 보내기[\s\S]{0,120}받는 사람은 보기만 해요/);
   assert.doesNotMatch(albumView, />앨범 공유하기<\/button>/);
   for (const name of ["AlbumResult", "PublicShareView"]) {
     const source = component(name);
