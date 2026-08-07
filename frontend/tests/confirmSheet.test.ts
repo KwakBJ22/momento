@@ -78,3 +78,29 @@ test("한마디 수정은 글이 있던 자리에서 열린다 — 새 편집기
   assert.match(workspace, /onClick=\{\(\) => void saveEditedMemory\(memory\)\}/);
   assert.match(workspace, /onClick=\{cancelEditMemory\}/);
 });
+
+// B-7 (§11) — 로그인·회원 탈퇴 모달을 시트 계열로. 딤·Esc·스크롤 잠금이 제각각이라
+// 카카오 웹뷰에서 갇히는 사고가 났던 유형이다.
+test("두 모달이 공용 딤을 쓴다 — 딤을 누르면 닫힌다", () => {
+  const app = read("App.tsx");
+  const login = app.slice(app.indexOf("const loginModal = showLogin ?"), app.indexOf("{withdrawOpen ? ("));
+  assert.match(login, /className="album-sheet-dim" aria-hidden="true" onClick=\{closeLogin\}/);
+  const withdraw = app.slice(app.indexOf("{withdrawOpen ? ("));
+  assert.match(withdraw, /className="album-sheet-dim" aria-hidden="true"/);
+  assert.match(withdraw, /if \(!withdrawing\) setWithdrawOpen\(false\)/);
+  // 딤 위의 가운데 정렬 층은 이벤트를 받지 않아 딤 클릭을 막지 않는다.
+  const css = read("App.css");
+  const start = css.indexOf(".auth-modal,");
+  assert.match(css.slice(start, css.indexOf("}", start)), /pointer-events: none/);
+});
+
+test("두 모달이 같은 잠금·Esc·포커스 복원 동작을 쓴다", () => {
+  const app = read("App.tsx");
+  const hook = read("lib/useSheetDialog.ts");
+  assert.match(app, /useSheetDialog\(withdrawOpen, withdrawDialogRef/);
+  for (const behavior of [/document\.body\.style\.overflow = "hidden"/, /event\.key === "Escape"/, /returnFocusRef\?\.current\?\.focus\(\)/]) {
+    assert.match(hook, behavior);
+  }
+  // ★ 로그인 쪽 효과는 App 안에 그대로 둔다 — 기존 접근성 테스트가 그 자리를 잠그고 있다.
+  assert.match(app, /if \(!showLogin\) return;[\s\S]*?document\.body\.style\.overflow = "hidden"/);
+});

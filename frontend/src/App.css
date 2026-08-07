@@ -138,23 +138,29 @@ body {
   text-underline-offset: 2px;
 }
 
-.auth-modal {
+/* 딤은 다른 시트와 같은 공용 element(.album-sheet-dim)가 담당한다. 이 층은 대화상자를
+   가운데 두기만 하는 투명한 층이라, 딤 클릭이 막히지 않게 이벤트를 받지 않는다. */
+.auth-modal,
+.app__withdraw {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 95;
+  pointer-events: none;
   display: grid;
   place-items: center;
   padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-  background: rgba(61, 53, 48, 0.34);
 }
 
-.auth-modal__dialog {
+/* 대화상자 자체는 시트와 같은 결(흰 배경·테두리·둥근 모서리)이되 가운데에 뜬다. */
+.auth-modal__dialog,
+.app__withdraw-dialog {
   position: relative;
+  pointer-events: auto;
   width: min(100%, 420px);
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
   padding: 24px;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--c-border-strong);
   border-radius: 18px;
   background: var(--c-surface);
   box-shadow: var(--sh-lg);
@@ -538,26 +544,7 @@ body {
 .app__account-withdraw { color: var(--c-danger); }
 .app__account-menu .app__account-withdraw:hover { background: var(--c-danger-soft); }
 
-.app__withdraw {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
-  background: rgba(45, 34, 27, 0.5);
-}
 
-.app__withdraw-dialog {
-  width: min(340px, 100%);
-  padding: 1.5rem 1.35rem 1.25rem;
-  border-radius: 18px;
-  /* Neutral surface: an irreversible-decision dialog should read calm, and coral
-     is easily mistaken for a warning color. Danger stays on the confirm button. */
-  background: var(--c-surface);
-  box-shadow: var(--sh-lg);
-}
 
 .app__withdraw-dialog h2 { margin: 0 0 0.7rem; font-size: 1.05rem; color: var(--c-text); }
 .app__withdraw-dialog p { margin: 0 0 0.55rem; font-size: var(--t-xs); line-height: 1.6; color: var(--c-text-soft); }

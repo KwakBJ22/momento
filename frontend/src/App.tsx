@@ -19,6 +19,7 @@ import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { MoreHorizontal } from "lucide-react";
+import { useSheetDialog } from "./lib/useSheetDialog";
 import AccountSheetRow from "./components/AccountSheetRow";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
@@ -60,6 +61,8 @@ function App() {
   const [, setRouteVersion] = useState(0);
   const loginDialogRef = useRef<HTMLElement | null>(null);
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
+  const withdrawDialogRef = useRef<HTMLElement | null>(null);
+  const withdrawReturnFocusRef = useRef<HTMLElement | null>(null);
   const initialCreateStep = useRef(readCreateStep()).current;
   const [category, setCategory] = useState<AlbumCategory | null>(initialCreateStep.category);
   const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(initialCreateStep.photoStep);
@@ -174,6 +177,7 @@ function App() {
     window.location.replace("/");
   };
   const openWithdraw = () => {
+    withdrawReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setWithdrawError(null);
     setAccountMenuOpen(false);
     setWithdrawOpen(true);
@@ -200,6 +204,9 @@ function App() {
     setShowLogin(true);
   };
   const closeLogin = () => setShowLogin(false);
+  // 로그인 대화상자의 동작(Esc·스크롤 잠금·포커스 가두기·복원). 이 효과가 App 안에 있다는
+  // 것을 기존 접근성 테스트가 잠그고 있어 자리를 옮기지 않는다 — 회원 탈퇴는 같은 동작을
+  // useSheetDialog 로 쓴다(동작 정의는 한 곳이다).
   useEffect(() => {
     if (!showLogin) return;
     const previousOverflow = document.body.style.overflow;
@@ -235,6 +242,8 @@ function App() {
       window.requestAnimationFrame(() => loginReturnFocusRef.current?.focus());
     };
   }, [showLogin]);
+  // 회원 탈퇴도 같은 동작을 갖는다(예전에는 딤·Esc·스크롤 잠금이 아예 없었다).
+  useSheetDialog(withdrawOpen, withdrawDialogRef, () => setWithdrawOpen(false), withdrawReturnFocusRef);
   useEffect(() => {
     if (!accountMenuOpen) return;
     // 시트 밖을 누르면 닫는다(시트 자체와 딤은 각자 닫기를 처리한다).
@@ -306,7 +315,10 @@ function App() {
   // on Landing. It is a fixed full-screen overlay, so rendering it at the app root
   // keeps its look identical while ensuring the scroll lock and the modal always
   // appear together — locking the body without a visible dialog looked frozen.
+  // 딤은 다른 시트와 같은 공용 element(album-sheet-dim)를 쓴다 — 누르면 닫힌다.
   const loginModal = showLogin ? (
+    <>
+    <div className="album-sheet-dim" aria-hidden="true" onClick={closeLogin} />
     <div className="auth-modal">
       <section ref={loginDialogRef} className="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
         <button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button>
@@ -314,6 +326,7 @@ function App() {
         <button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button>
       </section>
     </div>
+    </>
   ) : null;
 
   return (
@@ -371,8 +384,10 @@ function App() {
       ) : null}
       {loginModal}
       {withdrawOpen ? (
+        <>
+        <div className="album-sheet-dim" aria-hidden="true" onClick={() => { if (!withdrawing) setWithdrawOpen(false); }} />
         <div className="app__withdraw">
-          <section className="app__withdraw-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
+          <section ref={withdrawDialogRef} className="app__withdraw-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
             <h2 id="withdraw-title">정말 떠나시겠어요?</h2>
             <p>탈퇴하면 내가 만든 앨범과 사진이 모두 사라지고, 다시 되돌릴 수 없어요.</p>
             <p className="app__withdraw-hint">남기고 싶은 앨범이 있다면 먼저 PDF로 저장해 주세요. 함께 만든 앨범에 남긴 사진과 한마디는 이름 없이 그 앨범에 남아요.</p>
@@ -385,6 +400,7 @@ function App() {
             </div>
           </section>
         </div>
+        </>
       ) : null}
     </div>
     </div>
