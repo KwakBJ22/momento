@@ -636,6 +636,35 @@ export function saveCollabSession(session: CollabSession): void {
   localStorage.setItem(`${COLLAB_SESSION_KEY}:${session.albumId}`, JSON.stringify(session));
 }
 
+/**
+ * 이용자가 직접 넣어 둔 연락처(선택) — 계정 분실 시 본인 확인 전용.
+ *
+ * ★ 서버는 **가려진 값만** 내려준다(010-****-5678). 원본은 화면으로 돌아오지 않으므로
+ *   고칠 때는 새로 입력한다. 알림·마케팅에 쓰지 않는다("다른 곳에는 쓰지 않아요").
+ */
+export type ProfileContact = { phone: string | null; email: string | null };
+
+function toProfileContact(data: unknown): ProfileContact {
+  const record = (data || {}) as { phone?: string | null; email?: string | null };
+  return { phone: record.phone ?? null, email: record.email ?? null };
+}
+
+export async function getProfileContact(): Promise<ProfileContact> {
+  const response = await authenticatedFetch("/api/auth/contact");
+  if (!response.ok) throw new Error("연락처를 불러오지 못했어요.");
+  return toProfileContact(await response.json().catch(() => null));
+}
+
+export async function saveProfileContact(input: ProfileContact): Promise<ProfileContact> {
+  const response = await authenticatedFetch("/api/auth/contact", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return toProfileContact(await response.json().catch(() => null));
+}
+
 export async function bootstrapAccount(
   contributorGuestIds: string[],
 ): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[] }> {

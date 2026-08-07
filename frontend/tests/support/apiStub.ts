@@ -85,6 +85,31 @@ export async function uploadAlbumPdf(): Promise<{ url: string | null; album_vers
 }
 export const API_BASE = "";
 
+/* 연락처(선택)는 **요청 모양 그대로** fetch 를 탄다 — 테스트가 세운 서버 대역이 받는다.
+   무엇을 보내는지(보낸 항목만 바뀌는지)가 이 화면의 핵심이라 값을 고정하면 안 된다. */
+export type ProfileContact = { phone: string | null; email: string | null };
+
+function toProfileContact(data: unknown): ProfileContact {
+  const record = (data || {}) as { phone?: string | null; email?: string | null };
+  return { phone: record.phone ?? null, email: record.email ?? null };
+}
+
+export async function getProfileContact(): Promise<ProfileContact> {
+  const response = await fetch("/api/auth/contact");
+  if (!response.ok) throw new Error("연락처를 불러오지 못했어요.");
+  return toProfileContact(await response.json());
+}
+
+export async function saveProfileContact(input: Partial<ProfileContact>): Promise<ProfileContact> {
+  const response = await fetch("/api/auth/contact", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("저장하지 못했어요.");
+  return toProfileContact(await response.json());
+}
+
 /* 아래는 AlbumView 가 직접 쓰지는 않지만 같은 모듈에서 함께 import 되는 것들이다.
    named export 가 하나라도 빠지면 모듈 해석 단계에서 실패하므로 전부 채운다. */
 export async function acceptFamilyInvitation(): Promise<any> { return undefined as any; }

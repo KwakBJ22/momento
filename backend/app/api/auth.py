@@ -4,8 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.config import get_settings
-from app.models.schemas import AuthBootstrapRequest, AuthBootstrapResponse
+from app.models.schemas import (
+    AuthBootstrapRequest,
+    AuthBootstrapResponse,
+    ProfileContactRequest,
+    ProfileContactResponse,
+)
 from app.services.account_service import delete_account
+from app.services.profile_contact_service import get_contact, save_contact
 from app.services.auth import require_authenticated_user
 from app.services.collaboration_service import attribute_contributions
 from app.services.event_logger import EventLogger
@@ -49,6 +55,36 @@ async def bootstrap_auth_user(
         max_albums=limits["max_albums"],
         claimed_guest_ids=claimed_guest_ids,
     )
+
+
+@router.get("/contact", response_model=ProfileContactResponse)
+async def read_profile_contact(
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> ProfileContactResponse:
+    """이용자가 직접 넣어 둔 연락처를 **가려진 형태로** 돌려준다(계정 분실 시 본인 확인용).
+
+    ★ 원본을 내려보내지 않는다. 그래서 화면에는 010-****-5678 만 보이고, 고칠 때는
+    새로 입력하게 된다. 인증 절차가 없으므로 다시 입력해도 잃는 것이 없다."""
+    return ProfileContactResponse(**get_contact(get_supabase_client(), authenticated_user_id))
+
+
+@router.put("/contact", response_model=ProfileContactResponse)
+async def update_profile_contact(
+    body: ProfileContactRequest,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> ProfileContactResponse:
+    """연락처를 넣거나 고치거나 지운다. 둘 다 선택이며 빈 값이면 그 항목을 지운다.
+
+    ★ 보낸 항목만 바뀐다 — 전화만 보내면 이메일은 그대로다(화면이 가진 값은 가려진
+    형태라 되돌려보낼 수 없다). ★ 값을 로그에 남기지 않는다. 형식이 아니면 값이 아니라
+    사실만 알린다."""
+    provided = body.model_fields_set
+    saved = save_contact(
+        get_supabase_client(),
+        authenticated_user_id,
+        **{field: getattr(body, field) for field in ("phone", "email") if field in provided},
+    )
+    return ProfileContactResponse(**saved)
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)

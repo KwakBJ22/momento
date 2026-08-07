@@ -365,6 +365,21 @@ class AuthBootstrapResponse(BaseModel):
     claimed_guest_ids: list[str] = Field(default_factory=list)
 
 
+class ProfileContactRequest(BaseModel):
+    """이용자가 직접 입력한 연락처(선택). 둘 다 없어도 되고, 빈 값이면 지운다."""
+
+    phone: str | None = Field(default=None, max_length=32)
+    email: str | None = Field(default=None, max_length=254)
+
+
+class ProfileContactResponse(BaseModel):
+    """★ 가려진 형태만 내려간다(010-****-5678 / ab***@example.com).
+    원본을 화면으로 돌려보내지 않는다 — 고칠 때는 새로 입력한다."""
+
+    phone: str | None = None
+    email: str | None = None
+
+
 class AlbumPhotoUrlsResponse(BaseModel):
     photos: list[AlbumPhotoUrlResponse]
 

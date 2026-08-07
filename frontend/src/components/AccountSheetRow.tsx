@@ -1,3 +1,4 @@
+import AccountContact from "./AccountContact";
 import "./AppChrome.css";
 
 /**
@@ -39,6 +40,9 @@ export default function AccountSheetRow({ user, onLogin }: AccountSheetRowProps)
           {user.email ? <p className="account-row__email">{user.email}</p> : null}
         </div>
       </div>
+      {/* 연락처(선택) — 계정 분실 시 본인 확인용. 별도 프로필 화면을 만들지 않고 여기서
+          바로 넣고 고친다(§5·§11). 위쪽 이름·이메일 줄은 여전히 정보다. */}
+      <AccountContact />
     </div>
   );
 }

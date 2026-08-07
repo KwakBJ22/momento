@@ -101,6 +101,17 @@
 /* 게스트 자리: 이 자리는 누르는 것이 맞다(로그인). */
 .account-row--guest { padding: 0; border-bottom: 1px solid var(--c-border); }
 
+/* 연락처(선택) — 계정 행 안. 누르는 영역 44px, 글자 14px 하한(§5). */
+.account-contact { display: grid; gap: 8px; }
+.account-contact__title { margin: 0; color: var(--c-text); font-size: 14px; font-weight: 700; }
+.account-contact__help { margin: -4px 0 2px; color: var(--c-text-muted); font-size: 14px; line-height: 1.45; }
+.account-contact__row { display: flex; align-items: center; gap: 8px; }
+.account-contact__input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; }
+.account-contact__value { flex: 1 1 auto; min-width: 0; color: var(--c-text-soft); font-size: 14px; overflow-wrap: anywhere; }
+.account-contact__action { flex: none; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text-soft); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.account-contact__action:disabled { color: var(--c-text-muted); cursor: default; }
+.account-contact__error { margin: 0; color: var(--c-danger); font-size: 14px; }
+
 /* 푸터의 `회사 정보` — 링크처럼 보이는 버튼(같은 줄의 약관·개인정보와 나란히). */
 .app-footer__company-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
 /* 시트 안의 사업자 정보. 늘어놓지 않고 라벨·값을 줄로 나눈다. */
