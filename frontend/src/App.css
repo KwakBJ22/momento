@@ -250,7 +250,6 @@ body {
 .my-albums { display: grid; gap: 1rem; }
 .my-albums__header, .my-albums__card, .my-albums__card-title-row { display: flex; align-items: center; }
 .my-albums__header, .my-albums__card-title-row { justify-content: space-between; }
-.my-albums__eyebrow { margin: 0 0 0.15rem; color: var(--c-text-muted); font-size: var(--t-xs); }
 .my-albums__header h2, .my-albums__card h3, .my-albums__card p { margin: 0; }
 .my-albums__header h2 { font-size: 1.35rem; }
 .my-albums__header--section { margin-top: 2rem; }

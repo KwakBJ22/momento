@@ -125,7 +125,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
     return (
       <section className="my-albums" aria-labelledby="my-albums-title">
         <header className="my-albums__header">
-          <div><p className="my-albums__eyebrow">내 기록</p><h2 id="my-albums-title">내 앨범</h2></div>
+          <div><h2 id="my-albums-title">내 앨범</h2></div>
         </header>
         <p className="auth-panel__notice">앨범을 불러오는 중이에요.</p>
         <MyAlbumsSkeleton />
@@ -136,7 +136,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   return (
     <section className="my-albums" aria-labelledby="my-albums-title">
       <header className="my-albums__header">
-        <div><p className="my-albums__eyebrow">내 기록</p><h2 id="my-albums-title">내 앨범</h2></div>
+        <div><h2 id="my-albums-title">내 앨범</h2></div>
         <a className="my-albums__create" href="/">앨범 만들기</a>
       </header>
       {albums.length === 0 ? (
@@ -149,7 +149,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
       {participating.length > 0 ? (
         <>
           <header className="my-albums__header my-albums__header--section">
-            <div><p className="my-albums__eyebrow">함께</p><h2>함께 만드는 앨범</h2></div>
+            <div><h2>함께 만드는 앨범</h2></div>
           </header>
           <div className="my-albums__list">
             {participating.map((album, index) => renderCard(album, index, false))}
