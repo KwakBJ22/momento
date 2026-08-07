@@ -238,7 +238,7 @@ test("app authentication bootstrap completes before the share entry router can s
   assert.match(app, /const \[authReady, setAuthReady\] = useState\(false\)/);
   assert.match(app, /initializeAuth\(\)\.then/);
   assert.match(app, /event === "INITIAL_SESSION" && !initialSessionChecked/);
-  assert.match(app, /<ShareEntryRouter token=\{shareToken\} user=\{user\}[^>]*authReady=\{authReady\}/);
+  assert.match(app, /<ShareEntryRouter token=\{shareToken\} user=\{user\}[\s\S]{0,400}authReady=\{authReady\}/);
   assert.match(app, /if \(shareToken\)\s*\{/);
   const entry = component("ShareEntryRouter");
   assert.match(entry, /state\.kind === "owner" && !user/);

@@ -63,12 +63,13 @@ test("앨범 상세도 같은 헤더를 쓴다 — 감추는 분기가 없다", 
 test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC §3)", () => {
   const app = read("App.tsx");
   // 항목 목록은 한 곳(accountMenuItems)에서 만들어 모든 자리가 같은 동작을 쓴다.
-  assert.match(app, /const accountMenuItems = \(/);
+  // 계정 동작은 시트 아래쪽 행으로 옮겼다(§5 순서) — 계정 행은 정보만 보여준다.
+  assert.match(app, /const accountSheetActions = \(/);
   for (const item of ["로그아웃", "회원 탈퇴"]) {
     assert.ok(app.includes(item), `계정 항목 누락: ${item}`);
   }
   // "내 앨범"은 계정 메뉴에서 뺀다 — 헤더 우측 링크와 중복이다.
-  const menu = app.slice(app.indexOf("const accountMenuItems"), app.indexOf("const accountEntry"));
+  const menu = app.slice(app.indexOf("const accountSheetActions"), app.indexOf("const accountEntry"));
   assert.doesNotMatch(menu, /내 앨범/);
   // ★ 계정 원을 헤더에 두지 않는다: 로그인 상태의 우측은 ⋯ 하나뿐이다.
   assert.match(app, /className="app-header__more" aria-label="더보기"/);

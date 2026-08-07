@@ -271,10 +271,12 @@ function App() {
   // 게스트는 "로그인" 글자. 누르는 영역은 44px.
   // 계정 메뉴 항목 — 헤더 밖(⋯ 시트)과 헤더 안(드롭다운)이 같은 목록을 쓴다.
   // "내 앨범"은 넣지 않는다: 헤더 우측 [내 앨범] 링크와 중복이다.
-  const accountMenuItems = (
+  // §5 순서: 계정 행(정보) → … → 로그아웃 → (앨범 지우기) → 회원 탈퇴(맨 아래).
+  // 되돌릴 수 없는 것을 로그아웃 옆에 두지 않는다.
+  const accountSheetActions = (
     <>
-      <button type="button" onClick={() => void logout()}>로그아웃</button>
-      <button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button>
+      <button type="button" className="album-more-sheet__row" onClick={() => void logout()}><span>로그아웃</span></button>
+      <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" onClick={openWithdraw}><span>회원 탈퇴</span></button>
     </>
   );
   // 헤더 우측(SCREEN_SPEC §3): 로그인했으면 `⋯` 하나, 아니면 `로그인` 하나.
@@ -291,7 +293,6 @@ function App() {
   const accountSheetRow = (
     <AccountSheetRow
       user={user ? { displayName: user.displayName, email: user.email, avatarUrl: user.avatarUrl } : null}
-      actions={accountMenuItems}
       onLogin={openLogin}
     />
   );
@@ -329,12 +330,12 @@ function App() {
       {!adminRoute && !albumOwnsHeaderSlot && !isJoinSurface ? <HeaderRight>{accountEntry}</HeaderRight> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
-          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
+          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
           : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)
-          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSheet={accountSheetRow} />)
+          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
           : myAlbumsPage ? requiresLogin(<MyAlbums userId={user?.id ?? null} />)
@@ -364,7 +365,7 @@ function App() {
           <div className="album-sheet-dim" aria-hidden="true" onClick={() => setAccountMenuOpen(false)} />
           <section className="album-inline-action album-more-sheet" aria-label="더보기">
             <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setAccountMenuOpen(false)}>닫기</button></div>
-            <div className="album-inline-action__body album-more-sheet__list">{accountSheetRow}</div>
+            <div className="album-inline-action__body album-more-sheet__list">{accountSheetRow}{user ? accountSheetActions : null}</div>
           </section>
         </>
       ) : null}

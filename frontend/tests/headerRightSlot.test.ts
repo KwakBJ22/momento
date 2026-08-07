@@ -152,3 +152,51 @@ test("앨범 화면에 `내 앨범` 진입점이 하나뿐이다", () => {
   // 쓰지 않게 된 여백 규칙도 남기지 않는다.
   assert.doesNotMatch(read("components/AlbumResult.css"), /\.album-page__back-link/);
 });
+
+// B-4 (§5) — 되돌릴 수 없는 것이 맨 아래다. 회원 탈퇴를 로그아웃 옆에 두지 않는다.
+test("⋯ 시트 순서: 계정 → 항목들 → 여기에 없는 것 → 로그아웃 → 앨범 지우기 → 회원 탈퇴", () => {
+  const file = read("components/AlbumMoreSheet.tsx");
+  // 실제로 그려지는 목록만 본다(위쪽 props 주석에도 같은 말이 있다).
+  const sheet = file.slice(file.indexOf('album-more-sheet__list">'));
+  const at = (needle: string) => {
+    const index = sheet.indexOf(needle);
+    assert.notEqual(index, -1, `없는 항목: ${needle}`);
+    return index;
+  };
+  const order = [
+    at("{accountSheet}"),
+    at("표지 사진 바꾸기"),
+    at("함께 만든 사람"),
+    at("파일로 저장하기 (PDF)"),
+    at("새 앨범 만들기"),
+    at("album-more-sheet__absent"),
+    at("<span>로그아웃</span>"),
+    at("album-more-sheet__row--danger"),   // 이 앨범 지우기
+    at("<span>회원 탈퇴</span>"),
+  ];
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), "§5 표 순서와 다르다");
+  // 회원 탈퇴가 마지막 행이다.
+  assert.ok(at("<span>회원 탈퇴</span>") > at("이 앨범 지우기"), "회원 탈퇴가 마지막이다");
+});
+
+test("계정 행은 정보만 — 동작 버튼을 담지 않는다", () => {
+  const row = read("components/AccountSheetRow.tsx");
+  // 주석은 제외한다("여기 두지 않는다"는 설명이다).
+  const code = row.split(new RegExp("\r?\n")).filter((line) => {
+    const trimmed = line.trim();
+    return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+  }).join(String.fromCharCode(10));
+  assert.doesNotMatch(code, /로그아웃|회원 탈퇴|actions/);
+  // 로그아웃 경로를 잃지 않는다: 전역 ⋯ 시트에도 같은 두 행이 있다.
+  assert.match(read("App.tsx"), /accountSheetRow\}\{user \? accountSheetActions : null\}/);
+});
+
+test("지우기·탈퇴는 빨간 글자만 — 배경을 채우지 않는다", () => {
+  const sheet = read("components/AlbumMoreSheet.tsx");
+  assert.match(sheet, /album-more-sheet__row--danger[\s\S]{0,200}이 앨범 지우기/);
+  assert.match(sheet, /album-more-sheet__row--danger[\s\S]{0,120}회원 탈퇴/);
+  const css = read("components/AlbumScreen.css");
+  const danger = css.slice(css.indexOf(".album-more-sheet__row--danger"), css.indexOf("}", css.indexOf(".album-more-sheet__row--danger")));
+  assert.match(danger, /color:/);
+  assert.doesNotMatch(danger, /background/);
+});

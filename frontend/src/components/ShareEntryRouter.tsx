@@ -17,6 +17,8 @@ interface ShareEntryRouterProps {
   onLogin?: () => void;
   /** ⋯ 시트 최상단 계정 행(§5) — 앨범 상세와 같은 노드를 그대로 넘긴다. */
   accountSheet?: ReactNode;
+  onLogout?: () => void;
+  onWithdraw?: () => void;
 }
 
 type EntryState =
@@ -26,7 +28,7 @@ type EntryState =
   | { kind: "error"; message: string };
 
 /** The single /s/:token entry decision: token validation, session, then role. */
-export default function ShareEntryRouter({ token, user, authReady, authError = null, onRetryAuth, onLogin, accountSheet }: ShareEntryRouterProps) {
+export default function ShareEntryRouter({ token, user, authReady, authError = null, onRetryAuth, onLogin, accountSheet, onLogout, onWithdraw }: ShareEntryRouterProps) {
   const [state, setState] = useState<EntryState>({ kind: "loading" });
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const loggedRef = useRef(new Set<string>());
@@ -97,5 +99,5 @@ export default function ShareEntryRouter({ token, user, authReady, authError = n
   if (state.kind === "loading") return <p className="auth-panel__notice">앨범을 여는 중이에요.</p>;
   if (state.kind === "error") return <div className="album-result"><h2 className="album-result__title">앨범을 열지 못했어요.</h2><p>{state.message}</p></div>;
   if (state.kind === "owner") return <AlbumView albumId={state.albumId} />;
-  return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} onLogin={onLogin} accountSheet={accountSheet} />;
+  return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} onLogin={onLogin} accountSheet={accountSheet} onLogout={onLogout} onWithdraw={onWithdraw} />;
 }

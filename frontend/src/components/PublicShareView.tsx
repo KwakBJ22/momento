@@ -36,6 +36,8 @@ interface PublicShareViewProps {
   onLogin?: () => void;
   /** ⋯ 시트 최상단 계정 행(App 이 만든 것과 같은 노드 — §5). */
   accountSheet?: ReactNode;
+  onLogout?: () => void;
+  onWithdraw?: () => void;
 }
 
 function contributionGuestId(): string {
@@ -97,7 +99,7 @@ async function copyPublicLink(value: string): Promise<void> {
   if (!copied) throw new Error("Clipboard is unavailable.");
 }
 
-export default function PublicShareView({ token, initialAlbum, authenticatedUser = null, onLogin, accountSheet }: PublicShareViewProps) {
+export default function PublicShareView({ token, initialAlbum, authenticatedUser = null, onLogin, accountSheet, onLogout, onWithdraw }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
   const contributionValue = new URLSearchParams(window.location.search).get("contribute");
@@ -421,6 +423,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           onExportPdf={() => { void handleSharePdf(); }}
           isExportingPdf={isExportingPdf}
           showAbsentNotice={canContribute}
+          onLogout={onLogout}
+          onWithdraw={onWithdraw}
         />
       ) : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}

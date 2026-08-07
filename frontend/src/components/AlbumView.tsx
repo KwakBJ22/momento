@@ -39,9 +39,12 @@ interface AlbumViewProps {
   /** ⋯ 시트 최상단 계정 행(App 이 만든 노드). 헤더 우측은 [내 앨범]+[⋯] 둘로 줄이고
    *  계정 진입점은 시트 안으로 들어간다 — 동작은 App 의 기존 것을 그대로 쓴다. */
   accountSheet?: ReactNode;
+  /** ⋯ 시트의 로그아웃·회원 탈퇴(§5 순서상 아래쪽). 비로그인이면 넘기지 않는다. */
+  onLogout?: () => void;
+  onWithdraw?: () => void;
 
 }
-export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet }: AlbumViewProps) {
+export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet, onLogout, onWithdraw }: AlbumViewProps) {
 
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
@@ -666,6 +669,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onDeleteAlbum={() => setDeleteConfirmOpen(true)}
           isDeleting={isDeleting}
           showAbsentNotice={!displayAlbum?.can_edit && Boolean(participation)}
+          onLogout={onLogout}
+          onWithdraw={onWithdraw}
         />
       ) : null}
       {/* 주최자에게만 보인다(§5). 하단 네비의 공유하기도 소유자 변형에만 있지만,

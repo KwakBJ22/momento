@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import "./AppChrome.css";
 
 /**
@@ -14,13 +13,13 @@ import "./AppChrome.css";
  */
 interface AccountSheetRowProps {
   user: { displayName: string; email?: string | null; avatarUrl?: string | null } | null;
-  /** 로그아웃·회원 탈퇴 등 계정 동작. 이름·이메일 아래에 놓인다. */
-  actions?: ReactNode;
+  /** ★ 계정 동작(로그아웃·회원 탈퇴)은 여기 두지 않는다 — §5 순서상 시트 아래쪽,
+   *  되돌릴 수 없는 것 옆이다. 이 행은 정보만 보여준다. */
   /** 게스트가 누르는 로그인. */
   onLogin?: () => void;
 }
 
-export default function AccountSheetRow({ user, actions, onLogin }: AccountSheetRowProps) {
+export default function AccountSheetRow({ user, onLogin }: AccountSheetRowProps) {
   if (!user) {
     return (
       <div className="account-row--guest">
@@ -40,7 +39,6 @@ export default function AccountSheetRow({ user, actions, onLogin }: AccountSheet
           {user.email ? <p className="account-row__email">{user.email}</p> : null}
         </div>
       </div>
-      {actions ? <div className="account-row__actions">{actions}</div> : null}
     </div>
   );
 }
