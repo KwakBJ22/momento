@@ -33,16 +33,25 @@
   font-weight: 600;
 }
 
+/* 표지 사진은 절대 늘이지 않는다. 세로가 긴 사진은 넘치는 부분을 잘라 낸다.
+ *
+ * ★ object-fit 을 쓰지 않는 이유: PDF 는 html2canvas 로 캡처하는데 html2canvas 는
+ * object-fit 을 무시하고 이미지를 박스 크기에 그대로 늘려 그린다(같은 이유로
+ * AlbumRenderer.css 의 낱장 사진도 print 에서 object-fit 을 피한다). 그래서 박스에
+ * max-height 를 두고 이미지는 제 비율대로(height:auto) 두어, 넘치는 부분만 박스가
+ * 잘라 내게 한다 — 화면·공유·PDF 가 모두 같은 결과가 된다. */
 .album-cover__hero {
   margin: 0.5rem 0 0;
   width: min(100%, 520px);
+  max-height: 420px;
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .album-cover__hero-img {
   display: block;
   width: 100%;
-  max-height: 420px;
-  object-fit: contain;
+  height: auto;
   border-radius: 8px;
 }
 
