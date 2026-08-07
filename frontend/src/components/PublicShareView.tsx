@@ -496,11 +496,14 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     }
   };
 
-  // 비로그인 구경꾼에게는 헤더 우측에 `로그인`(§3). 이 화면이 서비스의 첫인상이다.
-  const headerRight = !authenticatedUser && onLogin
+  // §3 — 공유 앨범의 우측은 **항상 하나**다: 비로그인 = `로그인`, 로그인 = `⋯`.
+  // 둘을 함께 두면, 로그인하지 않은 사람이 ⋯ 를 눌렀을 때 시트 안에 `로그인` 하나만
+  // 있는 꼴이 된다(§5). 두 번 누를 일이 아니다.
+  const signedIn = Boolean(authenticatedUser);
+  const headerRight = !signedIn && onLogin
     ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
     : undefined;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={() => setMoreOpen(true)} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={signedIn ? () => setMoreOpen(true) : undefined} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

@@ -101,3 +101,41 @@ test("헤더 브랜드는 한 줄 — woorialbum 이 헤더에 없다", () => {
   // 영문 표기는 다른 자리에서 계속 쓴다(상수 모듈은 그대로).
   assert.match(read("lib/brand.ts"), /BRAND_NAME_EN = "woorialbum"/);
 });
+
+// SCREEN_SPEC §3 (4차 개정) — 공유 앨범 우측은 **항상 하나**다.
+// 비로그인이 ⋯ 를 눌러도 시트 안에는 `로그인` 하나뿐이라(§5) 두 번 누를 일이 된다.
+test("공유 앨범 우측 컨트롤은 항상 정확히 1개 — 로그인 XOR ⋯", () => {
+  const share = read("components/PublicShareView.tsx");
+  assert.match(share, /const signedIn = Boolean\(authenticatedUser\);/);
+  // 비로그인일 때만 `로그인`.
+  assert.match(share, /const headerRight = !signedIn && onLogin/);
+  // 로그인일 때만 ⋯.
+  assert.match(share, /onMore=\{signedIn \? \(\) => setMoreOpen\(true\) : undefined\}/);
+  // 둘을 동시에 켜는 경로가 없다(같은 조건의 XOR).
+  assert.doesNotMatch(share, /onMore=\{\(\) => setMoreOpen\(true\)\}/);
+});
+
+// §3 — 참여하기: 비로그인만 비운다. 로그인 상태에서는 하단 네비가 없어(§2)
+// 우측까지 비우면 자기 앨범으로 돌아갈 길이 사라진다.
+test("참여하기: 비로그인 0개 / 로그인 2개([내 앨범][⋯])", () => {
+  const app = read("App.tsx");
+  // 전역 slot 은 참여 화면에서 비운다(비로그인 기준 — 계정 진입점을 넣지 않는다).
+  assert.match(app, /!albumOwnsHeaderSlot && !isJoinSurface \? <HeaderRight>\{accountEntry\}<\/HeaderRight>/);
+  // 로그인 상태의 참여 화면은 AlbumScreen(ContributeWorkspace)이 [내 앨범]+[⋯] 를 채운다.
+  const screen = read("components/AlbumScreen.tsx");
+  const right = screen.slice(screen.indexOf("<HeaderRight>"), screen.indexOf("</HeaderRight>"));
+  assert.match(right, /app-header__link/);
+  assert.match(right, /app-header__more/);
+});
+
+test("헤더 높이는 slot 내용과 무관하다 — 44px 컨트롤이 들어가도 커지지 않는다", () => {
+  const css = read("components/AppChrome.css");
+  const header = css.slice(css.indexOf(".app-header {"), css.indexOf("}", css.indexOf(".app-header {")));
+  // 44px + 상하 패딩 4px = 52px. 값이 서로 맞물려 있으므로 함께 확인한다.
+  assert.match(header, /min-height: 52px/);
+  assert.match(header, /padding: 4px 16px/);
+  const more = css.slice(css.indexOf(".app-header__more {"), css.indexOf("}", css.indexOf(".app-header__more {")));
+  assert.match(more, /height: 44px/);
+  const link = css.slice(css.indexOf(".app-header__link {"), css.indexOf("}", css.indexOf(".app-header__link {")));
+  assert.match(link, /min-height: 44px/);
+});

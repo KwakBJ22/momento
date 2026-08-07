@@ -32,7 +32,7 @@ test("감상 링크에서는 자동 참여가 시작되지 않는다", () => {
 
 test("비로그인 구경꾼에게 헤더 우측 `로그인`이 있다 (§3)", () => {
   const view = read("components/PublicShareView.tsx");
-  assert.match(view, /const headerRight = !authenticatedUser && onLogin/);
+  assert.match(view, /const headerRight = !signedIn && onLogin/);
   assert.match(view, /onClick=\{onLogin\}>로그인<\/button>/);
   assert.match(view, /headerRight=\{headerRight\}/);
   // App 이 자기 로그인 모달을 그대로 넘겨준다(새 로그인 화면을 만들지 않는다).
@@ -80,8 +80,8 @@ test("공유 앨범에도 같은 ⋯ 시트가 있다 — 새로 만들지 않�
     assert.match(source, /<AlbumMoreSheet\b/, `${name}: 시트 렌더링`);
     assert.doesNotMatch(source, /aria-label="더보기"/, `${name}: 시트 markup 이 남아 있으면 안 된다`);
   }
-  // 헤더 ⋯ 버튼이 공유 화면에도 있다.
-  assert.match(share, /onMore=\{\(\) => setMoreOpen\(true\)\}/);
+  // 헤더 ⋯ 버튼은 로그인 상태에서만 있다(§3: 우측은 항상 하나 — 비로그인은 `로그인`).
+  assert.match(share, /onMore=\{signedIn \? \(\) => setMoreOpen\(true\) : undefined\}/);
 });
 
 test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
