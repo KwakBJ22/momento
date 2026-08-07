@@ -74,7 +74,37 @@ test("헤더 막대는 화면 좌우 끝까지 닿는다 — 안쪽 내용만 �
   const header = css.slice(css.indexOf(".app-header {"), css.indexOf("}", css.indexOf(".app-header {")));
   assert.match(header, /width: 100%/);
   // 넓은 화면에서 내용을 모으는 것은 padding 으로 한다(margin auto 로 막대를 줄이지 않는다).
-  assert.match(header, /padding: 4px max\(16px, calc\(\(100% - 900px\) \/ 2\)\)/);
+  assert.match(header, /padding: 4px max\(var\(--page-padding-x\)/); // 값은 변수에서 온다
   assert.doesNotMatch(header, /margin: 0 auto/);
-  assert.doesNotMatch(header, /max-width/);
+  // 막대 자체에 max-width 를 걸지 않는다(--page-max-width 는 안쪽 padding 계산에만 쓴다).
+  assert.doesNotMatch(header, /^\s*max-width:/m);
+});
+
+// 헤더 막대는 화면 끝까지 닿되, 안쪽 내용은 본문과 같은 폭·같은 자리에서 시작한다.
+// 넓은 화면에서 브랜드가 본문보다 바깥으로 벌어지면 안 된다.
+test("헤더 안쪽 폭은 본문과 같은 변수 하나에서 나온다", () => {
+  const chrome = read("components/AppChrome.css");
+  const appCss = read("App.css");
+  // ★ 값은 한 곳(.app-shell)에만 있다.
+  assert.match(chrome, /\.app-shell \{[\s\S]*--page-max-width: 480px;[\s\S]*--page-padding-x: 16px;/);
+  // 화면군에 따라 본문이 넓어지면 헤더도 따라간다(같은 변수를 덮어쓴다).
+  assert.match(chrome, /\.app-shell--album \{[\s\S]*--page-max-width: 1120px;/);
+  // 본문과 헤더가 **둘 다** 그 변수를 읽는다. 숫자를 각자 적지 않는다.
+  const app = appCss.slice(appCss.indexOf(".app {"), appCss.indexOf("}", appCss.indexOf(".app {")));
+  assert.match(app, /max-width: var\(--page-max-width\)/);
+  assert.match(app, /padding: 1\.5rem var\(--page-padding-x\) 2rem/);
+  const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
+  assert.match(header, /var\(--page-max-width\)/);
+  assert.match(header, /var\(--page-padding-x\)/);
+});
+
+test("헤더 안쪽 좌측 x 가 본문 좌측 x 와 같은 식으로 계산된다", () => {
+  const chrome = read("components/AppChrome.css");
+  const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
+  // 본문(.app)은 border-box 라 내용이 (가운데 정렬 + 좌우 padding) 만큼 안쪽에서 시작한다.
+  // 헤더 padding 식도 같은 자리를 만든다: max(padding, (100% - width)/2 + padding).
+  assert.match(header, /max\(var\(--page-padding-x\), calc\(\(100% - var\(--page-max-width\)\) \/ 2 \+ var\(--page-padding-x\)\)\)/);
+  // 껍데기가 변수를 공유한다(헤더는 여전히 본문 컨테이너 밖이다).
+  const app = read("App.tsx");
+  assert.match(app, /className=\{`app-shell\$\{isAlbumSurface \|\| adminRoute \? " app-shell--album" : ""\}`\}/);
 });

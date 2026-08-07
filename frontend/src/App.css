@@ -18,9 +18,10 @@ body {
 }
 
 .app {
-  max-width: 480px;
+  /* 폭·좌우 여백은 AppChrome.css 의 .app-shell 변수 한 곳에서 읽는다(헤더와 같은 값). */
+  max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 1.5rem 1rem 2rem;
+  padding: 1.5rem var(--page-padding-x) 2rem;
   padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
 }
 

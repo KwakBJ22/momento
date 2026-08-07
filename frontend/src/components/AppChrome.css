@@ -5,6 +5,18 @@
      두 곳에 숫자를 각각 적으면 한쪽만 바뀌어 푸터가 가려진다. */
   --nav-height: 82px;
 }
+
+/* 페이지 본문의 폭·좌우 여백 — ★ 값은 여기 한 곳에만 있다. 헤더 안쪽도 이 값을 읽어
+   본문과 같은 자리에서 시작한다(브랜드가 본문 첫 글자와 세로로 맞는다). 화면군에 따라
+   본문이 넓어지면(앨범) 아래 app-shell--album 이 같은 변수를 덮어써서 헤더가 따라간다. */
+.app-shell {
+  --page-max-width: 480px;
+  --page-padding-x: 16px;
+}
+.app-shell--album {
+  --page-max-width: 1120px;
+  --page-padding-x: 24px;
+}
 @media (max-width: 640px) {
   :root { --nav-height: 68px; }
 }
@@ -21,7 +33,9 @@
   /* 높이는 모든 화면에서 같고, 좁은 쪽으로 맞춘다(모바일 우선). 브랜드를 한 줄로
      줄였고 상하 여백을 최소로 둔다 — 44px 누르는 영역은 그대로 유지한다. */
   min-height: 52px;
-  padding: 4px max(16px, calc((100% - 900px) / 2));
+  /* 본문(.app)은 border-box 라 내용이 "가운데 정렬 + 좌우 padding" 만큼 안쪽에서
+     시작한다. 헤더 안쪽도 같은 자리에서 시작해야 브랜드가 본문 첫 글자와 세로로 맞는다. */
+  padding: 4px max(var(--page-padding-x), calc((100% - var(--page-max-width)) / 2 + var(--page-padding-x)));
   border-bottom: 1px solid var(--c-border);
   background: var(--c-bg);
 }
