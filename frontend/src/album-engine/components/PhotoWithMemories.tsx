@@ -36,7 +36,9 @@ export default function PhotoWithMemories({
   const cardStyle: CSSProperties | undefined =
     rotation !== 0 ? { transform: `rotate(${rotation}deg)` } : undefined;
 
-  const showCaption = Boolean(captionSegments?.length) || Boolean(edit?.canEdit);
+  // 캡션 자리는 이 사진을 내가 쓸 수 있을 때만 비워 둔다(사진마다 다르다 — §7).
+  const canEditThisCaption = Boolean(edit?.canEditPhoto(photo.id));
+  const showCaption = Boolean(captionSegments?.length) || canEditThisCaption;
 
   return (
     <div className="photo-block album-photo-card" data-photo-id={photo.id} style={cardStyle}>
@@ -55,7 +57,7 @@ export default function PhotoWithMemories({
           variant="caption"
           photoId={photo.id}
           editableText={photo.comment}
-          showEditWhenEmpty={Boolean(edit?.canEdit && !captionSegments?.length)}
+          showEditWhenEmpty={canEditThisCaption && !captionSegments?.length}
         />
       ) : null}
     </div>

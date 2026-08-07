@@ -57,6 +57,12 @@ class AlbumPhotoUrlResponse(BaseModel):
     location_name: str | None = None
     location_source: Literal["exif", "user", "ai_estimated", "unknown"] | None = None
     orientation: str | None = None
+    # SCREEN_SPEC §7 — 캡션은 인쇄되는 유일한 글이다. 이 사진의 캡션을 내가 쓸 수 있는가를
+    # 백엔드가 판정해 내려준다(프런트가 추측하지 않는다 — CLAUDE.md §10).
+    can_edit_caption: bool = False
+    # 남이 올린 사진일 때 그 사람의 이름. 주최자가 남의 캡션을 열 때 한 번 묻는 문구에 쓴다.
+    # 내가 올린 사진이면 None 이라 확인 단계가 뜨지 않는다.
+    caption_author_name: str | None = None
 
 
 class AlbumPhotoLocationUpdate(BaseModel):

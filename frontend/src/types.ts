@@ -204,6 +204,10 @@ export interface AlbumPhoto {
   /** ① 캡션 — 그 사진을 올린 사람이 쓰는 설명. PDF·인쇄물에 들어간다.
    *  (② 코멘트는 comments — photo_memories, 인쇄되지 않는다.) */
   caption: string | null;
+  /** 이 사진의 캡션을 내가 쓸 수 있는가(백엔드 판정 — SCREEN_SPEC §7). */
+  can_edit_caption?: boolean;
+  /** 남이 올린 사진이면 그 사람 이름. 주최자가 남의 캡션을 열 때 한 번 묻는다. */
+  caption_author_name?: string | null;
   comments?: Array<{ author?: string | null; text: string }> | null;
   author_label?: string | null;
   original_url: string;

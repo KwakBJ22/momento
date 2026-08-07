@@ -139,6 +139,7 @@ from app.services.collaboration_service import (
     album_document_photo_ids,
     ensure_owner_contributor,
     get_contributor,
+    list_contributors,
     get_cached_pdf_path,
     get_cached_pdf_bucket,
     list_photo_memories,
@@ -207,9 +208,10 @@ def _require_photo_mutation_access(
     The service-role client bypasses RLS, so this ownership relation must be
     checked before every authenticated photo mutation.
 
-    owner_override=False 는 캡션 전용이다(텍스트 3계층 §①): 캡션은 "그 사진을 올린
-    사람만" 쓴다 — 주최자도 남이 올린 사진의 캡션은 고칠 수 없다. 사진 삭제·장소
-    수정 같은 앨범 정리 권한은 종전대로 주최자에게 남는다.
+    owner_override=True(기본)는 주최자에게 예외를 준다. 캡션도 여기에 해당한다 —
+    SCREEN_SPEC §7: "인쇄되는 것만 주최자가 고칠 수 있다." 캡션은 종이에 박혀 되돌릴 수
+    없으므로 포토북의 편집자(주최자)가 고칠 수 있어야 한다. 반대로 코멘트·방명록은
+    인쇄되지 않으므로 주최자도 고치지 못하고 지우기만 된다(각 경로에서 별도로 막는다).
     """
     require_album_contribute(access)
     result = (
@@ -1194,10 +1196,25 @@ async def get_album_photo_urls(
     media_by_id = {str(media["id"]): media for media in media_records}
     visible_photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
     signed_urls = _batch_signed_urls_for_photos(client, settings, visible_photos)
+    # 캡션을 누가 쓸 수 있는지는 백엔드가 정해 사진마다 실어 보낸다(§7·§10).
+    viewer_contributor = (
+        get_contributor(client, album_id, user_id=authenticated_user_id) if authenticated_user_id else None
+    )
+    contributor_names = {
+        str(row["id"]): str(row.get("display_name") or "").strip()
+        for row in list_contributors(client, album_id)
+        if str(row.get("display_name") or "").strip()
+    }
     photo_urls: list[AlbumPhotoUrlResponse] = []
     for photo in visible_photos:
         media = media_by_id.get(str(photo["id"])) or {}
-        row = _album_photo_response(client, settings, photo, memories, signed_urls=signed_urls)
+        row = _album_photo_response(
+            client, settings, photo, memories, signed_urls=signed_urls,
+            viewer_is_owner=bool(access.can_edit_settings),
+            viewer_user_id=authenticated_user_id,
+            viewer_contributor_id=str(viewer_contributor.get("id")) if viewer_contributor else None,
+            contributor_names=contributor_names,
+        )
         photo_urls.append(
             row.model_copy(
                 update={
@@ -1304,7 +1321,9 @@ async def save_photo_comment(
         photo_id=photo_id,
         authenticated_user_id=authenticated_user_id,
         access=access,
-        owner_override=False,  # 캡션은 올린 사람만 — 주최자도 예외가 아니다.
+        # 캡션은 인쇄되는 유일한 글이다 — 주최자가 편집자로서 고칠 수 있다(§7).
+        # 참여자는 여전히 자기가 올린 사진만 쓸 수 있다(위 함수의 소유 검사).
+        owner_override=True,
     )
     caption = body.caption.strip() if body.caption else None
     saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=caption)
@@ -1541,6 +1560,31 @@ def _batch_signed_urls_for_photos(
     return get_signed_urls_batch(client, assets, settings.signed_url_ttl_seconds)
 
 
+def _caption_edit_state(
+    photo: dict[str, Any],
+    *,
+    viewer_is_owner: bool,
+    viewer_user_id: str | None,
+    viewer_contributor_id: str | None,
+    contributor_names: dict[str, str],
+) -> tuple[bool, str | None]:
+    """이 사진의 캡션을 쓸 수 있는가 + (남의 사진이면) 올린 사람 이름.
+
+    권한 판정은 캡션 저장 API(_require_photo_mutation_access)와 같은 규칙이다 —
+    주최자는 모든 사진, 참여자는 자기가 올린 사진(SCREEN_SPEC §7).
+    """
+    uploader_profile = str(photo.get("contributor_profile_id") or "")
+    uploader_contributor = str(photo.get("uploaded_by_contributor_id") or "")
+    mine = bool(
+        (viewer_user_id and uploader_profile == viewer_user_id)
+        or (viewer_contributor_id and uploader_contributor == viewer_contributor_id)
+    )
+    if mine:
+        return True, None
+    author = contributor_names.get(uploader_contributor) or None
+    return viewer_is_owner, author
+
+
 def _album_photo_response(
     client: Any,
     settings: Settings,
@@ -1548,6 +1592,10 @@ def _album_photo_response(
     memories: list[dict[str, Any]],
     *,
     signed_urls: dict[tuple[str, str], str] | None = None,
+    viewer_is_owner: bool = False,
+    viewer_user_id: str | None = None,
+    viewer_contributor_id: str | None = None,
+    contributor_names: dict[str, str] | None = None,
 ) -> AlbumPhotoUrlResponse:
     photo_id = str(photo["id"])
     photo_memories = [memory for memory in memories if str(memory.get("photo_id") or "") == photo_id]
@@ -1573,10 +1621,19 @@ def _album_photo_response(
         original_url = get_signed_url(client, storage_bucket, storage_path, settings.signed_url_ttl_seconds)
         display_url = get_signed_url(client, display_bucket, display_path, settings.signed_url_ttl_seconds)
         thumbnail_url = get_signed_url(client, thumb_bucket, thumb_path, settings.signed_url_ttl_seconds)
+    can_edit_caption, caption_author_name = _caption_edit_state(
+        photo,
+        viewer_is_owner=viewer_is_owner,
+        viewer_user_id=viewer_user_id,
+        viewer_contributor_id=viewer_contributor_id,
+        contributor_names=contributor_names or {},
+    )
     return AlbumPhotoUrlResponse(
         id=UUID(photo_id),
         sort_order=int(photo.get("sort_order") or 0),
         caption=photo_caption,
+        can_edit_caption=can_edit_caption,
+        caption_author_name=caption_author_name,
         comments=memory_comments,
         original_url=original_url,
         display_url=display_url or original_url,
