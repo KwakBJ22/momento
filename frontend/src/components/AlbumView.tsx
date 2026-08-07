@@ -374,7 +374,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
     }
 
-    const share = await createAlbumShareLink(album.album_id);
+    // 이 화면의 공유 링크는 "구경하라고 보내기"다 — 감상 전용으로 발급한다.
+    // 함께 만들기는 별도 초대 링크(/join/…, ensureAlbumInviteUrl)를 쓴다.
+    const share = await createAlbumShareLink(album.album_id, "view");
 
     setPublicShareUrl(share.share_url);
 

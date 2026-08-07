@@ -20,7 +20,7 @@ from app.services.authorization import require_album_edit_settings
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
 from app.services.share_service import (
-    add_guestbook_entry, add_reaction, create_share_link, deactivate_share_link,
+    add_guestbook_entry, add_reaction, contribution_block_reason, create_share_link, deactivate_share_link,
     delete_own_guestbook_entry, get_active_share, increment_view, list_guestbook_entries,
     list_share_links, log_event, reaction_counts,
 )
@@ -111,7 +111,7 @@ async def create_album_share_link(album_id: str, body: ShareLinkCreateRequest, a
     require_album_edit_settings(get_album_access(client, album, authenticated_user_id))
     if body.expires_at and body.expires_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="만료일은 미래여야 합니다.")
-    row, token = create_share_link(client, album_id, authenticated_user_id, body.expires_at)
+    row, token = create_share_link(client, album_id, authenticated_user_id, body.expires_at, body.kind)
     settings = get_settings()
     log_event(client, "share_link_created", album_id=album_id, share_link_id=row["id"])
     return _share_response(row, f"{settings.frontend_base_url.rstrip('/')}/s/{token}")
@@ -348,6 +348,8 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
         edition_is_latest=edition is None,
         og_title=str(album.get("title") or "우리의 추억"),
         og_description=(narrative[:120] or "함께 만든 추억 앨범"),
+        # 프런트는 링크 종류를 알지 않는다. "무엇을 할 수 있는가"만 본다(SCREEN_SPEC §1).
+        can_contribute=contribution_block_reason(share, album) is None,
         reaction_counts=reaction_counts(client, album_id),
         guestbook=[GuestbookItem(**entry) for entry in list_guestbook_entries(client, album_id)],
     )
@@ -375,11 +377,11 @@ async def start_public_contribution(
         str(album.get("created_by") or ""), str(album.get("owner_id") or "")
     }
     if not is_owner:
-        # The link's kind — not a frontend URL guess — decides whether contribution is allowed.
-        if str(share.get("kind") or "contribute") == "view":
-            raise HTTPException(status_code=403, detail="이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요.")
-        if album.get("collaboration_status") == "closed":
-            raise HTTPException(status_code=403, detail="이 앨범은 참여가 종료되어 더 이상 사진·기억을 남길 수 없어요.")
+        # 링크 종류·참여 종료 판정은 contribution_block_reason 한 곳에서만 한다 —
+        # 공유 조회 응답의 can_contribute 도 같은 함수를 쓴다(SCREEN_SPEC §1).
+        blocked = contribution_block_reason(share, album)
+        if blocked:
+            raise HTTPException(status_code=403, detail=blocked)
     # A signed-in visitor must be restored through their account, never silently
     # converted into a new anonymous contributor for the same invitation.
     guest_id = None if authenticated_user_id else ((body or {}).get("guest_id") or new_guest_id())

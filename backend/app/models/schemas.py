@@ -254,6 +254,9 @@ class EpilogueGenerateResponse(BaseModel):
 
 class ShareLinkCreateRequest(BaseModel):
     expires_at: datetime | None = None
+    # 링크 종류(SCREEN_SPEC §1). 기본은 기존 동작 그대로 contribute — 지정하지 않는
+    # 기존 호출자의 계약이 바뀌지 않는다. "구경하라고 보내기"만 view 를 보낸다.
+    kind: Literal["view", "contribute"] = "contribute"
 
 
 class ShareLinkResponse(BaseModel):
@@ -316,6 +319,9 @@ class PublicShareAlbumResponse(BaseModel):
     # Anonymous per-album aggregate, e.g. {"love": 3, "moved": 1, "smile": 0}.
     reaction_counts: dict[str, int] = Field(default_factory=dict)
     guestbook: list[GuestbookItem] = Field(default_factory=list)
+    # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
+    # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
+    can_contribute: bool = True
 
 
 class ShareReactionRequest(BaseModel):

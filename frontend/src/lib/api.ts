@@ -405,8 +405,10 @@ export async function deleteGuestbookEntry(token: string, entryId: string, sessi
   if (!response.ok) throw new Error(await parseError(response));
 }
 
-export async function createAlbumShareLink(albumId: string, expiresAt?: string): Promise<{ share_url: string }> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null }) });
+/** 공유 링크를 발급한다. kind 는 링크의 성격이며 발급 시점에 정해진다(SCREEN_SPEC §1):
+ *  "view" = 구경하라고 보내기(읽기·반응·방명록), "contribute" = 함께 만들자고 보내기. */
+export async function createAlbumShareLink(albumId: string, kind: "view" | "contribute" = "contribute", expiresAt?: string): Promise<{ share_url: string }> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/share-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expires_at: expiresAt || null, kind }) });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { share_url: string };
 }

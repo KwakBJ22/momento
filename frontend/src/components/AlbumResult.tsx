@@ -99,7 +99,8 @@ export default function AlbumResultView({
 
   const resolveShareUrl = async (): Promise<string> => {
     if (isPublicShareUrl(shareUrl)) return shareUrl;
-    const share = await createAlbumShareLink(result.album_id);
+    // 결과 화면의 공유도 "구경하라고 보내기"다(감상 전용) — 함께 만들기는 초대 링크.
+    const share = await createAlbumShareLink(result.album_id, "view");
     setShareUrl(share.share_url);
     return share.share_url;
   };

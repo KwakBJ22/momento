@@ -29,6 +29,8 @@ interface PublicShareViewProps {
   /** The entry router already verified this public token. */
   initialAlbum?: PublicShareAlbum;
   authenticatedUser?: AppUser | null;
+  /** 헤더 우측 `로그인`(비로그인 구경꾼 — SCREEN_SPEC §3). App 의 로그인 모달을 연다. */
+  onLogin?: () => void;
 }
 
 function contributionGuestId(): string {
@@ -90,7 +92,7 @@ async function copyPublicLink(value: string): Promise<void> {
   if (!copied) throw new Error("Clipboard is unavailable.");
 }
 
-export default function PublicShareView({ token, initialAlbum, authenticatedUser = null }: PublicShareViewProps) {
+export default function PublicShareView({ token, initialAlbum, authenticatedUser = null, onLogin }: PublicShareViewProps) {
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
   const contributionValue = new URLSearchParams(window.location.search).get("contribute");
@@ -105,6 +107,10 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
+  // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
+  // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
+  const canContribute = album?.can_contribute === true;
+
   const [nameAction, setNameAction] = useState<"photo" | "memory" | null>(null);
   const [participantName, setParticipantName] = useState("");
   const [isStartingContribution, setIsStartingContribution] = useState(false);
@@ -183,6 +189,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   }, [contributionAction, contributionAlbumId, nameAction]);
 
   const openContribution = (action: "photo" | "memory") => {
+    // 백엔드가 막는 것을 화면에서도 열지 않는다(2중 방어 — 판정은 백엔드가 한 것).
+    if (!canContribute) return;
     setContributionError(null);
     if (authenticatedUser && !contributionSession) {
       // Account session isn't ready yet. Remember the intent and (re)start the
@@ -215,6 +223,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   }, [album, contributionSession, loadedToken, requestedContribution, token, authenticatedUser]);
 
   useEffect(() => {
+    // 감상 링크에서는 자동 참여를 시작하지 않는다 — 구경꾼을 말없이 참여자로 만들지 않는다.
+    if (!canContribute) return;
     if (!authenticatedUser || !album || loadedToken !== token || contributionSession || isStartingContribution) return;
     // contributionRetry lets a failed start be retried: a new key clears the guard.
     const key = `${token}:${authenticatedUser.id}:${contributionRetry}`;
@@ -249,7 +259,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         setContributionError(cause instanceof Error ? cause.message : "참여를 시작하지 못했어요.");
       })
       .finally(() => setIsStartingContribution(false));
-  }, [album, authenticatedUser, contributionSession, contributionRetry, isStartingContribution, loadedToken, requestedContribution, token]);
+  }, [album, authenticatedUser, canContribute, contributionSession, contributionRetry, isStartingContribution, loadedToken, requestedContribution, token]);
 
   const scrollToAlbumStart = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -389,12 +399,13 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다. */}
       <AlbumGuestbook token={token} albumId={albumId || ""} initialEntries={guestbook} defaultAuthorName={participantName} />
       {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 추억"><h3>새로 더해진 추억</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
-      <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section>
+      {/* 참여 블록은 함께 만들기 링크에서만. 구경꾼에게 할 수 없는 행동을 보여주지 않는다(§1). */}
+      {canContribute ? <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section> : null}
       {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">추억을 남긴 분의 이름을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}
       {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
     </>
   );
-  const isParticipantMode = Boolean(contributionSession);
+  const isParticipantMode = canContribute && Boolean(contributionSession);
   const publicNav = isParticipantMode ? {
     variant: "participant" as const,
     activeItem: contributionAction === "photo" ? "photo" as const : contributionAction === "memory" ? "memory" as const : "album" as const,
@@ -422,7 +433,11 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     </div>
   );
   const editionLink = album.edition_is_latest === false ? <p className="album-result__edition-notice"><a href={`/s/${token}`}>최신 앨범 보기</a></p> : album.edition_previous ? <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p> : null;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  // 비로그인 구경꾼에게는 헤더 우측에 `로그인`(§3). 이 화면이 서비스의 첫인상이다.
+  const headerRight = !authenticatedUser && onLogin
+    ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
+    : undefined;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

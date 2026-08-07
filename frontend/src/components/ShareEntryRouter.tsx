@@ -12,6 +12,8 @@ interface ShareEntryRouterProps {
   authReady: boolean;
   authError?: string | null;
   onRetryAuth?: () => void;
+  /** 헤더 우측 `로그인` — 비로그인 구경꾼에게 보여야 한다(SCREEN_SPEC §3). */
+  onLogin?: () => void;
 }
 
 type EntryState =
@@ -21,7 +23,7 @@ type EntryState =
   | { kind: "error"; message: string };
 
 /** The single /s/:token entry decision: token validation, session, then role. */
-export default function ShareEntryRouter({ token, user, authReady, authError = null, onRetryAuth }: ShareEntryRouterProps) {
+export default function ShareEntryRouter({ token, user, authReady, authError = null, onRetryAuth, onLogin }: ShareEntryRouterProps) {
   const [state, setState] = useState<EntryState>({ kind: "loading" });
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const loggedRef = useRef(new Set<string>());
@@ -92,5 +94,5 @@ export default function ShareEntryRouter({ token, user, authReady, authError = n
   if (state.kind === "loading") return <p className="auth-panel__notice">앨범을 여는 중이에요.</p>;
   if (state.kind === "error") return <div className="album-result"><h2 className="album-result__title">앨범을 열지 못했어요.</h2><p>{state.message}</p></div>;
   if (state.kind === "owner") return <AlbumView albumId={state.albumId} />;
-  return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} />;
+  return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} onLogin={onLogin} />;
 }

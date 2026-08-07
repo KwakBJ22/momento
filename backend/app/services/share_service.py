@@ -41,21 +41,42 @@ def get_active_share(client: Client, token: str) -> dict[str, Any]:
     return share
 
 
+# 공유 링크 종류(SCREEN_SPEC §1 "링크 두 종류"). DB 기본값은 'contribute' 이고,
+# 이미 발급된 링크는 그대로 둔다 — 종류를 나중에 바꾸면 그 링크를 이미 받은 사람의
+# 권한이 말없이 달라진다.
+SHARE_KIND_VIEW = "view"
+SHARE_KIND_CONTRIBUTE = "contribute"
+
+
+def contribution_block_reason(share: dict[str, Any], album: dict[str, Any]) -> str | None:
+    """참여를 막아야 하는 이유. 없으면 None(참여 가능).
+
+    ★ 참여 시작 API 와 공유 조회 응답의 능력 플래그가 **이 함수 하나**를 쓴다.
+    같은 사실을 두 군데서 따로 계산하면 반드시 갈라진다(SCREEN_SPEC §1).
+    """
+    if str(share.get("kind") or SHARE_KIND_CONTRIBUTE) == SHARE_KIND_VIEW:
+        return "이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요."
+    if album.get("collaboration_status") == "closed":
+        return "이 앨범은 참여가 종료되어 더 이상 사진·기억을 남길 수 없어요."
+    return None
+
+
 def create_share_link(
     client: Client,
     album_id: str,
     profile_id: str | None,
     expires_at: datetime | None,
+    kind: str = SHARE_KIND_CONTRIBUTE,
 ) -> tuple[dict[str, Any], str]:
     token = create_token()
-    # `kind` is intentionally left to the DB default ('contribute') so link creation
-    # keeps working whether or not the kind migration has been applied yet. View-link
-    # creation is added with the 감상-링크 UX (reactions/guestbook step).
+    # 종류는 발급할 때 정해지고 이후 바뀌지 않는다. "구경하라고 보내기"는 view 를,
+    # "함께 만들자고 보내기"는 contribute 를 발급한다.
     record = {
         "album_id": album_id,
         "token_hash": hash_token(token),
         "created_by": profile_id,
         "expires_at": expires_at.isoformat() if expires_at else None,
+        "kind": SHARE_KIND_VIEW if kind == SHARE_KIND_VIEW else SHARE_KIND_CONTRIBUTE,
     }
     result = client.table("share_links").insert(record).execute()
     return (result.data or [record])[0], token
