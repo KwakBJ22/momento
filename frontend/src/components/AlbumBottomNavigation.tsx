@@ -1,4 +1,4 @@
-import { CircleUserRound, Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
+import { Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
@@ -8,17 +8,16 @@ export interface AlbumBottomNavigationProps {
   onShare?: () => void;
   onCreateAlbum?: () => void;
   onMyAlbums?: () => void;
-  onAccount?: () => void;
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
   variant?: "default" | "participant" | "app" | "contributor" | "visitor";
-  activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album" | "account";
+  activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album";
 }
 
 /** One fixed navigation surface shared by every screen-mode album. */
 export default function AlbumBottomNavigation({
-  onTop = () => undefined, onAddPhoto = () => undefined, onAddMemory = () => undefined, onShare = () => undefined, onCreateAlbum, onMyAlbums, onAccount, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
+  onTop = () => undefined, onAddPhoto = () => undefined, onAddMemory = () => undefined, onShare = () => undefined, onCreateAlbum, onMyAlbums, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
   variant = "default", activeItem,
 }: AlbumBottomNavigationProps) {
   const runIfEnabled = (enabled: boolean, action: () => void) => () => {
@@ -31,13 +30,14 @@ export default function AlbumBottomNavigation({
     }
     window.location.assign(newAlbumHref);
   };
+  // 전역 네비는 3칸이다(§4). "내 설정"은 없앴다 — 화면이 없고 계정 시트를 열 뿐인데,
+  // 헤더 ⋯ 가 같은 시트를 열어 한 화면에 같은 진입점이 두 개였다(§3).
   if (variant === "app") {
     return (
       <nav className="album-bottom-navigation album-bottom-navigation--app" aria-label="주요 메뉴">
         <button type="button" className={activeItem === "home" ? "is-active" : ""} onClick={onTop}><Home size={17} /><span>처음으로</span></button>
         <button type="button" className={activeItem === "my-albums" ? "is-active" : ""} onClick={onMyAlbums}><Images size={17} /><span>내 앨범</span></button>
         <button type="button" className={activeItem === "new-album" ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>새 앨범</span></button>
-        <button type="button" className={activeItem === "account" ? "is-active" : ""} onClick={onAccount}><CircleUserRound size={17} /><span>내 설정</span></button>
       </nav>
     );
   }

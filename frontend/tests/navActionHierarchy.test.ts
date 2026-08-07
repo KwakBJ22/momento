@@ -133,3 +133,26 @@ test("upload retry button is bound to the error slot, never the notice slot", ()
   assert.match(form, /setNotice\(failures\.length \? failures\.join\(" "\) : null\)/);
   assert.match(form, /setNotice\(noPhotosAddedNotice\(/);
 });
+
+// B-2 (§4·§3) — 전역 네비는 3칸이고, 계정 진입점은 화면당 하나(헤더 ⋯)다.
+test("전역 하단 네비는 3칸 — '내 설정'이 없다", () => {
+  const nav = read("components/AlbumBottomNavigation.tsx");
+  const app = nav.slice(nav.indexOf('if (variant === "app")'), nav.indexOf('if (variant === "participant")'));
+  assert.equal((app.match(/<button /g) || []).length, 3);
+  assert.match(app, /처음으로/);
+  assert.match(app, /내 앨범/);
+  assert.match(app, /새 앨범/);
+  assert.doesNotMatch(app, /내 설정/);
+  // 격자도 3칸(기본값)이다 — 4칸 규칙을 남기지 않는다.
+  assert.doesNotMatch(read("components/AlbumBottomNavigation.css"), /--app \{ grid-template-columns: repeat\(4/);
+});
+
+test("계정 진입점은 화면당 하나 — 헤더 ⋯ 뿐이다", () => {
+  const nav = read("components/AlbumBottomNavigation.tsx");
+  // 네비에서 계정을 여는 통로(onAccount)를 없앴다.
+  assert.doesNotMatch(nav, /onAccount/);
+  assert.doesNotMatch(nav, /CircleUserRound/);
+  assert.doesNotMatch(read("App.tsx"), /onAccount=/);
+  // 계정은 헤더 ⋯ 시트에서만 연다(잃는 기능 없음 — 같은 시트다).
+  assert.match(read("App.tsx"), /className="app-header__more" aria-label="더보기"/);
+});
