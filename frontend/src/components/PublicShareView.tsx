@@ -107,6 +107,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
+  // 하단 "한마디 남기기"가 방명록 구역으로 스크롤한다(§4·§7 진입 규칙).
+  const guestbookRef = useRef<HTMLDivElement | null>(null);
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
   // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
   const canContribute = album?.can_contribute === true;
@@ -396,8 +398,11 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           );
         })}
       </section>
-      {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다. */}
+      {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
+          하단 "한마디 남기기"가 이 구역으로 내려온다(§4: 버튼은 행동, 구역은 이름). */}
+      <div ref={guestbookRef}>
       <AlbumGuestbook token={token} albumId={albumId || ""} initialEntries={guestbook} defaultAuthorName={participantName} />
+      </div>
       {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 추억"><h3>새로 더해진 추억</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
       {/* 참여 블록은 함께 만들기 링크에서만. 구경꾼에게 할 수 없는 행동을 보여주지 않는다(§1). */}
       {canContribute ? <section className="public-share__join" aria-label="앨범 참여"><p><strong>함께 추억을 더해보세요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>기억 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section> : null}
@@ -416,11 +421,16 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     onCreateAlbum: () => window.location.assign("/"),
     canAddPhoto: !isStartingContribution,
     canAddMemory: !isStartingContribution,
-  } : {
+  } : canContribute ? {
     onTop: scrollToAlbumStart,
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
     onShare: () => { void share(); },
+    onCreateAlbum: () => window.location.assign("/"),
+  } : {
+    // 구경꾼 2칸(§4): 한마디 남기기(=방명록) · 내 앨범 만들기.
+    variant: "visitor" as const,
+    onAddMemory: () => guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     onCreateAlbum: () => window.location.assign("/"),
   };
   const publicActions = (

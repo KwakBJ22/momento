@@ -48,3 +48,23 @@ test("공유 링크는 감상용으로 발급된다 — 함께 만들기는 초�
   // 함께 만들기는 기존 초대 경로(ensureAlbumInviteUrl → /join/…) 그대로.
   assert.match(read("components/AlbumView.tsx"), /ensureAlbumInviteUrl\(albumId\)/);
 });
+
+// SCREEN_SPEC §4 — 구경꾼은 2칸이다. 사진 추가·공유하기는 권한이 없으므로 보이면 안 된다.
+test("구경꾼 하단 네비는 2칸 — [한마디 남기기] [내 앨범 만들기]", () => {
+  const nav = read("components/AlbumBottomNavigation.tsx");
+  const block = nav.slice(nav.indexOf('if (variant === "visitor")'), nav.indexOf('if (variant === "contributor")'));
+  assert.equal((block.match(/<button /g) || []).length, 2);
+  assert.match(block, /한마디 남기기/);
+  assert.match(block, /내 앨범<br \/>만들기/);
+  assert.doesNotMatch(block, /사진 추가|공유하기|onAddPhoto|onShare/);
+  // 2칸 격자.
+  assert.match(read("components/AlbumBottomNavigation.css"), /\.album-bottom-navigation--visitor \{ grid-template-columns: repeat\(2/);
+});
+
+test("공유 화면은 능력에 따라 네비를 고른다 — 구경꾼이면 visitor 변형", () => {
+  const view = read("components/PublicShareView.tsx");
+  assert.match(view, /\} : canContribute \? \{/);
+  assert.match(view, /variant: "visitor" as const/);
+  // 한마디 남기기는 방명록 구역으로 내려간다(§4 라벨=행동, 구역=이름).
+  assert.match(view, /onAddMemory: \(\) => guestbookRef\.current\?\.scrollIntoView/);
+});

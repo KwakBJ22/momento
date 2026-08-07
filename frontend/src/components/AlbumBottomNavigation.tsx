@@ -12,7 +12,7 @@ export interface AlbumBottomNavigationProps {
   canAddPhoto?: boolean;
   canAddMemory?: boolean;
   newAlbumHref?: string;
-  variant?: "default" | "participant" | "app" | "contributor";
+  variant?: "default" | "participant" | "app" | "contributor" | "visitor";
   activeItem?: "album" | "photo" | "memory" | "home" | "my-albums" | "new-album" | "account";
 }
 
@@ -57,6 +57,17 @@ export default function AlbumBottomNavigation({
   // 참여자(4a·안1 확정): 사진 추가(면 채움) / 한마디 쓰기 / 내 앨범 만들기(테두리 칩).
   // 채움 = 이 앨범에서의 주 행동, 테두리 칩 = 앨범 밖으로 나가는 행동 — 강조의
   // 종류가 달라 경쟁하지 않는다. 앨범 처음으로는 스크롤 플로팅 버튼이 담당.
+  // 구경꾼(SCREEN_SPEC §4): 2칸이다. 사진 추가·공유하기는 권한이 없으므로 보이면 안 된다 —
+  // 할 수 없는 행동을 보여주고 눌렀을 때 막는 것이 가장 나쁜 경험이다.
+  if (variant === "visitor") {
+    return (
+      <nav className="album-bottom-navigation album-bottom-navigation--visitor" aria-label="앨범 메뉴">
+        <button type="button" className="album-bottom-navigation__primary" onClick={onAddMemory}><PencilLine size={17} /><span>한마디 남기기</span></button>
+        <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범<br />만들기</span></span></button>
+      </nav>
+    );
+  }
+
   if (variant === "contributor") {
     return (
       <nav className="album-bottom-navigation" aria-label="앨범 메뉴">

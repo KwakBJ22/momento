@@ -8,7 +8,9 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 // "새 앨범" moved to the header 더보기 sheet; 공유하기 alone gets the brand background.
 test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목업 2a·3a)", () => {
   const nav = read("components/AlbumBottomNavigation.tsx");
-  const [, contributor, owner] = nav.split('aria-label="앨범 메뉴"');
+  // 변형별 블록을 가드 기준으로 자른다(같은 aria-label 을 쓰는 변형이 늘어도 안 깨지게).
+  const contributor = nav.slice(nav.indexOf('if (variant === "contributor")'));
+  const owner = nav.slice(nav.indexOf("// 소유자(2a) 3칸"));
   // 참여자(4a·안1): 사진 추가(면 채움) / 한마디 쓰기 / 내 앨범 만들기(테두리 칩, 두 줄).
   const contributorNav = contributor.split("</nav>")[0];
   assert.match(contributorNav, /album-bottom-navigation__primary[\s\S]{0,120}사진 추가/);
