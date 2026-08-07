@@ -30,9 +30,14 @@
 .app-header__brand-ko b { color: var(--c-text); font-weight: inherit; }
 .app-header__brand-ko i { color: var(--c-brand); font-style: normal; }
 .app-header__right { display: flex; align-items: center; gap: 10px; }
+/* 참여 화면처럼 아무것도 채우지 않는 화면에서는 자리 자체가 없다(§3 "비운다"). */
+.app-header__right:empty { display: none; }
 /* 우측 `⋯` — 원형 버튼. 알약·글자 버튼이 아니다. 이 정의 하나를 모든 화면이 쓴다
    (앨범 상세도 같은 클래스를 쓴다 — §3: 화면마다 다르지 않다). */
 .app-header__more { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-text-soft); cursor: pointer; }
+/* 우측 slot 의 링크(예: 앨범 상세의 "내 앨범"). 헤더 계열 이름을 쓴다 — 화면별 이름을
+   따로 두면 다시 갈라진다. */
+.app-header__link { min-height: 44px; display: grid; place-items: center; color: var(--c-brand-text); font-size: var(--t-xs); font-weight: 600; text-decoration: none; }
 /* 우측 slot 안의 모든 컨트롤은 누르는 영역 44px 를 갖는다. */
 .app-header__right button,
 .app-header__right a { min-height: 44px; }

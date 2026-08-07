@@ -223,7 +223,7 @@
    .upload-form (not the picker section), so position:sticky stays pinned across the
    whole form — a sticky element only lives as long as its parent box is on screen.
    Released automatically when preparation ends (the element is unmounted). The fixed
-   bottom navigation is unaffected (this sticks to the top; .app__header scrolls away). */
+   bottom navigation is unaffected (this sticks to the top; .app-header scrolls away). */
 .upload-form__preparing {
   position: sticky;
   top: 0;

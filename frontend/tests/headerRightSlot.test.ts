@@ -9,7 +9,7 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 test("참여 화면 외에는 우측 slot 이 비지 않는다", () => {
   const app = read("App.tsx");
   // 전역 헤더: 참여 화면만 undefined, 그 외에는 accountEntry(로그인 또는 ⋯).
-  assert.match(app, /<AppHeader right=\{isJoinSurface \? undefined : accountEntry\}/);
+  assert.match(app, /!albumOwnsHeaderSlot && !isJoinSurface \? <HeaderRight>\{accountEntry\}<\/HeaderRight>/);
   // accountEntry 는 두 갈래뿐이며 어느 쪽도 비어 있지 않다.
   const entry = app.slice(app.indexOf("const accountEntry = user ?"), app.indexOf("const accountSheetRow"));
   assert.match(entry, /className="app-header__more" aria-label="더보기"/); // 로그인 상태
@@ -30,8 +30,8 @@ test("랜딩(로그인)·사진 고르기·만드는 중·내 앨범 = 원형 �
 
 test("앨범 상세 = [내 앨범] + 원형 ⋯, 이 순서", () => {
   const screen = read("components/AlbumScreen.tsx");
-  const right = screen.slice(screen.indexOf("<AppHeader right="), screen.indexOf("</>} />"));
-  const linkAt = right.indexOf("album-screen__hdr-link");
+  const right = screen.slice(screen.indexOf("<HeaderRight>"), screen.indexOf("</HeaderRight>"));
+  const linkAt = right.indexOf("app-header__link");
   const moreAt = right.indexOf("app-header__more");
   assert.ok(linkAt > -1 && moreAt > -1, "두 컨트롤이 모두 있어야 한다");
   assert.ok(linkAt < moreAt, "내 앨범이 ⋯ 보다 앞이다");
@@ -53,8 +53,9 @@ test("헤더 높이는 모든 화면에서 같다 — 한 규칙이 정한다", 
   const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
   assert.match(header, /min-height: 52px/);
   assert.match(header, /padding: 4px 16px/);
-  // 화면별로 헤더를 다시 정의하지 않는다(AlbumScreen 은 AppHeader 를 쓴다).
-  assert.match(read("components/AlbumScreen.tsx"), /<AppHeader /);
+  // 화면별로 헤더를 다시 정의하지 않는다(AlbumScreen 은 slot 만 채운다).
+  assert.match(read("components/AlbumScreen.tsx"), /<HeaderRight>/);
+  assert.doesNotMatch(read("components/AlbumScreen.tsx"), /<AppHeader/);
 });
 
 // SCREEN_SPEC §5 — ⋯ 시트 최상단 계정 행. 정보이지 버튼이 아니다.

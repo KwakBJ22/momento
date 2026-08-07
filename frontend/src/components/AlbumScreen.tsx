@@ -3,7 +3,7 @@ import { ArrowUp, MoreHorizontal } from "lucide-react";
 import AlbumActionPanel from "./AlbumActionPanel";
 import AlbumBottomNavigation, { type AlbumBottomNavigationProps } from "./AlbumBottomNavigation";
 import AlbumScreenHeader from "./AlbumScreenHeader";
-import AppHeader from "./AppHeader";
+import { HeaderRight } from "./AppHeader";
 import "./AlbumScreen.css";
 
 /** Show the "맨 위로" floating button only after the reader has scrolled a screenful down. */
@@ -50,13 +50,13 @@ export default function AlbumScreen({
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>
-      {/* 상단은 공용 AppHeader 하나. 앨범 상세 우측은 [내 앨범]+[⋯] 둘뿐 —
-          계정 진입점은 ⋯ 시트 최상단 행으로 들어간다(헤더를 가볍게 유지). */}
-      <AppHeader right={<>
+      {/* 헤더 element 는 App 이 그린 하나뿐이다. 이 화면은 우측 slot 만 채운다.
+          앨범 상세 우측은 [내 앨범]+[⋯] 둘 — 계정은 ⋯ 시트 최상단 행으로 들어간다. */}
+      <HeaderRight>
         {headerRight}
-        {backHref ? <a className="album-screen__hdr-link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
+        {backHref ? <a className="app-header__link" href={backHref}>{backLabel || "내 앨범"}</a> : null}
         {onMore ? <button type="button" className="app-header__more" aria-label="더보기" onClick={onMore}><MoreHorizontal size={20} /></button> : null}
-      </>} />
+      </HeaderRight>
       <div className="album-page__layout">
         <article className="album-page__book album-result album-screen__book">
           {preHeader ? <div className="album-screen__pre-header">{preHeader}</div> : null}

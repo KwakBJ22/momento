@@ -161,14 +161,7 @@
 }
 
 @media (max-width: 640px) {
-  .app--join .app__header {
-    margin-bottom: 0.15rem;
-    padding-top: 0.55rem;
-  }
 
-  .app--join .app__header h1 {
-    font-size: clamp(1.875rem, 9vw, 2.25rem);
-  }
 
   .join-page__eyebrow {
     font-size: 0.9rem;

@@ -51,14 +51,13 @@ test("소스에 'Momento' 리터럴이 남아 있지 않다 (보이지 않는 �
   assert.deepEqual(offenders, []);
 });
 
-test("앨범 상세는 헤더가 하나 — App 쪽 AppHeader 가 그 화면에서만 꺼진다", () => {
+test("앨범 상세도 같은 헤더를 쓴다 — 감추는 분기가 없다", () => {
   const app = read("App.tsx");
-  // 상단은 공용 AppHeader 하나로 통일됐다(인라인 3조각은 사라졌다).
-  assert.match(app, /const hidesGlobalHeader = Boolean\(sharedAlbumId \|\| shareToken\)/);
-  assert.match(app, /!adminRoute && !hidesGlobalHeader \? <AppHeader/);
-  // 다른 화면(랜딩·업로드·내 앨범 등)에는 그대로 남는다 — 조건은 adminRoute 와
-  // 이 플래그뿐이므로 앨범 외 화면에서는 항상 렌더링된다.
-  assert.doesNotMatch(app, /myAlbumsPage[^\n]*hidesGlobalHeader/);
+  // 헤더 element 는 관리자 외 모든 화면에서 App 이 한 번 그린다.
+  assert.match(app, /\{!adminRoute \? <AppHeader \/> : null\}/);
+  assert.doesNotMatch(app, /hidesGlobalHeader/);
+  // 앨범 화면은 우측 slot 만 자기 것으로 채운다(헤더를 다시 그리지 않는다).
+  assert.match(app, /const albumOwnsHeaderSlot = Boolean\(sharedAlbumId \|\| shareToken\)/);
 });
 
 test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC §3)", () => {
@@ -94,8 +93,8 @@ test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC 
 
 test("앨범 상세 헤더 우측은 컨트롤 2개 — [내 앨범] + [⋯]", () => {
   const screen = read("components/AlbumScreen.tsx");
-  const right = screen.slice(screen.indexOf("<AppHeader right="), screen.indexOf("</>} />"));
-  assert.match(right, /album-screen__hdr-link/);   // 내 앨범
+  const right = screen.slice(screen.indexOf("<HeaderRight>"), screen.indexOf("</HeaderRight>"));
+  assert.match(right, /app-header__link/);   // 내 앨범
   assert.match(right, /app-header__more/);         // ⋯ (정의는 AppChrome.css 한 곳)
   // 계정 원은 헤더 밖에 두지 않는다.
   assert.doesNotMatch(right, /accountSlot|app__account/);
@@ -110,7 +109,7 @@ test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제�
   const header = read("components/AlbumScreenHeader.tsx");
   assert.doesNotMatch(header, /album-screen-header__brand/);
   // 브랜드는 공용 AppHeader 한 곳에서만 그린다(AlbumScreen 은 그것을 쓴다).
-  assert.match(read("components/AlbumScreen.tsx"), /<AppHeader /);
+  assert.match(read("components/AlbumScreen.tsx"), /<HeaderRight>/);
   const appHeader = read("components/AppHeader.tsx");
   assert.match(appHeader, /BRAND_NAME_KO_PARTS\.lead/);
   assert.doesNotMatch(appHeader, /BRAND_NAME_EN/); // 헤더는 한 줄(높이 축소)

@@ -29,14 +29,11 @@
 
 /* ── 목업 2a·3a 헤더 바: 좌측 브랜드(우리앨범/woorialbum), 우측 [뒤로][더보기]. ──
    #1a1f2b·#8a8f98 은 시안(brand__ko b / brand__en) 값 — 토큰 아님. */
-.album-screen__hdr { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(100%, 900px); margin: 0 auto; padding: 14px 20px 12px; border-bottom: 1px solid #f0e4e1; background: var(--c-bg); }
 .album-screen__brand { display: flex; flex-direction: column; gap: 2px; }
 .album-screen__brand-ko { font-size: 19px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
 .album-screen__brand-ko b { color: #1a1f2b; font-weight: inherit; }
 .album-screen__brand-ko i { color: var(--c-brand); font-style: normal; }
 .album-screen__brand-en { font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; color: #8a8f98; }
-.album-screen__hdr-right { display: flex; align-items: center; gap: 10px; }
-.album-screen__hdr-link { min-height: 44px; display: grid; place-items: center; color: var(--c-brand-text); font-size: var(--t-xs); font-weight: 600; text-decoration: none; }
 .album-screen__book { position: relative; }
 /* 더보기(4a): 글자 알약 → ⋯ 원형 44px. 글자 버튼이 둘이면 헤더가 무거워지고
    좌측 브랜드와 경쟁한다 — 글자는 [내 앨범] 하나만 남긴다. */

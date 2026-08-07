@@ -494,7 +494,6 @@ a.btn {
    Print / PDF — A4 rules only in print, never scale the web UI
    ========================================================= */
 @media print {
-  .app__header,
   .album-page__manage,
   .share-modal,
   .album-result__actions,

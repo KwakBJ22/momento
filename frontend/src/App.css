@@ -51,56 +51,14 @@ body {
   padding: 0 0 3rem;
 }
 
-.app--album .app__header {
-  max-width: 900px;
-  width: calc(100% - 48px);
-  margin-left: auto;
-  margin-right: auto;
-  padding-top: 1.25rem;
-}
-
 .app--album .app__main {
   width: 100%;
 }
 
 @media (max-width: 1024px) {
-  .app--album .app__header {
-    width: calc(100% - 32px);
-  }
 }
 
 @media (max-width: 768px) {
-  .app--album .app__header {
-    width: 100%;
-    padding-left: 16px;
-    padding-right: 16px;
-    box-sizing: border-box;
-  }
-}
-
-.app__header {
-  position: relative;
-  text-align: center;
-  margin-bottom: 0.35rem;
-  padding-top: 0.15rem;
-}
-
-.app__header h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  /* 로고는 아이덴티티 색을 그대로 쓴다. WCAG 1.4.3 은 로고타입을
-     대비 요건에서 제외한다. 본문 글자에는 이 색을 쓰지 않는다. */
-  color: var(--c-brand);
-}
-
-.app__header-actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
 }
 
 .app__nav-link {
@@ -118,25 +76,6 @@ body {
   cursor: pointer;
 }
 
-.app__header h1 a { color: inherit; text-decoration: none; }
-
-/* 계정 원과 드롭다운은 없앴다(SCREEN_SPEC §3: 계정은 항상 ⋯ 시트 안).
-   position:absolute 로 헤더 위에 겹쳐 그리던 잔재를 함께 지운다 — 공용 헤더 안에서는
-   상자 밖으로 떠 보였다. 계정 행 스타일은 AppChrome.css 의 .account-row 에 있다. */
-
-
-
-
-
-
-
-
-
-
-
-
-
-.app__header-actions { display: none; }
 .app__account--global { position: absolute; top: 1.25rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; width: 34px; height: 34px; }
 .app__account--global 
 .app__login-global { position: absolute; top: 1.4rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; text-decoration: underline; cursor: pointer; }
@@ -642,7 +581,4 @@ body {
 
 /* 앨범 헤더로 옮겨온 계정 진입점: 누르는 영역 44px(기존 34px 원은 하한 미달이었다).
    게스트는 아이콘 대신 "로그인" 글자 — 40~60대에게 아이콘만으로는 뜻이 전달되지 않는다. */
-.album-screen__hdr .app__account { position: relative; width: auto; height: auto; }
-.album-screen__hdr 
-.album-screen__hdr 
 .app__account-login { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }

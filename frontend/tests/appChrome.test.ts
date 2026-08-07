@@ -10,13 +10,15 @@ const publicFile = (p: string) => readFileSync(new URL(`../public/${p}`, import.
 test("상단은 화면당 하나 — AppHeader 만이 브랜드를 그린다", () => {
   const app = read("App.tsx");
   const screen = read("components/AlbumScreen.tsx");
-  // App 과 AlbumScreen 이 각각 한 번씩만 AppHeader 를 낸다.
-  assert.equal((app.match(/<AppHeader /g) || []).length, 1);
-  assert.equal((screen.match(/<AppHeader /g) || []).length, 1);
-  // 두 겹 방지: AlbumScreen 을 쓰는 화면에서는 App 쪽 헤더가 꺼진다.
-  assert.match(app, /!adminRoute && !hidesGlobalHeader \? <AppHeader/);
-  assert.match(app, /const hidesGlobalHeader = Boolean\(sharedAlbumId \|\| shareToken\)/);
-  // 인라인 <header className="app__header"> 는 더 이상 없다.
+  // ★ 헤더 element 를 그리는 곳은 App 하나뿐이다. 앨범 화면은 우측 slot 만 채운다
+  //   — 예전에는 앨범이 자기 헤더를 그리고 전역 헤더를 감춰서 구현이 두 벌이었다.
+  assert.equal((app.match(/<AppHeader ?\/?>/g) || []).length, 1);
+  assert.doesNotMatch(screen, /<AppHeader/);
+  assert.match(screen, /<HeaderRight>/);
+  // "이 화면에서는 전역 헤더를 감춘다" 분기가 없다.
+  assert.doesNotMatch(app, /hidesGlobalHeader/);
+  assert.match(app, /\{!adminRoute \? <AppHeader \/> : null\}/);
+  // 인라인 헤더 마크업도 없다.
   assert.doesNotMatch(app, /<header className="app__header">/);
   // 브랜드 문자열은 상수에서만 읽는다.
   const header = read("components/AppHeader.tsx");
@@ -73,10 +75,9 @@ test("푸터 여백은 하단 네비가 있는 화면에서만 — 네비 높이
 test("참여 화면(/join, /contribute)은 헤더 우측을 비운다", () => {
   const app = read("App.tsx");
   // 초대받은 사람이 처음 보는 화면 — 계정·로그인이 있으면 "먼저 가입하라"로 읽힌다.
-  assert.match(app, /<AppHeader right=\{isJoinSurface \? undefined : accountEntry\}/);
-  const header = read("components/AppHeader.tsx");
-  // right 가 없으면 우측 영역 자체를 렌더링하지 않는다.
-  assert.match(header, /\{right \? <div className="app-header__right">\{right\}<\/div> : null\}/);
+  assert.match(app, /!albumOwnsHeaderSlot && !isJoinSurface \? <HeaderRight>\{accountEntry\}<\/HeaderRight>/);
+  // 아무도 채우지 않으면 자리 자체가 보이지 않는다.
+  assert.match(read("components/AppChrome.css"), /\.app-header__right:empty \{ display: none; \}/);
 });
 
 test("PDF·인쇄에는 헤더·푸터가 들어가지 않는다", () => {

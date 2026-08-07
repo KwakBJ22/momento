@@ -19,7 +19,7 @@ import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { MoreHorizontal } from "lucide-react";
 import AccountSheetRow from "./components/AccountSheetRow";
-import AppHeader from "./components/AppHeader";
+import AppHeader, { HeaderRight } from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
@@ -257,7 +257,9 @@ function App() {
   // everyone else falls back to the login wall. Backend re-checks the token.
   // 앨범 상세는 자체 브랜드 헤더(AlbumScreen)를 가진다 — 전역 헤더(브랜드·계정 원·
   // 게스트 로그인)를 여기서만 감춰 헤더가 두 겹이 되지 않게 한다. 다른 화면은 그대로.
-  const hidesGlobalHeader = Boolean(sharedAlbumId || shareToken);
+  // 앨범 상세·공유 화면은 자기 컨트롤([내 앨범]·⋯)을 우측 slot 에 채운다. 헤더 자체는
+  // 어느 화면에서도 감추지 않는다 — 헤더는 App 이 그리는 하나뿐이다.
+  const albumOwnsHeaderSlot = Boolean(sharedAlbumId || shareToken);
   // 전역 네비(app variant) 또는 AlbumScreen 이 자체로 그리는 고정 네비가 있는 화면.
   const hasBottomNavigation = showGlobalBottomNavigation || Boolean(sharedAlbumId || shareToken || contributeAlbumId || result);
   // 계정 진입점(드롭다운 5항목: 이름·이메일·내 앨범·로그아웃·회원 탈퇴)은 한 곳에서
@@ -314,7 +316,9 @@ function App() {
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
       {/* 상단은 화면당 하나(AppHeader). 앨범 상세·공유는 AlbumScreen 이 자체 헤더로
           같은 블록을 렌더링하므로 여기서는 내지 않는다 — 두 겹 방지. */}
-      {!adminRoute && !hidesGlobalHeader ? <AppHeader right={isJoinSurface ? undefined : accountEntry} /> : null}
+      {!adminRoute ? <AppHeader /> : null}
+      {/* 우측 slot: §3 표. 참여 화면은 비우고, 앨범 화면은 자기 것을 채운다. */}
+      {!adminRoute && !albumOwnsHeaderSlot && !isJoinSurface ? <HeaderRight>{accountEntry}</HeaderRight> : null}
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
