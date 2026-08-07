@@ -17,6 +17,7 @@ import QuestionFlow from "./components/QuestionFlow";
 import ShareEntryRouter from "./components/ShareEntryRouter";
 import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
+import { MoreHorizontal } from "lucide-react";
 import AppHeader from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
@@ -232,8 +233,9 @@ function App() {
   }, [showLogin]);
   useEffect(() => {
     if (!accountMenuOpen) return;
+    // 시트 밖을 누르면 닫는다(시트 자체와 딤은 각자 닫기를 처리한다).
     const closeOnOutside = (event: MouseEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest(".app__account")) setAccountMenuOpen(false);
+      if (!(event.target instanceof Element) || !event.target.closest(".album-more-sheet, .app-header__more")) setAccountMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setAccountMenuOpen(false);
@@ -269,18 +271,18 @@ function App() {
       <button type="button" className="app__account-withdraw" onClick={openWithdraw}>회원 탈퇴</button>
     </>
   );
+  // 헤더 우측(SCREEN_SPEC §3): 로그인했으면 `⋯` 하나, 아니면 `로그인` 하나.
+  // ★ 계정 원을 헤더에 두지 않는다 — 계정은 항상 `⋯` 시트 안으로 들어간다.
+  //   (예전 계정 원은 position:absolute 라 공용 헤더 안에서 상자 밖으로 떠 있었다.)
   const accountEntry = user ? (
-    <div className="app__account">
-      <button type="button" className="app__account-trigger" aria-label={`${user.displayName} 계정 메뉴`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>
-        {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span>{user.displayName.slice(0, 1)}</span>}
-      </button>
-      {accountMenuOpen ? <div className="app__account-menu"><p className="app__account-name">{user.displayName}</p>{user.email ? <p className="app__account-email">{user.email}</p> : null}{accountMenuItems}</div> : null}
-    </div>
+    <button type="button" className="app-header__more" aria-label="더보기" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(true)}>
+      <MoreHorizontal size={20} />
+    </button>
   ) : (
     <button type="button" className="app__account-login" onClick={openLogin}>로그인</button>
   );
-  // 앨범 상세는 헤더 우측을 [내 앨범]+[⋯] 둘로 줄이고, 계정 진입점을 ⋯ 시트
-  // 최상단 행으로 넣는다 — 같은 동작(로그아웃·탈퇴·로그인)을 자리만 옮긴 것이다.
+  // ⋯ 시트 최상단 계정 행 — 앨범 상세와 그 밖의 화면이 같은 노드를 쓴다.
+  // 같은 동작(로그아웃·탈퇴·로그인)을 자리만 옮긴 것이다.
   const accountSheetRow = user ? (
     <div className="album-more-sheet__account">
       <div className="album-more-sheet__account-head">
@@ -352,6 +354,16 @@ function App() {
       {showGlobalBottomNavigation ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} onAccount={() => setAccountMenuOpen(true)} />
+      ) : null}
+      {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}
+      {accountMenuOpen && !adminRoute ? (
+        <>
+          <div className="album-sheet-dim" aria-hidden="true" onClick={() => setAccountMenuOpen(false)} />
+          <section className="album-inline-action album-more-sheet" aria-label="더보기">
+            <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setAccountMenuOpen(false)}>닫기</button></div>
+            <div className="album-inline-action__body album-more-sheet__list">{accountSheetRow}</div>
+          </section>
+        </>
       ) : null}
       {loginModal}
       {withdrawOpen ? (

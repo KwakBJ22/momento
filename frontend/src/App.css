@@ -120,45 +120,15 @@ body {
 
 .app__header h1 a { color: inherit; text-decoration: none; }
 
-.app__account {
-  position: absolute;
-  top: 0.1rem;
-  right: 0;
-  z-index: 4;
-}
+/* 계정 원과 드롭다운은 없앴다(SCREEN_SPEC §3: 계정은 항상 ⋯ 시트 안).
+   position:absolute 로 헤더 위에 겹쳐 그리던 잔재를 함께 지운다 — 공용 헤더 안에서는
+   상자 밖으로 떠 보였다. 이름·이메일 스타일(app__account-name/email)은 시트에서 쓴다. */
 
-.app__account-trigger {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--c-border);
-  border-radius: 50%;
-  background: var(--c-surface);
-  color: var(--c-brand-text);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-}
 
-.app__account-trigger img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
-.app__account-menu {
-  display: grid;
-  min-width: 108px;
-  margin-top: 0.45rem;
-  padding: 0.35rem;
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  background: var(--c-surface);
-  box-shadow: var(--sh-md);
-}
+
+
+
 
 .app__account-menu a,
 .app__account-menu button {
@@ -182,7 +152,7 @@ body {
 .app__account-email { color: var(--c-text-muted); font-size: var(--t-xs); }
 .app__header-actions { display: none; }
 .app__account--global { position: absolute; top: 1.25rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; width: 34px; height: 34px; }
-.app__account--global .app__account-menu { position: absolute; top: calc(100% + 0.45rem); right: 0; margin-top: 0; }
+.app__account--global 
 .app__login-global { position: absolute; top: 1.4rem; right: max(16px, calc((100% - 900px) / 2)); z-index: 80; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 768px) { .app__account--global { top: 0.15rem; right: 16px; } }
 @media (max-width: 768px) { .app__login-global { top: 0.35rem; right: 16px; } }
@@ -687,6 +657,6 @@ body {
 /* 앨범 헤더로 옮겨온 계정 진입점: 누르는 영역 44px(기존 34px 원은 하한 미달이었다).
    게스트는 아이콘 대신 "로그인" 글자 — 40~60대에게 아이콘만으로는 뜻이 전달되지 않는다. */
 .album-screen__hdr .app__account { position: relative; width: auto; height: auto; }
-.album-screen__hdr .app__account-trigger { width: 44px; height: 44px; }
-.album-screen__hdr .app__account-menu { position: absolute; top: calc(100% + 0.45rem); right: 0; margin-top: 0; z-index: 90; }
+.album-screen__hdr 
+.album-screen__hdr 
 .app__account-login { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-size: var(--t-xs); font-weight: 600; cursor: pointer; }

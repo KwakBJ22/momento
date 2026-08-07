@@ -61,9 +61,9 @@ test("앨범 상세는 헤더가 하나 — App 쪽 AppHeader 가 그 화면에�
   assert.doesNotMatch(app, /myAlbumsPage[^\n]*hidesGlobalHeader/);
 });
 
-test("계정 진입점: 앨범 상세는 ⋯ 시트 안, 그 외 화면은 헤더 우측 — 동작은 하나", () => {
+test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC §3)", () => {
   const app = read("App.tsx");
-  // 항목 목록은 한 곳(accountMenuItems)에서 만들어 드롭다운과 시트가 함께 쓴다.
+  // 항목 목록은 한 곳(accountMenuItems)에서 만들어 모든 자리가 같은 동작을 쓴다.
   assert.match(app, /const accountMenuItems = \(/);
   for (const item of ["로그아웃", "회원 탈퇴"]) {
     assert.ok(app.includes(item), `계정 항목 누락: ${item}`);
@@ -71,17 +71,22 @@ test("계정 진입점: 앨범 상세는 ⋯ 시트 안, 그 외 화면은 헤�
   // "내 앨범"은 계정 메뉴에서 뺀다 — 헤더 우측 링크와 중복이다.
   const menu = app.slice(app.indexOf("const accountMenuItems"), app.indexOf("const accountEntry"));
   assert.doesNotMatch(menu, /내 앨범/);
-  // 앨범 상세로는 시트 행을 넘긴다(헤더 slot 이 아니다).
+  // ★ 계정 원을 헤더에 두지 않는다: 로그인 상태의 우측은 ⋯ 하나뿐이다.
+  assert.match(app, /className="app-header__more" aria-label="더보기"/);
+  assert.doesNotMatch(app, /className="app__account-trigger"/);
+  assert.doesNotMatch(app, /className="app__account"/);
+  // 비로그인은 `로그인` 하나(§3 랜딩 비로그인).
+  assert.match(app, /className="app__account-login" onClick=\{openLogin\}>로그인/);
+  // 앨범 상세는 시트 행을 넘긴다.
   assert.match(app, /const accountSheetRow = user \? \(/);
   assert.match(app, /accountSheet=\{accountSheetRow\}/);
-  assert.doesNotMatch(app, /accountSlot=/);
-  // 게스트는 시트 최상단이 "로그인".
-  assert.match(app, /album-more-sheet__row" onClick=\{openLogin\}><span>로그인/);
-  // 그 외 화면은 헤더 우측 계정 진입점 그대로.
-  assert.match(app, /<AppHeader right=\{isJoinSurface \? undefined : accountEntry\}/);
-  // 44px 유지(헤더 트리거·시트 아바타·시트 버튼).
-  const css = read("App.css") + read("components/AlbumScreen.css");
-  assert.match(css, /\.album-screen__hdr \.app__account-trigger \{ width: 44px; height: 44px; \}/);
+  // 전역 ⋯ 시트도 같은 행을 쓴다(두 벌 만들지 않는다).
+  assert.match(app, /album-more-sheet__list">\{accountSheetRow\}/);
+  // 겹쳐 그리던 절대배치 잔재가 없다.
+  assert.doesNotMatch(read("App.css"), /\.app__account \{[\s\S]{0,120}position: absolute/);
+  // 44px 유지(헤더 ⋯·시트 아바타·시트 버튼).
+  const css = read("components/AppChrome.css") + read("components/AlbumScreen.css");
+  assert.match(css, /\.app-header__more \{[^}]*width: 44px; height: 44px/);
   assert.match(css, /\.album-more-sheet__account-avatar \{ width: 44px; height: 44px/);
   assert.match(css, /\.album-more-sheet__account-actions button \{ min-height: 44px/);
 });
