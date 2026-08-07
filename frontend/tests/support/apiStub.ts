@@ -1,0 +1,147 @@
+/**
+ * `lib/api` 의 테스트 대역. 실제 네트워크를 타지 않는다.
+ *
+ * 로더(cssStub.mjs)가 `../lib/api` import 를 이 파일로 돌린다. 진짜 api.ts 는
+ * `import.meta.env`(Vite 전용)를 읽어 node 에서 그대로 불러올 수 없고, 마운트 테스트가
+ * 보려는 것은 네트워크가 아니라 **렌더가 성립하는가**이므로 대역으로 충분하다.
+ *
+ * 응답 데이터는 globalThis.__albumStub 으로 테스트가 정한다.
+ */
+import type { AlbumPhoto, AlbumResult } from "../../src/types";
+
+export interface AlbumStubData {
+  album: AlbumResult;
+  photos: AlbumPhoto[];
+  /** 앨범 조회를 실패시키고 싶을 때(오류 화면 렌더 경로). */
+  albumError?: { message: string; status?: number };
+}
+
+function stub(): AlbumStubData {
+  const data = (globalThis as unknown as { __albumStub?: AlbumStubData }).__albumStub;
+  if (!data) throw new Error("테스트가 globalThis.__albumStub 을 먼저 채워야 한다");
+  return data;
+}
+
+export type CollabSession = { albumId: string; contributorId: string; guestId: string | null; displayName: string };
+
+export async function getAlbum(): Promise<AlbumResult> {
+  const { album, albumError } = stub();
+  if (albumError) {
+    const error = new Error(albumError.message) as Error & { status?: number };
+    error.status = albumError.status;
+    throw error;
+  }
+  return album;
+}
+
+export async function getAlbumPhotos(): Promise<AlbumPhoto[]> {
+  return stub().photos;
+}
+
+// ★ 같은 참조를 돌려준다. 호출마다 새 배열·새 객체를 주면 그것을 상태에 넣는 화면이
+// 무한 갱신에 빠진다(테스트가 만든 가짜 상황이라 진짜 결함이 가려진다).
+const EMPTY_PAGES: unknown[] = [];
+const COLLAB_STATUS = { contributor_count: 0 };
+
+export async function getAlbumLivingAppendPages(): Promise<unknown[]> {
+  return EMPTY_PAGES;
+}
+
+export async function getCollaborationStatus(): Promise<{ contributor_count: number } | null> {
+  return COLLAB_STATUS;
+}
+
+export async function createAlbumShareLink(): Promise<{ share_url: string }> {
+  return { share_url: "https://test.local/s/token" };
+}
+
+export async function deleteAlbum(): Promise<void> {}
+export async function patchAlbumTitle(): Promise<void> {}
+export async function patchChapterStory(): Promise<void> {}
+export async function patchEpilogue(): Promise<void> {}
+export async function saveAlbumPhotoComment(): Promise<void> {}
+export async function startPublicContribution(): Promise<CollabSession> {
+  return { albumId: "album", contributorId: "contributor", guestId: null, displayName: "테스트" };
+}
+export function isPublicShareUrl(value: string | null | undefined): boolean {
+  return Boolean(value && value.includes("/s/"));
+}
+export function loadCollabSession(): CollabSession | null {
+  return null;
+}
+export function saveCollabSession(): void {}
+export async function getGuestbookEntries(): Promise<unknown[]> {
+  return [];
+}
+export async function submitGuestbookEntry(): Promise<unknown> {
+  return {};
+}
+export async function deleteGuestbookEntry(): Promise<void> {}
+export async function getAlbumPdfUrl(): Promise<{ url: string | null; album_version: number; cached: boolean }> {
+  return { url: null, album_version: 0, cached: false };
+}
+export async function uploadAlbumPdf(): Promise<{ url: string | null; album_version: number; cached: boolean }> {
+  return { url: null, album_version: 0, cached: false };
+}
+export const API_BASE = "";
+
+/* 아래는 AlbumView 가 직접 쓰지는 않지만 같은 모듈에서 함께 import 되는 것들이다.
+   named export 가 하나라도 빠지면 모듈 해석 단계에서 실패하므로 전부 채운다. */
+export async function acceptFamilyInvitation(): Promise<any> { return undefined as any; }
+export async function addAlbumMember(): Promise<any> { return undefined as any; }
+export async function analyzeAlbumMedia(): Promise<any> { return undefined as any; }
+export async function applyContributions(): Promise<any> { return undefined as any; }
+export async function authenticatedFetch(): Promise<any> { return undefined as any; }
+export async function bootstrapAccount(): Promise<any> { return undefined as any; }
+export async function cancelFamilyInvitation(): Promise<any> { return undefined as any; }
+export async function claimGuestAlbum(): Promise<any> { return undefined as any; }
+export async function closeCollaborationAlbum(): Promise<any> { return undefined as any; }
+export async function createFamilyInvitation(): Promise<any> { return undefined as any; }
+export async function createPhotoMemory(): Promise<any> { return undefined as any; }
+export async function deactivateAlbumShareLink(): Promise<any> { return undefined as any; }
+export async function deactivateCollaborationInvite(): Promise<any> { return undefined as any; }
+export async function deleteAccount(): Promise<any> { return undefined as any; }
+export async function deletePhotoMemory(): Promise<any> { return undefined as any; }
+export async function generateEpilogue(): Promise<any> { return undefined as any; }
+export async function generateMemoryQuestions(): Promise<any> { return undefined as any; }
+export async function getAlbumGenerationPreview(): Promise<any> { return undefined as any; }
+export async function getAlbumGenerationStatus(): Promise<any> { return undefined as any; }
+export async function getAlbumMembers(): Promise<any> { return undefined as any; }
+export async function getAlbumParticipation(): Promise<any> { return undefined as any; }
+export async function getAlbumShareLinks(): Promise<any> { return undefined as any; }
+export async function getContributeWorkspace(): Promise<any> { return undefined as any; }
+export async function getFamilyInvitations(): Promise<any> { return undefined as any; }
+export async function getFamilyMembers(): Promise<any> { return undefined as any; }
+export async function getJoinPreview(): Promise<any> { return undefined as any; }
+export async function getMemoryQuestions(): Promise<any> { return undefined as any; }
+export async function getMyAlbumCoverUrls(): Promise<any> { return undefined as any; }
+export async function getMyAlbums(): Promise<any> { return undefined as any; }
+export async function getMyFamily(): Promise<any> { return undefined as any; }
+export async function getParticipantStats(): Promise<any> { return undefined as any; }
+export async function getPendingContributions(): Promise<any> { return undefined as any; }
+export async function getPublicShare(): Promise<any> { return undefined as any; }
+export async function joinCollaboration(): Promise<any> { return undefined as any; }
+export async function publishCollaborationAlbum(): Promise<any> { return undefined as any; }
+export async function rebuildCollaborationAlbum(): Promise<any> { return undefined as any; }
+export async function regenerateMemoryQuestions(): Promise<any> { return undefined as any; }
+export async function regenerateStory(): Promise<any> { return undefined as any; }
+export async function removeAlbumMember(): Promise<any> { return undefined as any; }
+export async function removeFamilyMember(): Promise<any> { return undefined as any; }
+export async function resetInFlightRequestsForTest(): Promise<any> { return undefined as any; }
+export async function resolveApiBase(): Promise<any> { return undefined as any; }
+export async function retryAlbumGeneration(): Promise<any> { return undefined as any; }
+export async function rotateCollaborationInvite(): Promise<any> { return undefined as any; }
+export async function saveMemoryAnswer(): Promise<any> { return undefined as any; }
+export async function startCollaboration(): Promise<any> { return undefined as any; }
+export async function submitShareReaction(): Promise<any> { return undefined as any; }
+export async function updateAlbumCoverPhoto(): Promise<any> { return undefined as any; }
+export async function updateAlbumMemberRole(): Promise<any> { return undefined as any; }
+export async function updateAlbumPhotoLocation(): Promise<any> { return undefined as any; }
+export async function updateFamilyMemberRole(): Promise<any> { return undefined as any; }
+export async function updatePhotoMemory(): Promise<any> { return undefined as any; }
+export async function uploadAlbum(): Promise<any> { return undefined as any; }
+export async function uploadContributePhotos(): Promise<any> { return undefined as any; }
+export type AlbumGenerationStatus = any;
+export type AlbumShareLink = any;
+export type MyAlbum = any;
+export type PendingContributionItem = any;

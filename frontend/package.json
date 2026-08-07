@@ -19,12 +19,13 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vercel/node": "^5.0.2",
-    "@playwright/test": "^1.49.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
     "typescript": "~5.7.2",
     "vite": "^6.0.5"
   }
