@@ -155,7 +155,11 @@ from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key,
 from app.services.storage_service import StorageService, album_pdf_path
 
 router = APIRouter(prefix="/api", tags=["album"])
-PDF_RENDERER_VERSION = 2
+# ★ PDF 렌더링이 바뀌면 이 수를 올린다. 저장된 PDF 는 `album_version:r{이 수}` 로 캐시되므로,
+# 올리지 않으면 앨범 내용이 그대로인 앨범은 **옛 PDF 를 계속 내려준다.**
+# 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
+#   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
+PDF_RENDERER_VERSION = 3
 logger = logging.getLogger(__name__)
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))

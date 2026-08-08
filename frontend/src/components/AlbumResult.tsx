@@ -245,6 +245,7 @@ export default function AlbumResultView({
       const delivery = await downloadAlbumPdf({
         albumId: result.album_id,
         albumVersion: result.album_version ?? 0,
+        contributorNames: result.contributor_names ?? [],
         title: albumTitle,
         photos: stagePhotos,
         epilogue,

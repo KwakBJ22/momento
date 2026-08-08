@@ -330,6 +330,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         albumId: source.album_id,
 
         albumVersion: source.album_version ?? 0,
+        contributorNames: source.contributor_names ?? [],
 
         title: source.title,
 

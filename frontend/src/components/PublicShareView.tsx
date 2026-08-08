@@ -491,6 +491,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       const delivery = await downloadAlbumPdf({
         albumId: album.album_id,
         albumVersion: 0,
+        contributorNames: album.contributor_names ?? [],
         title: album.title,
         photos: (album.photos || []) as AlbumPhoto[],
         epilogue: album.epilogue ?? album.narrative ?? "",

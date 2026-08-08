@@ -20,6 +20,10 @@ export interface AlbumPdfInput {
   chapterStories?: Record<string, string> | null;
   coverPhotoId?: string | null;
   livingAppendPages?: LivingAppendPage[];
+  /** "함께 만든 사람" 한 줄 — PDF 에 들어간다(CLAUDE.md §6). ★ 넘기지 않으면 그 줄이
+   *  통째로 빠진다. 실제로 그렇게 빠져 있었다: PDF 는 화면과 다른 AlbumRenderer 인스턴스를
+   *  새로 마운트하는데, 이 값을 넘기지 않아 화면에만 있고 인쇄물에는 없었다. */
+  contributorNames?: string[];
 }
 
 /** html2canvas 는 앨범 전체를 캔버스 한 장으로 만든다. 크롬의 캔버스 한 변 상한(65,535px)을
@@ -105,6 +109,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
       albumId={input.albumId}
       coverPhotoId={input.coverPhotoId}
       livingAppendPages={input.livingAppendPages}
+      contributorNames={input.contributorNames ?? []}
       mode="print"
     />,
   );

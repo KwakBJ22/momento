@@ -89,3 +89,24 @@ test("이름은 세는 규칙과 같은 자리에서 온다 (수와 이름이 �
     assert.ok(count.includes(rule), `수: ${rule}`);
   }
 });
+
+// E-5 확인 — `함께 만든 사람` 줄이 실제 PDF 에 없던 원인 두 가지를 잠근다.
+test("★ PDF 렌더러에 이름을 실제로 넘긴다 (원인 ①)", () => {
+  const pdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
+  // PDF 는 화면과 **다른 AlbumRenderer 인스턴스**를 새로 마운트한다 — 값을 넘기지 않으면
+  // 화면에만 있고 인쇄물에는 없다. 실제로 그렇게 빠져 있었다.
+  assert.match(pdf, /contributorNames\?: string\[\]/);
+  assert.match(pdf, /contributorNames=\{input\.contributorNames \?\? \[\]\}/);
+  // PDF 를 만드는 세 화면 모두 값을 채운다.
+  for (const file of ["AlbumView", "AlbumResult", "PublicShareView"]) {
+    const source = readFileSync(new URL(`../src/components/${file}.tsx`, import.meta.url), "utf8");
+    assert.match(source, /contributorNames: [\w.]+\.contributor_names \?\? \[\]/, file);
+  }
+});
+
+test("★ 렌더링이 바뀌면 저장된 옛 PDF 를 다시 주지 않는다 (원인 ②)", () => {
+  const album = readFileSync(new URL("../../backend/app/api/album.py", import.meta.url), "utf8");
+  // 캐시 키가 `album_version:r{렌더러 버전}` 이라, 앨범 내용이 그대로면 옛 PDF 가 그대로 나온다.
+  assert.match(album, /PDF_RENDERER_VERSION = 3/);
+  assert.match(album, /cached_path = get_cached_pdf_path\(record, f"\{target_version\}:r\{renderer_version\}"\)/);
+});
