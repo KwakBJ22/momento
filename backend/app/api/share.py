@@ -6,7 +6,7 @@ from time import monotonic
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
@@ -19,6 +19,7 @@ from app.models.schemas import (
 from app.services.authorization import require_album_edit_settings
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
+from app.services.visitor_key import resolve_visitor_key
 from app.services.share_service import (
     add_guestbook_entry, add_reaction, contribution_block_reason, create_share_link, deactivate_share_link,
     delete_own_guestbook_entry, get_active_share, increment_view, list_guestbook_entries,
@@ -139,7 +140,13 @@ async def deactivate_album_share_link(album_id: str, share_id: str, authenticate
 
 
 @router.get("/public/shares/{token}", response_model=PublicShareAlbumResponse)
-async def get_public_share(token: str, request: Request, edition: int | None = None) -> PublicShareAlbumResponse:
+async def get_public_share(
+    token: str,
+    request: Request,
+    edition: int | None = None,
+    x_momento_visitor: str | None = Header(default=None),
+    user_id: str | None = Depends(optional_authenticated_user),
+) -> PublicShareAlbumResponse:
     _rate_limit(f"view:{token}", _PUBLIC_LIMIT)
     client = get_supabase_client()
     share = get_active_share(client, token)
@@ -147,7 +154,12 @@ async def get_public_share(token: str, request: Request, edition: int | None = N
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     increment_view(client, str(share["id"]))
-    log_event(client, "public_album_viewed", album_id=str(album["id"]), share_link_id=str(share["id"]), metadata={"source": "share"})
+    # 방문자를 사람 단위로 센다(§1) — 로그인했으면 계정으로, 아니면 브라우저의 무작위
+    # 토큰으로 키를 만든다. 판정은 visitor_key 한 곳에 있다.
+    log_event(
+        client, "public_album_viewed", album_id=str(album["id"]), share_link_id=str(share["id"]),
+        metadata={"source": "share"}, visitor_key=resolve_visitor_key(user_id, x_momento_visitor),
+    )
     settings = get_settings()
     media = [PublicMediaItem(media_type=row["media_type"], mime_type=row["mime_type"], processing_status=row["processing_status"], original_filename=row.get("original_filename")) for row in get_album_media_records(client, str(album["id"]))]
     narrative = str(album.get("epilogue") or album.get("narrative") or "").strip()

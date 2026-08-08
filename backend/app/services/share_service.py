@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from supabase import Client
 
 from app.services.analytics_service import insert_analytics_event
+from app.services.visitor_key import count_album_visitors
 
 
 def hash_token(value: str) -> str:
@@ -95,13 +96,14 @@ def increment_view(client: Client, share_id: str) -> None:
     client.rpc("increment_share_link_view", {"target_share_id": share_id}).execute()
 
 
-def log_event(client: Client, event_name: str, *, album_id: str | None = None, share_link_id: str | None = None, metadata: dict[str, Any] | None = None) -> bool:
+def log_event(client: Client, event_name: str, *, album_id: str | None = None, share_link_id: str | None = None, metadata: dict[str, Any] | None = None, visitor_key: str | None = None) -> bool:
     return insert_analytics_event(
         client,
         event_name,
         album_id=album_id,
         share_link_id=share_link_id,
         metadata=metadata,
+        visitor_key=visitor_key,
     )
 
 
@@ -130,11 +132,13 @@ def reaction_counts(client: Client, album_id: str) -> dict[str, int]:
     return counts
 
 
-def album_visitor_count(client: Client, album_id: str) -> int:
-    """Sum view_count over every share link of an album (active or not), so a
-    re-issued link never splits the "누가 다녀갔다" count."""
-    result = client.table("share_links").select("view_count").eq("album_id", album_id).execute()
-    return sum(int(row.get("view_count") or 0) for row in (result.data or []))
+def album_visitor_count(client: Client, album_id: str, *, owner_id: str | None = None) -> int:
+    """"지금까지 N명이 다녀갔어요" — **서로 다른 사람 수**(§1).
+
+    ★ 예전에는 share_links.view_count 를 더했다. 그것은 사람 수가 아니라 **API 호출 수**였다
+    (프로덕션 실측 165/139건, 실제 사람 2명). 세는 규칙은 visitor_key 한 곳에 있다.
+    """
+    return count_album_visitors(client, album_id, owner_id=owner_id)
 
 
 GUESTBOOK_NAME_MAX = 40

@@ -36,6 +36,7 @@ class EventLogger:
         album_id: str | None = None,
         share_link_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        visitor_key: str | None = None,
     ) -> bool:
         enriched = dict(metadata or {})
         if get_operation_id():
@@ -44,6 +45,10 @@ class EventLogger:
             enriched.setdefault("operation_name", get_operation_name())
         safe_metadata = {key: value for key, value in enriched.items() if key in ALLOWED_METADATA_KEYS}
         row: dict[str, Any] = {"event_name": event_name, "metadata": safe_metadata}
+        # 방문자를 사람 단위로 세기 위한 익명 키(§1). 만들 수 없으면 넣지 않는다 —
+        # 그 행은 세어지지 않는다(사람을 구분할 수 없는 값이라 세면 다시 호출 수가 된다).
+        if visitor_key:
+            row["visitor_key"] = visitor_key
         if album_id:
             row["album_id"] = album_id
         if share_link_id:

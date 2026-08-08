@@ -16,6 +16,7 @@ def insert_analytics_event(
     album_id: str | None = None,
     share_link_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    visitor_key: str | None = None,
 ) -> bool:
     """Compatibility entry point delegating to the central event logger."""
     return EventLogger.record(
@@ -24,4 +25,5 @@ def insert_analytics_event(
         album_id=album_id,
         share_link_id=share_link_id,
         metadata=metadata,
+        visitor_key=visitor_key,
     )

@@ -3,6 +3,7 @@ import { getAccessToken, getSession, refreshSession } from "../services/authServ
 import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
 import { COLLAB_SESSION_KEY } from "./contributionAttribution";
+import { getVisitorToken } from "./visitorToken";
 
 /**
  * API 베이스 URL 해석 우선순위:
@@ -355,8 +356,16 @@ export async function updateAlbumPhotoLocation(
 
 export async function getPublicShare(token: string, edition?: number | null): Promise<import("../types").PublicShareAlbum> {
   const params = edition ? `?edition=${encodeURIComponent(String(edition))}` : "";
+  // 방문자를 **사람 단위**로 세기 위한 값(§1). 무작위 토큰이고 서버는 해시만 저장한다.
+  // 로그인했으면 서버가 계정으로 세므로 토큰보다 계정이 우선한다(판정은 서버 한 곳).
+  const headers: Record<string, string> = {};
+  const visitor = getVisitorToken();
+  if (visitor) headers["X-Momento-Visitor"] = visitor;
+  const session = await getSession();
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}${params}`, {
     cache: "no-store",
+    headers,
   });
   if (!response.ok) {
     const error = new Error(await parseError(response)) as Error & { status?: number };

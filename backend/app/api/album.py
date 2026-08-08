@@ -53,6 +53,7 @@ from app.services.image_service import (
     image_to_png_bytes,
 )
 from app.services.openai_service import generate_narrative, parse_stories_json
+from app.services.visitor_key import resolve_visitor_key
 from app.services.supabase import (
     create_album_id,
     cleanup_incomplete_album,
@@ -2001,7 +2002,12 @@ async def get_album(
     response.headers["Server-Timing"] = f"album-detail;dur={duration_ms}"
     if authenticated_user_id and access.is_album_owner and edition is None:
         # Metric: D7 return rate = owners who revisit their album within 7 days.
-        log_event(client, "album_revisited", album_id=album_id, metadata={"owner_id": authenticated_user_id})
+        log_event(
+            client, "album_revisited", album_id=album_id, metadata={"owner_id": authenticated_user_id},
+            # 주최자 본인이므로 아래 방문자 수에서는 빠진다 — 키를 남기는 것은
+            # 이 사람이 누구인지 세는 규칙이 하나이기 위해서다(§1).
+            visitor_key=resolve_visitor_key(authenticated_user_id, None),
+        )
     logger.info(
         "album_detail_completed album_id=%s edition=%s duration_ms=%s light=true",
         album_id,

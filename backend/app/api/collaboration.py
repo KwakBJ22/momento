@@ -435,7 +435,11 @@ async def get_collaboration_status(
     active_contributors = [row for row in contributors if row.get("status") == "active"]
     contributor_total = active_contributor_count(contributors)
     # "누가 다녀갔다" counter — owners only (§10). Non-owners never see it.
-    visitor_count = await asyncio.to_thread(album_visitor_count, client, album_id) if access.can_edit_settings else 0
+    # 주최자 본인의 방문은 빼고 센다(§1) — 자기가 들어간 것이 세어지면 안 된다.
+    visitor_count = (
+        await asyncio.to_thread(album_visitor_count, client, album_id, owner_id=str(album.get("owner_id") or "") or None)
+        if access.can_edit_settings else 0
+    )
     duration_ms = round((time.perf_counter() - started_at) * 1000)
     response.headers["Server-Timing"] = f"collaboration;dur={duration_ms}"
 
