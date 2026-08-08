@@ -115,3 +115,14 @@ test("한마디 버튼 세 자리의 이름이 서로 다르다", () => {
     assert.doesNotMatch(code, /한마디 남기기/);
   }
 });
+
+// E-2 (§5) — 패널 이름은 `참여 현황` 이다. 초대 진입점은 하단 `공유하기` 한 곳뿐이다.
+test("참여 패널 이름이 내용과 맞는다 — 초대를 되살리지 않는다", () => {
+  const panel = read("components/CollaborationPanel.tsx");
+  assert.match(panel, /<h3 className="collab-panel__title">참여 현황<\/h3>/);
+  const code = panel.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n").filter((line) => !line.trim().startsWith("//")).join("\n");
+  // 화면에 보이는 말에 옛 이름이 남지 않는다(초대 링크 복사 안내는 기능 문구라 별개다).
+  assert.doesNotMatch(code, /<h3[^>]*>함께 만들기</);
+  assert.doesNotMatch(code, /함께 만들기 정보를 불러오지/);
+});

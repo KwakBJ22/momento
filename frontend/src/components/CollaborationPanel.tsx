@@ -181,7 +181,7 @@ export default function CollaborationPanel({
       setError(null);
     } catch (cause) {
       if (isRequestAborted(cause, signal) || requestId !== refreshRequestId.current) return;
-      setError("함께 만들기 정보를 불러오지 못했어요. 다시 시도해 주세요.");
+      setError("참여 현황을 불러오지 못했어요. 다시 시도해 주세요.");
     } finally {
       if (!signal?.aborted && requestId === refreshRequestId.current) setStatusLoading(false);
     }
@@ -342,7 +342,10 @@ export default function CollaborationPanel({
   const recommendsEdition = participation?.recommended_mode === "edition";
 
   return <section className="collab-panel">
-    <div><h3 className="collab-panel__title">함께 만들기</h3><p className="collab-panel__copy">가족과 친구를 초대해 사진과 한마디를 함께 모아 보세요.</p></div>
+    {/* ★ 이름은 `참여 현황` 이다(§5). 예전 이름 `함께 만들기` 는 초대 패널의 이름인데
+        초대 버튼은 하단 `공유하기` 로 옮겼다 — 이름과 내용이 맞지 않았다.
+        초대를 여기로 되살리지 않는다. 진입점이 한 곳이어야 중복이 안 생긴다. */}
+    <div><h3 className="collab-panel__title">참여 현황</h3><p className="collab-panel__copy">이 앨범에 함께 더해진 것들이에요.</p></div>
 
     {statusLoading ? (
       <div className="collab-panel__loading" aria-busy="true">
@@ -353,7 +356,7 @@ export default function CollaborationPanel({
       </div>
     ) : !status ? (
       <div className="collab-panel__error-block">
-        <p className="collab-panel__error">{error || "함께 만들기 정보를 불러오지 못했습니다."}</p>
+        <p className="collab-panel__error">{error || "참여 현황을 불러오지 못했습니다."}</p>
         <button type="button" onClick={retryRefresh}>다시 시도</button>
       </div>
     ) : (

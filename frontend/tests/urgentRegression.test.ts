@@ -20,7 +20,7 @@ test("collaboration request cancellations stay silent and isolated from the next
   assert.equal(isRequestAborted(new Error("server error")), false);
   assert.match(panel, /requestId !== refreshRequestId\.current/);
   assert.match(panel, /isRequestAborted\(cause, signal\)/);
-  assert.match(panel, /함께 만들기 정보를 불러오지 못했어요\. 다시 시도해 주세요\./);
+  assert.match(panel, /참여 현황을 불러오지 못했어요\. 다시 시도해 주세요\./);
   assert.match(panel, /const controller = new AbortController\(\);\s*void refresh\(controller\.signal\)/);
   assert.match(panel, /retryControllerRef\.current\?\.abort\(\);\s*const controller = new AbortController\(\);/);
   assert.match(api, /return signal \? load\(\) : dedupeRequest\(`collaboration:\$\{albumId\}`, load\)/);
