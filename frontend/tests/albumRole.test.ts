@@ -160,3 +160,26 @@ test("화면이 역할 값으로 시트를 채운다 (직접 플래그를 다시
   assert.match(share, /onExportPdf=\{role === "contributor" \?/);
   assert.match(share, /const bookmarkCard = role === "visitor" && !bookmarked \?/);
 });
+
+// H-2 함께 — `여기에 없는 것` 안내가 **두 화면에서 같은 근거**로 나오는지 잠근다.
+// 앨범 상세만 `!can_edit && Boolean(participation)` 이라는 자기 나름의 식을 쓰고 있었다
+// (H-1 에서 놓친 한 줄). 참여 정보가 없는 참여자에게는 안내가 안 나왔다.
+test("★ `여기에 없는 것` 은 두 화면이 같은 근거로 낸다", () => {
+  const view = read("components/AlbumView.tsx");
+  const share = read("components/PublicShareView.tsx");
+  for (const [name, source] of [["앨범 상세", view], ["공유 앨범", share]] as const) {
+    assert.match(source, /showAbsentNotice=\{role === "contributor"\}/, name);
+    // 자기 나름의 판정을 다시 만들지 않는다.
+    assert.doesNotMatch(source, /showAbsentNotice=\{!displayAlbum\?\.can_edit/, name);
+    assert.doesNotMatch(source, /showAbsentNotice=\{canContribute\}/, name);
+  }
+});
+
+test("참여자에게만 나온다 — 주최자·구경꾼에게는 없다", async () => {
+  const contributor = await renderSheet({ canEdit: false, canDelete: false, contributorCount: 3, showAbsentNotice: true });
+  const owner = await renderSheet({ canEdit: true, canDelete: true, contributorCount: 3, showAbsentNotice: false });
+  const visitor = await renderSheet({ canEdit: false, canDelete: false, contributorCount: null, showAbsentNotice: false });
+  assert.match(contributor.text, /여기에 없는 것/);
+  assert.equal(owner.text.includes("여기에 없는 것"), false);
+  assert.equal(visitor.text.includes("여기에 없는 것"), false);
+});

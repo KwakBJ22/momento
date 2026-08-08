@@ -20,3 +20,24 @@ export function formatPhoneInput(value: string): string {
   if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
 }
+
+/**
+ * 평소 표시용으로 가린다 — 010-****-5678 / ab***@example.com.
+ *
+ * ★ 가리는 일은 **화면이** 한다. 서버는 본인에게 원본을 준다(H-2): 자기 계정 시트에서
+ * 자기 번호를 자기가 보는 화면이라, 가려서 얻는 것보다 뒷자리 하나 고치려고 11자리를
+ * 다시 치는 손해가 크다. `수정` 을 누르면 원본이 칸에 들어간다.
+ */
+export function maskPhone(value: string | null | undefined): string | null {
+  const digits = phoneDigits(value || "");
+  if (!digits) return null;
+  return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
+}
+
+export function maskEmail(value: string | null | undefined): string | null {
+  const trimmed = (value || "").trim();
+  if (!trimmed.includes("@")) return null;
+  const [local, domain] = trimmed.split("@");
+  const visible = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1);
+  return `${visible}***@${domain}`;
+}

@@ -84,17 +84,26 @@ def mask_email(value: str | None) -> str | None:
     return f"{visible}***@{domain}"
 
 
-def _masked(record: dict[str, Any] | None) -> dict[str, str | None]:
+def _contact_of(record: dict[str, Any] | None) -> dict[str, str | None]:
     record = record or {}
     return {
-        "phone": mask_phone(record.get("contact_phone")),
-        "email": mask_email(record.get("contact_email")),
+        "phone": (record.get("contact_phone") or None),
+        "email": (record.get("contact_email") or None),
     }
 
 
 def get_contact(client: Client, profile_id: str) -> dict[str, str | None]:
-    """★ 가려진 형태만 돌려준다. 원본은 서버 밖으로 내보내지 않는다 —
-    고칠 때는 새로 입력하게 한다(인증이 없으므로 다시 입력해도 잃는 것이 없다)."""
+    """**본인에게는 원본을 돌려준다.** 가리는 일은 화면이 한다.
+
+    ★ 예전에는 가려진 형태만 내려보내고 "고칠 때는 새로 입력하게 한다" 고 했다.
+    그 판단이 틀렸다 — 자기 계정 시트에서 자기 번호를 자기가 보는 화면이다. 얻는 것은
+    어깨너머 훔쳐보기 방지 정도인데, 잃는 것은 뒷자리 하나 고치려고 11자리를 다시 치는
+    일이다. 평소 표시는 그대로 가려진 형태이고(화면이 가린다), `수정` 을 누를 때만
+    원본이 칸에 들어간다.
+
+    ★ 이 값은 여전히 **본인 확인에만** 쓴다(모듈 맨 위 주석). 다른 사람에게 내려가는
+    경로가 아니다 — 이 함수는 요청한 본인의 행 하나만 읽는다.
+    """
     rows = (
         client.table("profiles")
         .select(_CONTACT_COLUMNS)
@@ -104,7 +113,7 @@ def get_contact(client: Client, profile_id: str) -> dict[str, str | None]:
         .data
         or []
     )
-    return _masked(rows[0] if rows else None)
+    return _contact_of(rows[0] if rows else None)
 
 
 def save_contact(
@@ -114,9 +123,9 @@ def save_contact(
     phone: str | None = UNSET,
     email: str | None = UNSET,
 ) -> dict[str, str | None]:
-    """★ **보낸 항목만** 바꾼다. 전화만 고칠 때 이메일이 지워지면 안 된다
-    (화면은 가려진 값만 갖고 있어서, 안 고친 항목을 되돌려보낼 수가 없다).
-    보낸 항목이 None·빈 문자열이면 그 항목을 지운다는 뜻이다."""
+    """★ **보낸 항목만** 바꾼다. 전화만 고칠 때 이메일이 지워지면 안 된다 —
+    화면은 손대지 않은 항목을 아예 보내지 않는다. 보낸 항목이 None·빈 문자열이면
+    그 항목을 지운다는 뜻이다."""
     payload: dict[str, str | None] = {}
     if phone is not UNSET:
         payload["contact_phone"] = normalize_phone(phone)

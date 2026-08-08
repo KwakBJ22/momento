@@ -21,10 +21,8 @@ type Saved = { phone: string | null; email: string | null };
 function server(initial: Saved) {
   const state: Saved = { ...initial };
   const sent: Array<Record<string, unknown>> = [];
-  const mask = () => ({
-    phone: state.phone ? `${state.phone.slice(0, 3)}-****-${state.phone.slice(-4)}` : null,
-    email: state.email ? `${state.email.slice(0, 2)}***@${state.email.split("@")[1]}` : null,
-  });
+  // ★ H-2: 서버는 **본인에게 원본을 준다.** 가리는 일은 화면이 한다.
+  const current = () => ({ phone: state.phone, email: state.email });
   (globalThis as unknown as Record<string, unknown>).fetch = async (input: unknown, init?: RequestInit) => {
     const url = String(typeof input === "string" ? input : (input as { url?: string }).url);
     assert.match(url, /\/api\/auth\/contact$/, `예상 밖 요청: ${url}`);
@@ -35,7 +33,7 @@ function server(initial: Saved) {
       if ("phone" in body) state.phone = body.phone ? String(body.phone).replace(/\D/g, "") : null;
       if ("email" in body) state.email = body.email ? String(body.email).trim().toLowerCase() : null;
     }
-    const payload = mask();
+    const payload = current();
     return { ok: true, status: 200, headers: { get: () => "application/json" }, json: async () => payload, text: async () => JSON.stringify(payload) } as unknown as Response;
   };
   return { sent, state };
@@ -136,9 +134,10 @@ test("서버에는 숫자만 보낸다 (하이픈은 화면에서만)", async ()
 
 test("★ 값이 있으면 가려진 값 + `수정` 만 보인다 (입력칸·저장·지우기 없음)", async () => {
   const view = await mount({ phone: "01012345678", email: "abc@example.com" });
+  // 평소 표시는 여전히 가려진 형태다 — 서버가 원본을 줘도 화면이 가린다(H-2).
   assert.match(view.text(), /010-\*\*\*\*-5678/);
   assert.match(view.text(), /ab\*\*\*@example\.com/);
-  assert.equal(view.text().includes("01012345678"), false, "원본이 화면에 남으면 안 된다");
+  assert.equal(view.text().includes("01012345678"), false, "평소에는 원본이 보이지 않는다");
 
   assert.equal(view.input("전화번호"), undefined, "입력칸이 뜨면 안 된다");
   assert.equal(view.input("이메일"), undefined);
@@ -153,6 +152,8 @@ test("★ `수정` 을 누르면 그 줄만 입력칸이 되고 저장·취소�
   await view.click(view.rowButton("전화번호", "수정")!);
 
   assert.ok(view.input("전화번호"), "누른 줄만 입력칸이다");
+  // ★ H-2 의 본체 — 빈칸이 아니라 **기존 값**이 들어가 있다(하이픈까지 붙여서).
+  assert.equal(view.input("전화번호")?.value, "010-1234-5678", "수정을 누르면 기존 값이 채워진다");
   assert.equal(view.input("이메일"), undefined, "다른 줄은 그대로다");
   assert.match(view.text(), /ab\*\*\*@example\.com/);
   assert.ok(view.button("저장") && view.button("취소"));
@@ -170,6 +171,8 @@ test("★ `수정` 을 누르면 그 줄만 입력칸이 되고 저장·취소�
 test("★ 비우고 저장하면 지워진다 (별도 지우기 버튼이 없다)", async () => {
   const view = await mount({ phone: "01012345678", email: "abc@example.com" });
   await view.click(view.rowButton("전화번호", "수정")!);
+  // ★ 이제 `수정` 은 기존 값을 채워 넣는다(H-2). 지우려면 칸을 비운다 — 그것이 실제 동작이다.
+  await view.type("전화번호", "");
   await view.click(view.button("저장")!);
   assert.deepEqual(view.api.sent.at(-1), { phone: null });
   assert.equal(view.api.state.email, "abc@example.com", "지우기도 보낸 항목만 지운다");

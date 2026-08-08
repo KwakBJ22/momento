@@ -679,7 +679,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           isExportingPdf={isExportingPdf}
           onDeleteAlbum={() => setDeleteConfirmOpen(true)}
           isDeleting={isDeleting}
-          showAbsentNotice={!displayAlbum?.can_edit && Boolean(participation)}
+          showAbsentNotice={role === "contributor"}
           onLogout={onLogout}
           onWithdraw={onWithdraw}
         />

@@ -112,12 +112,21 @@ def test_saved_values_are_masked() -> None:
     assert mask_phone(None) is None and mask_email(None) is None
 
 
-def test_server_never_returns_the_raw_value() -> None:
+def test_owner_gets_the_raw_value(monkeypatch) -> None:
+    """★ H-2: **본인에게는 원본을 준다.** 가리는 일은 화면이 한다.
+
+    예전에는 가려진 값만 내려보내 `수정` 을 눌러도 칸이 비어 있었다 — 뒷자리 하나
+    고치려고 11자리를 다시 쳐야 했다. 자기 계정 시트에서 자기 번호를 자기가 보는
+    화면이라, 가려서 얻는 것보다 잃는 것이 크다.
+    """
     client = _Client({"contact_phone": "01012345678", "contact_email": "abc@example.com"})
-    contact = get_contact(client, "user-1")
-    assert contact == {"phone": "010-****-5678", "email": "ab***@example.com"}
-    assert "01012345678" not in str(contact)
-    assert "abc@example.com" not in str(contact)
+    assert get_contact(client, "user-1") == {"phone": "01012345678", "email": "abc@example.com"}
+
+
+def test_masking_rules_still_exist_for_the_screen() -> None:
+    """가리는 규칙 자체는 남는다 — 평소 표시는 여전히 가려진 형태다(화면이 가린다)."""
+    assert mask_phone("01012345678") == "010-****-5678"
+    assert mask_email("abc@example.com") == "ab***@example.com"
 
 
 # --- 넣고 · 고치고 · 지운다 ---------------------------------------------------------
@@ -125,24 +134,24 @@ def test_server_never_returns_the_raw_value() -> None:
 
 def test_add_edit_and_delete_each_field() -> None:
     client = _Client()
-    assert save_contact(client, "u", phone="010-1234-5678")["phone"] == "010-****-5678"
+    assert save_contact(client, "u", phone="010-1234-5678")["phone"] == "01012345678"
     assert client.store["contact_phone"] == "01012345678"
 
-    assert save_contact(client, "u", phone="010-0000-9999")["phone"] == "010-****-9999"
+    assert save_contact(client, "u", phone="010-0000-9999")["phone"] == "01000009999"
     assert save_contact(client, "u", phone=None)["phone"] is None
     assert client.store["contact_phone"] is None
 
 
 def test_editing_one_field_leaves_the_other_alone() -> None:
-    """★ 화면은 가려진 값만 갖고 있어서 안 고친 항목을 되돌려보낼 수 없다.
-    보내지 않은 항목은 그대로여야 한다 — 아니면 전화를 고칠 때 이메일이 사라진다."""
+    """화면은 손대지 않은 항목을 아예 보내지 않는다. 보내지 않은 항목은 그대로여야
+    한다 — 아니면 전화를 고칠 때 이메일이 사라진다."""
     client = _Client({"contact_phone": "01012345678", "contact_email": "abc@example.com"})
     result = save_contact(client, "u", phone="010-0000-9999")
     assert client.store["contact_email"] == "abc@example.com"
-    assert result["email"] == "ab***@example.com"
+    assert result["email"] == "abc@example.com"
     assert save_contact(client, "u", phone=UNSET, email=UNSET) == {
-        "phone": "010-****-9999",
-        "email": "ab***@example.com",
+        "phone": "01000009999",
+        "email": "abc@example.com",
     }
 
 

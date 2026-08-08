@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getProfileContact, saveProfileContact, type ProfileContact } from "../lib/api";
-import { formatPhoneInput, phoneDigits } from "../lib/phoneFormat";
+import { formatPhoneInput, maskEmail, maskPhone, phoneDigits } from "../lib/phoneFormat";
 import { setContactUnsaved } from "../lib/unsavedContact";
 import "./AppChrome.css";
 
@@ -19,8 +19,9 @@ import "./AppChrome.css";
  * ★ 저장 버튼은 **구역에 하나**다. 칸마다 붙어 있던 탓에 실기기에서 세 가지가 걸렸다:
  *   버튼이 우측으로 넘치고, 저장을 누르지 않고 다음 칸으로 넘어가면 앞 칸이 사라졌다.
  *   이제 칸을 옮겨도 입력값이 남고, 저장 전에는 아무것도 버리지 않는다.
- * ★ 저장된 값은 서버가 가려서 준다(010-****-5678). 그 값을 **빈칸의 안내글**로 보여준다
- *   — 가려진 문자열을 칸 안에 넣으면 그걸 고치는 것처럼 보이지만 실제로는 못 고친다.
+ * ★ 서버는 **본인에게 원본을 준다**(H-2). 가리는 일은 화면이 한다 — 평소에는
+ *   010-****-5678 로 보여주고, `수정` 을 누르면 **원본이 칸에 들어간다**.
+ *   예전에는 서버가 가린 값만 줘서 뒷자리 하나 고치려고 11자리를 다시 쳐야 했다.
  *   손대지 않은 칸은 아예 보내지 않으므로 서버 값이 그대로 남는다.
  * ★ 별도 프로필 화면을 만들지 않는다(§11). 가입 흐름에서도 받지 않는다.
  */
@@ -116,11 +117,19 @@ export default function AccountContact() {
             {/* 값이 있고 지금 고치는 중이 아니면 — 가려진 값 + `수정` 뿐이다.
                 입력칸도, 저장·지우기 버튼도 띄우지 않는다(§5). */}
             {!isOpen(field) ? (
-              <span className="account-contact__value">{contact[field]}</span>
+              <span className="account-contact__value">{field === "phone" ? maskPhone(contact[field]) : maskEmail(contact[field])}</span>
             ) : null}
             {!isOpen(field) ? (
               <button type="button" className="account-contact__edit" disabled={busy}
-                onClick={() => setEditing((current) => [...current, field])}>수정</button>
+                onClick={() => {
+                  // ★ 기존 값을 칸에 채워 넣는다. 전화는 하이픈을 붙여 넣는다.
+                  const current = contact[field] ?? "";
+                  setDraft((draftValue) => ({
+                    ...draftValue,
+                    [field]: field === "phone" ? formatPhoneInput(current) : current,
+                  }));
+                  setEditing((rows) => [...rows, field]);
+                }}>수정</button>
             ) : null}
           </div>
           {isOpen(field) ? (
@@ -130,8 +139,6 @@ export default function AccountContact() {
               type={field === "phone" ? "tel" : "email"}
               inputMode={field === "phone" ? "tel" : "email"}
               autoComplete={field === "phone" ? "tel" : "email"}
-              // 고치는 중이면 예시를 보여준다 — 가려진 값을 칸에 넣으면 그걸 고치는 것처럼
-              // 보이지만 실제로는 못 고친다(서버가 원본을 내려주지 않는다).
               placeholder={EXAMPLE[field]}
               value={draft[field]}
               disabled={busy}
