@@ -61,10 +61,15 @@ async def bootstrap_auth_user(
 async def read_profile_contact(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> ProfileContactResponse:
-    """이용자가 직접 넣어 둔 연락처를 **가려진 형태로** 돌려준다(계정 분실 시 본인 확인용).
+    """이용자가 직접 넣어 둔 연락처를 **본인에게 원본 그대로** 돌려준다
+    (계정 분실 시 본인 확인용).
 
-    ★ 원본을 내려보내지 않는다. 그래서 화면에는 010-****-5678 만 보이고, 고칠 때는
-    새로 입력하게 된다. 인증 절차가 없으므로 다시 입력해도 잃는 것이 없다."""
+    ★ 가리는 일은 **화면이** 한다. 평소 표시는 여전히 010-****-5678 이고,
+    `수정` 을 누를 때만 그 원본이 칸에 들어간다.
+    예전에는 여기서 가린 값만 내려보내고 "고칠 때는 새로 입력하게 한다" 고 했는데,
+    자기 계정 시트에서 자기 번호를 자기가 보는 화면이라 가려서 얻는 것(어깨너머
+    훔쳐보기 방지)보다 뒷자리 하나 고치려고 11자리를 다시 치는 손해가 컸다.
+    다른 사람에게 내려가는 경로가 아니다 — 로그인한 본인의 행 하나만 읽는다."""
     return ProfileContactResponse(**get_contact(get_supabase_client(), authenticated_user_id))
 
 
@@ -75,9 +80,10 @@ async def update_profile_contact(
 ) -> ProfileContactResponse:
     """연락처를 넣거나 고치거나 지운다. 둘 다 선택이며 빈 값이면 그 항목을 지운다.
 
-    ★ 보낸 항목만 바뀐다 — 전화만 보내면 이메일은 그대로다(화면이 가진 값은 가려진
-    형태라 되돌려보낼 수 없다). ★ 값을 로그에 남기지 않는다. 형식이 아니면 값이 아니라
-    사실만 알린다."""
+    ★ 보낸 항목만 바뀐다 — 전화만 보내면 이메일은 그대로다. 이유는 화면이 원본을
+    모르기 때문이 아니라(이제는 안다), **손대지 않은 항목은 건드리지 않는다**는
+    규칙 자체다. 화면은 고치는 줄만 보낸다.
+    ★ 값을 로그에 남기지 않는다. 형식이 아니면 값이 아니라 사실만 알린다."""
     provided = body.model_fields_set
     saved = save_contact(
         get_supabase_client(),

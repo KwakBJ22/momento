@@ -68,7 +68,12 @@ def normalize_email(value: str | None) -> str | None:
 
 
 def mask_phone(digits: str | None) -> str | None:
-    """010-****-5678 — 본인이 확인할 수 있을 만큼만 보여준다."""
+    """010-****-5678 — 가리는 **규칙**이다. 가리는 **일**은 이제 화면이 한다.
+
+    ★ 응답 경로에서는 더 이상 부르지 않는다(get_contact 는 원본을 준다). 그래도
+    지우지 않은 이유는, 화면(frontend/src/lib/phoneFormat.ts)이 이 규칙을 그대로
+    옮겨 쓰고 있어 **여기가 규칙의 원본**이기 때문이다. 양쪽이 어긋나면 표시가
+    달라진다."""
     if not digits:
         return None
     head, tail = digits[:3], digits[-4:]
@@ -76,7 +81,8 @@ def mask_phone(digits: str | None) -> str | None:
 
 
 def mask_email(value: str | None) -> str | None:
-    """ab***@example.com — 도메인은 남기고 계정 부분을 가린다."""
+    """ab***@example.com — 도메인은 남기고 계정 부분을 가린다.
+    mask_phone 과 같다 — 규칙은 여기, 가리는 일은 화면."""
     if not value or "@" not in value:
         return None
     local, _, domain = value.partition("@")

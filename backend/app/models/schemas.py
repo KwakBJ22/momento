@@ -401,8 +401,10 @@ class ProfileContactRequest(BaseModel):
 
 
 class ProfileContactResponse(BaseModel):
-    """★ 가려진 형태만 내려간다(010-****-5678 / ab***@example.com).
-    원본을 화면으로 돌려보내지 않는다 — 고칠 때는 새로 입력한다."""
+    """★ **본인에게는 원본이 내려간다.** 가리는 일은 화면이 한다.
+    평소 표시는 여전히 010-****-5678 / ab***@example.com 이지만, `수정` 을 누르면
+    그 원본이 칸에 들어간다 — 뒷자리 하나 고치려고 11자리를 다시 치지 않는다.
+    본인 확인 전용 값이며, 로그인한 본인에게만 내려가는 응답이다."""
 
     phone: str | None = None
     email: str | None = None
