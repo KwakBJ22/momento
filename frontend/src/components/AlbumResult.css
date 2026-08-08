@@ -745,6 +745,9 @@
 .album-guest-save { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-brand-soft); }
 .album-guest-save__title { margin: 0; color: var(--c-text); font-size: 1.05rem; font-weight: 800; line-height: 1.4; }
 .album-guest-save__copy { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; }
-.album-guest-save__actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-.album-guest-save__actions .btn { min-height: 48px; padding: 0 20px; }
-.album-guest-save__close { min-height: 48px; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
+/* ★ 세로로 쌓는다. 가로로 나란히 두면 폭이 기기마다 달라져 `나중에` 가 두 줄로 쪼개진다
+   (실기기에서 그렇게 보였다). §1 에서 "없애면 앨범을 잃는다" 고 못박은 진입점이라
+   주 행동이 크고 명확해야 한다 — 저장하기는 전폭 56(주 버튼 규격), 나중에는 글자만. */
+.album-guest-save__actions { display: grid; gap: 4px; margin-top: 8px; }
+.album-guest-save__actions .btn { width: 100%; }
+.album-guest-save__close { min-height: 44px; border: 0; background: transparent; color: var(--c-text-muted); font: inherit; font-size: var(--t-sm); font-weight: 600; text-align: center; white-space: nowrap; cursor: pointer; }

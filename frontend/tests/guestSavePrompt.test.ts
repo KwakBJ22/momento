@@ -31,6 +31,29 @@ test("닫아도 사라지지 않는다 — 하단 CTA 로 다시 찾을 수 있�
   assert.match(view, /sessionStorage\.setItem\(`momento-guest-save-dismissed:\$\{albumId\}`/);
 });
 
+// 실기기에서 `나중에` 가 두 줄로 쪼개졌다. 1:1 로 나란히 두면 폭이 기기마다 달라서다.
+test("두 버튼은 세로로 쌓이고 `나중에` 는 어떤 경우에도 한 줄이다", () => {
+  const css = read("components/AlbumResult.css");
+  const rule = (selector: string) => css.slice(css.indexOf(`${selector} {`), css.indexOf("}", css.indexOf(`${selector} {`)));
+
+  const actions = rule(".album-guest-save__actions");
+  assert.match(actions, /display: grid/, "가로 나열이 아니라 세로로 쌓는다");
+  assert.doesNotMatch(actions, /display: flex/);
+  assert.doesNotMatch(actions, /grid-template-columns/, "1:1 격자로 되돌리지 않는다");
+
+  // 저장하기 = 전폭. 높이는 주 버튼 기준값(56)을 그대로 쓴다 — 여기서 다시 정하지 않는다.
+  assert.match(rule(".album-guest-save__actions .btn"), /width: 100%/);
+  assert.doesNotMatch(rule(".album-guest-save__actions .btn"), /min-height/);
+  const primary = read("components/Button.css");
+  assert.match(primary.slice(primary.indexOf(".btn--primary {")), /min-height: 56px/);
+
+  const close = rule(".album-guest-save__close");
+  assert.match(close, /white-space: nowrap/, "어떤 경우에도 줄바꿈되지 않는다");
+  assert.match(close, /min-height: 44px/);
+  assert.match(close, /background: transparent/, "글자만 — 배경 없음");
+  assert.match(close, /text-align: center/);
+});
+
 test("저장하지 않아도 앨범을 계속 볼 수 있다 — 막지 않는다", () => {
   const card = view.slice(view.indexOf("const guestSaveCard"), view.indexOf("const whoamiBand"));
   // 딤·모달·차단이 아니라 본문 위 카드다.
