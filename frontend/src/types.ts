@@ -149,6 +149,8 @@ export interface AlbumResult {
   /** @deprecated mirrors epilogue for legacy clients */
   narrative: string;
   epilogue?: string | null;
+  /** "함께 만든 사람" 한 줄에 쓸 이름들 — 세는 규칙과 같은 자리에서 온다(§1, 주최자 포함). */
+  contributor_names?: string[];
   /** Date-keyed AI episode summaries, e.g. { "2017-08-13": "..." }. */
   chapter_stories?: Record<string, string> | null;
   image_url: string;
@@ -248,6 +250,8 @@ export interface PublicShareAlbum {
   title: string;
   narrative: string;
   epilogue?: string | null;
+  /** "함께 만든 사람" 한 줄에 쓸 이름들 — 세는 규칙과 같은 자리에서 온다(§1, 주최자 포함). */
+  contributor_names?: string[];
   chapter_stories?: Record<string, string> | null;
   image_url: string;
   cover_photo_id?: string | null;

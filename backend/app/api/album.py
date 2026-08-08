@@ -138,6 +138,7 @@ from app.services.share_service import log_event
 from app.services.collaboration_service import (
     album_document_photo_ids,
     count_active_contributors,
+    list_active_contributor_names,
     ensure_owner_contributor,
     get_contributor,
     list_contributors,
@@ -1939,6 +1940,8 @@ async def get_album(
         "can_edit": access.is_album_owner,
         "can_contribute": access.can_contribute,
         "can_delete": access.can_delete_album,
+        # 본문에 인쇄되는 값이라 역할과 무관하게 모두에게 내려간다(§6).
+        "contributor_names": list_active_contributor_names(client, album_id),
     })
     # 참여자(3a) 전용: whoami 띠와 "내가 더한 것" 숫자의 재료. 소유자 이름은
     # usable_owner_display_name 판정(이메일 앞부분 차단)을 통과한 값만 내려보낸다 —

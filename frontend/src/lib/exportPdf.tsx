@@ -172,7 +172,7 @@ export function alignBlocksToPrintPages(element: HTMLElement): void {
   // Margin [0,0,0,0] + a 210mm-wide host: one page is (297/210) × width in source px.
   const pageHeightPx = element.getBoundingClientRect().width * (297 / 210);
   if (!(pageHeightPx > 0)) return;
-  const selector = ".album-cover, .album-renderer__block, .album-epilogue, .album-living-page, .album-renderer__brand-footer";
+  const selector = ".album-cover, .album-renderer__block, .album-epilogue, .album-contributors, .album-living-page, .album-renderer__brand-footer";
   for (let guard = 0; guard < 500; guard += 1) {
     const hostTop = element.getBoundingClientRect().top;
     const units = Array.from(element.querySelectorAll<HTMLElement>(selector));

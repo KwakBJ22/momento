@@ -45,3 +45,21 @@ def test_share_and_owner_screens_agree() -> None:
     owner_screen = active_contributor_count(ROWS)          # 협업 현황(목록 기반)
     share_screen = len([r for r in ROWS if r["status"] == "active"])  # 공유 응답이 쓰는 같은 규칙
     assert owner_screen == share_screen
+
+
+def test_contributor_names_use_the_same_rule() -> None:
+    """"함께 만든 사람" 이름은 **세는 곳과 같은 자리**에서 온다 (CLAUDE.md §6 · §1).
+
+    수와 이름이 다른 곳에서 나오면 "3명" 이라고 써 놓고 두 명만 적히는 일이 난다.
+    """
+    service = source("app/services/collaboration_service.py")
+    names = service[service.index("def list_active_contributor_names") : service.index("def count_ready_photos")]
+    count = service[service.index("def count_active_contributors") : service.index("def list_active_contributor_names")]
+    for rule in ['table("album_contributors")', '.eq("album_id", album_id)', '.eq("status", "active")']:
+        assert rule in names
+        assert rule in count
+    # 들어온 순서를 지킨다 — 주최자가 먼저 들어오므로 자연히 맨 앞에 온다.
+    assert '.order("joined_at")' in names
+    # 앨범 상세는 역할과 무관하게 이 값을 내려준다(본문이라 모두가 같이 본다).
+    album = source("app/api/album.py")
+    assert '"contributor_names": list_active_contributor_names(client, album_id)' in album

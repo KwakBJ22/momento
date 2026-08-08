@@ -361,6 +361,32 @@ def count_active_contributors(client: Client, album_id: str) -> int:
     return int(result.count or len(result.data or []))
 
 
+def list_active_contributor_names(client: Client, album_id: str) -> list[str]:
+    """"함께 만든 사람" 이름 한 줄에 쓸 이름들 (CLAUDE.md §6 · SCREEN_SPEC §1).
+
+    ★ 세는 규칙과 **같은 자리**다 — 같은 표, 같은 조건(status='active', 주최자 포함).
+    수와 이름이 어긋나면 "3명" 이라고 써 놓고 두 명만 적히는 일이 난다.
+    들어온 순서(joined_at)를 지킨다 — 주최자가 먼저 들어오므로 자연히 맨 앞에 온다.
+    """
+    rows = (
+        client.table("album_contributors")
+        .select("display_name,joined_at")
+        .eq("album_id", album_id)
+        .eq("status", "active")
+        .order("joined_at")
+        .execute()
+        .data
+        or []
+    )
+    names: list[str] = []
+    for row in rows:
+        name = str(row.get("display_name") or "").strip()
+        # 이름이 비어 있으면 넣지 않는다 — 인쇄물에 빈 자리나 "참여자"가 남으면 어색하다.
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
 def count_ready_photos(client: Client, album_id: str) -> int:
     result = (
         ready_album_photo_query(client.table("album_photos")

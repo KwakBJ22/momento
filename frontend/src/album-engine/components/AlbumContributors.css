@@ -1,0 +1,28 @@
+/* "함께 만든 사람" 한 줄 — "우리의 이야기" 다음. 인쇄에도 들어간다(CLAUDE.md §6). */
+.album-contributors {
+  margin-top: 1.1rem;
+  padding: 0 0.15rem;
+  /* 여러 줄이 되어도 덩어리째 움직인다 — 페이지 경계에서 이름 목록이 잘리면 안 된다.
+     (PDF 는 여기에 더해 alignBlocksToPrintPages 가 이 선택자를 다음 장으로 밀어 준다.) */
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.album-contributors__line {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  /* 줄 수를 제한하지 않는다. 사람이 많으면 여러 줄로 이어 쓴다 — `외 N명` 으로 자르지 않는다. */
+}
+
+.album-contributors__label {
+  color: var(--c-text-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ★ 이름 가운데서 줄이 바뀌지 않는다. 줄은 이름과 이름 사이에서만 바뀐다. */
+.album-contributors__name {
+  white-space: nowrap;
+}

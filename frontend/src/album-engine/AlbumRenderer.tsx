@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
+import AlbumContributors from "./components/AlbumContributors";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
@@ -27,6 +28,8 @@ export interface AlbumRendererProps {
   photos: AlbumPhoto[];
   title: string;
   epilogue?: string | null;
+  /** "함께 만든 사람" 한 줄 — 우리의 이야기 다음. PDF 에도 들어간다(CLAUDE.md §6). */
+  contributorNames?: string[];
   coverDateLabel?: string | null;
   chapterStories?: Record<string, string> | null;
   category?: AlbumCategory | string | null;
@@ -96,6 +99,7 @@ export default function AlbumRenderer({
   photos,
   title,
   epilogue,
+  contributorNames = [],
   coverDateLabel,
   chapterStories,
   category,
@@ -352,6 +356,7 @@ export default function AlbumRenderer({
           <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
             <div className="album-renderer__body">
               <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+              <AlbumContributors names={contributorNames} />
               {livingPages}
               {brandFooter}
             </div>
@@ -419,6 +424,7 @@ export default function AlbumRenderer({
           )}
 
           <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+              <AlbumContributors names={contributorNames} />
           {livingAppendPages.map((page, index) => (
             <section
               key={page.id}

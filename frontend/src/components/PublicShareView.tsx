@@ -398,7 +398,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
 
   const publicBody = (
     <>
-      <div className="album-result__stage"><AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
+      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
       <section className="public-share__reactions" aria-label="이 앨범에 마음 남기기">
         {REACTIONS.map((r) => {
           const isPressed = pressedReactions.has(r.code);
@@ -529,7 +529,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         <p className="album-result__edition-notice"><a href={`/s/${token}?edition=${album.edition_previous}`}>이전 앨범 보기</a></p>
       ) : null}
       <div className="album-result__stage">
-        <AlbumRenderer photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} />
+        <AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} />
       </div>
       {(album.pending_items || []).length ? (
         <section className="public-share__pending" aria-label="새로 더해진 사진과 한마디">

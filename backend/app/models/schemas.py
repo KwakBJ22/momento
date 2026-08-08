@@ -185,6 +185,10 @@ class AlbumDetailResponse(BaseModel):
     # 이메일 앞부분(kbjkwak 류)은 서버가 걸러 None 을 보낸다.
     owner_display_name: str | None = None
     viewer_participation: ViewerParticipation | None = None
+    # "함께 만든 사람" 한 줄 — "우리의 이야기" 다음에 **인쇄된다**(CLAUDE.md §6).
+    # 세는 규칙과 같은 자리에서 모은다(§1 — 주최자 포함, status='active').
+    # 역할과 무관하게 모두에게 내려간다: 본문이라 주최자·참여자·구경꾼·PDF 가 같이 본다.
+    contributor_names: list[str] = Field(default_factory=list)
 
 
 class LivingAppendPagesResponse(BaseModel):
