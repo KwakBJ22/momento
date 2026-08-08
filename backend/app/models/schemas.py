@@ -217,6 +217,9 @@ class MyAlbumsResponse(BaseModel):
     # Albums the user was invited to and contributed to (not owned). Additive: existing
     # clients that read only `albums` keep working.
     participating: list[MyAlbumListItem] = Field(default_factory=list)
+    # 담아둔 앨범(§1 9차) — 구경하다가 계정에 담아 둔 것. 권한이 아니라 목록일 뿐이다.
+    # 위 두 칸에 이미 있는 앨범은 여기서 뺀다(같은 앨범이 두 칸에 뜨지 않는다).
+    bookmarked: list[MyAlbumListItem] = Field(default_factory=list)
 
 
 class AlbumPdfUrlResponse(BaseModel):
@@ -341,6 +344,9 @@ class PublicShareAlbumResponse(BaseModel):
     # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
     # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
     can_contribute: bool = True
+    # 로그인한 사람이 이 앨범을 **이미 담아 뒀는가**(§1 9차). 담기는 켜고 끄는 것이라
+    # 화면이 지금 상태를 알아야 한다. 비로그인이면 항상 False 다.
+    viewer_bookmarked: bool = False
     # ★ 로그인한 사람이 **이미** 이 앨범의 참여자인가 (SCREEN_SPEC §1).
     # 참여는 언제나 사용자가 이름을 적고 시작한다 — 링크를 열었다고 참여자가 되지 않는다.
     # 다만 이미 참여자인 사람은 다시 묻지 않는다. 그 판정을 화면이 추측하지 않도록

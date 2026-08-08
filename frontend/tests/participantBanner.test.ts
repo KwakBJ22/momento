@@ -50,13 +50,15 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 
 test("whoami 띠·내가 더한 것은 PDF·공유 렌더로 새지 않는다", () => {
   // PDF 는 AlbumScreen 을 거치지 않고 AlbumRenderer(print)만 직접 마운트한다 —
-  // preHeader(whoami)·headerSupplement(mine)는 캡처 대상 밖. 공유 화면도 preHeader 가
-  // 없고, 공유 API 응답에는 viewer_participation 자체가 없다.
+  // preHeader(whoami)·headerSupplement(mine)는 캡처 대상 밖.
   const pdf = read("lib/exportPdf.tsx");
   assert.match(pdf, /<AlbumRenderer/);
   assert.doesNotMatch(pdf, /AlbumScreen|preHeader|album-whoami|album-mine|viewer_participation/);
+  // 공유 화면에도 참여 정체성 띠·"내가 더한 것"은 없다. 공유 응답에 viewer_participation
+  // 자체가 없기 때문이다. ★ preHeader **자리** 자체는 금지가 아니다 — F-1 의 담아두기
+  // 안내가 그 자리를 쓴다(§1 9차). 금지된 것은 이 세 가지 내용물이다.
   const share = read("components/PublicShareView.tsx");
-  assert.doesNotMatch(share, /preHeader|album-whoami|album-mine|viewer_participation/);
+  assert.doesNotMatch(share, /album-whoami|album-mine|viewer_participation/);
   // 렌더러 자체도 참여 필드를 모른다(웹/공유/PDF 동일 렌더러 — §9).
   const renderer = read("album-engine/AlbumRenderer.tsx");
   assert.doesNotMatch(renderer, /viewer_participation|album-whoami/);

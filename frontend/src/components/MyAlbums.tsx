@@ -41,6 +41,7 @@ interface MyAlbumsProps {
 export default function MyAlbums({ userId }: MyAlbumsProps) {
   const [albums, setAlbums] = useState<MyAlbum[] | null>(null);
   const [participating, setParticipating] = useState<MyAlbum[]>([]);
+  const [bookmarked, setBookmarked] = useState<MyAlbum[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
         if (!active) return;
         setAlbums(data.albums);
         setParticipating(data.participating);
+        setBookmarked(data.bookmarked);
         debugTiming("my albums list response", startedAt);
         window.requestAnimationFrame(() => debugTiming("my albums first card", startedAt));
       })
@@ -153,6 +155,18 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
           </header>
           <div className="my-albums__list">
             {participating.map((album, index) => renderCard(album, index, false))}
+          </div>
+        </>
+      ) : null}
+      {/* 담아둔 앨범(§1 9차) — 구경하다가 담아 둔 것. 권한이 아니라 목록일 뿐이다.
+          같은 앨범이 두 칸에 뜨지 않는다 — 서버가 위 두 칸에 있는 것을 빼고 준다. */}
+      {bookmarked.length > 0 ? (
+        <>
+          <header className="my-albums__header my-albums__header--section">
+            <div><h2>담아둔 앨범</h2></div>
+          </header>
+          <div className="my-albums__list">
+            {bookmarked.map((album, index) => renderCard(album, index, false))}
           </div>
         </>
       ) : null}

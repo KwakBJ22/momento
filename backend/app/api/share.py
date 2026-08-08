@@ -19,6 +19,7 @@ from app.models.schemas import (
 from app.services.authorization import require_album_edit_settings
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
+from app.services.bookmark_service import is_bookmarked
 from app.services.visitor_key import resolve_visitor_key
 from app.services.share_service import (
     add_guestbook_entry, add_reaction, contribution_block_reason, create_share_link, deactivate_share_link,
@@ -364,6 +365,7 @@ async def get_public_share(
             )
 
     return PublicShareAlbumResponse(
+        viewer_bookmarked=bool(user_id) and is_bookmarked(client, str(user_id), album_id),
         viewer_contributor=viewer_contributor,
         # PDF 저장이 버전을 맞춰 보낼 수 있게 현재 버전을 알려준다.
         album_version=int(album.get("album_version") or 0),

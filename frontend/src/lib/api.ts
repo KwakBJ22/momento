@@ -161,11 +161,19 @@ export type MyAlbum = {
   status?: "processing" | "active" | "failed" | string;
 };
 
-export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[] }> {
+export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[] }> {
   const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
-  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[] };
-  return { albums: data.albums ?? [], participating: data.participating ?? [] };
+  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[]; bookmarked?: MyAlbum[] };
+  return { albums: data.albums ?? [], participating: data.participating ?? [], bookmarked: data.bookmarked ?? [] };
+}
+
+/** 담아두기 (§1 9차) — ★ 권한을 주지 않는다. 목록에 남을 뿐 여전히 보기만 한다. */
+export async function setAlbumBookmark(albumId: string, bookmarked: boolean): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/bookmark`, {
+    method: bookmarked ? "PUT" : "DELETE",
+  });
+  if (!response.ok) throw new Error(await parseError(response));
 }
 
 export async function deleteAlbum(albumId: string): Promise<void> {

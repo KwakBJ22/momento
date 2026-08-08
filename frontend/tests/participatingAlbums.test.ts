@@ -8,9 +8,10 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 // reusing the existing card, and never render an empty section.
 test("getMyAlbums returns both owned and participating lists (additive contract)", () => {
   const api = read("lib/api.ts");
-  assert.match(api, /getMyAlbums\(\): Promise<\{ albums: MyAlbum\[\]; participating: MyAlbum\[\] \}>/);
+  assert.match(api, /getMyAlbums\(\): Promise<\{ albums: MyAlbum\[\]; participating: MyAlbum\[\]; bookmarked: MyAlbum\[\] \}>/);
   // Backward compatible: tolerate a missing participating field from older backends.
   assert.match(api, /participating: data\.participating \?\? \[\]/);
+  assert.match(api, /bookmarked: data\.bookmarked \?\? \[\]/);
 });
 
 test("MyAlbums renders the participating section only when non-empty, reusing the card", () => {

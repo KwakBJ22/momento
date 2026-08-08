@@ -54,6 +54,13 @@ from app.services.image_service import (
 )
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.visitor_key import resolve_visitor_key
+from app.services.bookmark_service import (
+    add_bookmark,
+    bookmarked_album_records,
+    is_bookmarked,
+    list_bookmarked_album_ids,
+    remove_bookmark,
+)
 from app.services.supabase import (
     create_album_id,
     cleanup_incomplete_album,
@@ -1857,7 +1864,21 @@ async def get_my_albums(
     participating_photo_rows = await asyncio.to_thread(
         list_album_photo_list_summaries, client, participating_ids
     )
+    # 담아둔 앨범(§1 9차) — 위 두 칸에 이미 있는 것은 뺀다. 담아둔 뒤 참여자가 되면
+    # 자동으로 `함께 만드는 앨범` 쪽으로 옮겨간다(행을 지우지 않고 목록에서만 뺀다).
+    bookmark_ids = list_bookmarked_album_ids(
+        client, authenticated_user_id, set(album_ids) | set(participating_ids)
+    )
+    bookmark_records = bookmarked_album_records(client, bookmark_ids)
+    bookmark_photo_rows = await asyncio.to_thread(
+        list_album_photo_list_summaries, client, [str(record["id"]) for record in bookmark_records]
+    )
     payload = MyAlbumsResponse(
+        bookmarked=_attach_participating_cover_urls(
+            client,
+            settings,
+            _my_album_list_items(client, settings, bookmark_records, {}, bookmark_photo_rows),
+        ),
         albums=_attach_my_album_cover_urls(
             client,
             settings,
@@ -1878,6 +1899,37 @@ async def get_my_albums(
         duration_ms,
     )
     return payload
+
+
+@router.put("/albums/{album_id}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
+async def add_album_bookmark(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """이 앨범을 `담아둔 앨범` 에 넣는다 (§1 9차).
+
+    ★ 권한을 주지 않는다. 담아둬도 여전히 보기만 한다 — album_contributors 를 건드리지
+    않는다(그 표에 행을 만드는 것은 "참여자가 됐다" 는 뜻이다).
+    ★ 볼 수 있는 앨범만 담을 수 있다 — 읽기 권한은 공유 링크가 준 것이고, 여기서는
+    그 권한을 확인만 한다.
+    """
+    client = get_supabase_client()
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    require_album_read(get_album_access(client, record, authenticated_user_id))
+    add_bookmark(client, authenticated_user_id, album_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/albums/{album_id}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_album_bookmark(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """담아둔 것을 뺀다. 없으면 아무 일도 없다."""
+    remove_bookmark(get_supabase_client(), authenticated_user_id, album_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/albums/mine/covers")

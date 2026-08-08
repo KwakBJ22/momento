@@ -1,0 +1,110 @@
+"""담아둔 앨범 (F-1 · SCREEN_SPEC §1 9차).
+
+구경하라고 받은 링크로 앨범을 봤는데 그 사람에게 아무 흔적이 남지 않았다.
+카카오톡 대화방에서 링크를 다시 찾아야 하는데 대화방은 흘러간다.
+
+★ 담아둬도 **권한은 바뀌지 않는다.** 여전히 보기만 한다 — 목록에 남을 뿐이다.
+★ 같은 앨범이 두 칸에 뜨지 않는다.
+"""
+
+import re
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import TestCase
+
+from app.services.bookmark_service import list_bookmarked_album_ids
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def code(source: str) -> str:
+    """주석·docstring 은 사람에게 하는 설명이지 동작이 아니다 — 판정에서 뺀다."""
+    without_docstrings = re.sub(r'"""[\s\S]*?"""', "", source)
+    return "".join(line for line in without_docstrings.splitlines() if not line.strip().startswith("#"))
+
+
+class _Query:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, *_a, **_k):
+        return self
+
+    def order(self, *_a, **_k):
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self._rows)
+
+
+class _Client:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def table(self, name):
+        assert name == "album_bookmarks"
+        return _Query(self._rows)
+
+
+ROWS = [
+    {"album_id": "a-3", "created_at": "2026-08-09T03:00:00Z"},
+    {"album_id": "a-1", "created_at": "2026-08-09T02:00:00Z"},
+    {"album_id": "a-2", "created_at": "2026-08-09T01:00:00Z"},
+]
+
+
+class BookmarkListTests(TestCase):
+    def test_keeps_the_order_they_were_saved(self) -> None:
+        self.assertEqual(list_bookmarked_album_ids(_Client(ROWS), "u-1", set()), ["a-3", "a-1", "a-2"])
+
+    def test_albums_already_in_another_section_are_excluded(self) -> None:
+        """★ 같은 앨범이 두 칸에 동시에 뜨지 않는다 — 여기서 뺀다."""
+        self.assertEqual(list_bookmarked_album_ids(_Client(ROWS), "u-1", {"a-1"}), ["a-3", "a-2"])
+        self.assertEqual(list_bookmarked_album_ids(_Client(ROWS), "u-1", {"a-1", "a-2", "a-3"}), [])
+
+    def test_nothing_saved_means_empty(self) -> None:
+        self.assertEqual(list_bookmarked_album_ids(_Client([]), "u-1", set()), [])
+
+
+class BookmarkPermissionTests(TestCase):
+    """★ 담아둬도 쓰기 권한이 생기지 않는다."""
+
+    def test_bookmarking_never_touches_the_contributor_table(self) -> None:
+        service = code((ROOT / "app/services/bookmark_service.py").read_text(encoding="utf-8"))
+        # 참여자 표에 행을 만드는 것은 "참여자가 됐다" 는 뜻이다 — 담기는 그것이 아니다.
+        self.assertNotIn("album_contributors", service)
+        self.assertNotIn("ensure_contributor", service)
+
+    def test_only_readable_albums_can_be_saved(self) -> None:
+        album = (ROOT / "app/api/album.py").read_text(encoding="utf-8")
+        put = code(album[album.index('@router.put("/albums/{album_id}/bookmark"') : album.index('@router.delete("/albums/{album_id}/bookmark"')])
+        self.assertIn("require_authenticated_user", put)  # 로그인해야 담아둘 수 있다
+        self.assertIn("require_album_read(get_album_access(client, record, authenticated_user_id))", put)
+        # 권한을 주는 호출이 없다 — 읽기 권한을 **확인만** 한다.
+        for granting in ["ensure_owner_contributor", "start_contribution", "album_contributors"]:
+            self.assertNotIn(granting, put)
+
+    def test_removing_is_possible(self) -> None:
+        album = (ROOT / "app/api/album.py").read_text(encoding="utf-8")
+        self.assertIn('@router.delete("/albums/{album_id}/bookmark"', album)
+        self.assertIn("remove_bookmark(get_supabase_client(), authenticated_user_id, album_id)", album)
+
+
+class BookmarkResponseTests(TestCase):
+    def test_my_albums_has_the_third_section(self) -> None:
+        schemas = (ROOT / "app/models/schemas.py").read_text(encoding="utf-8")
+        model = schemas[schemas.index("class MyAlbumsResponse") : schemas.index("class AlbumPdfUrlResponse")]
+        self.assertIn("bookmarked: list[MyAlbumListItem]", model)
+        album = (ROOT / "app/api/album.py").read_text(encoding="utf-8")
+        # 세 번째 칸은 앞 두 칸을 빼고 만든다.
+        self.assertIn(
+            "list_bookmarked_album_ids(\n        client, authenticated_user_id, set(album_ids) | set(participating_ids)\n    )",
+            album,
+        )
+
+    def test_share_response_tells_the_current_state(self) -> None:
+        share = (ROOT / "app/api/share.py").read_text(encoding="utf-8")
+        self.assertIn("viewer_bookmarked=bool(user_id) and is_bookmarked(client, str(user_id), album_id)", share)

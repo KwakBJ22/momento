@@ -9,7 +9,7 @@ import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
-import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
+import { getPublicShare, loadCollabSession, saveCollabSession, setAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
@@ -115,6 +115,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
+  // 담아둔 앨범(§1 9차) — 구경꾼에게 흔적을 남기는 자리. ★ 권한은 바뀌지 않는다.
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
   // 구경꾼은 본문 맨 아래에서 이 구역을 만난다(§4 8차 — 네비 칸을 쓰지 않는다).
   const guestbookRef = useRef<HTMLDivElement | null>(null);
   // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
@@ -230,6 +233,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     // 다만 **이미 참여자인 사람은 다시 묻지 않는다.** 서버가 기존 album_contributors 행을
     // viewer_contributor 로 내려주므로, 그것을 그대로 받아 참여자 화면을 연다.
     // ★ 여기서 아무것도 만들지 않는다 — 읽어서 쓰기만 한다.
+    if (album) setBookmarked(Boolean(album.viewer_bookmarked));
     if (!album?.viewer_contributor || contributionSession || loadedToken !== token) return;
     const existing = album.viewer_contributor;
     const session = {
@@ -440,8 +444,36 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     variant: "visitor" as const,
     onCreateAlbum: () => window.location.assign("/"),
   };
+  const toggleBookmark = async () => {
+    if (!authenticatedUser) { onLogin?.(); return; }
+    const next = !bookmarked;
+    setBookmarkBusy(true);
+    try {
+      await setAlbumBookmark(album.album_id, next);
+      setBookmarked(next);
+    } catch {
+      // 조용히 삼키지 않는다 — 상태를 되돌려 다시 누를 수 있게 둔다(§11).
+      setBookmarked(!next);
+    } finally {
+      setBookmarkBusy(false);
+    }
+  };
+  // §1 게스트 저장 안내와 같은 방식 — 명령이 아니라 물음이다.
+  const bookmarkCard = !canContribute && !bookmarked ? (
+    <div className="album-guest-save">
+      <p className="album-guest-save__title">이 앨범을 내 앨범에 담아둘까요?</p>
+      <p className="album-guest-save__copy">담아두면 다음에도 이 앨범을 찾을 수 있어요.</p>
+      <div className="album-guest-save__actions">
+        <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아두기</button>
+      </div>
+    </div>
+  ) : null;
   const publicActions = (
     <div className="album-result__actions">
+      {/* 담아둔 뒤에는 뺄 수도 있어야 한다. */}
+      {!canContribute && bookmarked ? (
+        <button type="button" className="btn btn--ghost" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아둔 앨범에서 빼기</button>
+      ) : null}
       <div className="album-result__hinted-action">
         <button type="button" className="btn btn--secondary" disabled={shareLoading} onClick={() => void share()}>구경하라고 보내기</button>
         <p className="album-result__action-hint">보기만 할 수 있어요</p>
@@ -487,7 +519,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const headerRight = !signedIn && onLogin
     ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
     : undefined;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={signedIn ? () => setMoreOpen(true) : undefined} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={signedIn ? () => setMoreOpen(true) : undefined} preHeader={bookmarkCard} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*
