@@ -156,8 +156,9 @@ test("owner-only actions hide behind server capability flags; PDF stays for part
   assert.match(source, /requestedEdition === null && displayAlbum\?\.can_edit \? <CollaborationPanel/);
   // 시트는 공용 컴포넌트(AlbumMoreSheet)로 옮겼다 — 앨범 상세와 공유 앨범이 같은 것을
   // 쓴다(§5). 호출자는 서버 플래그를 그대로 넘기기만 한다.
-  assert.match(source, /canEdit=\{Boolean\(displayAlbum\?\.can_edit\)\}/);
-  assert.match(source, /canDelete=\{Boolean\(displayAlbum\?\.can_delete\)\}/);
+  // H-1: 역할 판정을 한 곳으로 모았다 — 시트도 그 값을 받는다(플래그를 다시 읽지 않는다).
+  assert.match(source, /canEdit=\{role === "owner"\}/);
+  assert.match(source, /canDelete=\{role === "owner" && Boolean\(displayAlbum\?\.can_delete\)\}/);
   const moreSheet = readFileSync(new URL("../src/components/AlbumMoreSheet.tsx", import.meta.url), "utf8");
   assert.match(moreSheet, /canEdit && photoCount && onChangeCover[\s\S]{0,200}표지 사진 바꾸기/);
   assert.match(moreSheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);

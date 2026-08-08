@@ -44,13 +44,14 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
   // 시트는 공용 컴포넌트다(앨범 상세·공유 앨범이 같은 것을 쓴다 — §5).
   const sheet = read("components/AlbumMoreSheet.tsx");
   assert.match(sheet, /canEdit && photoCount && onChangeCover[\s\S]{0,200}표지 사진 바꾸기/);
+  // canEdit 은 이제 역할에서 온다(H-1) — 시트가 플래그를 스스로 해석하지 않는다.
   // 소유자 "함께 만든 사람" / 참여자 "함께한 사람" — 라벨만 다르고 행은 하나다.
   assert.match(sheet, /canEdit \? "함께 만든 사람" : "함께한 사람"/);
   assert.match(sheet, /<em>\{contributorCount\}명<\/em>/);
   // 참여자의 "내 앨범 만들기"는 하단 칸으로 나갔으므로 시트에는 소유자 행만.
   assert.match(sheet, /canEdit \? <button[\s\S]{0,200}<span>새 앨범 만들기<\/span><em>이 앨범은 그대로 있어요<\/em>/);
   // 호출자가 서버 플래그를 그대로 넘긴다.
-  assert.match(read("components/AlbumView.tsx"), /canEdit=\{Boolean\(displayAlbum\?\.can_edit\)\}/);
+  assert.match(read("components/AlbumView.tsx"), /canEdit=\{role === "owner"\}/);
   // PDF 초과: 이유를 사람 말로 + 예약 슬롯(숫자 사실만).
   assert.match(sheet, /album-more-sheet__row--off[\s\S]{0,200}\{PDF_BLOCKED_REASON\}/);
   assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photoCount\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);

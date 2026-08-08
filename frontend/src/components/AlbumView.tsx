@@ -5,6 +5,7 @@ import { AlbumRenderer } from "../album-engine";
 import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
@@ -607,6 +608,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 참여자 여부(목업 3a): viewer_participation 은 서버가 참여자에게만 내려준다.
   // 더보기 시트·네비·메타·whoami 띠가 모두 이 값으로 분기한다.
   const participation = displayAlbum?.viewer_participation ?? null;
+  // ★ 역할은 여기 한 곳에서 정한다(§1 · H-1). 화면마다 다시 추측하지 않는다.
+  // viewer_participation 은 역할의 근거가 아니다 — `내가 더한 것` 숫자와 이름 띠의 재료다.
+  const role = resolveAlbumRole(displayAlbum);
 
   const contributionWorkspace: WorkspaceState = {
     title: displayTitle,
@@ -665,10 +669,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         <AlbumMoreSheet
           onClose={requestCloseMore}
           accountSheet={accountSheet}
-          canEdit={Boolean(displayAlbum?.can_edit)}
-          canDelete={Boolean(displayAlbum?.can_delete)}
+          canEdit={role === "owner"}
+          canDelete={role === "owner" && Boolean(displayAlbum?.can_delete)}
           photoCount={photos.length}
-          contributorCount={displayAlbum?.can_edit ? contributorCount : participation?.contributor_count ?? null}
+          contributorCount={role === "owner" ? contributorCount : role === "contributor" ? participation?.contributor_count ?? null : null}
           albumId={albumId}
           onChangeCover={() => setCoverPickerRequest((value) => value + 1)}
           onExportPdf={() => { void handlePdf(); }}
@@ -801,7 +805,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     </div>
   ) : null;
   const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: participation ? "contributor" : "default", onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: navVariantForRole(role), onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
   /*

@@ -77,9 +77,11 @@ test("구경꾼 안내 문구가 §1 그대로다 — 명령이 아니라 물음
   assert.match(view, /담아두면 다음에도 이 앨범을 찾을 수 있어요\./);
   assert.match(view, />담아두기</);
   // 참여할 수 있는 사람(참여자)에게는 이 카드가 없다 — 그들은 이미 목록에 있다.
-  assert.match(view, /const bookmarkCard = !canContribute && !bookmarked \?/);
+  // 역할 판정은 lib/albumRole 한 곳이다(H-1) — 화면이 플래그를 다시 읽지 않는다.
+  assert.match(view, /const bookmarkCard = role === "visitor" && !bookmarked \?/);
   // 담아둔 뒤에는 뺄 수도 있다.
   assert.match(view, />담아둔 앨범에서 빼기</);
+  assert.match(view, /\{role === "visitor" && bookmarked \? \(/);
 });
 
 test("로그인해야 담아둘 수 있다 (어디에 담을지가 계정이다)", async () => {

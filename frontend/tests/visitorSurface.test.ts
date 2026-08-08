@@ -10,7 +10,9 @@ test("역할 판정 근거는 백엔드 능력 플래그다 — 링크 종류를
   const view = read("components/PublicShareView.tsx");
   assert.match(view, /const canContribute = album\?\.can_contribute === true;/);
   // 값이 없으면 보수적으로 구경꾼(=== true) — 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
-  assert.match(view, /const isParticipantMode = canContribute && Boolean\(contributionSession\)/);
+  // H-1: 역할은 lib/albumRole 한 곳에서 정한다.
+  assert.match(view, /const role = resolveAlbumRole\(album\);/);
+  assert.match(view, /const isParticipantMode = role === "contributor" && Boolean\(contributionSession\)/);
   // 링크 경로·토큰 모양으로 역할을 추측하지 않는다.
   assert.doesNotMatch(view, /kind === "view"|pathname.*join/);
 });
@@ -55,7 +57,7 @@ test("공유 링크는 감상용으로 발급된다 — 함께 만들기는 초�
 
 test("공유 화면은 능력에 따라 네비를 고른다 — 구경꾼이면 visitor 변형", () => {
   const view = read("components/PublicShareView.tsx");
-  assert.match(view, /\} : canContribute \? \{/);
+  assert.match(view, /\} : role === "contributor" \? \{/);
   assert.match(view, /variant: "visitor" as const/);
   // §4 8차: 구경꾼 네비에서 한마디로 가는 길이 없다 — 본문 맨 아래에서 스크롤로 만난다.
   assert.doesNotMatch(view, /onAddMemory: \(\) => guestbookRef/);
@@ -84,8 +86,8 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
   assert.match(sheet, /canDelete=\{false\}/);
   assert.doesNotMatch(sheet, /onChangeCover|onDeleteAlbum/);
   // 참여자에게 필요한 두 가지 — 함께한 사람 · PDF. ★ 구경꾼에게는 넘기지 않는다(E-4, §5 표).
-  assert.match(sheet, /contributorCount=\{canContribute \? album\.contributor_count \?\? null : null\}/);
-  assert.match(sheet, /onExportPdf=\{canContribute \?/);
+  assert.match(sheet, /contributorCount=\{role === "contributor" \? album\.contributor_count \?\? null : null\}/);
+  assert.match(sheet, /onExportPdf=\{role === "contributor" \?/);
   // PDF 실패를 조용히 삼키지 않는다(§11) — 앨범 상세와 같은 문구 모듈.
   assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
   assert.match(share, /\{pdfNotice \? <p className="album-inline-action__error" role="status">/);
@@ -156,8 +158,8 @@ test("★ 구경꾼 `⋯` 시트에 함께한 사람·PDF 가 없다", async () 
 test("구경꾼에게는 그 값들을 아예 넘기지 않는다 (눌러서 막지 않는다)", () => {
   const view = read("components/PublicShareView.tsx");
   const sheet = view.slice(view.indexOf("<AlbumMoreSheet"), view.indexOf("/>", view.indexOf("<AlbumMoreSheet")));
-  assert.match(sheet, /contributorCount=\{canContribute \? album\.contributor_count \?\? null : null\}/);
-  assert.match(sheet, /onExportPdf=\{canContribute \? \(\) => \{ void handleSharePdf\(\); \} : undefined\}/);
-  assert.match(sheet, /onLogout=\{canContribute \? onLogout : undefined\}/);
-  assert.match(sheet, /onWithdraw=\{canContribute \? onWithdraw : undefined\}/);
+  assert.match(sheet, /contributorCount=\{role === "contributor" \? album\.contributor_count \?\? null : null\}/);
+  assert.match(sheet, /onExportPdf=\{role === "contributor" \? \(\) => \{ void handleSharePdf\(\); \} : undefined\}/);
+  assert.match(sheet, /onLogout=\{role === "contributor" \? onLogout : undefined\}/);
+  assert.match(sheet, /onWithdraw=\{role === "contributor" \? onWithdraw : undefined\}/);
 });

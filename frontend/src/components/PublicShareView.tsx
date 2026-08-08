@@ -7,6 +7,7 @@ import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, setAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
@@ -129,6 +130,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
   // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
   const canContribute = album?.can_contribute === true;
+  // ★ 역할 판정은 lib/albumRole 한 곳이다(§1 · H-1). 화면이 따로 추측하지 않는다 —
+  // 링크 종류가 아니라 서버가 내려준 능력 플래그로 갈린다.
+  const role = resolveAlbumRole(album);
 
   const [nameAction, setNameAction] = useState<"photo" | "memory" | null>(null);
   const [participantName, setParticipantName] = useState("");
@@ -397,13 +401,13 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           canEdit={false}
           canDelete={false}
           photoCount={(album.photos || []).length}
-          contributorCount={canContribute ? album.contributor_count ?? null : null}
+          contributorCount={role === "contributor" ? album.contributor_count ?? null : null}
           albumId={albumId || ""}
-          onExportPdf={canContribute ? () => { void handleSharePdf(); } : undefined}
+          onExportPdf={role === "contributor" ? () => { void handleSharePdf(); } : undefined}
           isExportingPdf={isExportingPdf}
-          showAbsentNotice={canContribute}
-          onLogout={canContribute ? onLogout : undefined}
-          onWithdraw={canContribute ? onWithdraw : undefined}
+          showAbsentNotice={role === "contributor"}
+          onLogout={role === "contributor" ? onLogout : undefined}
+          onWithdraw={role === "contributor" ? onWithdraw : undefined}
         />
       ) : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
@@ -420,7 +424,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
     </>
   );
-  const isParticipantMode = canContribute && Boolean(contributionSession);
+  const isParticipantMode = role === "contributor" && Boolean(contributionSession);
   const publicNav = isParticipantMode ? {
     // §4 참여자 3칸: 사진 추가 / 한마디 남기기 / 내 앨범 만들기.
     variant: "contributor" as const,
@@ -432,7 +436,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     onCreateAlbum: () => window.location.assign("/"),
     canAddPhoto: !isStartingContribution,
     canAddMemory: !isStartingContribution,
-  } : canContribute ? {
+  } : role === "contributor" ? {
     onTop: scrollToAlbumStart,
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
@@ -459,7 +463,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     }
   };
   // §1 게스트 저장 안내와 같은 방식 — 명령이 아니라 물음이다.
-  const bookmarkCard = !canContribute && !bookmarked ? (
+  const bookmarkCard = role === "visitor" && !bookmarked ? (
     <div className="album-guest-save">
       <p className="album-guest-save__title">이 앨범을 내 앨범에 담아둘까요?</p>
       <p className="album-guest-save__copy">담아두면 다음에도 이 앨범을 찾을 수 있어요.</p>
@@ -471,7 +475,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const publicActions = (
     <div className="album-result__actions">
       {/* 담아둔 뒤에는 뺄 수도 있어야 한다. */}
-      {!canContribute && bookmarked ? (
+      {role === "visitor" && bookmarked ? (
         <button type="button" className="btn btn--ghost" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아둔 앨범에서 빼기</button>
       ) : null}
       <div className="album-result__hinted-action">
