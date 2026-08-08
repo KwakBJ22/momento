@@ -52,7 +52,7 @@ test("누르는 영역 44px, 글자 14px 하한", () => {
   const css = read("components/AppChrome.css");
   const block = css.slice(css.indexOf(".account-contact {"));
   const rule = (selector: string) => block.slice(block.indexOf(`${selector} {`), block.indexOf("}", block.indexOf(`${selector} {`)));
-  for (const selector of [".account-contact__input", ".account-contact__save", ".account-contact__clear"]) {
+  for (const selector of [".account-contact__input", ".account-contact__save", ".account-contact__edit", ".account-contact__cancel"]) {
     assert.match(rule(selector), /min-height: 44px/, `${selector} 는 44px 이상`);
     assert.match(rule(selector), /font-size: 14px/, `${selector} 는 14px 이상`);
   }

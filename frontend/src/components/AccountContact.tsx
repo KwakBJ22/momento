@@ -34,6 +34,8 @@ const EXAMPLE: Record<Field, string> = { phone: "010-1234-5678", email: "abc@exa
 export default function AccountContact() {
   const [contact, setContact] = useState<ProfileContact | null>(null);
   const [draft, setDraft] = useState<Record<Field, string>>({ phone: "", email: "" });
+  // ★ `수정` 을 누른 줄만 입력칸이 된다(§5). 값이 있는 줄은 평소에 가려진 값 + `수정` 뿐이다.
+  const [editing, setEditing] = useState<Field[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -60,12 +62,20 @@ export default function AccountContact() {
     setDraft((current) => ({ ...current, [field]: field === "phone" ? formatPhoneInput(value) : value }));
   };
 
-  /** 손댄 항목만 보낸다 — PUT 은 보낸 항목만 바꾼다(안 보낸 칸은 서버 값 그대로). */
+  /** 값이 없거나 `수정` 을 누른 줄만 입력칸이다. */
+  const isOpen = (field: Field) => editing.includes(field) || !contact?.[field];
+
+  /** 손댄 항목만 보낸다 — PUT 은 보낸 항목만 바꾼다(안 보낸 칸은 서버 값 그대로).
+   *  ★ `수정` 중인 줄은 비운 채 저장하면 **지운다**. 별도 지우기 버튼을 두지 않는다(§5). */
   const save = async () => {
     const payload: Partial<ProfileContact> = {};
     for (const field of FIELDS) {
       const value = draft[field].trim();
-      if (value) payload[field] = field === "phone" ? phoneDigits(value) : value;
+      if (editing.includes(field)) {
+        payload[field] = value ? (field === "phone" ? phoneDigits(value) : value) : null;
+      } else if (!contact?.[field] && value) {
+        payload[field] = field === "phone" ? phoneDigits(value) : value;
+      }
     }
     if (!Object.keys(payload).length) return;
     setBusy(true);
@@ -73,6 +83,7 @@ export default function AccountContact() {
     try {
       setContact(await saveProfileContact(payload as ProfileContact));
       setDraft({ phone: "", email: "" });
+      setEditing([]);
       setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "저장하지 못했어요.");
@@ -81,20 +92,16 @@ export default function AccountContact() {
     }
   };
 
-  const clear = async (field: Field) => {
-    setBusy(true);
+  const cancel = () => {
+    setEditing([]);
+    setDraft({ phone: "", email: "" });
     setError(null);
-    try {
-      setContact(await saveProfileContact({ [field]: null } as unknown as ProfileContact));
-      setDraft((current) => ({ ...current, [field]: "" }));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "지우지 못했어요.");
-    } finally {
-      setBusy(false);
-    }
   };
 
   if (!contact) return null;
+
+  // 비어 있는 줄이 하나라도 있으면 그 줄은 늘 입력칸이라 `저장` 이 필요하다.
+  const canSave = FIELDS.some((field) => draft[field].trim() !== "" || editing.includes(field));
 
   return (
     <div className="account-contact">
@@ -106,29 +113,44 @@ export default function AccountContact() {
         <div className="account-contact__field" key={field}>
           <div className="account-contact__label">
             <label htmlFor={`account-contact-${field}`}>{LABEL[field]}</label>
-            {contact[field] ? (
-              <button type="button" className="account-contact__clear" disabled={busy} onClick={() => void clear(field)}>지우기</button>
+            {/* 값이 있고 지금 고치는 중이 아니면 — 가려진 값 + `수정` 뿐이다.
+                입력칸도, 저장·지우기 버튼도 띄우지 않는다(§5). */}
+            {!isOpen(field) ? (
+              <span className="account-contact__value">{contact[field]}</span>
+            ) : null}
+            {!isOpen(field) ? (
+              <button type="button" className="account-contact__edit" disabled={busy}
+                onClick={() => setEditing((current) => [...current, field])}>수정</button>
             ) : null}
           </div>
-          <input
-            id={`account-contact-${field}`}
-            className="account-contact__input"
-            type={field === "phone" ? "tel" : "email"}
-            inputMode={field === "phone" ? "tel" : "email"}
-            autoComplete={field === "phone" ? "tel" : "email"}
-            // 저장된 값이 있으면 그 가려진 값을 안내글로 보여준다(없으면 예시).
-            placeholder={contact[field] ?? EXAMPLE[field]}
-            value={draft[field]}
-            disabled={busy}
-            onChange={(event) => change(field, event.target.value)}
-          />
+          {isOpen(field) ? (
+            <input
+              id={`account-contact-${field}`}
+              className="account-contact__input"
+              type={field === "phone" ? "tel" : "email"}
+              inputMode={field === "phone" ? "tel" : "email"}
+              autoComplete={field === "phone" ? "tel" : "email"}
+              // 고치는 중이면 예시를 보여준다 — 가려진 값을 칸에 넣으면 그걸 고치는 것처럼
+              // 보이지만 실제로는 못 고친다(서버가 원본을 내려주지 않는다).
+              placeholder={EXAMPLE[field]}
+              value={draft[field]}
+              disabled={busy}
+              onChange={(event) => change(field, event.target.value)}
+            />
+          ) : null}
         </div>
       ))}
-      <div className="account-contact__actions">
-        <button type="button" className="account-contact__save" disabled={busy || !dirty} onClick={() => void save()}>
-          {busy ? "저장하는 중..." : "저장"}
-        </button>
-      </div>
+      {canSave ? (
+        <div className="account-contact__actions">
+          <button type="button" className="account-contact__save" disabled={busy} onClick={() => void save()}>
+            {busy ? "저장하는 중..." : "저장"}
+          </button>
+          {/* 비우고 저장하면 지워진다 — 그래서 지우기 버튼이 따로 없다. */}
+          {editing.length ? (
+            <button type="button" className="account-contact__cancel" disabled={busy} onClick={cancel}>취소</button>
+          ) : null}
+        </div>
+      ) : null}
       {error ? <p className="account-contact__error" role="alert">{error}</p> : null}
       {saved && !error ? <p className="account-contact__saved" role="status">저장했어요.</p> : null}
     </div>

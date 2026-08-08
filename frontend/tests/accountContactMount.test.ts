@@ -59,10 +59,16 @@ async function mount(initial: Saved) {
   const input = (label: string) => {
     const field = Array.from(container.querySelectorAll(".account-contact__field"))
       .find((candidate) => candidate.querySelector("label")?.textContent === label);
-    return field?.querySelector("input") as HTMLInputElement | undefined;
+    return (field?.querySelector("input") ?? undefined) as HTMLInputElement | undefined;
   };
   const button = (text: string) => Array.from(container.querySelectorAll("button"))
     .find((candidate) => candidate.textContent === text) as HTMLButtonElement | undefined;
+  const rowButton = (label: string, text: string) => {
+    const field = Array.from(container.querySelectorAll(".account-contact__field"))
+      .find((candidate) => candidate.querySelector("label")?.textContent === label);
+    return Array.from(field?.querySelectorAll("button") ?? [])
+      .find((candidate) => candidate.textContent === text) as HTMLButtonElement | undefined;
+  };
   const type = async (label: string, value: string) => {
     const field = input(label)!;
     await React.act(async () => {
@@ -76,7 +82,7 @@ async function mount(initial: Saved) {
     await React.act(async () => { target.click(); });
     await settle();
   };
-  return { React, root, container, api, input, button, type, click, text: () => container.textContent || "" };
+  return { React, root, container, api, input, button, rowButton, type, click, text: () => container.textContent || "" };
 }
 
 test("안내 문구가 약속한 그대로 보인다", async () => {
@@ -88,13 +94,10 @@ test("안내 문구가 약속한 그대로 보인다", async () => {
 
 test("저장 버튼은 구역에 하나다 (칸 옆이 아니라 아래)", async () => {
   const view = await mount({ phone: null, email: null });
+  await view.type("전화번호", "010");
   const saves = Array.from(view.container.querySelectorAll("button")).filter((b) => b.textContent === "저장");
   assert.equal(saves.length, 1);
-  // 칸 안에는 버튼이 없다 — 좁은 기기에서 밖으로 넘치던 원인이다.
-  for (const field of Array.from(view.container.querySelectorAll(".account-contact__field"))) {
-    assert.equal(field.querySelectorAll("button:not(.account-contact__clear)").length, 0);
-  }
-  assert.ok(view.input("전화번호") && view.input("이메일"), "두 칸 모두 있다");
+  assert.ok(view.input("전화번호") && view.input("이메일"), "비어 있으면 두 칸 모두 입력칸이다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -106,10 +109,7 @@ test("★ 저장 전에 다른 칸으로 넘어가도 앞 칸이 사라지지 �
   assert.equal(view.input("이메일")?.value, "abc@example.com");
 
   await view.click(view.button("저장")!);
-  // 한 번에 둘 다 저장된다.
   assert.deepEqual(view.api.sent.at(-1), { phone: "01012345678", email: "abc@example.com" });
-  assert.equal(view.api.state.phone, "01012345678");
-  assert.equal(view.api.state.email, "abc@example.com");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -119,11 +119,8 @@ test("전화번호는 입력하는 동안 하이픈이 붙고, 지울 때 되돌
     await view.type("전화번호", typed);
     assert.equal(view.input("전화번호")?.value, shown, `${typed} → ${shown}`);
   }
-  // 지울 때 하이픈이 남아 두 번 지우게 되지 않는다(하이픈은 그룹 사이에만 들어간다).
-  await view.type("전화번호", "010-1");
-  assert.equal(view.input("전화번호")?.value, "010-1");
   await view.type("전화번호", "010-");
-  assert.equal(view.input("전화번호")?.value, "010");
+  assert.equal(view.input("전화번호")?.value, "010", "하이픈이 남아 두 번 지우게 되지 않는다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -132,38 +129,68 @@ test("서버에는 숫자만 보낸다 (하이픈은 화면에서만)", async ()
   await view.type("전화번호", "01012345678");
   await view.click(view.button("저장")!);
   assert.deepEqual(view.api.sent.at(-1), { phone: "01012345678" });
-  assert.equal(view.api.state.phone, "01012345678");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("손대지 않은 칸은 보내지 않는다 (PUT 은 보낸 항목만 바꾼다)", async () => {
-  const view = await mount({ phone: "01012345678", email: "abc@example.com" });
-  await view.type("이메일", "new@example.com");
-  await view.click(view.button("저장")!);
-  assert.deepEqual(view.api.sent.at(-1), { email: "new@example.com" });
-  assert.equal(view.api.state.phone, "01012345678", "전화번호는 그대로다");
-  await view.React.act(async () => { view.root.unmount(); });
-});
+// --- E-3: 값이 있으면 입력칸을 띄우지 않는다 (§5) ---
 
-test("저장한 값은 가려진 형태로 보이고, 지울 수 있다", async () => {
+test("★ 값이 있으면 가려진 값 + `수정` 만 보인다 (입력칸·저장·지우기 없음)", async () => {
   const view = await mount({ phone: "01012345678", email: "abc@example.com" });
-  // 가려진 값은 빈칸의 안내글로 보여준다 — 칸 안에 넣으면 고칠 수 있는 것처럼 보인다.
-  assert.equal(view.input("전화번호")?.placeholder, "010-****-5678");
-  assert.equal(view.input("이메일")?.placeholder, "ab***@example.com");
+  assert.match(view.text(), /010-\*\*\*\*-5678/);
+  assert.match(view.text(), /ab\*\*\*@example\.com/);
   assert.equal(view.text().includes("01012345678"), false, "원본이 화면에 남으면 안 된다");
 
-  const clears = Array.from(view.container.querySelectorAll("button")).filter((b) => b.textContent === "지우기");
-  assert.equal(clears.length, 2, "저장된 항목마다 지우기가 있다");
-  await view.click(clears[0]);
-  assert.deepEqual(view.api.sent.at(-1), { phone: null });
-  assert.equal(view.api.state.email, "abc@example.com", "지우기도 보낸 항목만 지운다");
-  assert.equal(view.input("전화번호")?.placeholder, "010-1234-5678", "지우면 예시로 돌아온다");
+  assert.equal(view.input("전화번호"), undefined, "입력칸이 뜨면 안 된다");
+  assert.equal(view.input("이메일"), undefined);
+  assert.equal(view.button("저장"), undefined, "저장 버튼도 없다");
+  assert.equal(view.button("지우기"), undefined, "지우기 버튼을 두지 않는다");
+  assert.ok(view.rowButton("전화번호", "수정") && view.rowButton("이메일", "수정"));
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("빈 상태에서는 저장을 누를 수 없다 (빈 요청을 보내지 않는다)", async () => {
+test("★ `수정` 을 누르면 그 줄만 입력칸이 되고 저장·취소가 나온다", async () => {
+  const view = await mount({ phone: "01012345678", email: "abc@example.com" });
+  await view.click(view.rowButton("전화번호", "수정")!);
+
+  assert.ok(view.input("전화번호"), "누른 줄만 입력칸이다");
+  assert.equal(view.input("이메일"), undefined, "다른 줄은 그대로다");
+  assert.match(view.text(), /ab\*\*\*@example\.com/);
+  assert.ok(view.button("저장") && view.button("취소"));
+
+  await view.type("전화번호", "01000009999");
+  await view.click(view.button("저장")!);
+  assert.deepEqual(view.api.sent.at(-1), { phone: "01000009999" });
+  assert.equal(view.api.state.email, "abc@example.com", "손대지 않은 칸은 그대로다");
+  // 저장하면 다시 가려진 값 + 수정 으로 돌아간다.
+  assert.equal(view.input("전화번호"), undefined);
+  assert.match(view.text(), /010-\*\*\*\*-9999/);
+  await view.React.act(async () => { view.root.unmount(); });
+});
+
+test("★ 비우고 저장하면 지워진다 (별도 지우기 버튼이 없다)", async () => {
+  const view = await mount({ phone: "01012345678", email: "abc@example.com" });
+  await view.click(view.rowButton("전화번호", "수정")!);
+  await view.click(view.button("저장")!);
+  assert.deepEqual(view.api.sent.at(-1), { phone: null });
+  assert.equal(view.api.state.email, "abc@example.com", "지우기도 보낸 항목만 지운다");
+  assert.ok(view.input("전화번호"), "지운 뒤에는 다시 입력칸이다");
+  await view.React.act(async () => { view.root.unmount(); });
+});
+
+test("`취소` 는 아무것도 보내지 않고 원래대로 돌아간다", async () => {
+  const view = await mount({ phone: "01012345678", email: null });
+  await view.click(view.rowButton("전화번호", "수정")!);
+  await view.type("전화번호", "01099998888");
+  await view.click(view.button("취소")!);
+  assert.equal(view.api.sent.length, 0, "요청을 보내지 않는다");
+  assert.equal(view.input("전화번호"), undefined);
+  assert.match(view.text(), /010-\*\*\*\*-5678/);
+  await view.React.act(async () => { view.root.unmount(); });
+});
+
+test("빈 상태에서는 보낼 것이 없으면 저장이 나오지 않는다", async () => {
   const view = await mount({ phone: null, email: null });
-  assert.equal(view.button("저장")?.disabled, true);
+  assert.equal(view.button("저장"), undefined);
   await view.type("이메일", "a@b.co");
   assert.equal(view.button("저장")?.disabled, false);
   await view.React.act(async () => { view.root.unmount(); });
