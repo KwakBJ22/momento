@@ -4,7 +4,8 @@
 .album-bottom-navigation__share, .album-bottom-navigation__primary { background: var(--c-brand-soft) !important; color: var(--c-brand-text) !important; font-weight: 800 !important; }
 .album-bottom-navigation button:disabled { opacity: 0.42; cursor: default; }
 /* 구경꾼은 2칸(§4). 할 수 없는 행동(사진 추가·공유하기)을 아예 두지 않는다. */
-.album-bottom-navigation--visitor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 구경꾼은 1칸 — 전폭이다(§4 8차). 남은 행동이 하나뿐이라 나눌 칸이 없다. */
+.album-bottom-navigation--visitor { grid-template-columns: minmax(0, 1fr); }
 .album-bottom-navigation button.is-active { background: var(--c-brand-soft); color: var(--c-brand-text); }
 /* 전역 네비는 3칸이다(§4) — 기본 격자와 같으므로 따로 정의하지 않는다. */
 @media (min-width: 769px) {

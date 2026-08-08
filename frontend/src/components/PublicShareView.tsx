@@ -463,9 +463,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     onShare: () => { void share(); },
     onCreateAlbum: () => window.location.assign("/"),
   } : {
-    // 구경꾼 2칸(§4): 한마디 남기기(=방명록) · 내 앨범 만들기.
+    // 구경꾼 1칸(§4 8차): 내 앨범 만들기 하나뿐이다. `우리가 남긴 말` 은 본문 맨 아래에서
+    // 스크롤로 만난다 — 앨범을 끝까지 읽고 남기는 말이라 그 자리가 자연스럽다.
     variant: "visitor" as const,
-    onAddMemory: () => guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     onCreateAlbum: () => window.location.assign("/"),
   };
   const publicActions = (

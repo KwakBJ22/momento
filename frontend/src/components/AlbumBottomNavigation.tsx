@@ -41,13 +41,14 @@ export default function AlbumBottomNavigation({
       </nav>
     );
   }
-  // 구경꾼(SCREEN_SPEC §4): 2칸이다. 사진 추가·공유하기는 권한이 없으므로 보이면 안 된다 —
-  // 할 수 없는 행동을 보여주고 눌렀을 때 막는 것이 가장 나쁜 경험이다.
+  // 구경꾼(SCREEN_SPEC §4 8차): **1칸이다.** 사진 추가·한마디·공유하기 모두 권한이 없으므로
+  // 보이면 안 된다 — 할 수 없는 행동을 보여주고 눌렀을 때 막는 것이 가장 나쁜 경험이다.
+  // `우리가 남긴 말` 은 본문 맨 아래에서 스크롤로 만난다. 네비 칸을 쓰지 않는다.
+  // 남은 한 칸이 `내 앨범 만들기` 인 것은, 구경꾼에게 권하는 행동이 그것 하나뿐이기 때문이다.
   if (variant === "visitor") {
     return (
       <nav className="album-bottom-navigation album-bottom-navigation--visitor" aria-label="앨범 메뉴">
-        <button type="button" className="album-bottom-navigation__primary" onClick={onAddMemory}><PencilLine size={17} /><span>한마디 남기기</span></button>
-        <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범<br />만들기</span></span></button>
+        <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범 만들기</span></span></button>
       </nav>
     );
   }
