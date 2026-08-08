@@ -27,27 +27,25 @@ function normalizeSegments(
   return [{ author: null, text }];
 }
 
-/** contributor 2명 이상일 때만 이름 표시, 연속 동일 작성자는 첫 줄만 */
+/**
+ * ★ 캡션에는 **작성자 이름을 넣지 않는다** (CLAUDE.md §6).
+ *
+ * 예전 규칙은 "작성자 1명 → 숨김 / 2명 이상 → 표시" 였다. 없앤다:
+ *  - 캡션은 그 사진을 올린 사람의 말이라 이름이 없어도 누구 말인지 자연스럽다.
+ *  - 사진마다 이름이 붙으면 인쇄물이 지저분해진다.
+ *  - 누가 썼는지는 프레임 **밖** 한마디(코멘트)에서 보인다.
+ * 웹·공유·PDF 가 모두 같다. 여러 사람이 함께 만들었다는 사실은 "우리의 이야기" 다음
+ * "함께 만든 사람들" 한 줄이 담당한다.
+ *
+ * author 값 자체는 남긴다 — 데이터는 그대로 두고 **보여주지 않을** 뿐이다
+ * (캡션 고치기 확인 문구가 이 이름을 쓴다).
+ */
 export function buildPhotoMemoryDisplayLines(
   segments: MemorySegmentData[] | undefined,
   fallbackText?: string | null,
 ): PhotoMemoryDisplayLine[] {
-  const items = normalizeSegments(segments, fallbackText);
-  if (!items.length) return [];
-
-  const contributors = new Set(items.map((item) => item.author).filter(Boolean) as string[]);
-  const showAuthors = contributors.size >= 2;
-
-  let lastAuthor: string | null = null;
-  return items.map((item) => {
-    const author = item.author ?? null;
-    if (!showAuthors || !author) {
-      return { author, text: item.text, showAuthor: false };
-    }
-    const displayAuthor = author !== lastAuthor;
-    if (displayAuthor) lastAuthor = author;
-    return { author, text: item.text, showAuthor: displayAuthor };
-  });
+  return normalizeSegments(segments, fallbackText)
+    .map((item) => ({ author: item.author ?? null, text: item.text, showAuthor: false }));
 }
 
 export function photoMemoryLayoutTier(lines: PhotoMemoryDisplayLine[]): PhotoMemoryLayoutTier {
