@@ -96,3 +96,22 @@ test("주최자가 참여자에게 부탁하는 기능을 만들지 않았다", 
   }
   assert.doesNotMatch(read("components/AlbumMoreSheet.tsx"), /요청|부탁/);
 });
+
+// E-1 (§4·§7) — 성격이 다른 두 버튼은 이름이 달라야 한다.
+//   사진 옆              → `이 사진에 한마디`
+//   `우리가 남긴 말` 구역 → `여기에 남기기`
+//   하단 네비 가운데      → `한마디 쓰기` (사진에 한마디 다는 흐름을 연다)
+test("한마디 버튼 세 자리의 이름이 서로 다르다", () => {
+  const workspace = read("components/ContributeWorkspace.tsx");
+  const guestbook = read("components/AlbumGuestbook.tsx");
+  const nav = read("components/AlbumBottomNavigation.tsx");
+  assert.match(workspace, /이 사진에 한마디/);
+  assert.match(guestbook, /"여기에 남기기"/);
+  assert.match(nav, /<span>한마디 쓰기<\/span>/);
+  // 세 자리 어디에도 옛 이름(`한마디 남기기`)이 남지 않는다 — 성격이 다른데 같은 이름이었다.
+  for (const source of [workspace, guestbook, nav]) {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
+      .filter((line) => !line.trim().startsWith("//")).join("\n");
+    assert.doesNotMatch(code, /한마디 남기기/);
+  }
+});

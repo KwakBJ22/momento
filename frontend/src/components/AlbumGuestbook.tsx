@@ -91,7 +91,7 @@ export default function AlbumGuestbook({ token, albumId, initialEntries = [], de
         <textarea className="public-share__guestbook-message" value={message} maxLength={GUESTBOOK_MESSAGE_MAX} rows={2} placeholder="남기고 싶은 말을 적어 주세요." aria-label="남길 말" onChange={(event) => setMessage(event.target.value)} />
         <div className="public-share__guestbook-actions">
           <span className="public-share__guestbook-count">{message.length}/{GUESTBOOK_MESSAGE_MAX}</span>
-          <button type="submit" className="upload-form__submit" disabled={submitting}>{submitting ? "남기는 중..." : "한마디 남기기"}</button>
+          <button type="submit" className="upload-form__submit" disabled={submitting}>{submitting ? "남기는 중..." : "여기에 남기기"}</button>
         </div>
         {error ? <p className="public-share__guestbook-error" role="alert">{error}</p> : null}
       </form>

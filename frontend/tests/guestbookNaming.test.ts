@@ -48,12 +48,13 @@ test("화면 문자열에 `방명록` 이 없다", () => {
   assert.deepEqual(offenders, []);
 });
 
-test("구역은 `우리가 남긴 말`, 버튼은 `한마디 남기기`", () => {
+test("구역은 `우리가 남긴 말`, 버튼은 `여기에 남기기`", () => {
   const guestbook = readFileSync(new URL("../src/components/AlbumGuestbook.tsx", import.meta.url), "utf8");
   assert.match(guestbook, /<h3 className="public-share__guestbook-title">우리가 남긴 말<\/h3>/);
   assert.match(guestbook, /aria-label="우리가 남긴 말"/);
   // 버튼은 행동을 말한다 — 구역 이름을 버튼에 다시 적지 않는다.
-  assert.match(guestbook, /"한마디 남기기"/);
+  // ★ 사진에 다는 `이 사진에 한마디` 와 성격이 달라 이름을 나눴다(§4·§7).
+  assert.match(guestbook, /"여기에 남기기"/);
   assert.doesNotMatch(guestbook, /우리가 남긴 말 남기기/);
 });
 

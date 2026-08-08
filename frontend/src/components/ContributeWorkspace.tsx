@@ -601,7 +601,7 @@ export default function ContributeWorkspace({
                   ))}
                 </div>
                 <button type="button" className="contribute__memory-btn" onClick={() => openMemoryEditor(photo.id)}>
-                  이 사진에 한마디 남기기
+                  이 사진에 한마디
                 </button>
                 {draftPhotoId === photo.id ? (
                   <div className="contribute__draft">

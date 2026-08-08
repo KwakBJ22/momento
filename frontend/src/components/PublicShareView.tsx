@@ -115,7 +115,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionAction, setContributionAction] = useState<"photo" | "memory" | null>(() => initialCache?.contributionAction ?? null);
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
-  // 하단 "한마디 남기기"가 방명록 구역으로 스크롤한다(§4·§7 진입 규칙).
+  // 구경꾼은 본문 맨 아래에서 이 구역을 만난다(§4 8차 — 네비 칸을 쓰지 않는다).
   const guestbookRef = useRef<HTMLDivElement | null>(null);
   // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
   // 참여자가 PDF·함께한 사람에 아예 접근할 수 없다.
@@ -433,13 +433,14 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       ) : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
-          하단 "한마디 남기기"가 이 구역으로 내려온다(§4: 버튼은 행동, 구역은 이름). */}
+          구역 안의 버튼은 `여기에 남기기` 다 — 사진에 다는 `이 사진에 한마디` 와
+          성격이 달라 이름을 나눴다(§4·§7). */}
       <div ref={guestbookRef}>
       <AlbumGuestbook token={token} albumId={albumId || ""} initialEntries={guestbook} defaultAuthorName={participantName} />
       </div>
       {(album.pending_items || []).length ? <section className="public-share__pending" aria-label="새로 더해진 사진과 한마디"><h3>새로 더해진 사진과 한마디</h3><div className="public-share__pending-list">{(album.pending_items || []).map((item) => <article key={`${item.type}-${item.id}`} className="public-share__pending-item">{item.type === "photo" && item.thumbnail_url ? <img src={item.thumbnail_url} alt="참여자가 추가한 사진" loading="lazy" decoding="async" /> : null}<div><p className="public-share__pending-meta">{item.author_name || item.actor_name || "익명"}<span aria-hidden="true"> · </span>{formatContributionTime(item.created_at)}</p>{item.type === "photo" && item.comment ? <p className="public-share__pending-copy">{item.comment}</p> : null}{item.type === "memory" && item.content ? <p className="public-share__pending-copy">{item.content}</p> : null}</div></article>)}</div></section> : null}
       {/* 참여 블록은 함께 만들기 링크에서만. 구경꾼에게 할 수 없는 행동을 보여주지 않는다(§1). */}
-      {canContribute ? <section className="public-share__join" aria-label="앨범 참여"><p><strong>사진과 한마디를 더할 수 있어요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>한마디 남기기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section> : null}
+      {canContribute ? <section className="public-share__join" aria-label="앨범 참여"><p><strong>사진과 한마디를 더할 수 있어요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>한마디 쓰기</button></div>{isStartingContribution ? <p className="public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="public-share__join-error" role="alert">{contributionError}{authenticatedUser && !contributionSession ? <button type="button" className="btn btn--ghost public-share__join-retry" onClick={retryContribution}>다시 시도</button> : null}</p> : null}</section> : null}
       {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">참여자명을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}
       {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
     </>
@@ -552,7 +553,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         <p><strong>사진과 한마디를 더할 수 있어요</strong></p>
         <div className="public-share__join-actions">
           <button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button>
-          <button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>한마디 남기기</button>
+          <button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>한마디 쓰기</button>
           <button type="button" className="btn btn--ghost" disabled={shareLoading} onClick={() => void share()}>{shareLoading ? "공유 준비 중..." : "카카오톡으로 공유"}</button>
         </div>
         {contributionError ? <p className="public-share__join-error" role="alert">{contributionError}</p> : null}

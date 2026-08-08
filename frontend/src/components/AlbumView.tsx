@@ -641,7 +641,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
   const albumBody = (
     <>
-      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "한마디 남기기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "한마디 남기기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
+      {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "한마디 쓰기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "한마디 쓰기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
       {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
       {deleteConfirmOpen ? (
