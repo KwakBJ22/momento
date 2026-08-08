@@ -143,6 +143,7 @@ from app.services.collaboration_service import (
     ensure_owner_contributor,
     get_contributor,
     list_contributors,
+    resolve_contributor_names,
     get_cached_pdf_path,
     get_cached_pdf_bucket,
     list_photo_memories,
@@ -1949,15 +1950,20 @@ async def get_album(
     # usable_owner_display_name 판정(이메일 앞부분 차단)을 통과한 값만 내려보낸다 —
     # 판정에 계정 이메일이 필요해서 프런트가 아니라 여기서 한다.
     if authenticated_user_id and access.album_role == "contributor" and not access.is_album_owner:
-        contributor_rows = (
-            client.table("album_contributors")
-            .select("id, display_name, relationship")
-            .eq("album_id", album_id)
-            .eq("user_id", authenticated_user_id)
-            .eq("status", "active")
-            .execute()
-            .data
-            or []
+        # 참여 정체성 띠(§8)의 이름도 같은 규칙을 쓴다 — 계정이 있으면 profiles 의
+        # **지금 이름**이다(저장된 스냅샷이 아니다).
+        contributor_rows = resolve_contributor_names(
+            client,
+            (
+                client.table("album_contributors")
+                .select("id, user_id, display_name, relationship")
+                .eq("album_id", album_id)
+                .eq("user_id", authenticated_user_id)
+                .eq("status", "active")
+                .execute()
+                .data
+                or []
+            ),
         )
         if contributor_rows:
             contributor_ids = [str(row["id"]) for row in contributor_rows]

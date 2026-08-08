@@ -368,15 +368,18 @@ def list_active_contributor_names(client: Client, album_id: str) -> list[str]:
     수와 이름이 어긋나면 "3명" 이라고 써 놓고 두 명만 적히는 일이 난다.
     들어온 순서(joined_at)를 지킨다 — 주최자가 먼저 들어오므로 자연히 맨 앞에 온다.
     """
-    rows = (
-        client.table("album_contributors")
-        .select("display_name,joined_at")
-        .eq("album_id", album_id)
-        .eq("status", "active")
-        .order("joined_at")
-        .execute()
-        .data
-        or []
+    rows = resolve_contributor_names(
+        client,
+        (
+            client.table("album_contributors")
+            .select("user_id,display_name,joined_at")
+            .eq("album_id", album_id)
+            .eq("status", "active")
+            .order("joined_at")
+            .execute()
+            .data
+            or []
+        ),
     )
     names: list[str] = []
     for row in rows:
@@ -537,16 +540,46 @@ def require_contributor(
     return contributor
 
 
+def resolve_contributor_names(client: Client, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """참여자 행에 **지금의 이름**을 채워 준다 — 이름을 읽는 곳은 여기 하나다 (SCREEN_SPEC §1).
+
+    ★ album_contributors.display_name 은 **참여하던 그때의 스냅샷**이다. profiles 를 고쳐도
+      따라오지 않아, 프로덕션에 `kbjkwak`(이메일 앞부분)이 화면에 그대로 남아 있었다.
+      계정이 있는 사람의 이름은 profiles 에서 읽는다.
+    ★ 게스트만 예외다 — profiles 가 없으니 저장된 값을 그대로 쓴다.
+      그래서 컬럼을 지우지 않는다. 게스트에게 필요하다.
+
+    한 번의 질의로 필요한 profiles 를 모두 읽는다(사람 수만큼 부르지 않는다).
+    """
+    user_ids = sorted({str(row.get("user_id")) for row in rows if row.get("user_id")})
+    profiles: dict[str, str] = {}
+    if user_ids:
+        fetched = (
+            client.table("profiles").select("id,display_name").in_("id", user_ids).execute().data or []
+        )
+        for profile in fetched:
+            name = str(profile.get("display_name") or "").strip()
+            if name:
+                profiles[str(profile.get("id"))] = name
+    resolved: list[dict[str, Any]] = []
+    for row in rows:
+        user_id = str(row.get("user_id") or "")
+        current = profiles.get(user_id)
+        resolved.append({**row, "display_name": current or row.get("display_name")} if current else dict(row))
+    return resolved
+
+
 def list_contributors(client: Client, album_id: str) -> list[dict[str, Any]]:
     result = (
         client.table("album_contributors")
-        .select("id, display_name, relationship, role, joined_at, last_active_at, status")
+        .select("id, user_id, display_name, relationship, role, joined_at, last_active_at, status")
         .eq("album_id", album_id)
         .eq("status", "active")
         .order("joined_at")
         .execute()
     )
-    return result.data or []
+    # 이름은 여기서 한 번에 지금 값으로 바꾼다 — 부르는 쪽이 스냅샷을 보지 않게 한다.
+    return resolve_contributor_names(client, result.data or [])
 
 
 def remove_contributor(client: Client, album_id: str, contributor_id: str) -> None:
