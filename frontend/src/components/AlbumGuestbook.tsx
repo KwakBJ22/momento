@@ -64,7 +64,7 @@ export default function AlbumGuestbook({ token, albumId, initialEntries = [], de
       addMyGuestbookId(albumId, entry.id);
       setMessage("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "방명록을 남기지 못했어요. 다시 시도해 주세요.");
+      setError(cause instanceof Error ? cause.message : "한마디를 남기지 못했어요. 다시 시도해 주세요.");
     } finally {
       setSubmitting(false);
     }
@@ -83,15 +83,15 @@ export default function AlbumGuestbook({ token, albumId, initialEntries = [], de
   };
 
   return (
-    <section className="public-share__guestbook" aria-label="방명록">
-      <h3 className="public-share__guestbook-title">방명록</h3>
+    <section className="public-share__guestbook" aria-label="우리가 남긴 말">
+      <h3 className="public-share__guestbook-title">우리가 남긴 말</h3>
       <p className="public-share__guestbook-hint">앨범 전체에 짧은 인사를 남겨보세요.</p>
       <form className="public-share__guestbook-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <input className="public-share__guestbook-name" value={authorName} maxLength={GUESTBOOK_NAME_MAX} autoComplete="name" placeholder="이름" aria-label="이름" onChange={(event) => setAuthorName(event.target.value)} />
-        <textarea className="public-share__guestbook-message" value={message} maxLength={GUESTBOOK_MESSAGE_MAX} rows={2} placeholder="남기고 싶은 말을 적어 주세요." aria-label="방명록 메시지" onChange={(event) => setMessage(event.target.value)} />
+        <textarea className="public-share__guestbook-message" value={message} maxLength={GUESTBOOK_MESSAGE_MAX} rows={2} placeholder="남기고 싶은 말을 적어 주세요." aria-label="남길 말" onChange={(event) => setMessage(event.target.value)} />
         <div className="public-share__guestbook-actions">
           <span className="public-share__guestbook-count">{message.length}/{GUESTBOOK_MESSAGE_MAX}</span>
-          <button type="submit" className="upload-form__submit" disabled={submitting}>{submitting ? "남기는 중..." : "방명록 남기기"}</button>
+          <button type="submit" className="upload-form__submit" disabled={submitting}>{submitting ? "남기는 중..." : "한마디 남기기"}</button>
         </div>
         {error ? <p className="public-share__guestbook-error" role="alert">{error}</p> : null}
       </form>

@@ -183,7 +183,7 @@ def delete_own_guestbook_entry(client: Client, album_id: str, entry_id: str, ses
     )
     rows = result.data or []
     if not rows or str(rows[0].get("album_id")) != str(album_id):
-        raise HTTPException(status_code=404, detail="방명록 글을 찾지 못했어요.")
+        raise HTTPException(status_code=404, detail="남긴 말을 찾지 못했어요.")
     entry = rows[0]
     if len(session_key) < 16 or str(entry.get("session_hash") or "") != hash_token(session_key):
         raise HTTPException(status_code=403, detail="본인이 남긴 글만 지울 수 있어요.")
