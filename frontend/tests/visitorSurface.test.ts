@@ -24,10 +24,10 @@ test("구경꾼 화면에 사진 추가·코멘트 진입점이 없다", () => {
   assert.match(open, /if \(!canContribute\) return;/);
 });
 
-test("감상 링크에서는 자동 참여가 시작되지 않는다", () => {
+test("어느 링크에서도 자동 참여가 시작되지 않는다 (D-3 — view·contribute 양쪽)", () => {
   const view = read("components/PublicShareView.tsx");
-  const effect = view.slice(view.indexOf("// 감상 링크에서는 자동 참여를"), view.indexOf("void startPublicContribution"));
-  assert.match(effect, /if \(!canContribute\) return;/);
+  // 예전에는 view 링크에서만 막고 contribute 링크는 자동으로 참여시켰다. 이제 양쪽 다 아니다.
+  assert.doesNotMatch(view, /startPublicContribution\(token, null, authenticatedUser/);
 });
 
 test("비로그인 구경꾼에게 헤더 우측 `로그인`이 있다 (§3)", () => {

@@ -337,6 +337,17 @@ class PublicShareAlbumResponse(BaseModel):
     # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
     # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
     can_contribute: bool = True
+    # ★ 로그인한 사람이 **이미** 이 앨범의 참여자인가 (SCREEN_SPEC §1).
+    # 참여는 언제나 사용자가 이름을 적고 시작한다 — 링크를 열었다고 참여자가 되지 않는다.
+    # 다만 이미 참여자인 사람은 다시 묻지 않는다. 그 판정을 화면이 추측하지 않도록
+    # 서버가 기존 album_contributors 행을 그대로 내려준다(행을 만들지 않는다).
+    viewer_contributor: "ShareViewerContributor | None" = None
+
+
+class ShareViewerContributor(BaseModel):
+    contributor_id: UUID
+    display_name: str
+    guest_id: UUID | None = None
 
 
 class ShareReactionRequest(BaseModel):

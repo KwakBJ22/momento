@@ -245,6 +245,9 @@ export interface LivingAppendPage {
 
 export interface PublicShareAlbum {
   album_id: string;
+  /** ★ 이미 이 앨범의 참여자인가 (§1). 링크를 열었다고 참여자가 되지 않는다 —
+   *  서버가 기존 행이 있을 때만 내려준다. 화면은 이 값을 받아 쓸 뿐 만들지 않는다. */
+  viewer_contributor?: { contributor_id: string; display_name: string; guest_id?: string | null } | null;
   /** 함께한 사람 수 — 더보기 시트 행(§5). */
   contributor_count?: number;
   /** 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가. 백엔드가 내려주는 값이며

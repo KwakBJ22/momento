@@ -13,7 +13,7 @@ from app.models.schemas import (
     DEFAULT_ALBUM_PHOTO_CAPACITY,
     GuestbookCreateRequest, GuestbookDeleteRequest, GuestbookItem,
     PublicContributionItem, PublicMediaItem,
-    PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest,
+    PublicShareAlbumResponse, ShareLinkCreateRequest, ShareLinkResponse, ShareReactionRequest, ShareViewerContributor,
     AlbumPhotoUrlResponse,
 )
 from app.services.authorization import require_album_edit_settings
@@ -35,7 +35,7 @@ from app.services.supabase import (
     get_signed_urls_batch,
     get_supabase_client,
 )
-from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, unpack_edition_snapshot
+from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, resolve_contributor_names, unpack_edition_snapshot
 from app.services.collaboration_service import count_active_contributors, join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
@@ -338,7 +338,33 @@ async def get_public_share(
         if cover_photo else None
     )
 
+    # ★ 자동 참여를 하지 않는다(§1) — 링크를 열었다고 참여자로 만들지 않는다.
+    # 다만 **이미** 참여자인 사람은 다시 묻지 않는다. 기존 행이 있으면 그대로 내려준다.
+    # 행을 만들지 않는다: 여기서는 읽기만 한다.
+    viewer_contributor = None
+    if user_id:
+        existing = (
+            client.table("album_contributors")
+            .select("id, user_id, display_name, guest_id")
+            .eq("album_id", album_id)
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if existing:
+            # 이름은 profiles 의 지금 값이다(D-2) — 저장된 스냅샷을 쓰지 않는다.
+            row = resolve_contributor_names(client, existing)[0]
+            viewer_contributor = ShareViewerContributor(
+                contributor_id=UUID(str(row["id"])),
+                display_name=str(row.get("display_name") or "참여자"),
+                guest_id=UUID(str(row["guest_id"])) if row.get("guest_id") else None,
+            )
+
     return PublicShareAlbumResponse(
+        viewer_contributor=viewer_contributor,
         album_id=UUID(album_id),
         title=str(album.get("title") or "우리의 추억"),
         narrative=narrative,

@@ -219,11 +219,12 @@ test("the share entry router decides owner versus public participation before re
   assert.match(entry, /authTimedOut/);
 });
 
-test("authenticated share visitors use an account-backed contributor session instead of the name form", () => {
+// ★ D-3 (§1) — 이 계약은 뒤집혔다. 로그인했다고 참여자로 만들지 않는다.
+// 자세한 것은 tests/publicShareContribution.test.ts 가 본다.
+test("로그인한 사람도 이름을 적어야 참여자가 된다 (자동 참여 없음)", () => {
   const source = component("PublicShareView");
-  assert.match(source, /authenticatedUser\?\.displayName/);
-  assert.match(source, /startPublicContribution\(token, null, authenticatedUser\.displayName\)/);
-  assert.match(source, /if \(authenticatedUser && !contributionSession\) return/);
+  assert.doesNotMatch(source, /startPublicContribution\(token, null, authenticatedUser/);
+  assert.match(source, /참여자명을 알려주세요/);
 });
 
 test("app authentication bootstrap completes before the share entry router can select Guest", () => {
