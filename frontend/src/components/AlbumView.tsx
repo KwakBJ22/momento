@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoComment, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
@@ -262,10 +262,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     setIsSavingPhotoComment(true);
     setPhotoCommentSaveError(null);
     try {
-      const saved = await saveAlbumPhotoComment(albumId, editingPhotoId, photoCommentDraft);
+      const saved = await saveAlbumPhotoCaption(albumId, editingPhotoId, photoCommentDraft);
+      // ★ 화면이 읽는 필드는 caption 이다. 예전에는 comment 에 넣어서, 저장이 됐더라도
+      // 방금 적은 글이 화면에 나타나지 않았다(같은 결함의 두 번째 얼굴).
       setPhotos((current) =>
         current.map((item) =>
-          item.id === saved.id ? { ...item, comment: saved.comment } : item,
+          item.id === saved.id ? { ...item, caption: saved.caption } : item,
         ),
       );
       handleCancelPhotoCommentEdit();

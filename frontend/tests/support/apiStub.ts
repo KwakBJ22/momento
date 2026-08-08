@@ -59,7 +59,7 @@ export async function deleteAlbum(): Promise<void> {}
 export async function patchAlbumTitle(): Promise<void> {}
 export async function patchChapterStory(): Promise<void> {}
 export async function patchEpilogue(): Promise<void> {}
-export async function saveAlbumPhotoComment(): Promise<void> {}
+export async function saveAlbumPhotoCaption(): Promise<void> {}
 export async function startPublicContribution(): Promise<CollabSession> {
   return { albumId: "album", contributorId: "contributor", guestId: null, displayName: "테스트" };
 }

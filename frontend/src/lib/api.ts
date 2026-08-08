@@ -272,10 +272,16 @@ export async function getAlbumPhotos(albumId: string, edition?: number | null, s
   });
 }
 
-export async function saveAlbumPhotoComment(albumId: string, photoId: string, comment: string): Promise<{ id: string; comment: string | null }> {
-  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment: comment.trim() || null }) });
+/** 캡션(①) 저장 — album_photos.caption. 인쇄까지 가는 유일한 글이다(§7).
+ *
+ *  ★ 이름을 서버와 **똑같이** 쓴다. 예전에는 프런트가 `comment` 로 보내고 서버는
+ *  `caption` 을 읽어서, 요청은 200 인데 **빈 값이 저장**됐다(적은 글이 사라졌다).
+ *  Pydantic 은 모르는 키를 조용히 버리고 빠진 키를 기본값 None 으로 채운다 —
+ *  그래서 오류도 나지 않았다. 이름 하나가 어긋나면 조용히 지운다. */
+export async function saveAlbumPhotoCaption(albumId: string, photoId: string, caption: string): Promise<{ id: string; caption: string | null }> {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/photos/${photoId}/comment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ caption: caption.trim() || null }) });
   if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as { id: string; comment: string | null };
+  return (await response.json()) as { id: string; caption: string | null };
 }
 
 export type AlbumGenerationStatus = {

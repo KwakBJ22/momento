@@ -9,6 +9,13 @@ const API_STUB = new URL("./apiStub.ts", import.meta.url).href;
 const ALBUM_ENGINE_STUB = new URL("./albumEngineStub.tsx", import.meta.url).href;
 const AUTH_SERVICE_STUB = new URL("./authServiceStub.ts", import.meta.url).href;
 
+/** register() 가 넘겨주는 설정. 훅은 별도 스레드라 process.env 로는 전달되지 않는다. */
+let options = { realApi: false };
+
+export async function initialize(data) {
+  options = { ...options, ...(data ?? {}) };
+}
+
 export async function resolve(specifier, context, next) {
   if (specifier.endsWith(".css")) {
     return { url: new URL(specifier, context.parentURL).href, shortCircuit: true, format: "module" };
@@ -18,7 +25,11 @@ export async function resolve(specifier, context, next) {
   // 진짜 api.ts 는 Vite 전용 import.meta.env 를 읽어 node 에서 불러올 수 없고,
   // 마운트 테스트가 보는 것은 네트워크가 아니라 렌더다.
   const path = resolved.url.split("\\").join("/");
-  if (path.endsWith("/src/lib/api.ts")) {
+  // ★ "무엇이 서버로 나가는가" 를 보는 테스트는 **진짜 api.ts** 를 써야 한다. 대역으로
+  // 돌리면 요청 본문을 볼 수 없어, 이름이 어긋나 조용히 빈 값이 저장되던 결함(G-1)을
+  // 다시 놓친다. 그런 테스트는 registerCssStub({ realApi: true }) 로 이 대역만 끈다
+  // (import.meta.env 를 채워 주는 load 훅은 그대로 필요하다).
+  if (path.endsWith("/src/lib/api.ts") && !options.realApi) {
     return { ...resolved, url: API_STUB, shortCircuit: true };
   }
   // 로그인 판정도 대역으로. 진짜 authService 는 Vite 전용 import.meta.env 로 설정

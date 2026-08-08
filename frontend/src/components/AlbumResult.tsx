@@ -8,7 +8,7 @@ import {
   isPublicShareUrl,
   patchAlbumTitle,
   patchEpilogue,
-  saveAlbumPhotoComment,
+  saveAlbumPhotoCaption,
 } from "../lib/api";
 import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { downloadAlbumPdf } from "../lib/exportPdf";
@@ -170,8 +170,9 @@ export default function AlbumResultView({
     setPhotoCommentSaveError(null);
     setNotice(null);
     try {
-      const saved = await saveAlbumPhotoComment(result.album_id, photo.id, photoCommentDraft);
-      setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, comment: saved.comment } : item)));
+      const saved = await saveAlbumPhotoCaption(result.album_id, photo.id, photoCommentDraft);
+      // 화면이 읽는 필드는 caption 이다(같은 결함의 두 번째 얼굴).
+      setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, caption: saved.caption } : item)));
       handleCancelPhotoCommentEdit();
       setNotice("사진 한마디를 저장했어요.");
     } catch (err) {

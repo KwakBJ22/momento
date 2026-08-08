@@ -13,10 +13,14 @@ import { JSDOM } from "jsdom";
 
 let registered = false;
 
-/** `.css` import 를 빈 모듈로 만드는 로더를 한 번만 등록한다. */
-export function registerCssStub(): void {
+/** `.css` import 를 빈 모듈로 만드는 로더를 한 번만 등록한다.
+ *
+ *  `realApi: true` 를 주면 lib/api 대역만 끄고 **진짜 api.ts** 를 쓴다 — 요청 본문을
+ *  보는 테스트(무엇이 서버로 나가는가)에 필요하다. import.meta.env 를 채워 주는
+ *  load 훅은 그대로 걸리므로 node 에서도 불러올 수 있다. */
+export function registerCssStub(options: { realApi?: boolean } = {}): void {
   if (registered) return;
-  register("./cssStub.mjs", import.meta.url);
+  register("./cssStub.mjs", import.meta.url, { data: options });
   registered = true;
 }
 
