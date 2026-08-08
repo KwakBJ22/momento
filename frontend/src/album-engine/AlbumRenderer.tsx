@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
+import PrintPages from "./components/PrintPages";
 import AlbumContributors from "./components/AlbumContributors";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
@@ -118,7 +119,11 @@ export default function AlbumRenderer({
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
   const blockRefs = useRef<Array<HTMLElement | null>>([]);
-  const preferOriginal = mode === "print";
+  // ★ 열람용 PDF 는 **display(WebP)** 를 쓴다(§9). 원본은 인쇄용(200×200mm)의 몫이고
+  // 그것은 나중이다. 지금 원본을 쓰면 파일만 무거워지고 A4 화면 보기에는 차이가 없다.
+  // 크기 재기(resolveDimensions)는 인쇄 레이아웃에 필요하므로 print 에서만 계속 한다 —
+  // 예전에는 이 둘이 한 플래그였고, 그래서 화질까지 원본으로 끌려갔다.
+  const measurePhotos = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
   const [newAppendPageIds, setNewAppendPageIds] = useState<Set<string>>(new Set());
 
@@ -130,11 +135,11 @@ export default function AlbumRenderer({
         active = false;
       };
     }
-    const base = photos.map((photo) => toEnginePhoto(photo, preferOriginal));
+    const base = photos.map((photo) => toEnginePhoto(photo, false));
     // The web album can render safely with the metadata it has. Preloading every
     // legacy image just to discover dimensions delayed the entire first screen.
     // Print keeps the dimension pass so PDF layout retains its existing quality.
-    const prepared = preferOriginal ? Promise.all(base.map(resolveDimensions)) : Promise.resolve(base);
+    const prepared = measurePhotos ? Promise.all(base.map(resolveDimensions)) : Promise.resolve(base);
     void prepared.then((resolved) => {
       if (!active) return;
       const built = buildAlbum(resolved, {
@@ -150,7 +155,7 @@ export default function AlbumRenderer({
     return () => {
       active = false;
     };
-  }, [photos, category, title, epilogueText, coverDateLabel, chapterStories, albumId, preferOriginal]);
+  }, [photos, category, title, epilogueText, coverDateLabel, chapterStories, albumId, measurePhotos]);
 
   useEffect(() => {
     if (!album || !onReady) return;
@@ -410,21 +415,25 @@ export default function AlbumRenderer({
               {screenChapters}
             </div>
           ) : (
+            /* 열람용 PDF 본문 — A4 한 장 단위로 짠다(§9). 화면과 같은 chapter 데이터를
+               쓰므로 순서·글자·계층이 화면과 같고, 다른 것은 레이아웃뿐이다. */
             <div className="album-renderer__blocks">
-              {album.elements.map((element, index) => (
-                <div
-                  key={`album-block-${index}`}
-                  className="album-renderer__block"
-                  ref={(node) => { blockRefs.current[index] = node; }}
-                >
-                  {element}
-                </div>
-              ))}
+              <PrintPages album={album} />
             </div>
           )}
 
-          <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+          {mode === "print" ? (
+            /* 끝 글은 한 장으로 묶는다 — "우리의 이야기" 와 "함께 만든 사람" 이 갈라지지 않게. */
+            <section className="print-closing">
+              <AlbumEpilogue epilogue={epilogueText} templateType={templateType} />
               <AlbumContributors names={contributorNames} />
+            </section>
+          ) : (
+            <>
+              <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
+              <AlbumContributors names={contributorNames} />
+            </>
+          )}
           {livingAppendPages.map((page, index) => (
             <section
               key={page.id}
@@ -461,11 +470,14 @@ export default function AlbumRenderer({
               ) : null}
             </section>
           ))}
-          <footer className="album-renderer__brand-footer">
+          {/* ★ 마지막 브랜드 페이지 — 독립 페이지로 두고 크게. 이 PDF 가 이 서비스를
+              알리는 유일한 자리다(§9). 이름은 글자가 아니라 **로고 조합**으로 쓴다
+              (BrandMark: 우리(진한 글자색) + 앨범(브랜드색)). 없는 것을 약속하지 않는다(§10). */}
+          <section className="album-renderer__brand-page">
             <BrandMark label={BRAND_NAME_KO} />
             <p>{BRAND_PDF_FOOTER}</p>
-            <a href="/">{BRAND_PDF_INVITE}</a>
-          </footer>
+            <p>{BRAND_PDF_INVITE}</p>
+          </section>
         </div>
         </DateStoryEditProvider>
       </PhotoCommentEditProvider>

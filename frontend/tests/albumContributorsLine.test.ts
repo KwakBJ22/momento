@@ -63,10 +63,12 @@ test("이름 가운데서 줄이 바뀌지 않는다", () => {
 test("★ PDF 에 들어가고, 페이지 경계에서 잘리지 않는다", () => {
   const renderer = readFileSync(new URL("../src/album-engine/AlbumRenderer.tsx", import.meta.url), "utf8");
   // 웹·공유·PDF 가 같은 렌더러를 쓴다 — 이 줄은 렌더러 안에 있으므로 세 곳 모두에 나온다.
-  assert.equal((renderer.match(/<AlbumContributors /g) || []).length, 2, "두 렌더 경로 모두");
-  // 페이지 나눔에서 이 덩어리를 통째로 다음 장으로 민다.
+  // 세 갈래 모두: 사진 없는 살아있는 앨범 / 인쇄(print-closing) / 화면.
+  assert.equal((renderer.match(/<AlbumContributors /g) || []).length, 3, "모든 렌더 경로");
+  // 끝 글(우리의 이야기 + 함께 만든 사람)은 print-closing 한 장으로 묶여 갈라지지 않는다.
+  assert.match(renderer, /<section className="print-closing">[\s\S]{0,220}<AlbumContributors names=\{contributorNames\} \/>/);
   const pdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  assert.match(pdf, /const selector = "[^"]*\.album-contributors[^"]*"/);
+  assert.match(pdf, /const selector = "[^"]*\.print-closing[^"]*"/);
   const css = readFileSync(new URL("../src/album-engine/components/AlbumContributors.css", import.meta.url), "utf8");
   assert.match(css, /break-inside: avoid/);
   assert.match(css, /page-break-inside: avoid/);

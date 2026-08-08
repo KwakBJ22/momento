@@ -22,8 +22,9 @@ test("로고는 작다 — 사진이 주인공이다", () => {
   assert.match(icon, /height: 14px;/);
   // 색은 토큰만 쓴다(새 색을 만들지 않는다).
   assert.match(icon, /color: var\(--c-brand\);/);
-  const word = css.slice(css.indexOf(".album-brand-mark__word {"), css.indexOf("}", css.indexOf(".album-brand-mark__word {")));
-  assert.match(word, /color: var\(--c-brand-text\);/);
+  // ★ 이름은 로고 조합이다(§9) — `우리`(진한 글자색) + `앨범`(브랜드색). 한 색이 아니다.
+  const word = css.slice(css.indexOf(".album-brand-mark__word {"), css.indexOf(".album-brand-mark__word i", css.indexOf(".album-brand-mark__word {")));
+  assert.match(word, /\.album-brand-mark__word b \{ color: var\(--c-text\)/);
   assert.doesNotMatch(`${icon}${word}`, /#[0-9a-fA-F]{3,6}/); // 하드코딩 색 없음
 });
 

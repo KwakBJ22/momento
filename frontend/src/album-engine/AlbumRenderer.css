@@ -116,12 +116,17 @@
   width: 210mm;
   max-width: 210mm;
   margin: 0 auto;
-  padding: 14mm;
+  /* ★ 루트에 여백을 두지 않는다. 여백이 있으면 페이지 단위(aspect-ratio 210/297)의
+     기준 폭이 줄어 한 장이 A4 보다 짧아지고, 그만큼씩 밀려 모든 장이 경계에 걸친다
+     — 실측에서 973px(정상 1123px)이 나왔다. 여백은 각 장 안에서 준다. */
+  padding: 0;
   box-sizing: border-box;
 }
 
+/* 장과 장 사이에 간격이 없어야 한 덩어리 = 한 장이 유지된다. */
 .album-renderer--print .album-renderer__blocks {
-  gap: 8mm;
+  display: block;
+  gap: 0;
 }
 
 .album-renderer__block:has(.chapter-header) {
@@ -352,9 +357,11 @@
   flex: none;
 }
 
+/* ★ 로고 조합 — `우리`(진한 글자색) + `앨범`(브랜드색). 값은 tokens.css 에서 읽는다. */
 .album-brand-mark__word {
   font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.01em;
-  color: var(--c-brand-text);
 }
+.album-brand-mark__word b { color: var(--c-text); font-weight: inherit; }
+.album-brand-mark__word i { color: var(--c-brand); font-style: normal; font-weight: inherit; }

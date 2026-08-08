@@ -177,7 +177,9 @@ export function alignBlocksToPrintPages(element: HTMLElement): void {
   // Margin [0,0,0,0] + a 210mm-wide host: one page is (297/210) × width in source px.
   const pageHeightPx = element.getBoundingClientRect().width * (297 / 210);
   if (!(pageHeightPx > 0)) return;
-  const selector = ".album-cover, .album-renderer__block, .album-epilogue, .album-contributors, .album-living-page, .album-renderer__brand-footer";
+  // 열람용 PDF 의 페이지 단위(§9). 표지·본문 한 장·끝 글·브랜드 페이지가 각각 정확히
+    // A4 한 장(aspect-ratio 210/297)이라, 이 보정은 반올림으로 생기는 어긋남만 밀어 준다.
+    const selector = ".album-cover, .print-page, .print-closing, .album-living-page, .album-renderer__brand-page";
   for (let guard = 0; guard < 500; guard += 1) {
     const hostTop = element.getBoundingClientRect().top;
     const units = Array.from(element.querySelectorAll<HTMLElement>(selector));
