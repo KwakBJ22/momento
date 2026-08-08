@@ -35,29 +35,15 @@ test("가입 흐름에는 연락처 입력이 없다", () => {
   assert.deepEqual(users.map((f) => f.replace(SRC, "").replace(/\\/g, "/")), ["components/AccountSheetRow.tsx"]);
 });
 
-test("계정 행에서 넣고·고치고·지울 수 있다", () => {
-  const source = read("components/AccountContact.tsx");
-  assert.match(source, /연락처 \(선택\)/);
-  assert.match(source, /계정을 잃어버렸을 때 본인 확인에 씁니다\. 다른 곳에는 쓰지 않아요\./);
-  // 넣기(저장) · 고치기 · 지우기 세 동작이 모두 있다.
-  assert.match(source, />저장</);
-  assert.match(source, />고치기</);
-  assert.match(source, />지우기</);
-  // 지우기는 빈 값(null)을 보낸다 — 삭제도 같은 저장 경로다.
-  assert.match(source, /commit\(field, null\)/);
-  // 둘 다 선택이라 각각 따로 저장한다(하나만 넣어도 된다).
-  assert.match(source, /\(\["phone", "email"\] as Field\[\]\)\.map\(row\)/);
-});
+// 넣기·고치기·지우기와 하이픈·저장 버튼 위치는 tests/accountContactMount.test.ts 가
+// 실제 렌더로 확인한다(구현 위치를 잠그지 않기 위해 여기서 소스 문자열로 보지 않는다).
 
-test("저장한 값은 가려진 형태로만 화면에 온다", () => {
+test("가리는 규칙은 서버 한 곳에 있다", () => {
   const api = read("lib/api.ts");
-  // 화면은 서버가 가려서 준 문자열을 그대로 보여줄 뿐, 원본을 가진 적이 없다.
   assert.match(api, /getProfileContact/);
   assert.match(api, /saveProfileContact/);
+  // 프런트가 따로 자르지 않는다 — 두 곳에서 자르면 규칙이 어긋난다.
   const component = read("components/AccountContact.tsx");
-  assert.match(component, /className="account-contact__value">\{saved\}</);
-  // 가리는 규칙은 서버 한 곳에 있다 — 프런트가 따로 자르지 않는다(두 곳이 어긋난다).
-  // 주석의 예시(010-****-5678)는 설명이므로 코드 부분만 본다.
   const code = component.slice(component.indexOf("type Field ="));
   assert.doesNotMatch(code, /\*\*\*\*/);
 });
@@ -65,11 +51,14 @@ test("저장한 값은 가려진 형태로만 화면에 온다", () => {
 test("누르는 영역 44px, 글자 14px 하한", () => {
   const css = read("components/AppChrome.css");
   const block = css.slice(css.indexOf(".account-contact {"));
-  for (const selector of [".account-contact__input", ".account-contact__action"]) {
-    const rule = block.slice(block.indexOf(`${selector} {`), block.indexOf("}", block.indexOf(`${selector} {`)));
-    assert.match(rule, /min-height: 44px/, `${selector} 는 44px 이상`);
-    assert.match(rule, /font-size: 14px/, `${selector} 는 14px 이상`);
+  const rule = (selector: string) => block.slice(block.indexOf(`${selector} {`), block.indexOf("}", block.indexOf(`${selector} {`)));
+  for (const selector of [".account-contact__input", ".account-contact__save", ".account-contact__clear"]) {
+    assert.match(rule(selector), /min-height: 44px/, `${selector} 는 44px 이상`);
+    assert.match(rule(selector), /font-size: 14px/, `${selector} 는 14px 이상`);
   }
+  // 칸은 전폭이다 — 옆에 버튼을 두면 좁은 기기에서 밖으로 넘친다(실기기 결함).
+  assert.match(rule(".account-contact__input"), /width: 100%/);
+  assert.match(rule(".account-contact__input"), /box-sizing: border-box/);
   for (const size of block.match(/font-size: (\d+)px/g) || []) {
     assert.ok(Number(size.replace(/\D/g, "")) >= 14, `${size} — 14px 하한`);
   }

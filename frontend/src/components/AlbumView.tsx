@@ -17,6 +17,7 @@ import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace"
 import AlbumScreen from "./AlbumScreen";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import ConfirmSheet from "./ConfirmSheet";
 
 import type { AlbumPhoto, AlbumResult } from "../types";
@@ -72,6 +73,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [collabRefreshKey, setCollabRefreshKey] = useState(0);
   // 헤더 "더보기" 시트 + 표지 사진 바꾸기 신호(CollaborationPanel 의 기존 픽커를 연다).
   const [moreOpen, setMoreOpen] = useState(false);
+  const { requestClose: requestCloseMore, guard: contactGuard } = useContactCloseGuard(() => setMoreOpen(false));
   const [coverPickerRequest, setCoverPickerRequest] = useState(0);
   // 공유하기 시트(목업 화면 2): 하단 네비 공유하기가 바로 카카오를 부르지 않고 이 시트를 연다.
   const [shareOpen, setShareOpen] = useState(false);
@@ -653,10 +655,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onCancel={() => setDeleteConfirmOpen(false)}
         />
       ) : null}
-      {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { setMoreOpen(false); setShareOpen(false); }} /> : null}
+      {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { requestCloseMore(); setShareOpen(false); }} /> : null}
+      {/* 적다 만 연락처가 있으면 묻는다 — 조용히 버리지 않는다(§5). */}
+      {contactGuard}
       {moreOpen ? (
         <AlbumMoreSheet
-          onClose={() => setMoreOpen(false)}
+          onClose={requestCloseMore}
           accountSheet={accountSheet}
           canEdit={Boolean(displayAlbum?.can_edit)}
           canDelete={Boolean(displayAlbum?.can_delete)}

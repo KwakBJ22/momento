@@ -21,6 +21,7 @@ import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { MoreHorizontal } from "lucide-react";
 import SheetDialog from "./components/SheetDialog";
 import AccountSheetRow from "./components/AccountSheetRow";
+import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
@@ -55,6 +56,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const { requestClose: requestCloseAccountMenu, guard: accountContactGuard } = useContactCloseGuard(() => setAccountMenuOpen(false));
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -328,13 +330,14 @@ function App() {
       {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}
       {accountMenuOpen && !adminRoute ? (
         <>
-          <div className="album-sheet-dim" aria-hidden="true" onClick={() => setAccountMenuOpen(false)} />
+          <div className="album-sheet-dim" aria-hidden="true" onClick={requestCloseAccountMenu} />
           <section className="album-inline-action album-more-sheet" aria-label="더보기">
-            <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={() => setAccountMenuOpen(false)}>닫기</button></div>
+            <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={requestCloseAccountMenu}>닫기</button></div>
             <div className="album-inline-action__body album-more-sheet__list">{accountSheetRow}{user ? accountSheetActions : null}</div>
           </section>
         </>
       ) : null}
+      {accountContactGuard}
       {loginModal}
       <SheetDialog open={withdrawOpen} labelledBy="withdraw-title" onClose={() => setWithdrawOpen(false)} locked={withdrawing} returnFocusRef={withdrawReturnFocusRef} className="app__withdraw">
         <h2 id="withdraw-title">정말 떠나시겠어요?</h2>

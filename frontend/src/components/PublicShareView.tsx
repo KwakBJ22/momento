@@ -7,6 +7,7 @@ import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { getPublicShare, loadCollabSession, saveCollabSession, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
@@ -119,6 +120,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
   // 참여자가 PDF·함께한 사람에 아예 접근할 수 없다.
   const [moreOpen, setMoreOpen] = useState(false);
+  const { requestClose: requestCloseMore, guard: contactGuard } = useContactCloseGuard(() => setMoreOpen(false));
   const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
@@ -410,10 +412,12 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           );
         })}
       </section>
-      {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => setMoreOpen(false)} /> : null}
+      {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={requestCloseMore} /> : null}
+      {/* 적다 만 연락처가 있으면 묻는다 — 조용히 버리지 않는다(§5). */}
+      {contactGuard}
       {moreOpen ? (
         <AlbumMoreSheet
-          onClose={() => setMoreOpen(false)}
+          onClose={requestCloseMore}
           accountSheet={accountSheet}
           canEdit={false}
           canDelete={false}

@@ -105,11 +105,17 @@
 .account-contact { display: grid; gap: 8px; }
 .account-contact__title { margin: 0; color: var(--c-text); font-size: 14px; font-weight: 700; }
 .account-contact__help { margin: -4px 0 2px; color: var(--c-text-muted); font-size: 14px; line-height: 1.45; }
-.account-contact__row { display: flex; align-items: center; gap: 8px; }
-.account-contact__input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; }
-.account-contact__value { flex: 1 1 auto; min-width: 0; color: var(--c-text-soft); font-size: 14px; overflow-wrap: anywhere; }
-.account-contact__action { flex: none; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text-soft); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.account-contact__action:disabled { color: var(--c-text-muted); cursor: default; }
+/* 칸은 전폭이다 — 옆에 버튼을 두면 좁은 기기에서 버튼이 밖으로 넘친다(실기기 결함). */
+.account-contact__field { display: grid; gap: 4px; }
+.account-contact__label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.account-contact__label label { color: var(--c-text-muted); font-size: 14px; }
+.account-contact__clear { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--c-text-muted); font: inherit; font-size: 14px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.account-contact__input { display: block; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; }
+/* 저장은 구역에 하나. 칸 옆이 아니라 아래다. */
+.account-contact__actions { display: flex; justify-content: center; }
+.account-contact__save { min-height: 44px; padding: 0 28px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.account-contact__save:disabled { border-color: var(--c-border); color: var(--c-text-subtle); cursor: default; }
+.account-contact__saved { margin: 0; color: var(--c-text-muted); font-size: 14px; text-align: center; }
 .account-contact__error { margin: 0; color: var(--c-danger); font-size: 14px; }
 
 /* 푸터의 `회사 정보` — 링크처럼 보이는 버튼(같은 줄의 약관·개인정보와 나란히). */
