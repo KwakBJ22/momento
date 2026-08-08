@@ -8,6 +8,7 @@ import { currentUserAgent } from "../lib/webview";
 import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
 import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
+import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
@@ -20,17 +21,6 @@ const UPLOAD_TIMEOUT_MS = 600_000;
 // ⚠️ MEMORY-REGRESSION DANGER ZONE (fbedc19: many concurrent decodes restarted the
 // Android tab). 2 is safe because the preview is only 800px; DO NOT raise this.
 const PREPARE_CONCURRENCY = 2;
-
-// Yield to the browser between heavy decodes so a paint can happen. requestAnimationFrame
-// guarantees the next frame is scheduled — so the prepare counter actually reaches the
-// screen instead of being starved until a scroll forces a repaint. Falls back to
-// setTimeout(0) where rAF is unavailable (older webviews / test env).
-function yieldToPaint(): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
-    else setTimeout(resolve, 0);
-  });
-}
 
 interface UploadFormProps {
   category: AlbumCategory;
@@ -161,6 +151,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           // Yield a frame so decode/canvas buffers can be reclaimed AND the counter
           // paints before the next one starts — relieves the memory spike that
           // restarts the Android tab and keeps the progress visible without a scroll.
+          // ★ 그리기를 기다리되 무한정은 아니다: 화면이 숨겨지면 프레임이 오지 않아
+          // 여기서 준비가 통째로 멈춘다(F-3). lib/yieldToPaint 참고.
           await yieldToPaint();
           return { prepared, previewBlob, capturedAt };
         },
