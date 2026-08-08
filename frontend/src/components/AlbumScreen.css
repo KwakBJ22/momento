@@ -22,10 +22,13 @@
 
 /* 미완성 안내(한마디 없는 사진) — 목업 docs/mockups/album-detail-owner.html.
    제목 아래 supplement 영역에 추가만 한다. 기존 레이아웃 불변. */
-.album-caption-notice { display: flex; align-items: center; gap: 10px; width: min(100%, 480px); padding: 0.75rem 0.9rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg-soft); text-align: left; }
-.album-caption-notice__dot { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--c-warning); }
+.album-caption-notice { display: flex; align-items: flex-start; gap: 10px; width: min(100%, 480px); padding: 0.75rem 0.9rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg-soft); text-align: left; }
+/* ★ 경고색을 쓰지 않는다(§9). 잘못한 것이 아니라 더 좋아질 수 있다는 안내다. */
+.album-caption-notice__dot { width: 22px; height: 22px; flex: none; align-self: flex-start; margin-top: 2px; border-radius: 50%; border: 2px solid var(--c-brand); }
+.album-caption-notice__body { display: grid; gap: 2px; }
+.album-caption-notice__sub { color: var(--c-text-muted) !important; }
 .album-caption-notice p { margin: 0; color: var(--c-text-soft); font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
-.album-caption-notice__link { padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
+.album-caption-notice__link { justify-self: start; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
 
 /* 헤더는 AppHeader 한 곳에서만 그린다(326d8d8). 이 파일의 옛 헤더 규칙은 지웠다. */
 
@@ -80,6 +83,8 @@
 .album-mine { display: flex; align-items: center; gap: 12px; width: min(100%, 480px); padding: 14px; border: 1px solid var(--c-border); border-radius: 12px; text-align: left; }
 .album-mine__title { margin: 0; font-size: 1rem; font-weight: 800; line-height: 1.4; color: var(--c-text); }
 .album-mine__count { margin: 4px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--c-text-soft); }
+/* 아직 아무것도 안 한 사람에게만 보이는 한 줄. 권유지 재촉이 아니다 — 경고색을 쓰지 않는다(§9). */
+.album-mine__nudge { margin: 6px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--c-text-muted); }
 
 /* 계정 행 스타일은 AppChrome.css 의 .account-row 한 곳에만 있다(AccountSheetRow). */
 

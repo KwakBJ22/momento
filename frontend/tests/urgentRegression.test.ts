@@ -178,17 +178,12 @@ test("permission errors speak Korean and never offer 다시 시도", () => {
   assert.match(api, /error\.status = response\.status/);
 });
 
-test("missing-caption notice renders only above zero and opens the memory sheet", () => {
+test("missing-caption notice rides the existing extension point (문구·판정은 nudgeCopy 가 본다)", () => {
   const source = component("AlbumView");
-  // Count = photos whose comment is empty/whitespace; zero renders NOTHING.
-  assert.match(source, /missingCaptionCount = photos\.filter\(\(photo\) => !\(photo\.caption \|\| ""\)\.trim\(\)\)\.length/);
-  assert.match(source, /missingCaptionCount > 0 && !guestOwner && requestedEdition === null \? \(/);
-  assert.match(source, /사진 \{missingCaptionCount\}장에 아직 한마디가 없어요\./);
-  // "채우러 가기" opens the existing 한마디 쓰기 sheet (memory) — no new screens.
-  assert.match(source, /채우러 가기<\/button>/);
-  assert.match(source, /album-caption-notice__link" onClick=\{\(\) => void openContribution\("memory"\)\}/);
-  // Additive only: the notice rides the existing headerSupplement extension point.
+  // 문구와 "내가 올린 사진만 센다" 는 tests/nudgeCopy.test.ts 가 §9 기준으로 확인한다.
+  // 여기서는 새 화면을 만들지 않고 기존 확장점에 얹었다는 사실만 잠근다.
   assert.match(source, /headerSupplement=\{headerExtras\}/);
+  assert.match(source, /채우러 가기<\/button>/);
 });
 
 test("re-opening contribution with a stored session stays synchronous (gesture survives)", () => {

@@ -1569,8 +1569,8 @@ def _caption_edit_state(
     viewer_user_id: str | None,
     viewer_contributor_id: str | None,
     contributor_names: dict[str, str],
-) -> tuple[bool, str | None]:
-    """이 사진의 캡션을 쓸 수 있는가 + (남의 사진이면) 올린 사람 이름.
+) -> tuple[bool, str | None, bool]:
+    """이 사진의 캡션을 쓸 수 있는가 + (남의 사진이면) 올린 사람 이름 + 내가 올린 사진인가.
 
     권한 판정은 캡션 저장 API(_require_photo_mutation_access)와 같은 규칙이다 —
     주최자는 모든 사진, 참여자는 자기가 올린 사진(SCREEN_SPEC §7).
@@ -1582,9 +1582,9 @@ def _caption_edit_state(
         or (viewer_contributor_id and uploader_contributor == viewer_contributor_id)
     )
     if mine:
-        return True, None
+        return True, None, True
     author = contributor_names.get(uploader_contributor) or None
-    return viewer_is_owner, author
+    return viewer_is_owner, author, False
 
 
 def _album_photo_response(
@@ -1623,7 +1623,7 @@ def _album_photo_response(
         original_url = get_signed_url(client, storage_bucket, storage_path, settings.signed_url_ttl_seconds)
         display_url = get_signed_url(client, display_bucket, display_path, settings.signed_url_ttl_seconds)
         thumbnail_url = get_signed_url(client, thumb_bucket, thumb_path, settings.signed_url_ttl_seconds)
-    can_edit_caption, caption_author_name = _caption_edit_state(
+    can_edit_caption, caption_author_name, photo_is_mine = _caption_edit_state(
         photo,
         viewer_is_owner=viewer_is_owner,
         viewer_user_id=viewer_user_id,
@@ -1636,6 +1636,7 @@ def _album_photo_response(
         caption=photo_caption,
         can_edit_caption=can_edit_caption,
         caption_author_name=caption_author_name,
+        is_mine=photo_is_mine,
         comments=memory_comments,
         original_url=original_url,
         display_url=display_url or original_url,

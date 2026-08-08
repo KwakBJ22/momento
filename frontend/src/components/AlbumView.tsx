@@ -729,11 +729,27 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 미완성 안내(목업 docs/mockups/album-detail-owner.html): 한마디(캡션) 없는 사진 수.
   // 0장이면 렌더링하지 않고, "채우러 가기"는 기존 한마디 쓰기 시트(한마디 남기기)를 연다.
   // 시트를 못 여는 상황(게스트 소유자·과거 에디션)에서는 안내도 띄우지 않는다.
-  const missingCaptionCount = photos.filter((photo) => !(photo.caption || "").trim()).length;
-  const captionNotice = missingCaptionCount > 0 && !guestOwner && requestedEdition === null ? (
+  // ★ **내가 올린 사진 중** 캡션이 빈 것만 센다(§9). 캡션은 자기가 올린 사진에만 쓰는
+  // 것이라(§7), 남의 사진까지 세면 채울 수 없는 것을 채우라고 하는 셈이다.
+  // (주최자는 남의 캡션도 고칠 수 있지만 그건 인쇄물을 다듬는 일이지 "내가 적을 말" 이 아니다.)
+  const myEmptyCaptionPhotos = photos.filter((photo) => photo.is_mine && !(photo.caption || "").trim());
+  // `채우러 가기` 는 내가 올린 빈 사진 중 첫 장으로 가서 그 자리에서 캡션을 연다.
+  const goToFirstEmptyCaption = () => {
+    const target = myEmptyCaptionPhotos[0];
+    if (!target) return;
+    document.querySelector(`[data-photo-id="${target.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    handleStartPhotoCommentEdit(target.id, "");
+  };
+  const captionNotice = myEmptyCaptionPhotos.length > 0 && !guestOwner && requestedEdition === null ? (
     <div className="album-caption-notice">
       <span className="album-caption-notice__dot" aria-hidden="true" />
-      <p>사진 {missingCaptionCount}장에 아직 한마디가 없어요. <button type="button" className="album-caption-notice__link" onClick={() => void openContribution("memory")}>채우러 가기</button></p>
+      <div className="album-caption-notice__body">
+        {/* `한마디`·`캡션` 이라는 말을 쓰지 않는다 — 앞은 다른 계층의 이름이고,
+            뒤는 외래어라 한 번 더 생각하게 만든다(§7·§9). */}
+        <p>아직 아무 말도 적지 않은 사진이 {myEmptyCaptionPhotos.length}장 있어요.</p>
+        <p className="album-caption-notice__sub">한 줄만 적어도 앨범이 훨씬 풍성해져요.</p>
+        <button type="button" className="album-caption-notice__link" onClick={goToFirstEmptyCaption}>채우러 가기</button>
+      </div>
     </div>
   ) : null;
   // §1 저장 안내 — 명령이 아니라 물음이다. "로그인하세요"·"가입하세요"라고 쓰지 않는다:
@@ -773,6 +789,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         <p className="album-mine__title">내가 더한 것</p>
         {/* 모아보기 화면이 없으므로 버튼을 두지 않는다 — 숫자만. */}
         <p className="album-mine__count">사진 {participation.photo_count}장 · 한마디 {participation.memory_count}개</p>
+        {/* 아직 아무것도 안 한 사람에게만 한 줄(§9). `남겨주세요` 가 아니라 `남겨도 좋아요` —
+            부탁이 아니라 권유다. 하나라도 남기면 사라진다. */}
+        {participation.photo_count === 0 && participation.memory_count === 0 ? (
+          <p className="album-mine__nudge">마음에 드는 사진에 한마디만 남겨도 좋아요.</p>
+        ) : null}
       </div>
     </div>
   ) : null;

@@ -63,6 +63,9 @@ class AlbumPhotoUrlResponse(BaseModel):
     # 남이 올린 사진일 때 그 사람의 이름. 주최자가 남의 캡션을 열 때 한 번 묻는 문구에 쓴다.
     # 내가 올린 사진이면 None 이라 확인 단계가 뜨지 않는다.
     caption_author_name: str | None = None
+    # 내가 올린 사진인가. can_edit_caption 과 다르다 — 주최자는 남의 사진 캡션도 고칠 수
+    # 있어서 그 값만으로는 "내 사진" 을 가릴 수 없다. 빈 캡션 안내가 이 값으로 센다(§9).
+    is_mine: bool = False
 
 
 class AlbumPhotoLocationUpdate(BaseModel):
