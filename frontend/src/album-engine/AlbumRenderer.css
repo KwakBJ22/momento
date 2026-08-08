@@ -29,11 +29,28 @@
   min-width: 0;
 }
 
+/* 화면은 스크랩북처럼(§9 10차) — 사진이 살짝 기울고 더러 겹친다.
+   ★ 기울이면 모서리가 화면 밖으로 나간다. 좌우에 기울기만큼 여유를 둔다. */
 .album-renderer--screen .album-screen-photo-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem 1.25rem;
   align-items: start;
+  padding-inline: 12px;
+}
+
+/* 겹치는 사진이 앞 사진 위로 올라오려면 쌓임 맥락이 필요하다. */
+.album-renderer--screen .album-screen-photo-grid > .photo-block[data-overlap] {
+  position: relative;
+}
+
+/* ★ 겹침은 **격자가 두 칸일 때만** 준다. 좁은 화면에서는 한 칸으로 접혀 옆 사진이 없고,
+   그대로 당기면 사진이 화면 밖으로 밀려난다(실측 -37px). 아래 640px 미디어쿼리가
+   한 칸으로 바꾸므로, 그보다 넓을 때만 적용한다. */
+@media (min-width: 641px) {
+  .album-renderer--screen .album-screen-photo-grid > .photo-block[data-overlap] {
+    margin-inline-start: calc(var(--photo-overlap, 0) * -100%);
+  }
 }
 
 .album-renderer--screen .album-screen-photo-grid > .photo-block {

@@ -336,7 +336,8 @@ export default function AlbumRenderer({
               photo={photo}
               flowPlan={flowPlan}
               albumKey={albumId || title || "album"}
-              index={photoIndex + 1}
+              index={photoIndex}
+              dateKey={chapter.date ?? String(chapterIndex)}
               frameClassName="album-screen-photo-card__frame"
               priority={chapterIndex === 0 && photoIndex < 2}
             />

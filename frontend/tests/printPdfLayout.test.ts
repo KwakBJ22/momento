@@ -125,12 +125,15 @@ test("★ 열람용은 display(WebP) 를 쓴다 — 원본이 아니다", async 
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("사진을 기울이지 않는다", () => {
+test("★ 인쇄는 사진을 기울이지 않는다 (화면은 §9 10차에서 다시 기운다)", () => {
+  // E-5 때는 화면·인쇄 모두 반듯하게 뒀지만, §9 10차에서 **화면만** 스크랩북으로 돌아갔다.
+  // 인쇄는 그대로 정돈이다 — 기울기 계산이 화면 모드에서만 걸리는지 본다.
   const source = read("album-engine/components/PhotoWithMemories.tsx");
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
-    .filter((line) => !line.trim().startsWith("//")).join("\n");
-  assert.doesNotMatch(code, /rotate\(/);
-  assert.doesNotMatch(code, /deterministicPhotoRotation/);
+  assert.match(source, /const isScreen = useAlbumRenderMode\(\) === "screen";/);
+  assert.match(source, /const tilt = isScreen \? photoTiltDeg\(/);
+  // 인쇄 본문(PrintPages)은 이 규칙을 아예 모른다.
+  assert.doesNotMatch(read("album-engine/components/PrintPages.tsx"), /rotate\(|photoTiltDeg/);
+  assert.doesNotMatch(read("album-engine/components/PrintPages.css"), /rotate\(/);
 });
 
 test("★ PDF 안의 브랜드는 로고 조합이다 (검은 글자 단독 표기 0건)", async () => {
