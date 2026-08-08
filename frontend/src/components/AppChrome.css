@@ -119,3 +119,6 @@
 .app-footer__company-row { display: grid; gap: 2px; margin: 0; }
 .app-footer__company-row span { color: var(--c-text-muted); font-size: var(--t-xs); }
 .app-footer__company-row em { color: var(--c-text); font-size: var(--t-sm); font-style: normal; line-height: 1.5; overflow-wrap: anywhere; }
+/* 앱을 벗어나는 링크. 누르는 영역 44px — 시트의 다른 행과 같은 기준이다. */
+.app-footer__company-outlink { display: inline-flex; align-items: center; min-height: 44px; color: var(--c-text); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.app-footer__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

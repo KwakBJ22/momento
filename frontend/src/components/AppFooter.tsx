@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { BRAND_BUSINESS_INFO, BRAND_NAME_KO, LEGAL_LINKS } from "../lib/brand";
+import { BRAND_BUSINESS_INFO, BRAND_COMPANY_HOMEPAGE, BRAND_NAME_KO, LEGAL_LINKS } from "../lib/brand";
 import "./AppChrome.css";
 
 /**
@@ -58,6 +58,19 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
                   <em>{item.value}</em>
                 </p>
               ))}
+              {/* ★ 사업자 정보를 홈페이지로 옮기지 않는다 — 전자상거래법은 사이버몰 자체에
+                  표시할 것을 요구하므로 링크로 대체할 수 없다. 위 5줄은 그대로 두고 한 줄만 더한다.
+                  앱을 벗어나는 링크라 새 창으로 열고, 화살표로 그 사실을 보인다. */}
+              <p className="app-footer__company-row">
+                <span>{BRAND_COMPANY_HOMEPAGE.label}</span>
+                <em>
+                  <a className="app-footer__company-outlink" href={BRAND_COMPANY_HOMEPAGE.href} target="_blank" rel="noopener noreferrer">
+                    {BRAND_COMPANY_HOMEPAGE.display}
+                    <span aria-hidden="true"> ↗</span>
+                    <span className="app-footer__sr-only">새 창으로 열림</span>
+                  </a>
+                </em>
+              </p>
             </div>
           </section>
         </>

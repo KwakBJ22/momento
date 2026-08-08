@@ -46,6 +46,15 @@ export const BRAND_BUSINESS_INFO = [
   { label: "문의", value: "futuregram7@gmail.com" },
 ] as const;
 
+/** 회사 홈페이지 — 회사 정보 시트에 **한 줄 더하는** 것이다.
+ *  ★ 사업자 정보를 홈페이지로 옮기지 않는다. 전자상거래법은 사이버몰 자체에 표시할 것을
+ *  요구하므로 링크로 대체할 수 없다. 위 BRAND_BUSINESS_INFO 는 그대로 둔다. */
+export const BRAND_COMPANY_HOMEPAGE = {
+  label: "회사 홈페이지",
+  href: "https://insightnet.co.kr",
+  display: "insightnet.co.kr",
+} as const;
+
 /** 법적 고지 정적 페이지 — React 밖이라 상수를 못 읽는다(위 주석 목록 참고). */
 export const LEGAL_LINKS = [
   { href: "/terms.html", label: "이용약관" },
