@@ -17,8 +17,9 @@
 }
 
 .album-page__layout {
-  max-width: 1120px;
-  width: calc(100% - 48px);
+  /* 폭·좌우 여백은 페이지 컨테이너가 준다(§3). 숫자를 여기 적지 않는다. */
+  max-width: var(--page-max-width);
+  width: 100%;
   min-width: min(320px, 100%);
   margin: 0 auto;
   display: grid;
@@ -31,21 +32,9 @@
   
 }
 
-@media (max-width: 1024px) {
-  .album-page__layout {
-    width: calc(100% - 32px);
-  }
-}
-
 @media (max-width: 768px) {
   .album-page {
     padding: 0.5rem 0 2.5rem;
-  }
-
-  .album-page__layout {
-    width: 100%;
-    padding: 0 16px;
-    box-sizing: border-box;
   }
 }
 
@@ -411,7 +400,7 @@
 /* Legacy .album-result without album-page (AlbumView error states) */
 .album-result:not(.album-page__book) {
   max-width: 900px;
-  width: calc(100% - 48px);
+  width: 100%;
   min-width: min(320px, 100%);
   margin: 0 auto;
   display: flex;
@@ -419,19 +408,7 @@
   gap: 1.5rem;
 }
 
-@media (max-width: 1024px) {
-  .album-result:not(.album-page__book) {
-    width: calc(100% - 32px);
-  }
-}
 
-@media (max-width: 768px) {
-  .album-result:not(.album-page__book) {
-    width: 100%;
-    padding: 0 16px;
-    box-sizing: border-box;
-  }
-}
 
 /* =========================================================
    Print / PDF — A4 rules only in print, never scale the web UI

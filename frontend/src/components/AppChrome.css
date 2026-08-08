@@ -15,7 +15,9 @@
 }
 .app-shell--album {
   --page-max-width: 1120px;
-  --page-padding-x: 24px;
+  /* ★ 앨범 계열도 16px 다. 예전에는 24 라고 적어 뒀는데 정작 본문(앨범 화면들)은
+     자기 CSS 에 16 을 적어 쓰고 있었다 — 헤더만 이 값을 읽어서 8px 어긋나 있었다. */
+  --page-padding-x: 16px;
 }
 @media (max-width: 640px) {
   :root { --nav-height: 68px; }

@@ -9,7 +9,8 @@
   max-width: 420px;
   min-width: 0;
   margin: 0 auto;
-  padding: 0.4rem 16px calc(1.5rem + env(safe-area-inset-bottom));
+  /* 좌우 여백은 페이지 컨테이너가 준다(§3). 위아래만 여기서 정한다. */
+  padding: 0.4rem 0 calc(1.5rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
   overflow-wrap: anywhere;
 }
@@ -197,7 +198,7 @@
 
 /* 목업 기준 폭(390px)에서는 24px 그대로다. 더 좁은 기기(360px 이하)에서만 줄인다. */
 @media (max-width: 360px) {
-  .join-page { padding-inline: 16px; }
+  /* 좌우 여백은 페이지 컨테이너가 준다(§3) — 여기서 다시 정하지 않는다. */
   .join-page__invite { font-size: 22px; }
   .join-page__album { font-size: 22px; }
 }
