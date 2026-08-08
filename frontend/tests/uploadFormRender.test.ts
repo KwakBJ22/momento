@@ -33,7 +33,8 @@ const source = readFileSync(new URL("../src/components/UploadForm.tsx", import.m
 
 test("UploadForm gates its render on the tested branch functions", () => {
   assert.match(source, /showsSubmitButton\(photos\.length\) \?/);
-  assert.match(source, /showsEmptyState\(photos\.length\) \?/);
+  // 준비 중에는 빈 상태 안내를 감춘다(F-2) — 판정 함수가 그 사정을 함께 받는다.
+  assert.match(source, /showsEmptyState\(photos\.length, isPreparing\) \?/);
   assert.match(source, /showsSelectionCount\(photos\.length\)/);
   assert.match(source, /pickButtonLabel\(photos\.length\)/);
 });
@@ -68,4 +69,23 @@ test("prepare bar reuses the shared easing and shows a bar alongside the exact c
   assert.match(source, /easeTowardTarget/); // no duplicate easing implementation
   assert.match(source, /upload-form__preparing-bar/);
   assert.match(source, /장 중 \$\{preparingProgress\.done\}장/); // exact count text kept
+});
+
+// F-2 — 사진을 고른 뒤 준비하는 동안에도 빈 상태 안내가 남아, "사진을 준비하고 있어요"
+// 옆에 "고른 사진이 여기에 모여요" 두 줄이 그대로 서 있었다. 목록 자리만 잡고 내용이
+// 없는 것으로 보인다. 준비 중에는 진행 표시가 그 자리를 대신한다.
+test("준비하는 동안에는 빈 상태 안내를 보여주지 않는다", () => {
+  // 고르기 전에는 그대로 보인다.
+  assert.equal(showsEmptyState(0), true);
+  assert.equal(showsEmptyState(0, false), true);
+  // 고른 직후(아직 0장 준비됨)에는 진행 표시만 남는다.
+  assert.equal(showsEmptyState(0, true), false);
+  // 사진이 들어온 뒤에는 어느 쪽이든 없다.
+  assert.equal(showsEmptyState(3, true), false);
+  assert.equal(showsEmptyState(3, false), false);
+});
+
+test("화면이 그 판정을 그대로 쓴다", () => {
+  const source = readFileSync(new URL("../src/components/UploadForm.tsx", import.meta.url), "utf8");
+  assert.match(source, /\{showsEmptyState\(photos\.length, isPreparing\) \? \(/);
 });

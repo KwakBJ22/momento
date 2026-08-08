@@ -16,9 +16,14 @@ export function showsSubmitButton(photoCount: number): boolean {
   return photoCount > 0;
 }
 
-/** The empty-state drop zone shows only while no photo is chosen. */
-export function showsEmptyState(photoCount: number): boolean {
-  return photoCount === 0;
+/** 빈 상태 안내("고른 사진이 여기에 모여요" + 안내 한 줄)를 보여줄 것인가.
+ *
+ *  ★ 고르기 **전에만** 보여준다. 사진을 고른 뒤 준비하는 동안에도 남겨 두면,
+ *  "사진을 준비하고 있어요 · N장 중 0장" 바로 옆에 "여기에 모여요" 라는 빈 자리
+ *  안내가 두 줄 그대로 서 있다 — 목록 자리만 잡고 내용이 없는 것으로 보인다(F-2).
+ *  준비 중에는 진행 표시가 그 자리를 대신한다. */
+export function showsEmptyState(photoCount: number, isPreparing = false): boolean {
+  return photoCount === 0 && !isPreparing;
 }
 
 /** The "N장 · size" selection line is hidden at zero to avoid "0장" noise. */
