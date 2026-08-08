@@ -1,0 +1,46 @@
+/* PDF 진행·결과 표시(I-3 · §11).
+   스크롤 어디에 있든 보이도록 하단 네비 바로 위에 고정한다. 네비(z70)보다는 위,
+   시트(z90)·dim(z85)보다는 아래 — 시트가 열려 있으면 시트가 앞이다.
+   ★ 진행률 막대를 두지 않는다. 몇 %인지 모르므로 말하지 않는다. */
+.album-pdf-status {
+  position: fixed;
+  z-index: 80;
+  bottom: calc(82px + 12px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 12px;
+  background: var(--c-surface);
+  box-shadow: var(--sh-md);
+}
+
+.album-pdf-status__text {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--c-text);
+  font-size: var(--t-sm);
+  line-height: 1.5;
+}
+
+.album-pdf-status__close {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--c-brand-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .album-pdf-status { bottom: calc(68px + 12px + env(safe-area-inset-bottom)); }
+}

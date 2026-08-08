@@ -5,6 +5,7 @@ import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace"
 import AlbumScreen from "./AlbumScreen";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
+import AlbumPdfStatus from "./AlbumPdfStatus";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
 import { resolveAlbumRole } from "../lib/albumRole";
@@ -374,7 +375,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           onWithdraw={role === "contributor" ? onWithdraw : undefined}
         />
       ) : null}
-      {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
+      {/* 앨범 상세와 같은 표시를 쓴다(I-3) — 시트를 닫아도 남는다. */}
+      <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
           구역 안의 버튼은 `여기에 남기기` 다 — 사진에 다는 `이 사진에 한마디` 와
           성격이 달라 이름을 나눴다(§4·§7). */}

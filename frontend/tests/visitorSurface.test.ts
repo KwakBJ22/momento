@@ -94,7 +94,8 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
   assert.match(sheet, /onExportPdf=\{role === "contributor" \?/);
   // PDF 실패를 조용히 삼키지 않는다(§11) — 앨범 상세와 같은 문구 모듈.
   assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
-  assert.match(share, /\{pdfNotice \? <p className="album-inline-action__error" role="status">/);
+  // I-3: 진행·결과 표시는 **시트 밖**이다 — 시트를 닫아도 남는다(앨범 상세와 같은 것).
+  assert.match(share, /<AlbumPdfStatus working=\{isExportingPdf\} notice=\{pdfNotice\}/);
 });
 
 // B-1 (§5) — 공유하기는 목적이 다른 두 링크를 갈라 보낸다. 발급도 갈라져 있다(A-7).

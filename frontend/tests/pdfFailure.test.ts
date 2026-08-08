@@ -10,10 +10,17 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 // resolve 는 a[download].click() 을 불렀다는 뜻일 뿐이다. 인앱 브라우저는 blob URL
 // 다운로드를 무시하므로 파일은 없고 문구만 떴다. 문구는 실제로 일어난 일만 말한다.
 test("성공 문구는 경로별로 사실만 말한다 — '저장했다'고 단정하지 않는다", () => {
-  assert.match(pdfSuccessMessage({ via: "download" }), /내려받고 있어요/);
-  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /PDF를 저장했어요/);
-  // blob 경로는 저장 완료를 알 수 없으므로 끝까지 단정하지 않는다.
-  assert.doesNotMatch(pdfSuccessMessage({ via: "download" }), /저장했어요/);
+  // I-3: 첫 마디는 우리 문구 하나다 — 시스템 알림을 유일한 신호로 두지 않는다.
+  for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
+    assert.ok(pdfSuccessMessage(delivery).startsWith("앨범 파일이 준비됐어요."), delivery.via);
+  }
+  // 그 다음 문장은 경로별로 갈린다 — 어디서 찾는지가 다르다.
+  assert.match(pdfSuccessMessage({ via: "download" }), /기기의 다운로드에서 확인해 주세요/);
+  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /휴대전화 알림을 누르면 열려요/);
+  // ★ 어느 경로도 "저장했어요"라고 단정하지 않는다 — 파일이 만들어진 것까지가 아는 사실이다.
+  for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
+    assert.doesNotMatch(pdfSuccessMessage(delivery), /저장했어요/, delivery.via);
+  }
 });
 
 test("실패 문구는 원인을 그대로 보여주고, 없으면 기본 문구로 떨어진다", () => {
@@ -33,7 +40,10 @@ test("두 화면의 실패 처리가 같다 — 조용히 삼키는 catch 가 �
   // ★ handlePdf 의 catch { /* noop */ } 재발 금지.
   assert.doesNotMatch(view, /catch \{\s*\/\* noop \*\//);
   // 화면에 뜨는 자리가 실제로 있다(상태만 만들고 안 그리면 같은 증상이 반복된다).
-  assert.match(view, /\{pdfNotice \? <p className="album-inline-action__error" role="status">\{pdfNotice\}<\/p> : null\}/);
+  // I-3: 그 자리는 **시트 밖**이다 — 시트를 닫아도 남아야 진행·결과가 보인다.
+  for (const [name, source] of [["AlbumView", view], ["AlbumResult", result]] as const) {
+    assert.match(source, /<AlbumPdfStatus working=\{isExportingPdf\} notice=\{pdfNotice\}/, name);
+  }
 });
 
 test("오래 기다린 끝의 빈 PDF 를 미리 잡는다 — 캔버스 상한·빈 결과·이유 문구", () => {

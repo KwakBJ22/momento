@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlbumRenderer } from "../album-engine";
 import AlbumScreen from "./AlbumScreen";
 import AlbumShareSheet from "./AlbumShareSheet";
+import AlbumPdfStatus from "./AlbumPdfStatus";
 import {
   createAlbumShareLink,
   getAlbum,
@@ -50,6 +51,8 @@ export default function AlbumResultView({
   const [saveStatus, setSaveStatus] = useState<string | null>(SAVED_ALBUM_MESSAGE);
   const [notice, setNotice] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  // PDF 는 다른 안내와 자리를 나눈다(I-3) — 오래 걸리는 일이라 진행 표시가 따로 남는다.
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [stagePhotos, setStagePhotos] = useState<AlbumPhoto[]>(result.photos ?? []);
   const [isStagePhotosLoading, setIsStagePhotosLoading] = useState(!(result.photos?.length));
   const [stagePhotosError, setStagePhotosError] = useState<string | null>(null);
@@ -193,7 +196,7 @@ export default function AlbumResultView({
 
   const handlePdf = async () => {
     setIsExportingPdf(true);
-    setNotice(null);
+    setPdfNotice(null);
     try {
       const delivery = await downloadAlbumPdf({
         albumId: result.album_id,
@@ -209,9 +212,9 @@ export default function AlbumResultView({
         coverPhotoId: result.cover_photo_id,
         livingAppendPages: result.living_append_pages,
       });
-      setNotice(pdfSuccessMessage(delivery));
+      setPdfNotice(pdfSuccessMessage(delivery));
     } catch (err) {
-      setNotice(pdfFailureMessage(err));
+      setPdfNotice(pdfFailureMessage(err));
     } finally {
       setIsExportingPdf(false);
     }
@@ -253,6 +256,8 @@ export default function AlbumResultView({
   };
   return <>
     <AlbumScreen title={albumTitle} canEditTitle={canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: onReset, onAddMemory: openEpilogueEditor, onShare: () => setShareOpen(true), onCreateAlbum: onReset, canAddMemory: canEditStories }} />
+    {/* ★ 시트를 닫아도 남는다(I-3) — 앨범 상세와 같은 표시를 쓴다. */}
+    <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
     {shareOpen && isOwner ? (
       <AlbumShareSheet
         albumId={result.album_id}
