@@ -173,9 +173,9 @@ export default function AlbumResultView({
       const saved = await saveAlbumPhotoComment(result.album_id, photo.id, photoCommentDraft);
       setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, comment: saved.comment } : item)));
       handleCancelPhotoCommentEdit();
-      setNotice("사진 코멘트를 저장했어요.");
+      setNotice("사진 한마디를 저장했어요.");
     } catch (err) {
-      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진 코멘트를 저장하지 못했어요.");
+      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진 한마디를 저장하지 못했어요.");
     } finally {
       setIsSavingPhotoComment(false);
     }

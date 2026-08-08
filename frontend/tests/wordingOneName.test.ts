@@ -45,6 +45,31 @@ test("사용자에게 보이는 문자열에 옛 이름 `기억`이 없다", () 
   assert.deepEqual(offenders, []);
 });
 
+/**
+ * §7 8차 개정 — 이름은 셋이다. 총칭을 두지 않는다.
+ *   캡션(사진 안 · 인쇄) · 한마디(사진 밖) · 우리가 남긴 말(앨범 아래)
+ * `코멘트` 는 외래어이고 SNS 냄새가 난다. 사진에 다는 글은 `한마디` 다.
+ * ★ 변수·API 필드·DB 컬럼(photo_memories, photoCommentSaveError 등)은 그대로 둔다 —
+ *   보이는 말만 바꾼다. 그래서 판정도 "따옴표·태그 안의 문자열" 로 한정한다.
+ */
+test("사용자에게 보이는 문자열에 `코멘트` 가 없다", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles()) {
+    if (file.endsWith("wordingOneName.test.ts")) continue;
+    const code = readFileSync(file, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => {
+        const trimmed = line.trim();
+        return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+      })
+      .join("\n");
+    for (const match of code.matchAll(/(["'`>])([^"'`<>{}]*코멘트[^"'`<>{}]*)/g)) {
+      offenders.push(`${file.replace(SRC, "")}: ${match[2].trim().slice(0, 40)}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
 test("숫자 표시는 `사진 N장 · 한마디 N개` 하나로 통일됐다", () => {
   const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   // 예전에는 같은 값을 화면마다 기억/추억/한마디로 다르게 불렀다.

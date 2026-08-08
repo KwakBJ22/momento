@@ -56,7 +56,7 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
               maxLength={300}
               value={photo.story}
               placeholder={COMMENT_PLACEHOLDER}
-              aria-label={`사진 ${index + 1} 코멘트`}
+              aria-label={`사진 ${index + 1} 한마디`}
               onChange={(event) => onCommentChange(photo.id, event.target.value)}
             />
           </li>

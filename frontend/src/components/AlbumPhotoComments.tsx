@@ -30,7 +30,7 @@ export default function AlbumPhotoComments({
     try {
       await onSave(photoId, drafts[photoId] ?? "");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "코멘트를 저장하지 못했어요.");
+      setError(cause instanceof Error ? cause.message : "한마디를 저장하지 못했어요.");
     } finally {
       setSavingId(null);
     }
@@ -50,7 +50,7 @@ export default function AlbumPhotoComments({
   };
 
   return (
-    <section className="album-photo-comments" aria-label="사진별 코멘트">
+    <section className="album-photo-comments" aria-label="사진별 한마디">
       {error && (
         <p className="album-photo-comments__error" role="alert">
           {error}
@@ -89,7 +89,7 @@ export default function AlbumPhotoComments({
                 rows={3}
                 maxLength={300}
                 placeholder={COMMENT_PLACEHOLDER}
-                aria-label={`사진 ${index + 1} 코멘트`}
+                aria-label={`사진 ${index + 1} 한마디`}
                 aria-busy={savingId === photo.id}
                 onChange={(event) =>
                   setDrafts((previous) => ({ ...previous, [photo.id]: event.target.value }))

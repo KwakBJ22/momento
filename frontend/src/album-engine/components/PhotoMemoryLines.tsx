@@ -93,7 +93,7 @@ export default function PhotoMemoryLines({
             onChange={(event) => edit.setDraft(event.target.value)}
             maxLength={300}
             rows={2}
-            aria-label="사진 코멘트 수정"
+            aria-label="한마디 고치기"
             autoFocus
           />
           <div className="photo-memory-lines__edit-actions">
@@ -131,7 +131,7 @@ export default function PhotoMemoryLines({
             type="button"
             className="photo-memory-lines__edit-btn"
             onClick={() => openEditor("")}
-            aria-label="사진 코멘트 수정"
+            aria-label="한마디 고치기"
           >
             <Pencil size={15} aria-hidden="true" />
           </button>
@@ -159,7 +159,7 @@ export default function PhotoMemoryLines({
               type="button"
               className="photo-memory-lines__edit-btn"
               onClick={() => openEditor(displayText)}
-              aria-label="사진 코멘트 수정"
+              aria-label="한마디 고치기"
             >
               <Pencil size={15} aria-hidden="true" />
             </button>
