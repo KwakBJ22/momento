@@ -47,8 +47,9 @@ test("공유 링크는 감상용으로 발급된다 — 함께 만들기는 초�
   for (const file of ["components/AlbumView.tsx", "components/AlbumResult.tsx"]) {
     assert.match(read(file), /createAlbumShareLink\([^)]*, "view"\)/, `${file}: 감상 링크로 발급`);
   }
-  // 함께 만들기는 기존 초대 경로(ensureAlbumInviteUrl → /join/…) 그대로.
-  assert.match(read("components/AlbumView.tsx"), /ensureAlbumInviteUrl\(albumId\)/);
+  // 함께 만들기는 기존 초대 경로(ensureAlbumInviteUrl → /join/…) 그대로 — 이제 공용
+  // 시트 한 곳에서만 부른다(I-2).
+  assert.match(read("components/AlbumShareSheet.tsx"), /ensureAlbumInviteUrl\(albumId\)/);
 });
 
 // SCREEN_SPEC §4 — 구경꾼은 2칸이다. 사진 추가·공유하기는 권한이 없으므로 보이면 안 된다.
@@ -57,7 +58,10 @@ test("공유 링크는 감상용으로 발급된다 — 함께 만들기는 초�
 
 test("공유 화면은 능력에 따라 네비를 고른다 — 구경꾼이면 visitor 변형", () => {
   const view = read("components/PublicShareView.tsx");
-  assert.match(view, /\} : role === "contributor" \? \{/);
+  // ★ 참여자 갈래는 하나다(I-2). 예전에는 참여 세션 유무로 둘로 갈리고, 세션 없는 쪽만
+  // 변형을 주지 않아 주최자 네비(공유하기 포함)가 떴다 — H-1 과 같은 종류였다.
+  assert.match(view, /const publicNav = role === "contributor" \? \{/);
+  assert.equal((view.match(/variant: "contributor" as const/g) || []).length, 1);
   assert.match(view, /variant: "visitor" as const/);
   // §4 8차: 구경꾼 네비에서 한마디로 가는 길이 없다 — 본문 맨 아래에서 스크롤로 만난다.
   assert.doesNotMatch(view, /onAddMemory: \(\) => guestbookRef/);
@@ -95,28 +99,42 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
 
 // B-1 (§5) — 공유하기는 목적이 다른 두 링크를 갈라 보낸다. 발급도 갈라져 있다(A-7).
 test("공유하기 시트: 세 항목·설명 줄·서로 다른 종류의 링크·주최자 전용", () => {
-  const view = read("components/AlbumView.tsx");
-  const sheet = view.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
-  // 세 항목이고 각각 설명 줄(em)이 있다.
+  // ★ 시트는 **공용 컴포넌트 하나**다(I-2). 진입점이 넷이어도 열리는 것은 이것이다.
+  const sheet = read("components/AlbumShareSheet.tsx");
   assert.equal((sheet.match(/album-share-sheet__row/g) || []).length, 3);
   assert.equal((sheet.match(/<em>/g) || []).length, 3);
   // 두 항목이 서로 다른 종류의 링크를 쓴다: 초대(/join/…) vs 감상(/s/…, kind=view).
-  assert.match(view, /ensureAlbumInviteUrl\(albumId\)/);          // 함께 만들자고
-  assert.match(view, /createAlbumShareLink\(album\.album_id, "view"\)/); // 구경하라고
-  // 주최자에게만 열린다.
-  assert.match(view, /\{shareOpen && displayAlbum\?\.can_edit \? \(/);
+  assert.match(sheet, /ensureAlbumInviteUrl\(albumId\)/);              // 함께 만들자고
+  assert.match(sheet, /linkUrl: await resolveViewUrl\(\)/);            // 구경하라고
+  // 여는 자리는 모두 주최자일 때만 연다 — 역할 판정은 한 곳이다(H-1).
+  assert.match(read("components/AlbumView.tsx"), /\{shareOpen && role === "owner" \? \(/);
+  assert.match(read("components/AlbumResult.tsx"), /\{shareOpen && isOwner \? \(/);
+  assert.match(read("components/AlbumResult.tsx"), /resolveAlbumRole\(result\) === "owner"/);
   // 카카오를 바로 열지 않는다 — 시트를 먼저 연다.
-  assert.match(view, /onShare: \(\) => setShareOpen\(true\)/);
+  assert.match(read("components/AlbumView.tsx"), /onShare: \(\) => setShareOpen\(true\)/);
+  assert.match(read("components/AlbumResult.tsx"), /onShare: \(\) => setShareOpen\(true\)/);
+});
+
+test("★ 어느 자리도 카카오를 바로 열지 않는다 — 옛 share-modal 도 남아 있지 않다", () => {
+  for (const file of ["components/AlbumView.tsx", "components/AlbumResult.tsx", "components/CollaborationPanel.tsx", "components/PublicShareView.tsx"]) {
+    const source = read(file);
+    assert.doesNotMatch(source, /shareAlbum\(\{/, `${file}: 카카오를 직접 부른다`);
+    assert.doesNotMatch(source, /share-modal/, `${file}: 옛 모달이 남아 있다`);
+  }
+  // CSS 에도 남기지 않는다.
+  assert.doesNotMatch(read("components/AlbumResult.css"), /share-modal/);
+  // 공유 화면(/s/)에는 주최자가 없다(공유 응답에 can_edit 이 없다) — 진입점 자체가 없다.
+  assert.doesNotMatch(read("components/PublicShareView.tsx"), /구경하라고 보내기/);
 });
 
 test("두 링크의 카카오 카드 문구가 다르다 — 받는 사람이 무엇을 받았는지 알아야 한다", () => {
-  const view = read("components/AlbumView.tsx");
+  const sheet = read("components/AlbumShareSheet.tsx");
   // 함께 만들자고
-  assert.match(view, /title: "함께 앨범을 만들어요"/);
-  assert.match(view, /buttonTitle: "함께 만들기"/);
+  assert.match(sheet, /title: "함께 앨범을 만들어요"/);
+  assert.match(sheet, /buttonTitle: "함께 만들기"/);
   // 구경하라고
-  assert.match(view, /title: "앨범을 함께 봐요"/);
-  assert.match(view, /buttonTitle: "앨범 보기"/);
+  assert.match(sheet, /title: "앨범을 함께 봐요"/);
+  assert.match(sheet, /buttonTitle: "앨범 보기"/);
 });
 
 // E-4 (§5 표) — 구경꾼 시트에는 계정 행 하나만 남는다.

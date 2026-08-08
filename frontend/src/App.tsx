@@ -76,7 +76,8 @@ function App() {
   // Bootstrap still records album_count/max_albums in state; the creation gate is
   // removed (limit is now an abuse ceiling, not a paywall). Kept for a future paid plan.
   const [, setAlbumLimit] = useState<{ count: number; max: number } | null>(null);
-  const { shareAlbum } = useKakaoSdk();
+  // 카카오 SDK 는 앱이 뜰 때 한 번 초기화해 둔다 — 공유 시트가 열리자마자 쓸 수 있게.
+  useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
   const creatingAlbumId = getCreatingAlbumIdFromPath();
   const contributeAlbumId = getContributeAlbumIdFromPath();
@@ -309,7 +310,7 @@ function App() {
           : myAlbumsPage ? requiresLogin(<MyAlbums userId={user?.id ?? null} />)
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
-              : <AlbumResultView result={result} onShareKakao={(narrative, shareUrl) => shareAlbum({ imageUrl: resolveShareImageUrl(result), linkUrl: shareUrl || result.share_url, description: narrative, title: result.title })} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={resolveShareImageUrl(result)} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
+              : <AlbumResultView result={result} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={resolveShareImageUrl(result)} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
           ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onSuccess={({ albumId, previewUrls, submittedAt, responseAt, photoCount }) => {
             saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt, photoCount });
             // Creation succeeded — the persisted step is no longer needed.

@@ -11,9 +11,9 @@ import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
 import { useSignedUrlRefresh } from "../lib/useSignedUrlRefresh";
 
-import { useKakaoSdk } from "../hooks/useKakaoSdk";
 
-import CollaborationPanel, { ensureAlbumInviteUrl } from "./CollaborationPanel";
+import CollaborationPanel from "./CollaborationPanel";
+import AlbumShareSheet from "./AlbumShareSheet";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
 import AlbumScreen from "./AlbumScreen";
 import AlbumGuestbook from "./AlbumGuestbook";
@@ -78,7 +78,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [coverPickerRequest, setCoverPickerRequest] = useState(0);
   // 공유하기 시트(목업 화면 2): 하단 네비 공유하기가 바로 카카오를 부르지 않고 이 시트를 연다.
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   // ③ 방명록: 앨범 본문 밖 별도 구역. 공유 화면의 기존 구현·API(/s/<token>)를 그대로
   // 재사용하므로 토큰이 필요하다 — 하단 네비 "한마디 쓰기"가 이 구역을 연다.
   const [guestbookToken, setGuestbookToken] = useState<string | null>(null);
@@ -120,7 +119,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [isSavingStory, setIsSavingStory] = useState(false);
   const [storySaveError, setStorySaveError] = useState<string | null>(null);
 
-  const { shareAlbum } = useKakaoSdk();
 
   // 방명록 토큰 확보(1회). 실패해도 앨범 열람에는 영향이 없다 — 구역만 렌더링되지 않는다.
   useEffect(() => {
@@ -145,40 +143,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       .catch(() => { if (active) setContributorCount(null); });
     return () => { active = false; };
   }, [album?.can_edit, albumId, collabRefreshKey]);
-
-  // 공유하기 시트의 "사진·한마디 받기": 패널과 같은 초대 링크(read-or-rotate)를 카카오로 보낸다.
-  const handleInviteKakao = async () => {
-    try {
-      const linkUrl = await ensureAlbumInviteUrl(albumId);
-      shareAlbum({
-        imageUrl: resolveShareImageUrl(album),
-        linkUrl,
-        title: "함께 앨범을 만들어요",
-        description: "가족과 친구가 자기 사진과 한마디를 더할 수 있어요.",
-        buttonTitle: "함께 만들기",
-      });
-    } catch {
-      try {
-        await navigator.clipboard.writeText(await ensureAlbumInviteUrl(albumId));
-        setActionError(null);
-      } catch {
-        setActionError("초대 링크를 준비하지 못했어요.");
-      }
-    }
-  };
-
-  // 공유하기 시트의 "링크 복사": 감상(/s/) 링크 — 카카오를 못 쓰는 상대에게 주는 대체 경로.
-  const handleCopyShareLink = async () => {
-    try {
-      await navigator.clipboard.writeText(publicShareUrl || await resolvePublicShareUrl());
-      setShareCopied(true);
-      window.setTimeout(() => setShareCopied(false), 2500);
-    } catch {
-      setActionError("링크를 복사하지 못했어요.");
-    }
-  };
-
-
 
   useEffect(() => {
     // Keep a shared in-flight request alive across React StrictMode's
@@ -408,41 +372,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
   };
 
-  const handleKakaoShare = async () => {
-
-    if (!album) return;
-
-    let shareUrl = "";
-    try {
-
-      shareUrl = await resolvePublicShareUrl();
-      shareAlbum({
-
-        imageUrl: resolveShareImageUrl(album),
-
-        linkUrl: shareUrl,
-
-        description: (album.epilogue ?? album.narrative ?? "").trim(),
-
-        // §5 — 두 링크의 카드 문구가 달라야 한다. 이건 "구경하라고" 보내는 쪽이다.
-        title: "앨범을 함께 봐요",
-
-        buttonTitle: "앨범 보기",
-
-      });
-
-    } catch (cause) {
-
-      try {
-        await navigator.clipboard.writeText(shareUrl || await resolvePublicShareUrl());
-        setError("링크를 복사했습니다.");
-      } catch (copyCause) {
-        setError(copyCause instanceof Error ? copyCause.message : "앨범을 공유하지 못했습니다.");
-      }
-
-    }
-
-  };
 
   const activateContribution = (action: "photo" | "memory") => {
     setActiveAction(action);
@@ -523,7 +452,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     const onAction = (event: Event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
       if (action === "photo" || action === "memory") void openContribution(action);
-      if (action === "share") void handleKakaoShare();
+      // ★ 딥링크도 예외가 아니다(I-2) — 카카오로 바로 가지 않고 같은 시트를 연다.
+      if (action === "share") setShareOpen(true);
       if (action === "top") window.scrollTo({ top: 0, behavior: "smooth" });
     };
     const onPopState = () => {
@@ -662,7 +592,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onCancel={() => setDeleteConfirmOpen(false)}
         />
       ) : null}
-      {moreOpen || shareOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={() => { requestCloseMore(); setShareOpen(false); }} /> : null}
+      {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={requestCloseMore} /> : null}
       {/* 적다 만 연락처가 있으면 묻는다 — 조용히 버리지 않는다(§5). */}
       {contactGuard}
       {moreOpen ? (
@@ -684,29 +614,16 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onWithdraw={onWithdraw}
         />
       ) : null}
-      {/* 주최자에게만 보인다(§5). 하단 네비의 공유하기도 소유자 변형에만 있지만,
-          여기서도 서버 플래그로 한 번 더 막는다 — 프런트가 추측하지 않는다(§10). */}
-      {shareOpen && displayAlbum?.can_edit ? (
-        <section className="album-inline-action album-share-sheet" aria-label="공유하기">
-          <div className="album-inline-action__header"><h2>공유하기</h2><button type="button" onClick={() => setShareOpen(false)}>닫기</button></div>
-          <div className="album-inline-action__body album-share-sheet__body">
-            {/* §5 — 보내는 목적이 둘로 다르다. 이름만으로는 차이를 모르므로 설명 한 줄을
-                함께 보여준다(잘못 보내면 되돌릴 수 없다). 누르는 순간 카카오가 열린다. */}
-            <button type="button" className="album-share-sheet__row" onClick={() => { setShareOpen(false); void handleInviteKakao(); }}>
-              <span>함께 만들자고 보내기</span>
-              <em>받는 사람이 사진과 한마디를 더할 수 있어요</em>
-            </button>
-            <button type="button" className="album-share-sheet__row" onClick={() => { setShareOpen(false); void handleKakaoShare(); }}>
-              <span>구경하라고 보내기</span>
-              <em>받는 사람은 보기만 해요</em>
-            </button>
-            {/* 링크 복사의 기본은 더 안전한 쪽(구경용)이다. 무엇을 복사했는지 알린다. */}
-            <button type="button" className="album-share-sheet__row" onClick={() => void handleCopyShareLink()}>
-              <span>{shareCopied ? "구경용 링크를 복사했어요" : "링크 복사"}</span>
-              <em>구경용 링크를 복사해요</em>
-            </button>
-          </div>
-        </section>
+      {/* 진입점이 몇 개든 열리는 것은 공용 시트 하나다(I-2 · §5).
+          ★ 주최자에게만 — 역할 판정은 resolveAlbumRole 한 곳이다(H-1). */}
+      {shareOpen && role === "owner" ? (
+        <AlbumShareSheet
+          albumId={albumId}
+          imageUrl={resolveShareImageUrl(displayAlbum)}
+          resolveViewUrl={resolvePublicShareUrl}
+          viewDescription={epilogueText}
+          onClose={() => setShareOpen(false)}
+        />
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
         <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} />
@@ -808,249 +725,5 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: navVariantForRole(role), onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => { guestbookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
-  /*
-  return (
-
-    <div className={`album-page album-result--${normalizeTemplateType(templateType)}`}>
-
-      <a className="album-page__back-link" href="/my-albums">← 내 앨범</a>
-
-      <div className="album-page__layout">
-
-        <article className="album-page__book album-result">
-
-          <header className="album-result__intro">
-            <AlbumScreenHeader
-              title={displayTitle}
-              subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`}
-              canEdit={canEdit}
-              onSaveTitle={canEdit ? handleSaveTitle : undefined}
-            />
-            {requestedEdition !== null ? (
-              <p className="album-result__subtitle">
-                <a href={`/album/${albumId}`}>최신 앨범 보기</a>
-                {displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>더 이전 앨범 보기</a></> : null}
-              </p>
-            ) : null}
-            {requestedEdition === null && displayAlbum?.edition_is_latest && displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? (
-              <p className="album-result__subtitle">새로 더해진 것까지 담은 앨범입니다. <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></p>
-            ) : null}
-
-            <p className="album-result__cover">{coverLineForCategory(category)}</p>
-
-            <h2 className="album-result__title">{displayTitle}</h2>
-            {canEdit ? (
-              <p className="album-result__subtitle">
-                <button type="button" className="link-btn" onClick={() => void handleSaveTitle(displayTitle)}>
-                  제목 수정
-                </button>
-              </p>
-            ) : null}
-
-            <p className="album-result__subtitle">우리 모임의 추억 앨범</p>
-
-          </header>
-
-
-
-          <div className="album-result__stage album-result__stage--web">
-
-            <AlbumRenderer
-
-              photos={photos}
-
-              title={displayTitle}
-
-              epilogue={isEditingEpilogue ? "" : epilogue}
-
-              coverDateLabel={displayAlbum?.date}
-              chapterStories={chapterStories}
-
-              category={category}
-
-              templateType={templateType}
-
-              albumId={displayAlbum?.album_id ?? albumId}
-              coverPhotoId={displayAlbum?.cover_photo_id}
-              livingAppendPages={livingAppendPages}
-
-              mode="screen"
-              onEditEpilogue={canEdit && hasEpilogue ? () => {
-                setEpilogueDraft(epilogueText);
-                setIsEditingEpilogue(true);
-              } : undefined}
-              photoCommentEdit={canEdit ? {
-                canEdit: true,
-                editingPhotoId,
-                savingPhotoId: isSavingPhotoComment ? editingPhotoId : null,
-                error: photoCommentSaveError,
-                draft: photoCommentDraft,
-                startEdit: handleStartPhotoCommentEdit,
-                cancelEdit: handleCancelPhotoCommentEdit,
-                setDraft: setPhotoCommentDraft,
-                saveEdit: (photoId: string) => {
-                  if (editingPhotoId === photoId) void handleSavePhotoComment();
-                },
-              } : null}
-
-            />
-
-          </div>
-
-          {isEditingEpilogue ? (
-            <section className="album-result__narrative album-result__epilogue">
-              <div className="album-result__narrative-head">
-                <h3>우리의 이야기</h3>
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => void handleSaveEpilogue()}
-                  disabled={isSavingEpilogue}
-                >
-                  {isSavingEpilogue ? "저장 중..." : "완료"}
-                </button>
-              </div>
-              <textarea
-                className="album-result__editor"
-                value={epilogueDraft}
-                onChange={(event) => setEpilogueDraft(event.target.value)}
-                rows={6}
-                maxLength={800}
-                autoFocus
-              />
-            </section>
-          ) : null}
-
-          {!isEditingEpilogue && canEdit && !hasEpilogue ? (
-            <div className="album-result__epilogue-actions album-result__epilogue-actions--alone">
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setEpilogueDraft("");
-                  setIsEditingEpilogue(true);
-                }}
-              >
-                우리의 이야기 쓰기
-              </button>
-            </div>
-          ) : null}
-
-          {displayAlbum?.media?.some((media) => media.media_type !== "image" && media.media_type !== "gif") ? (
-
-            <section className="album-result__narrative">
-
-              <div className="album-result__narrative-head">
-
-                <h3>함께 담긴 미디어</h3>
-
-              </div>
-
-              <ul className="media-placeholder-list">
-
-                {displayAlbum.media
-
-                  .filter((media) => media.media_type !== "image" && media.media_type !== "gif")
-
-                  .map((media) => (
-
-                    <li key={media.id} className="media-placeholder">
-
-                      <span aria-hidden="true">
-
-                        {media.media_type === "video" ? "🎬" : media.media_type === "audio" ? "🎵" : "📄"}
-
-                      </span>
-
-                      <span>{media.original_filename || media.mime_type}</span>
-
-                      <small>{media.processing_status === "pending" ? "미리보기 준비 중" : "미디어 준비됨"}</small>
-
-                    </li>
-
-                  ))}
-
-              </ul>
-
-            </section>
-
-          ) : null}
-
-        </article>
-
-
-
-        <aside className="album-page__manage" aria-label="앨범 공유">
-
-          <div className="album-result__actions">
-
-            <button
-
-              type="button"
-
-              className="btn btn--kakao"
-
-              hidden
-
-              onClick={() => void handleKakaoShare()}
-
-            >
-
-              <span className="btn__icon">💬</span>
-
-              카카오톡으로 공유하기
-
-            </button>
-
-            <button type="button" className="btn btn--secondary" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>
-
-              {isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}
-
-            </button>
-
-            {displayAlbum?.can_delete ? <button type="button" className="btn btn--ghost btn--danger" onClick={() => void handleDeleteAlbum()} disabled={isDeleting}>
-
-              {isDeleting ? "삭제하는 중..." : "앨범 삭제"}
-
-            </button> : null}
-
-            <button type="button" className="btn btn--ghost" onClick={handleCopyLink} hidden>
-
-              {copied ? "링크가 복사됐어요 ✓" : "이 페이지 링크 복사"}
-
-            </button>
-
-            <a className="btn btn--ghost" href="/">
-
-              나도 앨범 만들기
-
-            </a>
-
-          </div>
-
-          {requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel
-            key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest} hideDuplicatedActions
-            albumId={albumId}
-            imageUrl={resolveShareImageUrl(displayAlbum)}
-            title={displayTitle}
-            photos={photos}
-            coverPhotoId={displayAlbum?.cover_photo_id}
-            onOpenParticipants={() => {
-              window.location.assign(`/album/${albumId}/participants`);
-            }}
-            onAlbumUpdated={() => setRetryKey((value) => value + 1)}
-            onCoverUpdated={(coverPhotoId, coverImageUrl) => {
-              setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current);
-            }}
-          /> : null}
-
-        </aside>
-
-      </div>
-
-    </div>
-
-  );
-  */
 
 }

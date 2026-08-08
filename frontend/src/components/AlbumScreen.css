@@ -106,3 +106,5 @@
 .album-share-sheet__row:last-child { border-bottom: 0; }
 .album-share-sheet__row span { color: var(--c-text); font-size: var(--t-sm); font-weight: 700; }
 .album-share-sheet__row em { color: var(--c-text-muted); font-size: var(--t-xs); font-style: normal; line-height: 1.5; }
+/* 카카오가 열리지 않았을 때의 한 줄 — 조용히 끝나지 않는다(§11). */
+.album-share-sheet__notice { margin: 10px 2px 0; color: var(--c-text-soft); font-size: var(--t-xs); line-height: 1.5; }

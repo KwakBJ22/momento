@@ -164,8 +164,8 @@ test("owner-only actions hide behind server capability flags; PDF stays for part
   assert.match(moreSheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   // PDF row is NOT gated by can_edit/can_delete — participants keep it.
   assert.doesNotMatch(moreSheet, /canEdit[^\n]*파일로 저장하기/);
-  // 공유하기 시트 자체가 주최자에게만 열린다(§5) — 서버 플래그로 막는다.
-  assert.match(source, /\{shareOpen && displayAlbum\?\.can_edit \? \(/);
+  // 공유하기 시트 자체가 주최자에게만 열린다(§5) — 역할 판정은 한 곳이다(H-1).
+  assert.match(source, /\{shareOpen && role === "owner" \? \(/);
 });
 
 test("permission errors speak Korean and never offer 다시 시도", () => {
@@ -327,41 +327,41 @@ test("creation timing keeps object URLs in memory only and logs no file paths or
 });
 
 test("album viewing and collaboration invitation use distinct URLs and Kakao payloads", () => {
-  const source = component("CollaborationPanel");
-  assert.match(source, /rotateCollaborationInvite/);
-  assert.match(source, /isContributionInviteUrl/);
-  assert.match(source, /pathname\.startsWith\("\/join\/"\)/);
+  // I-2: 초대 링크 발급도, 카카오 카드도 **공용 시트 한 곳**에서만 만든다.
+  // 참여 패널은 더 이상 카카오를 바로 열지 않는다 — 같은 시트를 연다.
+  const sheet = component("AlbumShareSheet");
+  assert.match(sheet, /ensureAlbumInviteUrl\(albumId\)/);
+  const invite = readFileSync(new URL("../src/lib/albumInvite.ts", import.meta.url), "utf8");
+  assert.match(invite, /rotateCollaborationInvite/);
+  assert.match(invite, /pathname\.startsWith\("\/join\/"\)/);
   // 카카오 카드는 초대받은 사람이 가장 먼저 보는 문장이다 — 참여 화면의
   // "함께 만들자고 초대했어요"와 말이 이어져야 한다.
-  assert.match(source, /title: "함께 앨범을 만들어요"/);
-  assert.match(source, /buttonTitle: "함께 만들기"/);
-  // Result-named wording (동사 대신 결과로 이름): 초대 = "사진·한마디 받기", 복사 = "링크 복사".
-  // 이름은 §7 대로 "한마디" 하나다(옛 이름 "기억"에서 바뀌었다).
-  assert.match(source, /사진·한마디 받기/);
-  assert.match(source, /링크 복사/);
-  assert.match(source, /상대가 자기 사진을 더할 수 있어요/);
-  assert.doesNotMatch(source, /함께 만들도록 초대/);
+  assert.match(sheet, /title: "함께 앨범을 만들어요"/);
+  assert.match(sheet, /buttonTitle: "함께 만들기"/);
+  // Result-named wording (동사 대신 결과로 이름).
+  assert.match(sheet, /함께 만들자고 보내기/);
+  assert.match(sheet, /링크 복사/);
+  assert.doesNotMatch(sheet, /함께 만들도록 초대/);
+
+  const panel = component("CollaborationPanel");
+  assert.match(panel, /<AlbumShareSheet/);
+  assert.doesNotMatch(panel, /shareAlbum\(\{/);
 });
 
 test("share buttons are named for the view-only result, not the '공유' verb", () => {
-  // AlbumView 는 §5 공유하기 시트로 대체됐다: 항목 이름이 목적(결과)을 말하고 설명
-  // 한 줄이 차이를 담당한다.
-  const albumView = component("AlbumView");
-  assert.match(albumView, /구경하라고 보내기[\s\S]{0,120}받는 사람은 보기만 해요/);
-  assert.doesNotMatch(albumView, />앨범 공유하기<\/button>/);
-  for (const name of ["AlbumResult", "PublicShareView"]) {
-    const source = component(name);
-    assert.match(source, /구경하라고 보내기/);
-    assert.match(source, /보기만 할 수 있어요/);
-    assert.doesNotMatch(source, />앨범 공유하기<\/button>/);
+  // 항목 이름이 목적(결과)을 말하고 설명 한 줄이 차이를 담당한다 — 공용 시트 한 곳이다.
+  const sheet = component("AlbumShareSheet");
+  assert.match(sheet, /구경하라고 보내기[\s\S]{0,120}받는 사람은 보기만 해요/);
+  for (const name of ["AlbumView", "AlbumResult", "PublicShareView", "AlbumShareSheet"]) {
+    assert.doesNotMatch(component(name), />앨범 공유하기<\/button>/, name);
   }
 });
 
 test("Kakao failures copy the matching viewing link instead of silently failing", () => {
-  const albumView = component("AlbumView");
-  const albumResult = component("AlbumResult");
-  assert.match(albumView, /navigator\.clipboard\.writeText\(shareUrl \|\| await resolvePublicShareUrl\(\)\)/);
-  assert.match(albumResult, /navigator\.clipboard\.writeText\(await resolveShareUrl\(\)\)/);
-  assert.match(albumView, /링크를 복사했습니다\./);
-  assert.match(albumResult, /링크를 복사했습니다\./);
+  // 되돌아갈 자리도 한 곳이다 — 카카오가 열리지 않으면 그 항목의 링크를 복사해 준다.
+  const sheet = component("AlbumShareSheet");
+  assert.match(sheet, /await fallbackToCopy\(\(\) => ensureAlbumInviteUrl\(albumId\)\)/);
+  assert.match(sheet, /await fallbackToCopy\(resolveViewUrl\)/);
+  assert.match(sheet, /navigator\.clipboard\.writeText\(await url\(\)\)/);
+  assert.match(sheet, /링크를 복사했어요\./);
 });

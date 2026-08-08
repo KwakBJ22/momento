@@ -5,12 +5,13 @@ import {
   closeCollaborationAlbum,
   getCollaborationStatus,
   getPendingContributions,
+  createAlbumShareLink,
   isPublicShareUrl,
-  rotateCollaborationInvite,
   updateAlbumCoverPhoto,
   type PendingContributionItem,
 } from "../lib/api";
-import { useKakaoSdk } from "../hooks/useKakaoSdk";
+import AlbumShareSheet from "./AlbumShareSheet";
+import { forgetInviteUrl, storeInviteUrl } from "../lib/albumInvite";
 import { updatePublicShareCoverCache } from "../lib/publicShareFlow";
 import { isRequestAborted } from "../lib/requestAbort";
 import type { AlbumPhoto } from "../types";
@@ -50,16 +51,6 @@ interface CollaborationPanelProps {
 }
 
 const shareUrlStorageKey = (albumId: string) => `momento-collaboration-share-url:${albumId}`;
-const inviteUrlStorageKey = (albumId: string) => `momento-collaboration-invite-url:${albumId}`;
-
-function isContributionInviteUrl(value: string | null | undefined): boolean {
-  try {
-    return new URL(value || "", window.location.origin).pathname.startsWith("/join/");
-  } catch {
-    return false;
-  }
-}
-
 function readStoredShareUrl(albumId: string): string | null {
   try {
     const key = shareUrlStorageKey(albumId);
@@ -70,32 +61,6 @@ function readStoredShareUrl(albumId: string): string | null {
   } catch {
     return null;
   }
-}
-
-function readStoredInviteUrl(albumId: string): string | null {
-  try {
-    const key = inviteUrlStorageKey(albumId);
-    const durable = localStorage.getItem(key);
-    if (isContributionInviteUrl(durable)) return durable;
-    const temporary = sessionStorage.getItem(key);
-    return isContributionInviteUrl(temporary) ? temporary : null;
-  } catch {
-    return null;
-  }
-}
-
-/** 공유하기 시트(목업 화면 2)의 "사진·한마디 받기"가 쓰는 초대 링크. 패널의
- *  read-or-rotate 로직과 같은 저장 키를 공유한다 — 중복 발급 없음. */
-export async function ensureAlbumInviteUrl(albumId: string): Promise<string> {
-  const stored = readStoredInviteUrl(albumId);
-  if (stored) return stored;
-  const created = await rotateCollaborationInvite(albumId);
-  try {
-    localStorage.setItem(inviteUrlStorageKey(albumId), created.invite_url);
-  } catch {
-    try { sessionStorage.setItem(inviteUrlStorageKey(albumId), created.invite_url); } catch { /* 저장 실패해도 링크는 유효 */ }
-  }
-  return created.invite_url;
 }
 
 function shareToken(url: string | null): string | null {
@@ -117,7 +82,6 @@ export default function CollaborationPanel({
   const [shareUrl, setShareUrl] = useState<string | null>(() => (
     isPublicShareUrl(initialShareUrl) ? initialShareUrl || null : readStoredShareUrl(albumId)
   ));
-  const [inviteUrl, setInviteUrl] = useState<string | null>(() => readStoredInviteUrl(albumId));
   const [statusLoading, setStatusLoading] = useState(true);
   const [busy, setBusy] = useState<"apply" | "stop" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -126,6 +90,7 @@ export default function CollaborationPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [livingMode, setLivingMode] = useState<LivingMode>("append_page");
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   // 헤더 더보기 시트의 "표지 사진 바꾸기": 신호가 올 때마다 픽커를 연다.
   useEffect(() => {
     if (coverPickerRequest > 0 && photos.length) setCoverPickerOpen(true);
@@ -136,10 +101,6 @@ export default function CollaborationPanel({
   const refreshRequestId = useRef(0);
   const retryControllerRef = useRef<AbortController | null>(null);
   const coverReturnFocusRef = useRef<HTMLElement | null>(null);
-  const { shareAlbum } = useKakaoSdk();
-  const inviteDescription = title
-    ? `${title}에 사진이나 한마디를 남기면 함께 만든 앨범에 담을 수 있어요.`
-    : "사진이나 한마디를 남기면 함께 만든 앨범에 담을 수 있어요.";
 
   const rememberShareUrl = useCallback((url: string | null) => {
     setShareUrl(url);
@@ -155,18 +116,10 @@ export default function CollaborationPanel({
     } catch { /* private WebViews can reject storage */ }
   }, [albumId]);
 
+  /** 초대 링크 발급은 공유 시트가 한다(lib/albumInvite). 여기서는 참여를 중단할 때
+   *  저장된 링크를 지우는 일만 남는다 — 같은 저장 키를 쓴다. */
   const rememberInviteUrl = useCallback((url: string | null) => {
-    setInviteUrl(url);
-    try {
-      const key = inviteUrlStorageKey(albumId);
-      if (url) {
-        sessionStorage.setItem(key, url);
-        localStorage.setItem(key, url);
-      } else {
-        sessionStorage.removeItem(key);
-        localStorage.removeItem(key);
-      }
-    } catch { /* private WebViews can reject storage */ }
+    if (url) storeInviteUrl(albumId, url); else forgetInviteUrl(albumId);
   }, [albumId]);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -226,15 +179,13 @@ export default function CollaborationPanel({
     };
   }, [coverPickerOpen]);
 
-  const ensureInviteUrl = useCallback(async () => {
-    if (isContributionInviteUrl(inviteUrl)) return inviteUrl || "";
-    // Requesting the first invite link IS the intent to collaborate — the backend
-    // enables collaboration here, so no separate "start" button is needed.
-    const created = await rotateCollaborationInvite(albumId);
-    rememberInviteUrl(created.invite_url);
-    void refresh(); // enabling collaboration changes status → surface the stop control
-    return created.invite_url;
-  }, [albumId, inviteUrl, rememberInviteUrl, refresh]);
+  /** 구경용(/s/) 링크 — 공유 시트가 쓴다. 이미 가진 값이 있으면 그대로 쓴다. */
+  const ensurePublicShareUrl = useCallback(async () => {
+    if (isPublicShareUrl(shareUrl)) return shareUrl || "";
+    const created = await createAlbumShareLink(albumId, "view");
+    rememberShareUrl(created.share_url);
+    return created.share_url;
+  }, [albumId, shareUrl, rememberShareUrl]);
 
   const stop = async () => {
     setBusy("stop"); setMessage(null); setError(null);
@@ -246,37 +197,6 @@ export default function CollaborationPanel({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "참여 중단에 실패했어요. 다시 시도해 주세요.");
     } finally { setBusy(null); }
-  };
-
-  const copyLink = async () => {
-    try {
-      // Copy an already-issued public link before waiting on any network work.
-      // Creating a link is only necessary for legacy albums with no cached URL.
-      const readyUrl = isContributionInviteUrl(inviteUrl) ? inviteUrl : readStoredInviteUrl(albumId);
-      await navigator.clipboard.writeText(readyUrl || await ensureInviteUrl());
-      setMessage("함께 만들기 초대 링크를 복사했습니다.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "링크를 복사하지 못했습니다.");
-    }
-  };
-
-  const shareKakao = async () => {
-    try {
-      shareAlbum({
-        imageUrl: imageUrl || "",
-        linkUrl: await ensureInviteUrl(),
-        title: "함께 앨범을 만들어요",
-        description: inviteDescription,
-        buttonTitle: "함께 만들기",
-      });
-    } catch (cause) {
-      try {
-        await navigator.clipboard.writeText(await ensureInviteUrl());
-        setMessage("함께 만들기 초대 링크를 복사했습니다.");
-      } catch {
-        setError(cause instanceof Error ? cause.message : "카카오로 초대하지 못했습니다.");
-      }
-    }
   };
 
   const openLivingPicker = async () => {
@@ -361,7 +281,9 @@ export default function CollaborationPanel({
       </div>
     ) : (
       <>
-        {canManage && !hideDuplicatedActions ? <><div className="collab-panel__share-actions"><button type="button" disabled={busy !== null} onClick={() => void copyLink()}>링크 복사</button><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => void shareKakao()}>사진·한마디 받기</button></div><p className="collab-panel__invite-hint">상대가 자기 사진을 더할 수 있어요</p></> : null}
+        {/* ★ 여기서 카카오를 바로 열지 않는다(I-2 · §5). 무엇을 보내는지 고르지 않고
+            나가면 되돌릴 수 없다 — 다른 자리와 **같은 공유 시트**를 연다. */}
+        {canManage && !hideDuplicatedActions ? <><div className="collab-panel__share-actions"><button type="button" className="collab-panel__invite-primary" disabled={busy !== null} onClick={() => setShareOpen(true)}>공유하기</button></div><p className="collab-panel__invite-hint">함께 만들자고 · 구경하라고 · 링크 복사 중에서 고를 수 있어요</p></> : null}
         {started && canManage ? <>
           <div className="collab-panel__new-summary"><strong>새로 더해진 것</strong><p>{hasNew ? `새로운 사진 ${newPhotos}장과 한마디 ${newMemories}개가 도착했습니다.` : "새로 더해진 사진과 한마디가 없어요."}</p></div>
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "사진을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
@@ -382,6 +304,8 @@ export default function CollaborationPanel({
       <div className="collab-panel__cover-grid">{photos.map((photo) => <button type="button" key={photo.id} className={selectedCoverId === photo.id ? "is-selected" : ""} onClick={() => setSelectedCoverId(photo.id)} aria-pressed={selectedCoverId === photo.id}><img src={photo.thumbnail_url || photo.original_url} alt="대표사진 후보" loading="lazy" /></button>)}</div>
       <div className="collab-panel__cover-actions"><button type="button" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}>취소</button><button type="button" className="collab-panel__primary" disabled={savingCover || !selectedCoverId} onClick={() => void saveCover()}>{savingCover ? "저장 중..." : "저장"}</button></div>
     </section></div> : null}
+    {/* 다른 자리와 같은 공유 시트 하나(I-2). 구경용 링크는 이 패널이 이미 가진 값으로. */}
+    {shareOpen ? <AlbumShareSheet albumId={albumId} imageUrl={imageUrl || ""} resolveViewUrl={ensurePublicShareUrl} viewDescription={title || ""} onInviteIssued={() => { void refresh(); }} onClose={() => setShareOpen(false)} /> : null}
   </section>;
 }
 

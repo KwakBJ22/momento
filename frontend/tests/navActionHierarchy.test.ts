@@ -72,18 +72,20 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
 
 test("공유하기 opens the mockup share sheet instead of calling kakao directly", () => {
   const view = read("components/AlbumView.tsx");
-  // 하단 네비 공유하기 → 시트(카카오를 바로 열지 않는다). 시트 안은 §5 표대로 세 항목이며
-  // 각 항목에 설명 한 줄이 붙는다 — 이름만으로는 차이를 모르고 잘못 보내면 되돌릴 수 없다.
+  // 하단 네비 공유하기 → 시트(카카오를 바로 열지 않는다). 시트는 공용 컴포넌트 하나다(I-2).
   assert.match(view, /onShare: \(\) => setShareOpen\(true\)/);
-  const sheet = view.split('className="album-inline-action album-share-sheet"')[1].split("</section>")[0];
+  assert.match(view, /<AlbumShareSheet/);
+  // 시트 안은 §5 표대로 세 항목이며 각 항목에 설명 한 줄이 붙는다 — 이름만으로는 차이를
+  // 모르고 잘못 보내면 되돌릴 수 없다.
+  const sheet = read("components/AlbumShareSheet.tsx");
   assert.equal((sheet.match(/album-share-sheet__row/g) || []).length, 3);
   assert.match(sheet, /함께 만들자고 보내기[\s\S]{0,120}받는 사람이 사진과 한마디를 더할 수 있어요/);
   assert.match(sheet, /구경하라고 보내기[\s\S]{0,120}받는 사람은 보기만 해요/);
   assert.match(sheet, /링크 복사[\s\S]{0,120}구경용 링크를 복사해요/);
-  // 각 항목이 눌린 그때 카카오가 열린다(시트를 닫고 각자의 링크로).
-  assert.match(sheet, /void handleInviteKakao\(\)/);
-  assert.match(sheet, /void handleKakaoShare\(\)/);
-  assert.match(view, /ensureAlbumInviteUrl\(albumId\)/);
+  // 각 항목이 눌린 그때 카카오가 열린다(각자의 링크로).
+  assert.match(sheet, /void sendInvite\(\)/);
+  assert.match(sheet, /void sendView\(\)/);
+  assert.match(sheet, /ensureAlbumInviteUrl\(albumId\)/);
   // 제목 아래 메타(목업 albumhead__meta): 사진 N장 · 함께 만든 사람 M명.
   assert.match(view, /사진 \$\{photos\.length\}장/);
 });
@@ -116,7 +118,7 @@ test("album screen has no bottom action-button row (sheets own those actions)", 
 
   const result = read("components/AlbumResult.tsx");
   // Active resultActions: share secondary, PDF ghost (생성 결과 화면은 그대로).
-  assert.match(result, /btn btn--secondary" onClick=\{\(\) => setShowShareModal\(true\)\}>구경하라고 보내기/);
+  assert.match(result, /btn btn--secondary" onClick=\{\(\) => setShareOpen\(true\)\}>공유하기/);
   assert.match(result, /btn btn--ghost" onClick=\{\(\) => void handlePdf\(\)\}/);
 });
 

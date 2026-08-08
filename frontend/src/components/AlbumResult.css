@@ -345,31 +345,6 @@
   font-weight: 700;
 }
 
-.share-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  display: grid;
-  place-items: center;
-  padding: 1.25rem;
-  background: rgba(61, 53, 48, 0.45);
-}
-
-.share-modal__card {
-  display: grid;
-  gap: 0.7rem;
-  width: min(100%, 380px);
-  padding: 1.4rem 1.2rem;
-  border-radius: 18px;
-  background: var(--c-surface);
-}
-
-.share-modal__card h3 {
-  margin: 0 0 0.4rem;
-  text-align: center;
-  color: var(--c-text);
-}
-
 .album-result__actions {
   display: flex;
   flex-direction: column;
@@ -415,7 +390,6 @@
    ========================================================= */
 @media print {
   .album-page__manage,
-  .share-modal,
   .album-result__actions,
   .album-result__stage--web,
   .link-btn {
