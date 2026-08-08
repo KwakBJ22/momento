@@ -7,6 +7,7 @@
  */
 const API_STUB = new URL("./apiStub.ts", import.meta.url).href;
 const ALBUM_ENGINE_STUB = new URL("./albumEngineStub.tsx", import.meta.url).href;
+const AUTH_SERVICE_STUB = new URL("./authServiceStub.ts", import.meta.url).href;
 
 export async function resolve(specifier, context, next) {
   if (specifier.endsWith(".css")) {
@@ -19,6 +20,12 @@ export async function resolve(specifier, context, next) {
   const path = resolved.url.split("\\").join("/");
   if (path.endsWith("/src/lib/api.ts")) {
     return { ...resolved, url: API_STUB, shortCircuit: true };
+  }
+  // 로그인 판정도 대역으로. 진짜 authService 는 Vite 전용 import.meta.env 로 설정
+  // 여부를 보는데 node 에는 값이 없어 "설정을 준비하고 있어요" 한 줄만 그리고 끝난다
+  // — 그러면 동의·로그인 화면 자체를 마운트해 볼 수 없다.
+  if (path.endsWith("/src/services/authService.ts")) {
+    return { ...resolved, url: AUTH_SERVICE_STUB, shortCircuit: true };
   }
   // 앨범 본문 렌더러는 대역으로(A안). 이 테스트가 보는 것은 훅 순서 하나다.
   if (path.endsWith("/src/album-engine/index.ts") || path.endsWith("/src/album-engine/index.tsx")) {

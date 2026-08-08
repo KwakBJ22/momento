@@ -112,8 +112,13 @@ body {
   cursor: pointer;
 }
 
+/* ★ 동의 전에는 눌리지 않는다. 그 사실이 **눈에 보여야** 한다 — 눌러도 아무 일이
+   없으면 사용자가 헤맨다. opacity 로 흐리게만 하면 노란 배경이 그대로 남아 눌릴 것처럼
+   보이므로, 배경 자체를 비활성 색으로 바꾼다. */
 .auth-panel__kakao:disabled {
-  opacity: 0.5;
+  background: var(--c-bg-soft);
+  color: var(--c-text-subtle);
+  box-shadow: inset 0 0 0 1px var(--c-border);
   cursor: not-allowed;
 }
 
@@ -122,16 +127,39 @@ body {
   text-align: center;
 }
 
-/* 법적 동의 시점 표시. 40대 이후 가독성 하한 14px 유지(그 이하로 내리지 말 것). */
-.auth-panel__legal {
-  margin: 0.75rem 0 0;
-  color: var(--c-text-muted);
-  font-size: var(--t-xs);
-  line-height: 1.5;
-  text-align: center;
+/* 명시적 동의 체크박스. 40대 이후 가독성 하한 14px 유지(그 이하로 내리지 말 것).
+   체크박스와 글자 전체가 하나의 누르는 영역(44px)이다. */
+.legal-consent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap-min);
+  margin: 0.75rem 0 0.5rem;
+  padding: 4px 2px;
+  cursor: pointer;
 }
 
-.auth-panel__legal a {
+.legal-consent__box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--c-brand-action);
+  cursor: pointer;
+}
+
+.legal-consent__text {
+  color: var(--c-text-soft);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+}
+
+/* 로고와 같은 조합 — "우리"(본문색) + "앨범"(브랜드색). 문자열은 lib/brand.ts 에서 읽는다. */
+.legal-consent__brand { font-weight: 800; font-style: normal; }
+.legal-consent__brand b { color: var(--c-text); font-weight: inherit; }
+.legal-consent__brand i { color: var(--c-brand); font-style: normal; font-weight: inherit; }
+
+.legal-consent__text a {
   color: var(--c-text-soft);
   font-weight: 700;
   text-decoration: underline;

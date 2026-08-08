@@ -63,7 +63,10 @@ test("푸터는 두 줄 — 사업자 정보는 `회사 정보` 안에 있다 (�
 test("약관·개인정보 링크는 살아 있고, 랜딩에 두 번 나오지 않는다", () => {
   // 공용 푸터가 유일한 링크 자리(로그인 동의 고지는 법적 필수라 별개로 남는다).
   assert.doesNotMatch(read("components/Landing.tsx"), /terms\.html|privacy\.html/);
-  assert.match(read("components/AuthPanel.tsx"), /terms\.html/); // 동의 시점 고지는 유지
+  // 동의 시점 고지는 유지된다 — 이제 명시적 체크박스 컴포넌트가 담당한다.
+  // (어느 파일인지·클래스가 무엇인지는 tests/legalConsent.test.ts 가 렌더로 확인한다.)
+  assert.match(read("components/AuthPanel.tsx"), /<LegalConsent /);
+  assert.match(read("components/LegalConsent.tsx"), /LEGAL_LINKS/);
   assert.match(read("components/AppFooter.tsx"), /LEGAL_LINKS/);
 });
 
