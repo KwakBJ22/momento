@@ -83,9 +83,9 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
   assert.match(sheet, /canEdit=\{false\}/);
   assert.match(sheet, /canDelete=\{false\}/);
   assert.doesNotMatch(sheet, /onChangeCover|onDeleteAlbum/);
-  // 참여자에게 필요한 두 가지 — 함께한 사람 · PDF.
-  assert.match(sheet, /contributorCount=\{album\.contributor_count \?\? null\}/);
-  assert.match(sheet, /onExportPdf=/);
+  // 참여자에게 필요한 두 가지 — 함께한 사람 · PDF. ★ 구경꾼에게는 넘기지 않는다(E-4, §5 표).
+  assert.match(sheet, /contributorCount=\{canContribute \? album\.contributor_count \?\? null : null\}/);
+  assert.match(sheet, /onExportPdf=\{canContribute \?/);
   // PDF 실패를 조용히 삼키지 않는다(§11) — 앨범 상세와 같은 문구 모듈.
   assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
   assert.match(share, /\{pdfNotice \? <p className="album-inline-action__error" role="status">/);
@@ -115,4 +115,49 @@ test("두 링크의 카카오 카드 문구가 다르다 — 받는 사람이 �
   // 구경하라고
   assert.match(view, /title: "앨범을 함께 봐요"/);
   assert.match(view, /buttonTitle: "앨범 보기"/);
+});
+
+// E-4 (§5 표) — 구경꾼 시트에는 계정 행 하나만 남는다.
+test("★ 구경꾼 `⋯` 시트에 함께한 사람·PDF 가 없다", async () => {
+  const { registerCssStub, setupDom } = await import("./support/domEnv");
+  registerCssStub();
+  setupDom("https://test.local/");
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: AlbumMoreSheet } = await import("../src/components/AlbumMoreSheet");
+
+  const container = document.getElementById("root")!;
+  container.innerHTML = "";
+  const root = createRoot(container);
+  // PublicShareView 가 구경꾼(canContribute=false)에게 넘기는 값 그대로.
+  await React.act(async () => {
+    root.render(React.createElement(AlbumMoreSheet, {
+      onClose: () => undefined,
+      accountSheet: React.createElement("button", null, "로그인"),
+      canEdit: false,
+      canDelete: false,
+      photoCount: 12,
+      contributorCount: null,
+      albumId: "album-1",
+      onExportPdf: undefined,
+      showAbsentNotice: false,
+      onLogout: undefined,
+      onWithdraw: undefined,
+    } as never));
+  });
+  const text = container.textContent || "";
+  for (const forbidden of ["함께한 사람", "함께 만든 사람", "파일로 저장하기", "표지 사진", "로그아웃", "회원 탈퇴", "지우기"]) {
+    assert.equal(text.includes(forbidden), false, `구경꾼에게 보이면 안 된다: ${forbidden}`);
+  }
+  assert.match(text, /로그인/);
+  await React.act(async () => { root.unmount(); });
+});
+
+test("구경꾼에게는 그 값들을 아예 넘기지 않는다 (눌러서 막지 않는다)", () => {
+  const view = read("components/PublicShareView.tsx");
+  const sheet = view.slice(view.indexOf("<AlbumMoreSheet"), view.indexOf("/>", view.indexOf("<AlbumMoreSheet")));
+  assert.match(sheet, /contributorCount=\{canContribute \? album\.contributor_count \?\? null : null\}/);
+  assert.match(sheet, /onExportPdf=\{canContribute \? \(\) => \{ void handleSharePdf\(\); \} : undefined\}/);
+  assert.match(sheet, /onLogout=\{canContribute \? onLogout : undefined\}/);
+  assert.match(sheet, /onWithdraw=\{canContribute \? onWithdraw : undefined\}/);
 });

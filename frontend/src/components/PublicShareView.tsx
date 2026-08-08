@@ -415,6 +415,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={requestCloseMore} /> : null}
       {/* 적다 만 연락처가 있으면 묻는다 — 조용히 버리지 않는다(§5). */}
       {contactGuard}
+      {/* ★ 구경꾼 시트는 계정 행 하나뿐이다(§5 표 — 함께한 사람·PDF 모두 `—`).
+          눌러서 막을 것이 아니라 처음부터 보이지 않아야 한다. 서버도 두 경로 모두
+          인증 + require_album_read 를 요구한다(화면에서 감추는 것으로 끝내지 않는다). */}
       {moreOpen ? (
         <AlbumMoreSheet
           onClose={requestCloseMore}
@@ -422,13 +425,13 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           canEdit={false}
           canDelete={false}
           photoCount={(album.photos || []).length}
-          contributorCount={album.contributor_count ?? null}
+          contributorCount={canContribute ? album.contributor_count ?? null : null}
           albumId={albumId || ""}
-          onExportPdf={() => { void handleSharePdf(); }}
+          onExportPdf={canContribute ? () => { void handleSharePdf(); } : undefined}
           isExportingPdf={isExportingPdf}
           showAbsentNotice={canContribute}
-          onLogout={onLogout}
-          onWithdraw={onWithdraw}
+          onLogout={canContribute ? onLogout : undefined}
+          onWithdraw={canContribute ? onWithdraw : undefined}
         />
       ) : null}
       {pdfNotice ? <p className="album-inline-action__error" role="status">{pdfNotice}</p> : null}
