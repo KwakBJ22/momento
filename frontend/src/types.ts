@@ -245,6 +245,8 @@ export interface LivingAppendPage {
 
 export interface PublicShareAlbum {
   album_id: string;
+  /** 앨범의 현재 버전 — PDF 저장은 이 값이 맞아야 받아 준다(안 맞으면 409). */
+  album_version?: number;
   /** ★ 이미 이 앨범의 참여자인가 (§1). 링크를 열었다고 참여자가 되지 않는다 —
    *  서버가 기존 행이 있을 때만 내려준다. 화면은 이 값을 받아 쓸 뿐 만들지 않는다. */
   viewer_contributor?: { contributor_id: string; display_name: string; guest_id?: string | null } | null;

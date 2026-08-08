@@ -327,6 +327,10 @@ class PublicShareAlbumResponse(BaseModel):
     living_append_pages: list[dict[str, Any]] = Field(default_factory=list)
     edition_previous: int | None = None
     edition_is_latest: bool = True
+    # ★ PDF 저장(PUT /albums/{id}/pdf)은 이 값이 앨범의 현재 버전과 같아야 받아 준다.
+    # 공유 화면은 이 값을 몰라 0 을 보냈고, 그래서 저장이 **늘 409** 로 막혔다 —
+    # 저장이 안 되니 인앱 브라우저에 넘길 주소도 없어 "파일 저장이 막혀 있어요" 가 떴다.
+    album_version: int = 0
     og_title: str
     og_description: str
     # Anonymous per-album aggregate, e.g. {"love": 3, "moved": 1, "smile": 0}.

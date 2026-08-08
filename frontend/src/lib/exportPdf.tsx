@@ -65,7 +65,14 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
   try {
     storedUrl = (await uploadAlbumPdf(input.albumId, input.albumVersion, blob)).url;
   } catch (error) {
-    logPdf("pdf_upload_failed", { album: input.albumId, reason: pdfFailureMessage(error) });
+    const status = (error as { status?: number } | null)?.status;
+    logPdf("pdf_upload_failed", {
+      album: input.albumId,
+      version: input.albumVersion,
+      // 409 = 보낸 버전이 앨범과 다름 / 401 = 로그인 없음 / 400 = PDF 아님.
+      status: status ?? "none",
+      reason: pdfFailureMessage(error),
+    });
   }
 
   // 인앱 브라우저(카카오톡 등)는 blob URL + a[download] 를 무시한다: 눌러도 아무 일도

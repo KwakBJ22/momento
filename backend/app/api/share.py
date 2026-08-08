@@ -365,6 +365,8 @@ async def get_public_share(
 
     return PublicShareAlbumResponse(
         viewer_contributor=viewer_contributor,
+        # PDF 저장이 버전을 맞춰 보낼 수 있게 현재 버전을 알려준다.
+        album_version=int(album.get("album_version") or 0),
         album_id=UUID(album_id),
         title=str(album.get("title") or "우리의 추억"),
         narrative=narrative,

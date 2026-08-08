@@ -458,7 +458,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     try {
       const delivery = await downloadAlbumPdf({
         albumId: album.album_id,
-        albumVersion: 0,
+        // ★ 0 을 보내면 서버가 409 로 막는다(버전이 앨범과 달라서). 저장이 막히면
+        // 인앱 브라우저에 넘길 주소가 없어 "파일 저장이 막혀 있어요" 만 뜬다.
+        albumVersion: album.album_version ?? 0,
         contributorNames: album.contributor_names ?? [],
         title: album.title,
         photos: (album.photos || []) as AlbumPhoto[],

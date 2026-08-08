@@ -332,7 +332,13 @@ export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob
     `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
     { method: "PUT", body: form },
   );
-  if (!response.ok) throw new Error(await parseError(response));
+  if (!response.ok) {
+    // ★ 어느 단계에서 막혔는지 알 수 있게 상태를 붙인다. 저장이 막히면 인앱 브라우저에
+    // 넘길 주소가 없어 "파일 저장이 막혀 있어요" 만 뜨고, 그때 원인을 알 길이 없었다.
+    const error = new Error(await parseError(response)) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
   return (await response.json()) as { url: string | null; album_version: number; cached: boolean };
 }
 
