@@ -131,6 +131,12 @@ export default function CollaborationPanel({
       if (signal?.aborted || requestId !== refreshRequestId.current) return;
       setStatus(payload);
       setParticipation(payload.participation ?? null);
+      // ★ 참여가 끝난 앨범이면 이 기기에 남아 있는 초대 링크도 버린다(J-8).
+      // 중단은 서버에서 초대를 죽이지만(deactivate_invites) 이 기기의 사본은 남는다.
+      // 다른 기기에서 중단했다면 여기 저장본이 **죽은 링크**로 남아, `함께 만들자고
+      // 보내기` 가 그 링크를 그대로 내보내고 앨범은 닫힌 채로 남는다.
+      // 버려 두면 다음에 보낼 때 새로 발급되고, 발급이 곧 다시 여는 일이다.
+      if (payload.collaboration_status === "closed") forgetInviteUrl(albumId);
       setError(null);
     } catch (cause) {
       if (isRequestAborted(cause, signal) || requestId !== refreshRequestId.current) return;
@@ -192,7 +198,10 @@ export default function CollaborationPanel({
     try {
       await closeCollaborationAlbum(albumId);
       rememberInviteUrl(null);
-      setMessage("참여를 중단했어요. 기존 초대 링크로는 더 이상 사진·한마디를 남길 수 없어요.");
+      // ★ 사실대로 말한다(J-8 · §11). 링크 문제가 아니다 — 이미 참여 중인 사람까지
+      // 전부 막힌다. 되돌릴 수 있는지 확인하고 적었다: 새 초대를 발급하면
+      // `start_collaboration` 이 다시 `collecting` 으로 돌린다.
+      setMessage("참여를 마쳤어요. 이제 아무도 사진과 한마디를 더할 수 없어요. 다시 받고 싶으면 `함께 만들자고 보내기`로 새로 초대하면 돼요.");
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "참여 중단에 실패했어요. 다시 시도해 주세요.");

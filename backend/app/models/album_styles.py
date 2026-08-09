@@ -46,9 +46,9 @@ STYLE_CONTEXT: dict[str, str] = {
 CATEGORY_COVER_LINES: dict[str, str] = {
     "family": "가족이 함께한 따뜻한 하루",
     "friend": "친구들과 웃었던 그 순간",
-    "couple": "둘만의 특별한 기억",
+    "couple": "둘만의 특별한 한마디",
     "colleague": "함께 만든 소중한 시간",
-    "pet": "곁에 있어 준 친구와의 기억",
+    "pet": "곁에 있어 준 친구와의 시간",
     "travel": "다시 떠올리고 싶은 여행",
     "other": "나만의 특별한 추억",
 }

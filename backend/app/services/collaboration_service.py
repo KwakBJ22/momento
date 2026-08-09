@@ -151,9 +151,9 @@ def escape_plain_text(value: str) -> str:
 def sanitize_memory_comment(raw: str) -> str:
     text = raw.replace("\x00", "").strip()
     if not text:
-        raise HTTPException(status_code=400, detail="기억을 입력해 주세요.")
+        raise HTTPException(status_code=400, detail="한마디를 입력해 주세요.")
     if len(text) > MAX_COMMENT_LEN:
-        raise HTTPException(status_code=400, detail=f"기억은 {MAX_COMMENT_LEN}자까지 작성할 수 있어요.")
+        raise HTTPException(status_code=400, detail=f"한마디는 {MAX_COMMENT_LEN}자까지 쓸 수 있어요.")
     # Reject HTML-ish payloads
     if "<script" in text.lower() or "</" in text.lower():
         raise HTTPException(status_code=400, detail="HTML은 사용할 수 없어요. 일반 텍스트로 적어 주세요.")
@@ -656,10 +656,10 @@ def update_photo_memory(
         .execute()
     )
     if not existing.data:
-        raise HTTPException(status_code=404, detail="기억을 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="한마디를 찾을 수 없어요.")
     memory = existing.data[0]
     if not is_owner and str(memory.get("contributor_id")) != str(contributor["id"]):
-        raise HTTPException(status_code=403, detail="다른 사람의 기억은 수정할 수 없어요.")
+        raise HTTPException(status_code=403, detail="다른 사람의 한마디는 고칠 수 없어요.")
     updated = (
         client.table("photo_memories")
         .update({"comment": text, "updated_at": _iso()})
@@ -688,11 +688,11 @@ def delete_photo_memory(
         .execute()
     )
     if not existing.data:
-        raise HTTPException(status_code=404, detail="기억을 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="한마디를 찾을 수 없어요.")
     memory = existing.data[0]
     if not is_owner:
         if not contributor or str(memory.get("contributor_id")) != str(contributor["id"]):
-            raise HTTPException(status_code=403, detail="다른 사람의 기억은 삭제할 수 없어요.")
+            raise HTTPException(status_code=403, detail="다른 사람의 한마디는 지울 수 없어요.")
     client.table("photo_memories").update({"deleted_at": _iso()}).eq("id", memory_id).execute()
     mark_album_dirty(client, album_id)
 

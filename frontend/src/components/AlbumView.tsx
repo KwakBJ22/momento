@@ -660,6 +660,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     // (새로운 추억 반영·참여 중단·참여 현황)과 대표사진 픽커 모달만 남긴다.
     <>{requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest} hideDuplicatedActions albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
   );
+  // ★ 더할 수 없게 됐으면 **왜 그런지 한 줄** 알려준다 (J-8 · §11).
+  // 아무 설명 없이 버튼만 사라지면 고장으로 보인다. 이유는 백엔드가 판정해 내려준다 —
+  // 프런트가 따로 추측하지 않는다. 이미 남긴 사진과 한마디는 그대로 보인다.
+  const contributionClosedNotice = displayAlbum && !displayAlbum.can_contribute && displayAlbum.contribution_block_reason
+    ? <p className="notice notice--info album-contribution-closed">{displayAlbum.contribution_block_reason}</p>
+    : null;
   const editionLinks = requestedEdition !== null ? <p className="album-result__subtitle"><a href={`/album/${albumId}`}>최신 앨범 보기</a>{displayAlbum?.edition_previous !== null && displayAlbum?.edition_previous !== undefined ? <> · <a href={`/album/${albumId}?edition=${displayAlbum.edition_previous}`}>이전 앨범 보기</a></> : null}</p> : null;
   // 미완성 안내(목업 docs/mockups/album-detail-owner.html): 한마디(캡션) 없는 사진 수.
   // 0장이면 렌더링하지 않고, "채우러 가기"는 기존 한마디 쓰기 시트(한마디 남기기)를 연다.
@@ -732,7 +738,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       </div>
     </div>
   ) : null;
-  const headerExtras = editionLinks || captionNotice || mineCard ? <>{editionLinks}{captionNotice}{mineCard}</> : undefined;
+  const headerExtras = editionLinks || contributionClosedNotice || captionNotice || mineCard ? <>{editionLinks}{contributionClosedNotice}{captionNotice}{mineCard}</> : undefined;
   return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: navVariantForRole(role), onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => void openContribution("memory"), onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */

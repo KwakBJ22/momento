@@ -56,9 +56,21 @@ def contribution_block_reason(share: dict[str, Any], album: dict[str, Any]) -> s
     같은 사실을 두 군데서 따로 계산하면 반드시 갈라진다(SCREEN_SPEC §1).
     """
     if str(share.get("kind") or SHARE_KIND_CONTRIBUTE) == SHARE_KIND_VIEW:
-        return "이 링크는 감상용이에요. 사진과 기억은 함께 만들기 초대 링크에서 남길 수 있어요."
+        return "이 링크는 감상용이에요. 사진과 한마디는 함께 만들기 초대 링크에서 남길 수 있어요."
+    return album_contribution_block_reason(album)
+
+
+def album_contribution_block_reason(album: dict[str, Any]) -> str | None:
+    """앨범 자체가 더 받지 않는 이유. 없으면 None.
+
+    ★ 링크 경로와 로그인 경로가 **이 함수 하나**를 쓴다. 예전에는 링크 경로만
+    ``collaboration_status`` 를 봤고, 로그인 참여자(``/album/{id}``)는 버튼이 그대로
+    남아 누르면 403 이었다 — 같은 사실을 두 곳에서 따로 계산한 결과다(J-8 · §1).
+
+    ★ 버튼만 사라지면 고장으로 보인다. **왜 그런지 한 줄**을 함께 내려보낸다(§11).
+    """
     if album.get("collaboration_status") == "closed":
-        return "이 앨범은 참여가 종료되어 더 이상 사진·기억을 남길 수 없어요."
+        return "이 앨범은 사진과 한마디를 다 모았어요. 지금은 보기만 할 수 있어요."
     return None
 
 

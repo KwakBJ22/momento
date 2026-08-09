@@ -108,3 +108,7 @@
 .album-share-sheet__row em { color: var(--c-text-muted); font-size: var(--t-xs); font-style: normal; line-height: 1.5; }
 /* 카카오가 열리지 않았을 때의 한 줄 — 조용히 끝나지 않는다(§11). */
 .album-share-sheet__notice { margin: 10px 2px 0; color: var(--c-text-soft); font-size: var(--t-xs); line-height: 1.5; }
+
+/* 참여가 끝난 앨범의 한 줄 (J-8). 껍데기는 styles/notice.css 의 안내(--info)를 쓴다 —
+   배경도 글머리도 없다. 여기서는 자리만 준다. */
+.album-contribution-closed { margin: 0 0 4px; }

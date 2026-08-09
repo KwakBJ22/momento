@@ -141,6 +141,7 @@ from app.services.membership import (
     require_family_write_role,
     save_album_member,
 )
+from app.services.share_service import album_contribution_block_reason
 from app.services.share_service import create_share_link
 from app.services.share_service import log_event
 from app.services.collaboration_service import (
@@ -1997,7 +1998,10 @@ async def get_album(
     require_album_read(access)
     detail = detail.model_copy(update={
         "can_edit": access.is_album_owner,
-        "can_contribute": access.can_contribute,
+        # ★ 화면이 묻는 것은 "지금 더할 수 있는가" 다 — 자격만이 아니라 앨범이
+        # 열려 있는지까지 본다(J-8). 참여가 끝나면 참여자는 구경꾼 화면을 본다.
+        "can_contribute": access.can_add_contribution,
+        "contribution_block_reason": album_contribution_block_reason(record),
         "can_delete": access.can_delete_album,
         # 본문에 인쇄되는 값이라 역할과 무관하게 모두에게 내려간다(§6).
         "contributor_names": list_active_contributor_names(client, album_id),

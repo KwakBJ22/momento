@@ -547,7 +547,7 @@ def build_album_timeline(client: Client, album_id: str, *, record: dict[str, Any
         "pdf_generated": "PDF 생성",
         "guest_memory_completed": "추억 추가",
         "photo_added": "사진 추가",
-        "memory_added": "기억 추가",
+        "memory_added": "한마디 추가",
     }
     for row in analytics:
         name = str(row.get("event_name") or "")
@@ -685,7 +685,7 @@ def list_recent_events(client: Client, *, limit: int = 80) -> dict[str, Any]:
     label_map = {
         "album_created": "앨범 생성",
         "photo_added": "사진 추가",
-        "memory_added": "기억 추가",
+        "memory_added": "한마디 추가",
         "living_page_appended": "새 페이지",
         "edition_created": "새 에디션",
         "cover_photo_changed": "대표사진 변경",

@@ -37,6 +37,13 @@ class AlbumAccess:
     family_role: str | None
     album_role: str | None
     is_legacy_owner: bool
+    #: 참여가 끝난 앨범인가(``albums.collaboration_status == "closed"``).
+    #:
+    #: ★ 역할과 별개다. 참여가 끝나면 **주최자를 포함해 아무도** 사진·한마디를 더할 수
+    #: 없다(collaboration_service.require_contributor · api/collaboration.py 가 403 을 낸다).
+    #: 그런데 ``can_contribute`` 는 역할만 보고 있어서 화면에는 버튼이 그대로 남았고,
+    #: 누르면 403 이 났다 — 같은 사실을 두 곳에서 따로 계산한 결과다(J-8 · §1·§11).
+    collaboration_closed: bool = False
 
     @property
     def can_read_private(self) -> bool:
@@ -66,11 +73,32 @@ class AlbumAccess:
 
     @property
     def can_contribute(self) -> bool:
+        """**자격**이 있는가 — 이 앨범에 손댈 수 있는 사람인가.
+
+        앨범이 지금 참여를 받고 있는지는 보지 않는다. 주최자는 참여를 마친 뒤에도
+        캡션을 고칠 수 있어야 한다(§7 — 인쇄되는 것만 주최자가 고친다).
+        **더할 수 있는가**는 아래 ``can_add_contribution`` 이다.
+        """
         if self.is_legacy_owner:
             return True
         if self.family_role in MANAGER_FAMILY_ROLES:
             return True
         return self.album_role in ALBUM_CONTRIBUTE_ROLES
+
+    @property
+    def can_add_contribution(self) -> bool:
+        """**지금 사진·한마디를 더할 수 있는가** — 자격 + 앨범이 열려 있는가.
+
+        ★ 화면이 읽는 것은 이 값이다(J-8 · §1·§11). 참여가 끝나면 백엔드는
+        **주최자를 포함해 아무도** 더하지 못하게 막는데(collaboration_service
+        .require_contributor · api/collaboration.py), ``can_contribute`` 는 역할만
+        보고 있어서 화면에는 버튼이 그대로 남았다 — 누르면 403 이었다.
+        같은 사실을 두 곳에서 따로 계산한 결과다.
+
+        공유 링크 경로는 이미 ``share_service.contribution_block_reason`` 이 같은
+        판정을 하고 있었다. 두 경로가 갈라져 있던 것을 여기서 맞춘다.
+        """
+        return self.can_contribute and not self.collaboration_closed
 
     @property
     def can_delete_album(self) -> bool:
@@ -122,6 +150,7 @@ def resolve_album_access(
         family_role=family_role,
         album_role=album_role,
         is_legacy_owner=legacy_owner,
+        collaboration_closed=album.get("collaboration_status") == "closed",
     )
 
 

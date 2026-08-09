@@ -183,6 +183,9 @@ class AlbumDetailResponse(BaseModel):
     can_edit: bool = False
     can_contribute: bool = False
     can_delete: bool = False
+    # 더할 수 없을 때 **왜 그런지 한 줄**. 버튼만 사라지면 고장으로 보인다(J-8 · §11).
+    # 링크 경로(/s/)와 같은 함수가 만든다 — 판정은 한 곳이다(§1).
+    contribution_block_reason: str | None = None
     # 참여자 화면(3a) 전용 additive 필드. 소유자/무관 사용자는 항상 None.
     # owner_display_name 은 usable_owner_display_name 판정을 통과한 값만 —
     # 이메일 앞부분(kbjkwak 류)은 서버가 걸러 None 을 보낸다.

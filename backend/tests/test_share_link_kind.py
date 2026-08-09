@@ -7,6 +7,7 @@
 from app.services.share_service import (
     SHARE_KIND_CONTRIBUTE,
     SHARE_KIND_VIEW,
+    album_contribution_block_reason,
     contribution_block_reason,
     create_share_link,
 )
@@ -66,6 +67,13 @@ def test_block_reason_is_the_single_source_of_truth() -> None:
     # kind 가 비어 있는 옛 링크는 기존 동작(참여 가능)을 유지한다 — 이미 나간 링크의
     # 권한이 말없이 바뀌지 않는다.
     assert contribution_block_reason({}, open_album) is None
-    # 참여가 종료된 앨범은 링크 종류와 무관하게 막힌다.
-    closed = contribution_block_reason({"kind": SHARE_KIND_CONTRIBUTE}, {"collaboration_status": "closed"})
-    assert closed is not None and "참여가 종료" in closed
+    # 참여가 끝난 앨범은 링크 종류와 무관하게 막힌다.
+    # ★ 문구가 J-8 에서 바뀌었다 — `기억` 은 §7 금지어이고, 사용자에게 "종료"라는
+    #   말을 쓰지 않는다. 사실을 말하되 탓하지 않는다(§10).
+    closed_album = {"collaboration_status": "closed"}
+    closed = contribution_block_reason({"kind": SHARE_KIND_CONTRIBUTE}, closed_album)
+    assert closed is not None and "다 모았어요" in closed
+    assert "기억" not in closed
+    # ★ 로그인 경로(/album/{id})와 링크 경로(/s/)가 **같은 함수**를 쓴다(§1).
+    assert album_contribution_block_reason(closed_album) == closed
+    assert album_contribution_block_reason(open_album) is None

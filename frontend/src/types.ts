@@ -183,6 +183,8 @@ export interface AlbumResult {
   edition_is_latest?: boolean;
   can_edit?: boolean;
   can_contribute?: boolean;
+  /** 더할 수 없을 때 **왜 그런지 한 줄**(J-8). 백엔드가 판정한다 — 프런트가 추측하지 않는다. */
+  contribution_block_reason?: string | null;
   can_delete?: boolean;
   /** 참여자 화면(3a) 전용 — 소유자/무관 사용자는 null. owner_display_name 은
    *  서버의 이메일 앞부분 판정을 통과한 값만 온다. */
@@ -268,6 +270,8 @@ export interface PublicShareAlbum {
   /** 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가. 백엔드가 내려주는 값이며
    *  프런트는 링크 종류를 알지 않는다(SCREEN_SPEC §1). 값이 없으면 보수적으로 구경꾼. */
   can_contribute?: boolean;
+  /** 더할 수 없을 때 **왜 그런지 한 줄**(J-8). 백엔드가 판정한다 — 프런트가 추측하지 않는다. */
+  contribution_block_reason?: string | null;
   title: string;
   narrative: string;
   epilogue?: string | null;
