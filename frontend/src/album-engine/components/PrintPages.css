@@ -216,6 +216,24 @@
 .album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: 80mm; }
 .album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: 80mm; }
 
+/* 🔴 캡션이 PDF 에 **한 글자도 안 찍히던** 자리다 (I-4e).
+ *
+ * `.photo-memory-lines` 에 등장 애니메이션이 걸려 있다:
+ *     animation: photo-memory-lines-in 220ms ease-out both;
+ * `both` 라서 시작 프레임(opacity: 0)이 애니메이션 전에도 적용된다. PDF 는
+ * html2canvas 가 문서를 **복제해서** 그리는데, 복제본에서는 애니메이션이 끝난 상태가
+ * 아니라 **opacity 0 인 시작 상태**로 잡힌다. 그래서 캡션만 투명하게 찍혔다.
+ * 글자가 없는 것이 아니라 **보이지 않게 그려진 것**이다 — 예외도 경고도 없다(§11).
+ *
+ * 캡션 말고 다른 글(날짜 머리글·이야기·함께 만든 사람)은 이 애니메이션이 없어서
+ * 멀쩡히 찍혔다. 그래서 "캡션만" 사라졌다.
+ *
+ * ★ 인쇄에는 등장 애니메이션이 필요 없다. 화면은 그대로 둔다. */
+.album-renderer--print .photo-memory-lines {
+  animation: none;
+  opacity: 1;
+}
+
 /* ★ 캡션은 프레임 폭을 **정하지 않는다**(I-4d-1). width: 0 이라 최대폭 계산에
    끼지 않고, min-width: 100% 로 정해진 프레임 폭을 채운다. 긴 캡션은 사진 폭 안에서
    줄바꿈된다 — 그렇지 않으면 캡션 한 줄이 프레임을 쪽 폭까지 늘린다. */
