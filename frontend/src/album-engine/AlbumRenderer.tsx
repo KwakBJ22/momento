@@ -17,6 +17,12 @@ import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
 import { waitForAlbumAssets } from "./waitForAlbumAssets";
+// ★ 엔진이 **자기 색을 스스로 싣는다**(I-4b-1). 엔진 CSS 는 --c-surface · --c-border ·
+// --c-brand 를 쓰는데, 예전에는 그 정의를 앱 진입점(main.tsx)이 실어 준다고 **기대만**
+// 하고 있었다. 앱 밖에서 렌더하면(표본 만들기·스토리북 같은 것) 그 셋이 통째로 사라져
+// 프레임이 안 보이고 로고가 검게 찍힌다 — 예외도 경고도 없이 조용히 깨진다(§11).
+// 비용은 없다: 번들러가 한 부로 합치고, :root 변수라 실리는 순서도 상관없다.
+import "../styles/tokens.css";
 import "./AlbumRenderer.css";
 import { BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE } from "../lib/brand";
 

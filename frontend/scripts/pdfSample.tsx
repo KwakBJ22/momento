@@ -1,9 +1,6 @@
-// ★ 앱 진입점(main.tsx)과 **같은 토큰 CSS** 를 싣는다. 이 한 줄이 빠지면
-// --c-surface · --c-border · --c-brand 가 통째로 사라져 사진 프레임이 안 보이고
-// 로고가 검게 찍힌다(I-4b-1 에서 실제로 그렇게 나왔다). 표본이 판단 근거라 여기가
-// 앱과 같아야 한다.
-import "../src/styles/tokens.css";
-
+// ★ 여기서 토큰 CSS 를 싣지 **않는다.** 앨범 엔진이 자기 색을 스스로 싣기 때문이다
+// (album-engine/AlbumRenderer.tsx). 이 파일이 그 회귀 테스트 노릇을 한다 — 엔진 밖에서
+// 실어 주지 않아도 프레임과 로고 색이 나와야 한다(I-4b-1).
 import { renderAlbumPdfBlob } from "../src/lib/exportPdf";
 import type { AlbumPhoto } from "../src/types";
 
