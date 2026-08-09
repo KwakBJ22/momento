@@ -21,7 +21,7 @@ body {
   /* 폭·좌우 여백은 AppChrome.css 의 .app-shell 변수 한 곳에서 읽는다(헤더와 같은 값). */
   max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 1.5rem var(--page-padding-x) 2rem;
+  padding: var(--page-padding-top) var(--page-padding-x) 2rem;
   padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -57,6 +57,15 @@ body {
 
 .app--album .app__main {
   width: 100%;
+}
+
+/* 오래 전에 만든 화면(참여자 목록·가족 관리·초대 수락)은 앨범 계열에 얹혀 있는데
+   자기 위 여백을 갖고 있지 않다. 앨범 화면들은 `.album-page` 가 자기 위 여백을 주지만
+   이 화면들에는 그런 껍데기가 없어서 **헤더에 딱 붙어** 시작했다(J-4 · §3).
+   ★ 여백은 컨테이너가 준다. 값은 좌우와 같은 변수에서 읽는다 — 화면 CSS 에 숫자를
+   적지 않는다. 패널로 끼워 넣은 자리(시트 안)는 본문 직계가 아니라 걸리지 않는다. */
+.app--album .app__main > .family-panel {
+  padding-top: var(--page-padding-top);
 }
 
 @media (max-width: 1024px) {

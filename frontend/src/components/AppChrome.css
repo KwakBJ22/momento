@@ -12,6 +12,9 @@
 .app-shell {
   --page-max-width: 480px;
   --page-padding-x: 16px;
+  /* 본문이 시작하는 높이. 좌우와 **같은 곳에서** 읽는다(§3) — 오래 전에 만든 화면
+     (참여자 목록)이 이 값을 못 받아 헤더에 붙어 있었다(J-4). */
+  --page-padding-top: 24px;
 }
 .app-shell--album {
   --page-max-width: 1120px;

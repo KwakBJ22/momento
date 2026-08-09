@@ -92,7 +92,9 @@ test("헤더 안쪽 폭은 본문과 같은 변수 하나에서 나온다", () =
   // 본문과 헤더가 **둘 다** 그 변수를 읽는다. 숫자를 각자 적지 않는다.
   const app = appCss.slice(appCss.indexOf(".app {"), appCss.indexOf("}", appCss.indexOf(".app {")));
   assert.match(app, /max-width: var\(--page-max-width\)/);
-  assert.match(app, /padding: 1\.5rem var\(--page-padding-x\) 2rem/);
+  // J-4 뒤로 위 여백도 같은 곳(--page-padding-top)에서 읽는다. 값(24px)은 예전 1.5rem 그대로다.
+  assert.match(app, /padding: var\(--page-padding-top\) var\(--page-padding-x\) 2rem/);
+  assert.match(chrome, /--page-padding-top: 24px;/);
   const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
   assert.match(header, /var\(--page-max-width\)/);
   assert.match(header, /var\(--page-padding-x\)/);
