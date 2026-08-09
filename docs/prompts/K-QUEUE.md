@@ -36,7 +36,7 @@
 - `console.debug("[Momento] …")` · `console.warn` 15곳 → `[우리앨범]`
 - 주석의 `Momento` (예: `tokens.css` 의 `Momento 디자인 토큰`)
 
-### K-1-b. localStorage 키 + HTTP 헤더
+### K-1-b. localStorage 키 + HTTP 헤더 [완료 80b9ca7]
 
 ```
 momento-*  · momento_*   →  woorialbum-* · woorialbum_*
