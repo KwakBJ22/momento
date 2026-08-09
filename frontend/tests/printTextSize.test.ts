@@ -5,91 +5,88 @@ import test from "node:test";
 /**
  * 열람용 PDF 의 글자가 전반적으로 작다 (I-4-5 · SCREEN_SPEC §9).
  *
- * A4 로 인쇄해 **손에 들고 읽는** 문서인데 본문이 11~12pt 였다. 화면 크기 감각으로
- * 정하면 이렇게 된다. ★ 키우는 기준은 **A4 실측**이다.
+ * A4 로 인쇄해 **손에 들고 읽는** 문서인데 본문이 11~12pt 였다.
  *
- * 잰 값 → 정한 값 (210×297mm 위에서, 1mm = 2.8346pt)
- *   캡션(한마디)       3.81mm 10.8pt → 4.4mm 12.5pt
- *   날짜 이야기 본문    4.23mm 12.0pt → 4.8mm 13.6pt
- *   우리의 이야기 본문  3.88mm 11.0pt → 4.8mm 13.6pt
- *   날짜 이야기 제목    4.91mm 13.9pt → 5.6mm 15.9pt
- *   우리의 이야기 제목  5.93mm 16.8pt → 7.0mm 19.8pt
- *   함께 만든 사람      4.23mm 12.0pt → 4.8mm 13.6pt
- *   날짜 머리글        3.90mm 11.1pt → 6.0mm 17.0pt (I-4-3)
- *
- * 근거: 문화체육관광부 큰글자도서 기준이 본문 14pt 내외, 일반 단행본이 9~10.5pt 다.
- * 주 독자가 40~60대이므로 그 사이 위쪽에 둔다. 다만 이 문서는 책이 아니라 사진첩이라
- * **글이 사진을 이기면 안 된다**(§6) — 그래서 큰글자책 하한 아래다.
+ * ★ 값은 **I-QUEUE 4-5 표 그대로**다. 재서 정하지 않는다(큐 규칙 6).
+ *   기준은 A4 210×297mm, 96dpi 에서 폭 794px = 210mm. 인쇄 루트가 210mm 로 고정
+ *   이라 표의 px 을 그대로 쓴다.
  */
 
 const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages.css", import.meta.url), "utf8");
+const coverCss = readFileSync(new URL("../src/album-engine/components/AlbumCover.css", import.meta.url), "utf8");
 const epilogueCss = readFileSync(new URL("../src/album-engine/components/AlbumEpilogue.css", import.meta.url), "utf8");
 
-const MM_TO_PT = 2.8346;
+/** 큐 4-5 표 그대로. 왼쪽이 변수 이름, 오른쪽이 표의 px 값. */
+const QUEUE_TABLE: Array<[string, string]> = [
+  ["--print-cover-title", "37px"],
+  ["--print-cover-logo", "23px"],
+  ["--print-cover-period", "16px"],
+  ["--print-date-heading", "17px"],
+  ["--print-caption", "15px"],
+  ["--print-story-title", "16px"],
+  ["--print-story-body", "15px"],
+  ["--print-epilogue-title", "20px"],
+  ["--print-epilogue-body", "15px"],
+  ["--print-contributors", "14px"],
+  ["--print-brand-logo", "29px"],
+  ["--print-brand-line", "16px"],
+];
 
-/** 인쇄 규칙에서 font-size 를 mm 로 읽는다.
- *  선택자가 여러 개 묶인 규칙도 있으므로, 그 선택자 **다음에 오는 블록**을 읽는다. */
-function fontMm(css: string, selector: string): number {
-  const at = css.indexOf(selector);
-  assert.notEqual(at, -1, `선택자가 없다: ${selector}`);
-  const open = css.indexOf("{", at);
-  const body = css.slice(open, css.indexOf("}", open));
-  const match = body.match(/font-size:\s*([\d.]+)mm/);
-  assert.ok(match, `${selector}: mm 로 적혀 있지 않다(실측 기준이 아니다)`);
-  return Number(match![1]);
-}
-
-const CAPTION = ".album-renderer--print .print-frame__caption .photo-memory-lines__text";
-const EPILOGUE_BODY = ".album-renderer--print .album-epilogue__special p";
-
-test("★ 본문은 13.6pt 다 — 손에 들고 읽는 크기", () => {
-  for (const [name, size] of [
-    ["날짜 이야기", fontMm(printCss, ".album-renderer--print .story-block__body")],
-    ["우리의 이야기", fontMm(epilogueCss, EPILOGUE_BODY)],
-  ] as const) {
-    assert.equal(size, 4.8, name);
-    assert.ok(Math.abs(size * MM_TO_PT - 13.6) < 0.2, `${name}: ${(size * MM_TO_PT).toFixed(1)}pt`);
+test("★ 큐 4-5 표의 값이 그대로 들어 있다", () => {
+  for (const [name, value] of QUEUE_TABLE) {
+    assert.match(printCss, new RegExp(`${name}:\\s*${value};`), `${name} 이 표와 다르다`);
   }
 });
 
-test("★ 캡션은 본문보다 한 단계 작다 — 사진에 딸린 말임이 크기로도 보인다(§6)", () => {
-  const caption = fontMm(printCss, CAPTION);
-  assert.equal(caption, 4.4);
-  assert.ok(caption < 4.8, "캡션이 본문보다 크면 계층이 뒤집힌다");
-  // 그래도 예전보다는 크다 — 그것이 이 항목의 목적이다.
-  assert.ok(caption > 3.81, "고치기 전(3.81mm)보다 커야 한다");
+test("★ 줄간격은 본문 1.6 · 제목 1.3 이다", () => {
+  assert.match(printCss, /--print-leading-body:\s*1\.6;/);
+  assert.match(printCss, /--print-leading-title:\s*1\.3;/);
 });
 
-test("★ 계층: 날짜 머리글 > 이야기 제목 > 이야기 본문 > 캡션", () => {
-  const sizes = [
-    fontMm(printCss, ".album-renderer--print .chapter-header--print-date .chapter-header__dayline"),
-    fontMm(printCss, ".album-renderer--print .story-block__title"),
-    fontMm(printCss, ".album-renderer--print .story-block__body"),
-    fontMm(printCss, CAPTION),
-  ];
-  for (let index = 1; index < sizes.length; index += 1) {
-    assert.ok(sizes[index] < sizes[index - 1], `${index}번째가 앞보다 크다: ${sizes.join(" > ")}`);
-  }
-  // 앨범 전체를 닫는 글의 제목이 가장 크다.
-  assert.equal(fontMm(printCss, ".album-renderer--print .album-epilogue__title"), 7);
+test("★ 값은 인쇄 CSS 한 곳에만 둔다 — 자리마다 숫자를 흩지 않는다", () => {
+  const declarationStart = printCss.indexOf(".album-renderer--print {");
+  const declarationBlock = printCss.slice(declarationStart, printCss.indexOf("}", declarationStart));
+  const rest = printCss.replace(declarationBlock, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  const hardCoded = (rest.match(/font-size:[^;]+;/g) || []).filter((line) => !line.includes("var(--print-"));
+  assert.deepEqual(hardCoded, [], `숫자가 흩어져 있다: ${hardCoded.join(" ")}`);
+
+  // 표지·우리의 이야기도 같은 변수를 읽는다(자기 숫자를 만들지 않는다).
+  assert.match(coverCss, /font-size: var\(--print-cover-title\)/);
+  assert.match(coverCss, /font-size: var\(--print-cover-period\)/);
+  assert.match(coverCss, /font-size: var\(--print-contributors\)/);
+  assert.match(epilogueCss, /font-size: var\(--print-epilogue-body\)/);
 });
 
-test("★ 크기를 pt·rem 이 아니라 mm 로 적는다 — A4 실측 기준임을 코드가 말한다", () => {
-  const printSizes = printCss.match(/font-size:\s*[\d.]+(mm|pt|rem|px)/g) || [];
-  assert.ok(printSizes.length >= 6, "인쇄 글자 크기 규칙을 못 읽었다");
-  for (const declaration of printSizes) {
-    assert.match(declaration, /mm$/, `mm 가 아니다: ${declaration}`);
-  }
-  // 예전 pt 값이 남아 있지 않다.
+test("★ 예전 값이 남아 있지 않다 (실측으로 정하던 mm·pt)", () => {
   assert.equal(epilogueCss.includes("font-size: 11pt"), false);
+  assert.equal(/font-size:\s*[\d.]+mm/.test(printCss), false);
+  assert.equal(/font-size:\s*[\d.]+mm/.test(coverCss), false);
 });
 
-test("함께 만든 사람 줄은 본문과 같다 — 인쇄물에 남는 이름 줄이다(CLAUDE.md §6)", () => {
-  assert.equal(fontMm(printCss, ".album-renderer--print .album-contributors"), 4.8);
+test("계층이 뒤집히지 않는다 — 글이 사진을 이기면 안 된다(§6)", () => {
+  const value = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*(\\d+)px`))![1]);
+  // 표지 제목 > 브랜드 로고 > 표지 로고 > 우리의 이야기 제목 > 날짜 머리글 > 캡션
+  assert.ok(value("--print-cover-title") > value("--print-brand-logo"));
+  assert.ok(value("--print-brand-logo") > value("--print-cover-logo"));
+  assert.ok(value("--print-cover-logo") > value("--print-epilogue-title"));
+  assert.ok(value("--print-epilogue-title") > value("--print-date-heading"));
+  assert.ok(value("--print-date-heading") > value("--print-caption"));
 });
 
-test("값을 한 곳에서만 정한다 — 같은 선택자를 두 파일에 적지 않는다", () => {
-  // 우리의 이야기 본문 크기는 AlbumEpilogue.css 에만 있다(PrintPages.css 에 중복 금지).
-  assert.equal(printCss.includes(".album-epilogue__body"), false);
-  assert.match(epilogueCss, /\.album-renderer--print \.album-epilogue__body/);
+test("각 자리가 자기 변수를 읽는다 (엉뚱한 변수를 쓰지 않는다)", () => {
+  const rule = (selector: string) => {
+    const at = printCss.indexOf(selector);
+    assert.notEqual(at, -1, `선택자가 없다: ${selector}`);
+    const open = printCss.indexOf("{", at);
+    return printCss.slice(open, printCss.indexOf("}", open));
+  };
+  assert.match(rule(".album-renderer--print .print-frame__caption .photo-memory-lines__text"), /var\(--print-caption\)/);
+  assert.match(rule(".album-renderer--print .story-block__title"), /var\(--print-story-title\)/);
+  assert.match(rule(".album-renderer--print .story-block__body"), /var\(--print-story-body\)/);
+  assert.match(rule(".album-renderer--print .album-epilogue__title"), /var\(--print-epilogue-title\)/);
+  assert.match(rule(".album-renderer--print .album-contributors"), /var\(--print-contributors\)/);
+  assert.match(rule(".album-renderer--print .chapter-header--print-date .chapter-header__dayline"), /var\(--print-date-heading\)/);
+  // 로고도 변수를 읽는다(표지·브랜드 쪽 각각).
+  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__word \{ font-size: var\(--print-cover-logo\); \}/);
+  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
 });

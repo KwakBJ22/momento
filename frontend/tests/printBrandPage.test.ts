@@ -29,16 +29,17 @@ test("★ 로고를 실제로 키운다 — rem 고정값이라 부모 font-size
   const shared = readFileSync(new URL("../src/album-engine/AlbumRenderer.css", import.meta.url), "utf8");
   assert.match(shared, /\.album-brand-mark__word \{[\s\S]{0,80}font-size: 0\.78rem/);
   // 그래서 조각마다 mm 로 직접 준다.
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: 14mm; \}/);
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__icon \{ width: 14mm; height: 14mm; \}/);
+  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
+  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__icon \{ width: var\(--print-brand-logo\); height: var\(--print-brand-logo\); \}/);
   // 아무 효과가 없던 예전 규칙은 없앴다.
   assert.equal(/\.album-renderer__brand-page \.brand-mark \{/.test(printCss), false);
 });
 
 test("★ 이 쪽 로고가 표지보다 크다 — 브랜드를 보여주는 쪽이다(§9)", () => {
-  const brandPage = Number(printCss.match(/\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: (\d+)mm/)![1]);
-  const cover = Number(printCss.match(/\.album-cover__brand \.album-brand-mark__word \{ font-size: (\d+)mm/)![1]);
-  assert.ok(brandPage > cover, `${brandPage}mm 가 표지 ${cover}mm 보다 커야 한다`);
+  const size = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*(\\d+)px`))![1]);
+  const brandPage = size("--print-brand-logo");
+  const cover = size("--print-cover-logo");
+  assert.ok(brandPage > cover, `${brandPage}px 가 표지 ${cover}px 보다 커야 한다`);
 });
 
 test("★ 둘째 줄 앞의 공백 — 문자열이 아니라 가운데 정렬 때문이었다", () => {

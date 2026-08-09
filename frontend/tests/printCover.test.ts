@@ -82,9 +82,9 @@ test("★ 표지 로고를 인쇄에서 크게 준다 (rem 고정값이라 물�
   // album-brand-mark 의 글자 크기는 화면 기준 rem 고정이라 부모 font-size 를 안 받는다.
   const shared = readFileSync(new URL("../src/album-engine/AlbumRenderer.css", import.meta.url), "utf8");
   assert.match(shared, /\.album-brand-mark__word \{[\s\S]{0,80}font-size: 0\.78rem/);
-  // 그래서 인쇄에서만 mm 로 다시 준다.
-  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__word \{ font-size: 11mm; \}/);
-  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__icon \{ width: 11mm; height: 11mm; \}/);
+  // 그래서 인쇄에서만 다시 준다. 값은 큐 4-5 표의 변수를 읽는다(I-4-5).
+  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__word \{ font-size: var\(--print-cover-logo\); \}/);
+  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__icon \{ width: var\(--print-cover-logo\); height: var\(--print-cover-logo\); \}/);
 });
 
 test("★ 표지 사진을 자르지 않는다 — 상자가 아니라 사진에 상한을 준다", () => {

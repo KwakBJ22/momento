@@ -1,5 +1,6 @@
 /* 열람용 PDF 1쪽 — 표지 (SCREEN_SPEC §9). 이 컴포넌트는 인쇄 모드에서만 그려진다.
-   크기는 전부 mm 다 — A4 실물에서 재고 정한 값이다(화면 감각으로 정하면 작다). */
+   ★ 글자 크기는 PrintPages.css 의 변수를 읽는다 — 값은 I-QUEUE 4-5 표 그대로이고
+   한 곳에만 둔다. 여기서 숫자를 새로 만들지 않는다. */
 
 .album-cover {
   /* 위에서부터 흘리지 않고 **페이지에 고르게 앉힌다** — 예전에는 grid 의 남는 높이가
@@ -22,11 +23,10 @@
 .album-cover__title {
   margin: 0;
   color: var(--c-text);
-  /* A4 실측: 12mm ≈ 34pt. 손에 들고 봤을 때 제목이 먼저 읽힌다. */
-  font-size: 12mm;
+  font-size: var(--print-cover-title);
+  line-height: var(--print-leading-title);
   font-weight: 780;
   letter-spacing: -0.03em;
-  line-height: 1.25;
 }
 
 .album-cover__head {
@@ -39,8 +39,8 @@
 .album-cover__period {
   margin: 0;
   color: var(--c-text-soft);
-  /* A4 실측: 5mm ≈ 14pt. 제목 아래 한 줄이라 본문보다 조금 크다. */
-  font-size: 5mm;
+  font-size: var(--print-cover-period);
+  line-height: var(--print-leading-body);
   font-weight: 600;
 }
 
@@ -68,9 +68,9 @@
   background: var(--c-surface);
 }
 
-/* 세로 사진 상한 — A4 실측으로 정한 값이다. 위 요소들(여백 38 + 로고 14.6 + 간격 8 +
-   제목·기간 25.9 + 간격 8 + 프레임 여백 8 + 이름 줄 6)을 297mm 에서 빼면 약 188mm 이
-   남는다. 175mm 로 두어 이름 줄이 길어져도 페이지를 넘지 않는다.
+/* 세로 사진 상한 — A4 기하에서 계산한 값이다(재서 정한 것이 아니다).
+   297mm 에서 위아래 여백 38mm, 로고·제목·기간·이름 줄과 그 사이 간격(약 70mm),
+   프레임 여백 8mm 를 빼면 약 180mm 이 남는다. 175mm 로 둔다.
    ★ 백분율(max-height: 100%)로 두지 않는다 — 부모 높이가 확정되지 않아 세로 사진이
    상한 없이 늘어난다. */
 .album-cover__hero-img {
@@ -85,7 +85,7 @@
   flex: 0 0 auto;
   margin: 0;
   color: var(--c-text-soft);
-  /* A4 실측: 4.2mm ≈ 12pt. 이름 줄이라 본문보다 작지 않게 둔다. */
-  font-size: 4.2mm;
+  font-size: var(--print-contributors);
+  line-height: var(--print-leading-body);
   font-weight: 500;
 }

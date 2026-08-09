@@ -31,6 +31,6 @@ test("★ 표지 사진을 잘라 내지 않는다 — 상한은 상자가 아�
   assert.doesNotMatch(figure, /max-height:\s*\d+px/, "상자에 px 상한이 남아 있다");
 
   const img = block(".album-cover__hero-img");
-  assert.match(img, /max-height: 175mm/);  // A4 실측으로 정한 상한(세로 사진)
+  assert.match(img, /max-height: 175mm/);  // A4 기하에서 계산한 상한(세로 사진)
   assert.match(img, /max-width: 100%/);    // 가로 사진은 폭이 먼저 걸린다
 });

@@ -50,7 +50,7 @@ test("★ 캡션은 프레임 **안**이다 — 밖으로 빼지 않는다(§9 1
   assert.equal(/border|background|box-shadow/.test(caption), false);
 });
 
-test("★ 사진 세로 상한은 A4 실측 mm 다 — 백분율은 부모 높이가 auto 라 먹지 않는다", () => {
+test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율은 부모 높이가 auto 라 먹지 않는다", () => {
   const img = rule(".album-renderer--print .print-frame__photo img");
   assert.match(img, /max-width: 100%/);
   assert.equal(/max-height:\s*100%/.test(img), false, "백분율 상한은 통하지 않는다");
@@ -60,7 +60,7 @@ test("★ 사진 세로 상한은 A4 실측 mm 다 — 백분율은 부모 높�
   }
 });
 
-test("★ 날짜 이야기가 같이 들어가는 쪽은 상한이 더 낮다 (사진 자리가 59mm 줄어든다)", () => {
+test("★ 날짜 이야기가 같이 들어가는 쪽은 상한이 더 낮다 (사진 자리가 그만큼 줄어든다)", () => {
   for (const count of [1, 2, 3, 4]) {
     const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));

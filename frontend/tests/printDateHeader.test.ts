@@ -71,11 +71,11 @@ test("★ 화면 머리글은 그대로다 — 인쇄만 새 변형을 쓴다", 
   assert.equal(/photoCount=/.test(printPages), false, "인쇄가 아직 장수를 넘긴다");
 });
 
-test("머리글 크기는 A4 실측 6mm 다 — 본문보다 확실히 커야 눈에 걸린다", () => {
+test("머리글 크기는 큐 4-5 표의 값이다 — 본문보다 커야 눈에 걸린다", () => {
   const start = printCss.indexOf(".album-renderer--print .chapter-header--print-date .chapter-header__dayline {");
   assert.notEqual(start, -1);
   const rule = printCss.slice(start, printCss.indexOf("}", start));
-  assert.match(rule, /font-size: 6mm/);
+  assert.match(rule, /font-size: var\(--print-date-heading\)/);
   // 흐린 회색이 아니라 본문 글자색이다 — 한 줄뿐이라 이 줄이 제목 노릇을 한다.
   assert.match(rule, /color: var\(--c-text\)/);
 });
