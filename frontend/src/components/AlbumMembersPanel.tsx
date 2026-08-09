@@ -86,7 +86,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
   const candidates = familyMembers.filter((member) => !existingIds.has(member.profile_id));
 
   if (loading) {
-    return <p className="family-panel__notice">참여자를 불러오는 중...</p>;
+    return <p className="notice notice--progress family-panel__notice" role="status">참여자를 불러오는 중...</p>;
   }
 
   return (

@@ -131,11 +131,11 @@ export default function FamilyManagement() {
   };
 
   if (loading) {
-    return <p className="family-panel__notice">가족 정보를 불러오는 중...</p>;
+    return <p className="notice notice--progress family-panel__notice" role="status">가족 정보를 불러오는 중...</p>;
   }
 
   if (!family) {
-    return <p className="family-panel__notice">{error || "가족 정보가 없어요."}</p>;
+    return <p className={`notice notice--${error ? "error" : "info"} family-panel__notice`} role={error ? "alert" : undefined}>{error || "가족 정보가 없어요."}</p>;
   }
 
   const manager = canManageFamily(family.role);
@@ -230,7 +230,7 @@ export default function FamilyManagement() {
         <section className="family-panel__section">
           <h3>초대 현황</h3>
           {invitations.length === 0 ? (
-            <p className="family-panel__notice">보낸 초대가 없어요.</p>
+            <p className="notice notice--info family-panel__notice">보낸 초대가 없어요.</p>
           ) : (
             <ul className="invitation-list">
               {invitations.map((invitation) => (

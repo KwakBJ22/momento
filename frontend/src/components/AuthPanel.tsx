@@ -21,13 +21,13 @@ export default function AuthPanel({ returnTo, titleId }: AuthPanelProps) {
     }
   };
 
-  if (!isAuthenticationConfigured) return <p className="auth-panel__notice">로그인 설정을 준비하고 있어요.</p>;
+  if (!isAuthenticationConfigured) return <p className="notice notice--progress auth-panel__notice" role="status">로그인 설정을 준비하고 있어요.</p>;
 
   return (
     <section className="auth-panel">
       <h2 id={titleId}>내 앨범 보관하기</h2>
       <p>로그인하면 언제든 내 앨범에서 다시 볼 수 있어요.</p>
-      {message && <p className="auth-panel__notice" role="alert">{message}</p>}
+      {message && <p className="notice notice--error auth-panel__notice" role="alert">{message}</p>}
       {/* 동의를 먼저 받고 그다음에 시작한다 — 순서가 화면에서도 그대로 보이게 위에 둔다. */}
       <LegalConsent checked={agreed} onChange={setAgreed} />
       <button className="auth-panel__kakao" type="button" disabled={isSubmitting || !agreed} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>

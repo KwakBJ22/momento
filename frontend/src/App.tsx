@@ -221,9 +221,9 @@ function App() {
   const isJoinSurface = Boolean(joinToken);
   const isAlbumSurface = Boolean(shareToken || joinToken || contributeAlbumId || participantsAlbumId || sharedAlbumId || creatingAlbumId || result);
   const requiresLogin = (content: ReactNode) => {
-    if (!authReady || user === undefined) return <p className="auth-panel__notice">잠시만 기다려 주세요.</p>;
+    if (!authReady || user === undefined) return <p className="notice notice--progress auth-panel__notice" role="status">잠시만 기다려 주세요.</p>;
     if (!isAuthenticationConfigured || !user) return <AuthPanel returnTo={`${window.location.pathname}${window.location.search}`} />;
-    if (bootstrapError) return <p className="auth-panel__notice">{bootstrapError}</p>;
+    if (bootstrapError) return <p className="notice notice--error auth-panel__notice" role="alert">{bootstrapError}</p>;
     return content;
   };
   // A guest holding this album's session token may view/edit it without login;

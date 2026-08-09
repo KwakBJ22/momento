@@ -19,5 +19,5 @@ export default function AuthCallback() {
     return () => { active = false; };
   }, []);
 
-  return <section className="auth-panel"><h2>로그인을 마무리하고 있어요</h2><p className="auth-panel__notice">{error || "잠시만 기다려 주세요."}</p>{error ? <a className="btn btn--secondary" href={consumeReturnTo()}>돌아가기</a> : null}</section>;
+  return <section className="auth-panel"><h2>로그인을 마무리하고 있어요</h2><p className={`notice notice--${error ? "error" : "progress"} auth-panel__notice`} role={error ? "alert" : "status"}>{error || "잠시만 기다려 주세요."}</p>{error ? <a className="btn btn--secondary" href={consumeReturnTo()}>돌아가기</a> : null}</section>;
 }

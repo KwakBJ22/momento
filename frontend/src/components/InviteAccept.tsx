@@ -32,7 +32,7 @@ export default function InviteAccept({ token, isLoggedIn }: InviteAcceptProps) {
     return (
       <div className="family-panel">
         <h2>가족 초대</h2>
-        <p className="family-panel__notice">초대를 수락하려면 먼저 로그인해주세요. 로그인 후 이 페이지로 다시 돌아오면 자동으로 수락됩니다.</p>
+        <p className="notice notice--info family-panel__notice">초대를 수락하려면 먼저 로그인해주세요. 로그인 후 이 페이지로 다시 돌아오면 자동으로 수락됩니다.</p>
         <a className="btn btn--secondary" href="/">
           로그인하러 가기
         </a>
@@ -41,13 +41,13 @@ export default function InviteAccept({ token, isLoggedIn }: InviteAcceptProps) {
   }
 
   if (loading) {
-    return <p className="family-panel__notice">초대를 확인하고 있어요...</p>;
+    return <p className="notice notice--progress family-panel__notice" role="status">초대를 확인하고 있어요...</p>;
   }
 
   return (
     <div className="family-panel">
       <h2>가족 초대</h2>
-      {message && <p className="family-panel__notice">{message}</p>}
+      {message && <p className="notice notice--success family-panel__notice" role="status">{message}</p>}
       {error && <p className="notice notice--error family-panel__error" role="alert">{error}</p>}
       <a className="btn btn--secondary" href="/my-albums">
         내 앨범으로 이동

@@ -143,7 +143,7 @@ function ViralFunnel({ stages }: { stages: AdminFunnelStage[] }) {
           <div>
             <strong>{stage.label}</strong>
             {stage.conversion_from_previous != null ? (
-              <p className="admin__notice" style={{ margin: "4px 0 0", padding: 0 }}>
+              <p className="admin__label" style={{ margin: "4px 0 0", padding: 0 }}>
                 전환율 {stage.conversion_from_previous}%
               </p>
             ) : null}
@@ -161,7 +161,7 @@ function LivingTimeline({ items }: { items: AdminAlbumDetail["timeline"] }) {
       {items.map((item, index) => (
         <div key={`${item.kind}-${index}`} className="admin__timeline-item">
           <strong>{item.label}</strong>
-          <p className="admin__notice" style={{ padding: 0, margin: "4px 0 0" }}>
+          <p className="admin__label" style={{ padding: 0, margin: "4px 0 0" }}>
             {formatDate(item.at)}
           </p>
         </div>
@@ -237,8 +237,8 @@ function AlbumExplorer() {
       <div className="admin__search">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="검색어" aria-label="앨범 검색" />
       </div>
-      {error ? <p className="admin__notice">{error}</p> : null}
-      {!albums ? <p className="admin__notice">불러오는 중…</p> : (
+      {error ? <p className="notice notice--error admin__notice" role="alert">{error}</p> : null}
+      {!albums ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <table className="admin__table">
           <thead>
             <tr>
@@ -259,7 +259,7 @@ function AlbumExplorer() {
                     {album.title}
                     {album.is_living ? " · Living" : ""}
                   </a>
-                  <div className="admin__notice" style={{ padding: 0 }}>{album.owner_name || album.owner_email || "-"}</div>
+                  <div className="admin__label" style={{ padding: 0 }}>{album.owner_name || album.owner_email || "-"}</div>
                 </td>
                 <td>{formatDate(album.created_at)}</td>
                 <td>{album.photo_count}</td>
@@ -290,8 +290,8 @@ function AlbumDetailView({ albumId }: { albumId: string }) {
 
   useEffect(load, [albumId]);
 
-  if (error) return <p className="admin__notice">{error}</p>;
-  if (!album) return <p className="admin__notice">불러오는 중…</p>;
+  if (error) return <p className="notice notice--error admin__notice" role="alert">{error}</p>;
+  if (!album) return <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p>;
 
   return (
     <>
@@ -381,7 +381,7 @@ function UserExplorer() {
       <div className="admin__search">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이메일 또는 이름" aria-label="사용자 검색" />
       </div>
-      {!users ? <p className="admin__notice">불러오는 중…</p> : (
+      {!users ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <table className="admin__table">
           <thead>
             <tr>
@@ -427,7 +427,7 @@ function UserDetailView({ userId }: { userId: string }) {
         <h1>사용자 앨범</h1>
         <p>{userId}</p>
       </header>
-      {!albums ? <p className="admin__notice">불러오는 중…</p> : (
+      {!albums ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <div className="admin__grid">
           {albums.map((album) => (
             <a key={album.album_id} className="admin__card admin__row-link" href={`/admin/albums/${album.album_id}`}>
@@ -453,7 +453,7 @@ function EventLogView() {
       <header className="admin__header">
         <h1>Event Log</h1>
       </header>
-      {!events ? <p className="admin__notice">불러오는 중…</p> : (
+      {!events ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <table className="admin__table">
           <thead>
             <tr>
@@ -487,7 +487,7 @@ function ErrorDashboardView() {
       <header className="admin__header">
         <h1>Error Dashboard</h1>
       </header>
-      {!payload ? <p className="admin__notice">불러오는 중…</p> : (
+      {!payload ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <>
           <MetricGrid
             items={payload.errors.map((item) => ({
@@ -533,7 +533,7 @@ function CostDashboardView() {
         <h1>Cost Dashboard</h1>
         <p>운영자 전용</p>
       </header>
-      {!costs ? <p className="admin__notice">불러오는 중…</p> : (
+      {!costs ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <MetricGrid
           items={[
             { label: "GPT 호출", value: costs.gpt_calls },
@@ -591,12 +591,12 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
   if (accessError) {
     return (
       <section className="admin">
-        <p className="admin__notice">{accessError}</p>
+        <p className="notice notice--error admin__notice" role="alert">{accessError}</p>
         <a href="/">홈으로</a>
       </section>
     );
   }
-  if (!ready) return <p className="admin__notice">관리자 권한을 확인하는 중…</p>;
+  if (!ready) return <p className="notice notice--progress admin__notice" role="status">관리자 권한을 확인하는 중…</p>;
 
   let content: ReactNode = null;
   if (activeSection === "dashboard" && ops) content = <OpsDashboardView data={ops} funnel={funnel} />;
@@ -654,7 +654,7 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
           ))}
           <a href="/">← 서비스로</a>
         </nav>
-        <div className="admin__main">{content || <p className="admin__notice">불러오는 중…</p>}</div>
+        <div className="admin__main">{content || <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p>}</div>
       </div>
     </section>
   );

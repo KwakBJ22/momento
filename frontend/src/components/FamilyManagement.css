@@ -31,15 +31,7 @@
 .family-panel__notice,
 .family-panel__error {
   text-align: center;
-}
-
-.family-panel__error {
   justify-content: center;
-}
-
-/* TODO(I-5b 3종): 성격 셋을 겸하는 자리라 다음 커밋에서 나눈다. */
-.family-panel__notice {
-  color: var(--c-text-muted);
 }
 
 .family-invite-form {

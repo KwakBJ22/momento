@@ -91,12 +91,12 @@ export default function ShareEntryRouter({ token, user, authReady, authError = n
 
   if (!authReady) return authTimedOut
     ? <div className="album-result"><p>잠시 후 다시 시도해 주세요.</p><button type="button" className="btn btn--secondary" onClick={onRetryAuth}>다시 시도</button></div>
-    : <p className="auth-panel__notice">앨범을 여는 중이에요.</p>;
+    : <p className="notice notice--progress auth-panel__notice" role="status">앨범을 여는 중이에요.</p>;
   if (authError) return <div className="album-result"><p>로그인 상태를 복원하지 못했어요.</p><button type="button" className="btn btn--secondary" onClick={onRetryAuth}>다시 시도</button></div>;
   // Sign-out changes the route role synchronously; never leave the prior
   // owner screen visible for the effect that resolves the Guest path.
-  if (state.kind === "owner" && !user) return <p className="auth-panel__notice">앨범을 여는 중이에요.</p>;
-  if (state.kind === "loading") return <p className="auth-panel__notice">앨범을 여는 중이에요.</p>;
+  if (state.kind === "owner" && !user) return <p className="notice notice--progress auth-panel__notice" role="status">앨범을 여는 중이에요.</p>;
+  if (state.kind === "loading") return <p className="notice notice--progress auth-panel__notice" role="status">앨범을 여는 중이에요.</p>;
   if (state.kind === "error") return <div className="album-result"><h2 className="album-result__title">앨범을 열지 못했어요.</h2><p>{state.message}</p></div>;
   if (state.kind === "owner") return <AlbumView albumId={state.albumId} />;
   return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} onLogin={onLogin} accountSheet={accountSheet} onLogout={onLogout} onWithdraw={onWithdraw} />;

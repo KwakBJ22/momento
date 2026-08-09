@@ -276,9 +276,14 @@
   gap: 10px;
 }
 
+/* 색·글머리는 styles/notice.css 가 준다(I-5b). 여기서는 배치만 남긴다. */
 .admin__notice {
-  color: var(--admin-muted);
   padding: 12px 0;
+}
+
+/* 알림이 아니라 작은 곁말(전환율·날짜·소유자)이다. 성격을 붙이지 않는다. */
+.admin__label {
+  color: var(--admin-muted);
 }
 
 @media (max-width: 900px) {

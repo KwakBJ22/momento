@@ -332,7 +332,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   }, [album]);
 
   if (error) return <div className="album-result"><h2 className="album-result__title">공유 앨범을 불러오지 못했어요.</h2><p>{error}</p><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
-  if (albumLoading || !album || loadedToken !== token) return <p className="auth-panel__notice">앨범을 불러오는 중...</p>;
+  if (albumLoading || !album || loadedToken !== token) return <p className="notice notice--progress auth-panel__notice" role="status">앨범을 불러오는 중...</p>;
   // Empty legacy albums and memory-only Living Albums are valid responses.
   if (!Array.isArray(album.photos)) return <div className="album-result"><h2 className="album-result__title">앨범 사진을 불러오지 못했습니다.</h2><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
   const epilogue = (album.epilogue ?? album.narrative ?? "").trim();

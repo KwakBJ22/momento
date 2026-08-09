@@ -122,14 +122,14 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
     );
   };
 
-  if (error) return <p className="auth-panel__notice">{error}</p>;
+  if (error) return <p className="notice notice--error auth-panel__notice" role="alert">{error}</p>;
   if (!albums) {
     return (
       <section className="my-albums" aria-labelledby="my-albums-title">
         <header className="my-albums__header">
           <div><h2 id="my-albums-title">내 앨범</h2></div>
         </header>
-        <p className="auth-panel__notice">앨범을 불러오는 중이에요.</p>
+        <p className="notice notice--progress auth-panel__notice" role="status">앨범을 불러오는 중이에요.</p>
         <MyAlbumsSkeleton />
       </section>
     );

@@ -125,9 +125,10 @@ body {
   cursor: not-allowed;
 }
 
+/* 색·글머리는 styles/notice.css 가 준다(I-5b). 여기서는 배치만 남긴다. */
 .auth-panel__notice {
-  color: var(--c-text-muted);
   text-align: center;
+  justify-content: center;
 }
 
 /* 명시적 동의 체크박스. 40대 이후 가독성 하한 14px 유지(그 이하로 내리지 말 것).

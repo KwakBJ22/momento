@@ -34,10 +34,10 @@ const cssFiles = walk(SRC, ".css").map((file) => [file, readFileSync(file, "utf8
 const stripCss = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 
 /**
- * ★ 아직 안 나눈 자리 — 한 껍데기가 성격 셋(진행·안내·오류)을 겸한다.
- *   34곳이라 마지막에 따로 커밋한다. 이 목록이 비면 I-5b 가 끝난 것이다.
+ * 한 껍데기가 성격 셋(진행·안내·오류)을 겸하던 자리 셋(34곳)도 나눴다.
+ * 예외가 없다 — 이 목록은 비어 있어야 한다.
  */
-const NOT_YET_SPLIT = ["auth-panel__notice", "family-panel__notice", "admin__notice"];
+const NOT_YET_SPLIT: string[] = [];
 
 // --- 정의가 한 곳인가 ---
 
