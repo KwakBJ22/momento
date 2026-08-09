@@ -342,7 +342,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           <section className="upload-progress__card">
             <div className="upload-progress__character" aria-hidden="true"><span className="upload-progress__glow" /><span className="upload-progress__star" /><span className="upload-progress__spark upload-progress__spark--a" /><span className="upload-progress__spark upload-progress__spark--b" /><span className="upload-progress__spark upload-progress__spark--c" /></div>
             <h2 id="upload-progress-title">우리의 이야기를 만들고 있어요</h2>
-            <p id="upload-progress-copy">사진 속 한마디를 차곡차곡 모으는 중이에요.</p>
+            <p id="upload-progress-copy">사진에 남긴 한 줄을 차곡차곡 모으는 중이에요.</p>
             <div className="upload-progress__bar" role="progressbar" aria-label="앨범 생성 중" aria-valuetext="진행 중"><span /></div>
             <button type="button" className="upload-progress__cancel" onClick={cancelUpload}>그만하기</button>
           </section>

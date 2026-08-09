@@ -8,7 +8,7 @@ import "./AlbumCreating.css";
 const STEP_COPY: Record<string, string> = {
   upload_completed: "사진을 안전하게 보관했어요",
   processing_images: "사진을 보기 좋게 정리하고 있어요",
-  arranging_photos: "사진과 한마디의 순서를 맞추고 있어요",
+  arranging_photos: "사진과 한 줄의 순서를 맞추고 있어요",
   building_story: "이야기를 자연스럽게 엮고 있어요",
   building_album: "앨범을 완성하고 있어요",
   completed: "앨범이 완성되었어요",

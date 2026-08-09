@@ -238,7 +238,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       );
       handleCancelPhotoCommentEdit();
     } catch (cause) {
-      setPhotoCommentSaveError(cause instanceof Error ? cause.message : "사진 한마디를 고치지 못했어요.");
+      setPhotoCommentSaveError(cause instanceof Error ? cause.message : "사진에 남긴 한 줄을 고치지 못했어요.");
     } finally {
       setIsSavingPhotoComment(false);
     }

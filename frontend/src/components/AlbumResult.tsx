@@ -179,9 +179,9 @@ export default function AlbumResultView({
       // 화면이 읽는 필드는 caption 이다(같은 결함의 두 번째 얼굴).
       setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, caption: saved.caption } : item)));
       handleCancelPhotoCommentEdit();
-      setNotice({ text: "사진 한마디를 저장했어요.", kind: "success" });
+      setNotice({ text: "사진에 남긴 한 줄을 저장했어요.", kind: "success" });
     } catch (err) {
-      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진 한마디를 저장하지 못했어요.");
+      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진에 남긴 한 줄을 저장하지 못했어요.");
     } finally {
       setIsSavingPhotoComment(false);
     }

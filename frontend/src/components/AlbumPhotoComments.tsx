@@ -8,7 +8,8 @@ interface AlbumPhotoCommentsProps {
   onSaveLocation?: (photoId: string, locationName: string) => Promise<void>;
 }
 
-const COMMENT_PLACEHOLDER = "한마디를 남겨보세요...";
+// 여기서 읽고 쓰는 것은 `photo.caption` 이다 — 사용자에게는 `한 줄`이다(§7).
+const COMMENT_PLACEHOLDER = "한 줄 남겨보세요...";
 
 export default function AlbumPhotoComments({
   photos,
@@ -30,7 +31,7 @@ export default function AlbumPhotoComments({
     try {
       await onSave(photoId, drafts[photoId] ?? "");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "한마디를 저장하지 못했어요.");
+      setError(cause instanceof Error ? cause.message : "한 줄을 저장하지 못했어요.");
     } finally {
       setSavingId(null);
     }
@@ -50,7 +51,7 @@ export default function AlbumPhotoComments({
   };
 
   return (
-    <section className="album-photo-comments" aria-label="사진별 한마디">
+    <section className="album-photo-comments" aria-label="사진별 한 줄">
       {error && (
         <p className="notice notice--error album-photo-comments__error" role="alert">
           {error}
@@ -89,7 +90,7 @@ export default function AlbumPhotoComments({
                 rows={3}
                 maxLength={300}
                 placeholder={COMMENT_PLACEHOLDER}
-                aria-label={`사진 ${index + 1} 한마디`}
+                aria-label={`사진 ${index + 1} 한 줄`}
                 aria-busy={savingId === photo.id}
                 onChange={(event) =>
                   setDrafts((previous) => ({ ...previous, [photo.id]: event.target.value }))

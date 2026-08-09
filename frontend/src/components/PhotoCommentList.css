@@ -90,11 +90,23 @@
   color: var(--c-surface);
 }
 
+/* 사진마다 한 줄 적어달라는 권유 (J-2).
+   지금 본문 회색이라 눈에 안 들어왔다 — 이 화면에서 사용자가 할 두 번째 일이다.
+   ★ 브랜드색을 쓰지 않는다. 이 자리는 버튼이 아니다.
+   ★ 배경·테두리를 넣지 않는다(§11 — 알림 껍데기는 배경이 없다). */
 .photo-comments__guide {
   margin: -0.1rem 0 0;
-  color: var(--c-text-muted);
-  font-size: 0.92rem;
+  color: var(--c-text);
+  font-size: var(--t-sm);
+  font-weight: 600;
   line-height: 1.55;
+}
+
+/* `(선택)` 은 안 써도 된다는 뜻이라 권유보다 뒤로 물러선다 — 크기는 지금 그대로. */
+.photo-comments__guide-optional {
+  color: var(--c-text-soft);
+  font-size: 0.92rem;
+  font-weight: 400;
 }
 
 .photo-comments__cover-guide {

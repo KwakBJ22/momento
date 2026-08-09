@@ -9,15 +9,20 @@ interface PhotoCommentListProps {
   onCoverChange: (id: string) => void;
 }
 
-const COMMENT_PLACEHOLDER = "한마디를 남겨보세요...";
+const COMMENT_PLACEHOLDER = "한 줄 남겨보세요...";
 
 export default function PhotoCommentList({ photos, onCommentChange, onRemove, coverPhotoId, onCoverChange }: PhotoCommentListProps) {
   if (!photos.length) return null;
 
   return (
     <section className="photo-comments" aria-label="선택한 사진">
+      {/* ★ 여기서 받는 것은 **캡션**이다(§7). 사용자에게 부르는 이름은 `한 줄`이다 —
+          `한마디`는 참여자가 사진에 남기는 말의 이름이라, 같은 말이 두 가지를 가리키면
+          "아까 한마디 썼는데 또?"가 된다(J-2).
+          `완성됩니다` 가 아니라 `풍성해져요` — 명령이 아니라 얻는 것을 말한다(§10).
+          `(선택)` 은 남긴다. 안 써도 된다는 것을 알아야 부담이 없다. */}
       <p className="photo-comments__guide">
-        사진마다 짧은 한마디를 남기면 더욱 생생하고 풍성한 앨범이 완성됩니다. (선택)
+        사진마다 한 줄 적어두면 앨범이 훨씬 풍성해져요. <span className="photo-comments__guide-optional">(선택)</span>
       </p>
       <p className="photo-comments__cover-guide">
         앨범을 대표할 사진을 골라보세요. 선택하지 않으면 첫 번째 사진이 대표사진으로 사용됩니다.
@@ -56,7 +61,7 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
               maxLength={300}
               value={photo.story}
               placeholder={COMMENT_PLACEHOLDER}
-              aria-label={`사진 ${index + 1} 한마디`}
+              aria-label={`사진 ${index + 1} 한 줄`}
               onChange={(event) => onCommentChange(photo.id, event.target.value)}
             />
           </li>
