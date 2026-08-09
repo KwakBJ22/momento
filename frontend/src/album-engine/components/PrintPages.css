@@ -105,22 +105,23 @@
  *
  * 잰 값(210×297mm, 위아래 여백 14/12mm, 날짜 머리글 약 10mm):
  *   사진 자리 높이   날짜 이야기가 있는 쪽 196.3mm · 없는 쪽 255.0mm
- *   프레임 껍데기     여백 4mm×2 + 사이 3mm + 캡션 두 줄 13.7mm = 24.7mm
+ *   프레임 껍데기     여백 4mm×2 + 사이 3mm + 캡션 두 줄 15.8mm = 26.8mm
+ *                    (I-4-5 에서 캡션을 12.5pt 로 키운 뒤 다시 잰 값이다)
  *   → 한 칸에 들어갈 사진 = (사진 자리 ÷ 줄수 − 칸 사이 6mm) − 24.7mm
  *
  * 날짜 이야기가 있는 쪽이 더 빡빡하므로 두 벌로 나눈다. 한 벌로 두면 이야기 없는
  * 쪽의 사진까지 작아진다 — 사진이 가장 크다(§6).
  * 가로 사진은 폭(max-width)이 먼저 걸려 이 값에 닿지 않는다. */
-.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: 200mm; }
-.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: 100mm; }
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: 56mm; }
-.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: 100mm; }
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: 195mm; }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: 94mm; }
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: 50mm; }
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: 94mm; }
 
 /* 날짜 이야기가 함께 들어가는 쪽은 사진 자리가 59mm 줄어든다. */
-.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: 165mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: 68mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: 34mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: 68mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: 160mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: 64mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: 32mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: 64mm; }
 
 .album-renderer--print .print-frame__caption {
   flex: 0 0 auto;
@@ -183,3 +184,44 @@
   break-inside: avoid;
   page-break-inside: avoid;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   글자 크기 — **A4 실측으로 정한다** (I-4-5 · §9). 화면 감각으로 정하면 작다.
+   1mm = 2.8346pt. 아래 값은 210×297mm 위에서 재고 정한 것이다.
+
+   고친 이유: A4 로 인쇄해 손에 들고 읽는 문서인데 본문이 11~12pt 였다.
+   문화체육관광부 큰글자도서 기준은 본문 14pt 내외이고 일반 단행본은 9~10.5pt 다.
+   주 독자가 40~60대이므로 그 사이 위쪽에 둔다 — 다만 이 문서는 책이 아니라
+   사진첩이라 **글이 사진을 이기면 안 된다**(§6). 그래서 큰글자책 하한 아래다.
+
+   재기 전 → 정한 값
+     캡션(한마디)      3.81mm 10.8pt → 4.4mm 12.5pt
+     날짜 이야기 본문   4.23mm 12.0pt → 4.8mm 13.6pt
+     우리의 이야기 본문 3.88mm 11.0pt → 4.8mm 13.6pt
+     날짜 이야기 제목   4.91mm 13.9pt → 5.6mm 15.9pt
+     우리의 이야기 제목 5.93mm 16.8pt → 7.0mm 19.8pt
+     함께 만든 사람     4.23mm 12.0pt → 4.8mm 13.6pt
+     날짜 머리글       3.9mm  11.1pt → 6.0mm 17.0pt (I-4-3 에서 이미 정함)
+
+   계층은 사진 > 머리글 > 이야기 > 캡션이다. 캡션을 본문보다 한 단계 작게 두어
+   사진에 딸린 말이라는 것이 크기로도 보이게 한다.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* 캡션 — 사진에 딸린 말. 본문보다 한 단계 작다. */
+.album-renderer--print .print-frame__caption,
+.album-renderer--print .print-frame__caption .photo-memory-lines__line,
+.album-renderer--print .print-frame__caption .photo-memory-lines__text {
+  font-size: 4.4mm;
+  line-height: 1.5;
+}
+
+/* 날짜 이야기 — 그 날을 설명하는 본문. */
+.album-renderer--print .story-block__title { font-size: 5.6mm; line-height: 1.4; }
+.album-renderer--print .story-block__body { font-size: 4.8mm; line-height: 1.65; }
+
+/* 우리의 이야기 — 앨범 전체를 닫는 글이라 제목을 가장 크게 둔다. */
+/* 본문 크기는 AlbumEpilogue.css 에 이미 자리가 있다 — 거기서 고쳤다(중복 금지). */
+.album-renderer--print .album-epilogue__title { font-size: 7mm; line-height: 1.3; }
+
+/* 함께 만든 사람 — 인쇄물에 남는 이름 줄이라 본문과 같게 둔다(CLAUDE.md §6). */
+.album-renderer--print .album-contributors { font-size: 4.8mm; line-height: 1.5; }

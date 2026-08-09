@@ -64,9 +64,11 @@
   font-weight: 700;
 }
 
+/* A4 실측으로 정한 본문 크기 — 4.8mm ≈ 13.6pt (I-4-5). 예전 11pt 는 손에 들고
+   읽기에 작았다. 자세한 근거는 PrintPages.css 의 "글자 크기" 절. */
 .album-renderer--print .album-epilogue__body,
 .album-renderer--print .album-epilogue__joyful p,
 .album-renderer--print .album-epilogue__special p {
-  font-size: 11pt;
-  line-height: 1.7;
+  font-size: 4.8mm;
+  line-height: 1.65;
 }
