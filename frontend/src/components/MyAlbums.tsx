@@ -21,10 +21,10 @@ function MyAlbumsSkeleton() {
     <div className="my-albums__list" aria-hidden="true">
       {[0, 1, 2].map((key) => (
         <div key={key} className="my-albums__card my-albums__card--skeleton">
-          <div className="my-albums__image-wrap my-albums__skeleton-block" />
+          <div className="my-albums__image-wrap my-albums__skeleton-block loading-shimmer" />
           <div className="my-albums__card-body">
-            <div className="my-albums__skeleton-line my-albums__skeleton-line--title" />
-            <div className="my-albums__skeleton-line" />
+            <div className="my-albums__skeleton-line my-albums__skeleton-line--title loading-shimmer" />
+            <div className="my-albums__skeleton-line loading-shimmer" />
           </div>
         </div>
       ))}

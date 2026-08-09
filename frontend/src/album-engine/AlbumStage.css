@@ -37,14 +37,6 @@
   border-top: 0;
 }
 
-.album-stage--loading {
-  min-height: 220px;
-  border-radius: 12px;
-  background: linear-gradient(90deg, var(--c-bg) 25%, var(--c-surface) 50%, var(--c-bg) 75%);
-  background-size: 200% 100%;
-  animation: album-stage-shimmer 1.2s ease-in-out infinite;
-}
-
 .album-stage__fallback-image {
   width: 100%;
   max-height: 680px;
@@ -56,11 +48,3 @@
   background: var(--c-surface);
 }
 
-@keyframes album-stage-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
-}

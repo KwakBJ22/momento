@@ -158,12 +158,10 @@
   margin-top: -0.25rem;
 }
 
+/* 방향·속도·색은 styles/loading.css 의 .loading-shimmer 가 준다(I-6b). 여기는 크기만. */
 .album-renderer--loading {
   min-height: 220px;
   border-radius: 12px;
-  background: linear-gradient(90deg, var(--c-bg) 25%, var(--c-surface) 50%, var(--c-bg) 75%);
-  background-size: 200% 100%;
-  animation: album-renderer-shimmer 1.2s ease-in-out infinite;
 }
 
 .album-renderer__fallback-image {
@@ -288,15 +286,6 @@
 
 .album-renderer__brand-footer a {
   color: inherit;
-}
-
-@keyframes album-renderer-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
 }
 
 @media print {

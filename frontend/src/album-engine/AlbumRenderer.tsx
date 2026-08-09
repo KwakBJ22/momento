@@ -26,6 +26,7 @@ import "../styles/tokens.css";
 // 엔진 안에도 오류 블록이 있다(캡션·날짜 이야기 편집). 껍데기를 밖에서 실어 줬을 것에
 // 기대면 앱 밖 렌더에서 조용히 깨진다 — 토큰과 같은 이유다(I-4b · §11).
 import "../styles/notice.css";
+import "../styles/loading.css";
 import "./AlbumRenderer.css";
 import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 
@@ -395,7 +396,7 @@ export default function AlbumRenderer({
   }
 
   if (!album) {
-    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading ${className}`.trim()} aria-busy="true" />;
+    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading loading-shimmer ${className}`.trim()} aria-busy="true" />;
   }
 
   return (

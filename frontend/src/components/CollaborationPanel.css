@@ -21,11 +21,10 @@
   gap: 0.45rem;
 }
 
+/* 색·움직임은 styles/loading.css 가 준다(I-6b) — 전에는 멈춰 있는 막대였다. */
 .collab-panel__skeleton-lines span {
   display: block;
   height: 0.72rem;
-  border-radius: 6px;
-  background: var(--c-brand-soft);
 }
 
 .collab-panel__skeleton-lines span:nth-child(1) { width: 72%; }

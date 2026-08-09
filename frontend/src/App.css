@@ -298,10 +298,10 @@ body {
 .my-albums__delete { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-danger); font-size: var(--t-xs); font-weight: 700; cursor: pointer; }
 .my-albums__delete:disabled { opacity: 0.6; cursor: wait; }
 .my-albums__card--skeleton { pointer-events: none; }
-.my-albums__skeleton-block { background: linear-gradient(90deg, var(--c-brand-soft) 25%, var(--c-brand-soft) 50%, var(--c-brand-soft) 75%); background-size: 200% 100%; animation: my-albums-shimmer 1.2s infinite; }
-.my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; border-radius: 6px; background: var(--c-brand-soft); }
+/* 자리표시자의 색·움직임은 styles/loading.css 의 .loading-shimmer 가 준다(I-6b).
+   전에는 그라디언트 세 지점이 전부 --c-brand-soft 라 **움직여도 아무것도 안 보였다.** */
+.my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; }
 .my-albums__skeleton-line--title { width: 70%; height: 0.9rem; margin-top: 0; }
-@keyframes my-albums-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .my-albums__image-wrap { display: grid; width: 74px; height: 74px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 10px; background: var(--c-brand-soft); }
 .my-albums__image { width: 100%; height: 100%; object-fit: cover; }
 .my-albums__image-placeholder { color: var(--c-brand-text); }

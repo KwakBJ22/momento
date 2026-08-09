@@ -271,7 +271,7 @@ export default function CollaborationPanel({
       <div className="collab-panel__loading" aria-busy="true">
         <p className="collab-panel__loading-hint">새로 더해진 사진과 한마디를 확인하고 있어요.</p>
         <div className="collab-panel__skeleton-lines">
-          <span /><span /><span />
+          <span className="loading-shimmer" /><span className="loading-shimmer" /><span className="loading-shimmer" />
         </div>
       </div>
     ) : !status ? (

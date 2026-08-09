@@ -97,8 +97,8 @@
 
 .album-result__back { margin: 0 0 0.75rem; }
 .album-result__back-link { color: var(--c-brand-text); font-size: 0.92rem; font-weight: 700; text-decoration: none; }
-.album-result__back-link:hover { text-decoration: underline; }.album-result__skeleton-stage { min-height: 280px; border-radius: 16px; background: linear-gradient(90deg, var(--c-brand-soft) 25%, var(--c-surface) 50%, var(--c-brand-soft) 75%); background-size: 200% 100%; animation: album-skeleton-shimmer 1.2s infinite; }
-@keyframes album-skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.album-result__back-link:hover { text-decoration: underline; }/* 색·움직임은 styles/loading.css 가 준다(I-6b). 여기는 크기만. */
+.album-result__skeleton-stage { min-height: 280px; border-radius: 16px; }
 
 .album-result__intro {
   display: grid;

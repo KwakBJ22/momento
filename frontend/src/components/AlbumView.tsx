@@ -516,7 +516,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
             <p className="album-result__subtitle">앨범을 불러오는 중...</p>
 
-            <div className="album-result__skeleton-stage" aria-hidden="true" />
+            <div className="album-result__skeleton-stage loading-shimmer" aria-hidden="true" />
 
           </article>
 
