@@ -127,6 +127,8 @@ void (async () => {
     },
     () => undefined,
     () => { settledAt.push(performance.now() - startedAt); },
+    // ★ 화면과 같은 설정이다(J-1b-2) — 첫 한 장은 혼자 준비한다.
+    { soloFirst: true },
   );
   const total = performance.now() - startedAt;
   const gaps = settledAt.map((at, index) => at - (index === 0 ? 0 : settledAt[index - 1]));

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
-  pickButtonLabel, showsEmptyState, showsSelectionCount, showsSubmitButton,
+  pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton,
   PICK_LABEL_EMPTY, PICK_LABEL_MORE,
 } from "../src/lib/uploadFormView";
 
@@ -68,7 +68,9 @@ test("prepare progress is a direct child of .upload-form (sticky parent-box cont
 test("prepare bar reuses the shared easing and shows a bar alongside the exact count", () => {
   assert.match(source, /easeTowardTarget/); // no duplicate easing implementation
   assert.match(source, /upload-form__preparing-bar/);
-  assert.match(source, /장 중 \$\{preparingProgress\.done\}장/); // exact count text kept
+  // J-1b 뒤로 정확한 숫자는 `preparingLabel` 이 만든다 — 글자가 아니라 값을 본다.
+  assert.match(source, /\{preparingLabel\(preparingProgress\)\}/);
+  assert.equal(preparingLabel({ done: 7, total: 30 }), "사진을 준비하고 있어요 · 30장 중 7장");
 });
 
 // F-2 — 사진을 고른 뒤 준비하는 동안에도 빈 상태 안내가 남아, "사진을 준비하고 있어요"

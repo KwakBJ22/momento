@@ -31,6 +31,26 @@ export function showsSelectionCount(photoCount: number): boolean {
   return photoCount > 0;
 }
 
+/** 준비하는 동안 보여줄 한 줄. 문구는 이 한 줄뿐이다 — 단계를 늘리지 않는다(§10). */
+export const PREPARING_LABEL = "사진을 준비하고 있어요";
+
+/**
+ * 준비 중 문구 (J-1b-1).
+ *
+ * ★ **아직 한 장도 안 끝났으면 숫자를 붙이지 않는다.** `30장 중 0장`은 정보가 아니라
+ *   불안이다 — 0 은 "아무 일도 안 일어나고 있다"로 읽힌다. 실제로는 일하고 있는데
+ *   화면이 그것을 부정한다. 첫 장이 끝나기까지 실측 0.6~0.8초(폰은 더 길다)다.
+ *
+ * ★ **가짜가 아니다.** 숫자를 지어내는 것이 아니라 **셀 것이 없을 때 안 세는 것**이다.
+ *   `1장`이 뜨는 순간은 정말로 한 장이 끝난 순간이고, 그건 지금과 똑같다.
+ *
+ * 한 장짜리 선택에는 원래 숫자를 붙이지 않는다(`30장 중 1장`이 우스꽝스럽다).
+ */
+export function preparingLabel(progress: { done: number; total: number } | null): string {
+  if (!progress || progress.total <= 1 || progress.done <= 0) return PREPARING_LABEL;
+  return `${PREPARING_LABEL} · ${progress.total}장 중 ${progress.done}장`;
+}
+
 // Copy for filtered-out files (CLAUDE.md §8: no tech terms, no "coming soon" promise).
 
 /** Notices when SOME photos were added but files were also dropped this pick.

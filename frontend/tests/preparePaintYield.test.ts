@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { runOrderedPool } from "../src/lib/orderedPool";
+import { preparingLabel } from "../src/lib/uploadFormView";
 import { PAINT_WAIT_LIMIT_MS, yieldToPaint } from "../src/lib/yieldToPaint";
 
 /**
@@ -101,8 +102,10 @@ test("★ 가짜 진행률·단계 문구를 넣지 않는다", () => {
   for (const forbidden of ["setInterval", "setTimeout", "Date.now"]) {
     assert.equal(counter.includes(forbidden), false, `카운터를 시간으로 움직인다: ${forbidden}`);
   }
-  // 문구는 한 줄 그대로다.
-  assert.match(source, /`사진을 준비하고 있어요 · \$\{preparingProgress\.total\}장 중 \$\{preparingProgress\.done\}장`/);
+  // 문구는 한 줄 그대로다. J-1b 뒤로 그 한 줄은 `preparingLabel` 이 만든다 —
+  // 소스 글자가 아니라 **그 함수가 내놓는 값**을 본다.
+  assert.match(source, /\{preparingLabel\(preparingProgress\)\}/);
+  assert.equal(preparingLabel({ done: 4, total: 30 }), "사진을 준비하고 있어요 · 30장 중 4장");
   for (const forbidden of ["크기를 줄이고", "불러오는 중", "단계"]) {
     assert.equal(source.includes(forbidden), false, `단계 문구가 늘었다: ${forbidden}`);
   }

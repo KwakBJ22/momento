@@ -12,7 +12,7 @@ import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
-import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
+import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
 import "./UploadForm.css";
 
 const MAX_PHOTOS = 30;
@@ -182,6 +182,9 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           settledCount += 1;
           setPreparingProgress({ done: settledCount, total: limited.length });
         },
+        // ★ 첫 한 장은 혼자 준비한다(J-1b-2). 처음부터 둘이 붙으면 서로 경합해 둘 다
+        // 늦게 끝나고, 첫 숫자가 뜨기까지 두 장 몫을 기다린다. 동시 장수 2 는 그대로다.
+        { soloFirst: true },
       );
       if (duplicates > 0) failures.push(`사진 ${duplicates}장은 이미 선택되어 추가하지 않았습니다.`);
       if (skipped > 0) failures.push(`사진 ${skipped}장은 추가되지 않았습니다. 한 번에 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`);
@@ -319,7 +322,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           pinned while the user scrolls through the photo list below. */}
       {isPreparing ? (
         <div className="upload-form__preparing" aria-live="polite">
-          <p className="upload-form__count upload-form__preparing-text">{preparingProgress && preparingProgress.total > 1 ? `사진을 준비하고 있어요 · ${preparingProgress.total}장 중 ${preparingProgress.done}장` : "사진을 준비하고 있어요"}</p>
+          <p className="upload-form__count upload-form__preparing-text">{preparingLabel(preparingProgress)}</p>
           <div className="upload-form__preparing-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(prepareDisplay)}>
             <span style={{ width: `${prepareDisplay.toFixed(1)}%` }} />
           </div>
