@@ -6,7 +6,7 @@ import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
 import { currentUserAgent, isInAppWebView } from "./webview";
 import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
-import { printPageStraddleGap } from "./pdfPageBreak";
+import { PDF_CANVAS_SCALE, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
   albumId: string;
@@ -28,7 +28,7 @@ export interface AlbumPdfInput {
 
 /** html2canvas 는 앨범 전체를 캔버스 한 장으로 만든다. 크롬의 캔버스 한 변 상한(65,535px)을
  *  넘으면 예외 없이 빈/잘린 결과가 나와 "오래 기다렸는데 빈 PDF"가 된다. 미리 잡아 던진다. */
-const CANVAS_SCALE = 2;
+const CANVAS_SCALE = PDF_CANVAS_SCALE;
 const CANVAS_MAX_PX = 65_500;
 /** 이보다 작은 결과물은 정상 PDF 가 아니다(빈 캔버스). */
 const PDF_MIN_BLOB_BYTES = 1024;
@@ -128,6 +128,14 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
     await waitForAlbumAssets(element);
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
     alignBlocksToPrintPages(element);
+    // ★ 마지막에 빈 페이지가 한 장 더 붙는 것을 막는다(I-4-1). 이유는 pdfPageBreak 주석.
+    const contentHeight = element.scrollHeight;
+    const fit = wholePagesCaptureHeightPx(contentHeight, element.getBoundingClientRect().width, CANVAS_SCALE);
+    if (fit) {
+      element.style.height = `${fit.heightPx}px`;
+      element.style.overflow = "hidden";
+      logPdf("pdf_pages_fitted", { pages: fit.pages, from: contentHeight, to: Math.round(fit.heightPx) });
+    }
 
     // 캔버스 상한을 넘으면 html2canvas 는 예외 대신 빈 결과를 준다 — 먼저 잡아 이유를 말한다.
     const sourceHeightPx = element.scrollHeight * CANVAS_SCALE;
@@ -143,7 +151,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
         filename: pdfFilename(input),
         image: { type: "jpeg", quality: 0.95 },
         html2canvas: {
-          scale: 2,
+          scale: CANVAS_SCALE,
           useCORS: true,
           allowTaint: false,
           backgroundColor: "#faf7f4",
