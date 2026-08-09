@@ -19,7 +19,7 @@ from app.services.supabase import delete_abandoned_guest_album
 
 NOW = datetime(2026, 8, 3, tzinfo=timezone.utc)
 SETTINGS = SimpleNamespace(
-    supabase_private_storage_bucket="momento-private",
+    supabase_private_storage_bucket="woorialbum-private",
     supabase_storage_bucket="albums",
     signed_url_ttl_seconds=3600,
 )
@@ -57,8 +57,8 @@ class FindAbandonedGuestAlbumsTests(TestCase):
             [{"id": "aband-1", "owner_id": None, "created_by": None}],
             [_session("aband-1", expires=LONG_AGO)],
             [
-                {"id": "p1", "album_id": "aband-1", "byte_size": 1000, "storage_bucket": "momento-private", "storage_path": "albums/aband-1/photos/p1/original.jpg"},
-                {"id": "p2", "album_id": "aband-1", "byte_size": 2000, "storage_bucket": "momento-private", "storage_path": "albums/aband-1/photos/p2/original.jpg"},
+                {"id": "p1", "album_id": "aband-1", "byte_size": 1000, "storage_bucket": "woorialbum-private", "storage_path": "albums/aband-1/photos/p1/original.jpg"},
+                {"id": "p2", "album_id": "aband-1", "byte_size": 2000, "storage_bucket": "woorialbum-private", "storage_path": "albums/aband-1/photos/p2/original.jpg"},
             ],
         )
         candidates = find_abandoned_guest_albums(client, now=NOW)
@@ -123,7 +123,7 @@ class DeleteGuestAlbumTests(TestCase):
         return make_client(
             [{"id": "aband-1", "owner_id": None, "created_by": None, "result_path": ""}],
             [_session("aband-1", expires=LONG_AGO)],
-            [{"id": "p1", "album_id": "aband-1", "byte_size": 1000, "storage_bucket": "momento-private", "storage_path": "albums/aband-1/photos/p1/original.jpg"}],
+            [{"id": "p1", "album_id": "aband-1", "byte_size": 1000, "storage_bucket": "woorialbum-private", "storage_path": "albums/aband-1/photos/p1/original.jpg"}],
         )
 
     def test_dry_run_deletes_nothing(self) -> None:
@@ -208,13 +208,13 @@ class OrphanStorageTests(TestCase):
     def test_live_album_objects_are_not_flagged_as_orphans(self) -> None:
         client = make_client([{"id": "live-1", "owner_id": None, "created_by": None}], [])
         storage = _FakeStorage({
-            "momento-private": [
+            "woorialbum-private": [
                 "albums/live-1/photos/p1/original.jpg",   # live album -> not orphan
                 "albums/orphan-9/photos/p2/original.jpg",  # no album row -> orphan
                 "albums/orphan-9/results/r.png",
             ],
         })
-        orphans = find_orphan_storage_albums(client, SETTINGS, storage=storage, buckets=["momento-private"])
+        orphans = find_orphan_storage_albums(client, SETTINGS, storage=storage, buckets=["woorialbum-private"])
         self.assertEqual([(o.album_id, o.object_count) for o in orphans], [("orphan-9", 2)])
 
 
@@ -225,7 +225,7 @@ class CliModeBFlagTests(TestCase):
         from app.services import guest_album_cleanup as svc
         client = make_client([{"id": "live-1", "owner_id": None, "created_by": None}], [])
         storage = _FakeStorage({
-            "momento-private": ["albums/orphan-9/photos/p/original.jpg"],
+            "woorialbum-private": ["albums/orphan-9/photos/p/original.jpg"],
             "albums": [],
         })
         stub = SimpleNamespace(for_supabase=lambda c, s: storage)
@@ -247,4 +247,4 @@ class CliModeBFlagTests(TestCase):
     def test_apply_with_extra_flag_deletes_orphans(self) -> None:
         storage = self._run(["--apply", "--delete-orphan-objects"])
         self.assertEqual(len(storage.deleted), 1)
-        self.assertEqual(storage.deleted[0][0], "momento-private")
+        self.assertEqual(storage.deleted[0][0], "woorialbum-private")

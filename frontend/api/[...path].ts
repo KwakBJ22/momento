@@ -14,8 +14,8 @@ export const config = {
 export const maxDuration = 300;
 
 /**
- * Vercel 서버리스 프록시: /api/* → MOMENTO_API_URL/api/*
- * 공유 링크 등 작은 요청에 사용한다. Vercel 환경변수: MOMENTO_API_URL=https://your-app.up.railway.app
+ * Vercel 서버리스 프록시: /api/* → WOORIALBUM_API_URL/api/*
+ * 공유 링크 등 작은 요청에 사용한다. Vercel 환경변수: WOORIALBUM_API_URL=https://your-app.up.railway.app
  *
  * ⚠️ 4.5MB를 초과하는 요청은 이 프록시를 통과할 수 없다(Vercel 서버리스 함수 요청
  *    본문 플랫폼 제한). 사진 여러 장(대략 5장 이상) 앨범 생성은 이 한도를 넘어 실패한다.
@@ -24,11 +24,11 @@ export const maxDuration = 300;
  *    되어 /api/upload-album 이 프록시를 타지 않는다. (프록시 코드는 변경하지 않는다.)
  */
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  const backend = process.env.MOMENTO_API_URL?.trim();
+  const backend = process.env.WOORIALBUM_API_URL?.trim();
   if (!backend) {
     res.status(503).json({
       detail:
-        "백엔드 URL이 설정되지 않았습니다. Vercel에 MOMENTO_API_URL 환경변수를 추가해주세요.",
+        "백엔드 URL이 설정되지 않았습니다. Vercel에 WOORIALBUM_API_URL 환경변수를 추가해주세요.",
     });
     return;
   }

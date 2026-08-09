@@ -51,9 +51,9 @@ class MemoryQuestionApiTests(TestCase):
         self.app.include_router(album_router)
         self.client = TestClient(self.app)
         self.settings = SimpleNamespace(
-            frontend_base_url="https://momento.example",
+            frontend_base_url="https://woorialbum.example",
             openai_model="gpt-4o-mini",
-            supabase_private_storage_bucket="momento-private",
+            supabase_private_storage_bucket="woorialbum-private",
             signed_url_ttl_seconds=300,
         )
         patch("app.api.memory.get_settings", return_value=self.settings).start()
@@ -187,7 +187,7 @@ class MediaAnalysisTests(TestCase):
         app.dependency_overrides[require_authenticated_user] = lambda: OWNER_ID
         settings = SimpleNamespace(
             openai_model="gpt-4o-mini",
-            supabase_private_storage_bucket="momento-private",
+            supabase_private_storage_bucket="woorialbum-private",
             enable_vision_analysis=True,
         )
         with patch("app.api.memory.get_settings", return_value=settings), patch(

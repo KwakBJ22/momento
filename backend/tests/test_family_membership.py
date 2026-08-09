@@ -61,7 +61,7 @@ class MembershipApiTests(TestCase):
         self.app.include_router(invitations_router)
         self.app.include_router(album_members_router)
         self.client = TestClient(self.app)
-        self.settings = SimpleNamespace(frontend_base_url="https://momento.example")
+        self.settings = SimpleNamespace(frontend_base_url="https://woorialbum.example")
 
         self.get_settings = patch("app.api.family.get_settings", return_value=self.settings)
         self.get_settings_album = patch("app.api.album.get_settings", return_value=self.settings)

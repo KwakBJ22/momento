@@ -34,15 +34,11 @@ test("브랜드 문자열은 상수 모듈 한 곳에서만 정의된다", () =>
 test("소스에 'Momento' 리터럴이 남아 있지 않다 (보이지 않는 자리는 제외)", () => {
   // 제외: 저장소 경로·패키지명·환경변수·DB 컬럼·localStorage 키처럼 사용자에게
   // 보이지 않는 식별자. 이름이 바뀌어도 그대로 두는 자리다.
-  // ★ K-1-a 에서 콘솔 로그 접두사를, K-1-b 에서 **저장 키와 헤더 이름**을 뺐다.
-  //   남은 예외는 셋뿐이고 K-1-c(버킷)와 도메인 붙일 때 없앤다.
+  // ★ K-1-a 로그 접두사 · K-1-b 저장 키와 헤더 · K-1-c 버킷·PDF 이름·환경변수를
+  //   차례로 뺐다. **남은 예외는 배포 호스트 하나뿐이다** — 도메인을 붙일 때 없어진다.
   const invisible = [
-    /momento-ashen-rho/g,                    // Vercel 배포 호스트 — 도메인 붙일 때
-    /momento-private/g,                      // Storage 버킷 — K-1-c
-    /momento-\$\{albumId\}-v\$\{albumVersion\}/g, // 저장소 안 PDF 이름 — K-1-c
-    /momento-\{albumId\}-v\{version\}/g,        // 위 이름을 설명하는 주석
-    /MOMENTO_API_URL/g,                      // Vercel 환경변수 — K-1-c
-    /supabase|railway|vercel/gi,             // 인프라 식별자
+    /momento-ashen-rho/g,        // Vercel 배포 호스트 — 도메인 붙일 때
+    /supabase|railway|vercel/gi, // 인프라 식별자
   ];
   const offenders: string[] = [];
   for (const file of sourceFiles()) {

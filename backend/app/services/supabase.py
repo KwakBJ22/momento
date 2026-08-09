@@ -186,15 +186,15 @@ def get_result_signed_url(client: Client, record: dict[str, Any], settings: Sett
     if not path:
         return ""
     # Legacy rows point to the former albums bucket; newly created rows persist
-    # momento-private explicitly.  No route returns an unsigned object URL.
+    # woorialbum-private explicitly.  No route returns an unsigned object URL.
     configured_bucket = str(record.get("result_bucket") or "").strip()
     # A deployment can reach Railway before the additive ``result_bucket``
     # migration. New result objects are private, so try that non-public bucket
     # first for legacy rows and only then the historical bucket.
     candidates = [configured_bucket] if configured_bucket else []
     candidates.extend([
-        getattr(settings, "supabase_private_storage_bucket", "momento-private"),
-        getattr(settings, "supabase_storage_bucket", "albums"),
+        getattr(settings, "supabase_private_storage_bucket", "woorialbum-private"),
+        getattr(settings, "supabase_storage_bucket", "woorialbum-private"),
     ])
     for bucket in dict.fromkeys(bucket for bucket in candidates if bucket):
         url = get_signed_url(client, str(bucket), path, getattr(settings, "signed_url_ttl_seconds", 300))
@@ -936,12 +936,12 @@ def cleanup_album_files(
         add(row.get("thumbnail_bucket"), row.get("thumbnail_path"))
     for row in media:
         for key in ("original_path", "preview_path", "thumbnail_path"):
-            add(getattr(settings, "supabase_private_storage_bucket", "momento-private"), row.get(key))
+            add(getattr(settings, "supabase_private_storage_bucket", "woorialbum-private"), row.get(key))
     result_path = str(album.get("result_path") or "")
     if result_path:
-        add(str(album.get("result_bucket") or getattr(settings, "supabase_storage_bucket", "albums")), result_path)
+        add(str(album.get("result_bucket") or getattr(settings, "supabase_storage_bucket", "woorialbum-private")), result_path)
     for path in _cached_pdf_paths(album):
-        add(getattr(settings, "supabase_private_storage_bucket", "momento-private"), path)
+        add(getattr(settings, "supabase_private_storage_bucket", "woorialbum-private"), path)
     for bucket, paths in by_bucket.items():
         by_bucket[bucket] = sorted(set(paths))
     if not dry_run:
@@ -971,7 +971,7 @@ def cleanup_album_files(
             # abandoned temp uploads and superseded generated files below its
             # own canonical root, without ever scanning another album.
             prefix = f"albums/{album['id']}"
-            for bucket in sorted(set(by_bucket) | {getattr(settings, "supabase_private_storage_bucket", "momento-private")}):
+            for bucket in sorted(set(by_bucket) | {getattr(settings, "supabase_private_storage_bucket", "woorialbum-private")}):
                 try:
                     leftovers = [
                         str(item["path"])

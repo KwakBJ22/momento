@@ -38,7 +38,7 @@ class AlbumAuthorizationTests(TestCase):
         self.app.include_router(router)
         self.app.include_router(auth_router)
         self.client = TestClient(self.app)
-        self.settings = SimpleNamespace(frontend_base_url="https://momento.example", signed_url_ttl_seconds=3600)
+        self.settings = SimpleNamespace(frontend_base_url="https://woorialbum.example", signed_url_ttl_seconds=3600)
 
         self.get_settings = patch("app.api.album.get_settings", return_value=self.settings)
         self.supabase_client = MagicMock()

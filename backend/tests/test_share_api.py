@@ -39,7 +39,7 @@ class ShareApiTests(TestCase):
         patch(
             "app.api.share.get_settings",
             return_value=SimpleNamespace(
-                frontend_base_url="https://momento.example",
+                frontend_base_url="https://woorialbum.example",
                 supabase_storage_bucket="albums",
                 signed_url_ttl_seconds=3600,
             ),
@@ -148,7 +148,7 @@ class ShareApiTests(TestCase):
             response = self.client.post(f"/api/albums/{ALBUM_ID}/share-links", json={})
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["share_url"], "https://momento.example/s/opaque-token")
+        self.assertEqual(response.json()["share_url"], "https://woorialbum.example/s/opaque-token")
 
     def test_public_share_shows_captions_and_hides_ineligible_date_stories(self) -> None:
         # 캡션은 album_photos.caption 단일 출처다(텍스트 3계층 §①) — comment 폴백 없음.

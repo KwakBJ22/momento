@@ -12,7 +12,7 @@ from tests._fake_supabase import FakeSupabase
 
 
 _FAKE_SETTINGS = SimpleNamespace(
-    supabase_private_storage_bucket="momento-private",
+    supabase_private_storage_bucket="woorialbum-private",
     supabase_storage_bucket="albums",
     signed_url_ttl_seconds=3600,
 )

@@ -80,12 +80,23 @@ test("★ 저장 키에 옛 이름이 남아 있지 않다", () => {
   const offenders: string[] = [];
   for (const file of files) {
     const text = readFileSync(file, "utf8");
-    // 버킷 이름과 저장소 안 PDF 이름은 **K-1-c 의 몫**이다 — 콘솔 작업이 함께 걸려 있다.
-    const cleaned = text
-      .replace(/momento-private/g, "")
-      .replace(/momento-\$\{albumId\}-v\$\{albumVersion\}/g, "")
-      .replace(/momento-\{albumId\}-v\{version\}/g, "");
-    if (/momento[-_:]/i.test(cleaned)) offenders.push(file.replace(src, ""));
+    // K-1-c 로 버킷·PDF 이름까지 옮겼다 — 이제 예외가 없다.
+    if (/momento[-_:]/i.test(text)) offenders.push(file.replace(src, ""));
   }
   assert.deepEqual(offenders, []);
+});
+
+// --- K-1-c · 버킷과 저장소 이름 ---
+
+test("★ 저장소 안 PDF 이름이 `woorialbum-` 이다", () => {
+  const api = readFileSync(fileURLToPath(new URL("../src/lib/api.ts", import.meta.url)), "utf8");
+  assert.match(api, /`woorialbum-\$\{albumId\}-v\$\{albumVersion\}\.pdf`/);
+});
+
+test("★ Vercel 프록시가 읽는 환경변수 이름이 하나다", () => {
+  const proxy = readFileSync(fileURLToPath(new URL("../api/[...path].ts", import.meta.url)), "utf8");
+  assert.match(proxy, /process\.env\.WOORIALBUM_API_URL/);
+  assert.equal(proxy.includes("MOMENTO_API_URL"), false);
+  // 안내 문구도 같은 이름을 말해야 한다 — 다르면 콘솔에서 엉뚱한 변수를 만든다.
+  assert.match(proxy, /Vercel에 WOORIALBUM_API_URL 환경변수를 추가해주세요/);
 });

@@ -335,7 +335,7 @@ export async function getAlbumPdfUrl(
  *  막혀 있어 이 주소가 유일한 전달 경로다. 버리지 않고 반환한다(추가 요청 없음). */
 export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob: Blob): Promise<{ url: string | null; album_version: number; cached: boolean }> {
   const form = new FormData();
-  form.append("file", blob, `momento-${albumId}-v${albumVersion}.pdf`);
+  form.append("file", blob, `woorialbum-${albumId}-v${albumVersion}.pdf`);
   const response = await authenticatedFetch(
     `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
     { method: "PUT", body: form },

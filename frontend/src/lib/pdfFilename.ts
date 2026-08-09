@@ -9,7 +9,7 @@ const PDF_TITLE_MAX_CHARS = 50;
  * 앨범 식별자는 뺀다 — 같은 이름 파일은 모든 주요 브라우저/OS가 "이름 (1).pdf" 로
  * 자동 구분 저장하므로 덮어쓰기가 일어나지 않고, 사용자에게는 제목+날짜가
  * albumId 해시보다 훨씬 알아보기 쉽다. (서버 저장용 객체 이름은 별개로
- * momento-{albumId}-v{version}.pdf 를 유지한다 — uploadAlbumPdf 참고.)
+ * woorialbum-{albumId}-v{version}.pdf 를 유지한다 — uploadAlbumPdf 참고.)
  */
 export function pdfDownloadFilename(title: string | null | undefined, date: Date = new Date()): string {
   const cleaned = (title || "")

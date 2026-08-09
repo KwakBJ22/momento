@@ -67,7 +67,7 @@ test("실패 원인이 event 이름으로 남는다 (검색 가능)", () => {
 });
 
 // 커밋 B: 카카오 웹뷰에서 실제로 받게 한다 — blob 을 아예 쓰지 않고, 이미 있는 저장 경로
-// (PUT /albums/{id}/pdf → momento-private, 응답의 서명 URL)로 보낸다. 새 API 없음.
+// (PUT /albums/{id}/pdf → woorialbum-private, 응답의 서명 URL)로 보낸다. 새 API 없음.
 test("웹뷰에서는 blob 대신 저장된 파일 주소로 보낸다 — 기존 업로드 경로 재사용", () => {
   const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
   // 업로드 응답의 URL 을 버리지 않는다(추가 요청 없이 그 자리에서 받는다).

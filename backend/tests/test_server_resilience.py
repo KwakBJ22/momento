@@ -37,29 +37,29 @@ class StorageAndMigrationResilienceTests(TestCase):
             photo_paths=[],
             photo_meta=[],
             result_path="albums/album-1/results/result.png",
-            result_bucket="momento-private",
+            result_bucket="woorialbum-private",
         )
 
         self.assertNotIn("result_bucket", saved)
         first_record = table.insert.call_args_list[0].args[0]
         second_record = table.insert.call_args_list[1].args[0]
-        self.assertEqual(first_record["result_bucket"], "momento-private")
+        self.assertEqual(first_record["result_bucket"], "woorialbum-private")
         self.assertNotIn("result_bucket", second_record)
 
     def test_signed_url_failure_returns_empty_value_instead_of_raising(self) -> None:
         with patch("app.services.supabase.StorageService.for_supabase", side_effect=RuntimeError("bucket unavailable")):
-            self.assertEqual(get_signed_url(MagicMock(), "momento-private", "albums/a/photo.jpg", 300), "")
+            self.assertEqual(get_signed_url(MagicMock(), "woorialbum-private", "albums/a/photo.jpg", 300), "")
 
     def test_legacy_result_without_bucket_prefers_private_signed_url(self) -> None:
         settings = SimpleNamespace(
-            supabase_private_storage_bucket="momento-private",
+            supabase_private_storage_bucket="woorialbum-private",
             supabase_storage_bucket="albums",
             signed_url_ttl_seconds=300,
         )
         with patch("app.services.supabase.get_signed_url", side_effect=["private-url"] ) as signed:
             url = get_result_signed_url(MagicMock(), {"result_path": "albums/a/results/r.png"}, settings)
         self.assertEqual(url, "private-url")
-        self.assertEqual(signed.call_args.args[1], "momento-private")
+        self.assertEqual(signed.call_args.args[1], "woorialbum-private")
 
     def test_event_logger_failure_is_best_effort(self) -> None:
         client = MagicMock()
@@ -124,8 +124,8 @@ class ApiOperationHeaderTests(TestCase):
             max_file_size_mb=10,
             max_image_pixels=100_000_000,
             allowed_image_types=frozenset({"image/png"}),
-            supabase_private_storage_bucket="momento-private",
-            frontend_base_url="https://momento.test",
+            supabase_private_storage_bucket="woorialbum-private",
+            frontend_base_url="https://woorialbum.test",
         )
         png_buffer = io.BytesIO()
         Image.new("RGB", (2, 2), "white").save(png_buffer, format="PNG")

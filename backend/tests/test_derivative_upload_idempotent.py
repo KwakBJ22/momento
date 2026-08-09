@@ -43,7 +43,7 @@ class DerivativeUploadIdempotencyTests(unittest.TestCase):
     def setUp(self) -> None:
         clear_signed_url_cache()
         self.provider = DuplicateAwareProvider()
-        self.settings = MagicMock(supabase_private_storage_bucket="momento-private", signed_url_ttl_seconds=3600)
+        self.settings = MagicMock(supabase_private_storage_bucket="woorialbum-private", signed_url_ttl_seconds=3600)
         self.service = StorageService(self.provider, 3600)  # type: ignore[arg-type]
 
     def tearDown(self) -> None:
@@ -72,10 +72,10 @@ class DerivativeUploadIdempotencyTests(unittest.TestCase):
 
     def test_retry_after_orphan_display_succeeds(self) -> None:
         # Seed the exact orphan state: display.webp exists, thumbnail missing.
-        self.provider.objects[("momento-private", "albums/album-1/photos/photo-1/display.webp")] = b"orphan"
+        self.provider.objects[("woorialbum-private", "albums/album-1/photos/photo-1/display.webp")] = b"orphan"
         display_path, thumbnail_path = self._upload_derivatives()
-        self.assertEqual(self.provider.objects[("momento-private", display_path)], b"display-v1")
-        self.assertIn(("momento-private", thumbnail_path), self.provider.objects)
+        self.assertEqual(self.provider.objects[("woorialbum-private", display_path)], b"display-v1")
+        self.assertIn(("woorialbum-private", thumbnail_path), self.provider.objects)
 
     def test_uploads_carry_the_default_cache_control(self) -> None:
         # Objects stored without cache-control end up no-cache: neither the browser nor
@@ -96,10 +96,10 @@ class DerivativeUploadIdempotencyTests(unittest.TestCase):
 
     def test_original_upload_still_refuses_to_overwrite(self) -> None:
         # ★ The durable original keeps upsert=False: a duplicate stays an error.
-        self.provider.objects[("momento-private", "a/original.jpg")] = b"original"
+        self.provider.objects[("woorialbum-private", "a/original.jpg")] = b"original"
         with self.assertRaises(RuntimeError):
-            self.service.upload("momento-private", "a/original.jpg", b"new", content_type="image/jpeg")
-        self.assertEqual(self.provider.objects[("momento-private", "a/original.jpg")], b"original")
+            self.service.upload("woorialbum-private", "a/original.jpg", b"new", content_type="image/jpeg")
+        self.assertEqual(self.provider.objects[("woorialbum-private", "a/original.jpg")], b"original")
 
 
 if __name__ == "__main__":

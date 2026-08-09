@@ -59,7 +59,7 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
     throw new Error(input.photos.length > PDF_PHOTO_SAFE_LIMIT ? PDF_BLOCKED_REASON : PDF_GENERIC_MESSAGE);
   }
 
-  // 저장 경로는 이미 있다: PUT /albums/{id}/pdf 가 momento-private 에 올리고 서명 URL 을
+  // 저장 경로는 이미 있다: PUT /albums/{id}/pdf 가 woorialbum-private 에 올리고 서명 URL 을
   // 돌려준다(새 API 를 만들지 않는다). 인앱 브라우저에서는 이 주소가 유일한 전달 경로다.
   let storedUrl: string | null = null;
   try {

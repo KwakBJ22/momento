@@ -16,8 +16,12 @@ class Settings(BaseSettings):
 
     supabase_url: str
     supabase_service_role_key: str
-    supabase_storage_bucket: str = "albums"
-    supabase_private_storage_bucket: str = "momento-private"
+    # ★ 버킷은 **하나**다 (K-1-c). 예전에는 둘이었는데 `albums` 는 빈 껍데기였고,
+    # 지우면 버킷 목록을 훑는 자리(operations_service.check_storage ·
+    # guest_album_cleanup.find_orphan_storage_albums)가 없는 버킷을 list 하다 실패한다.
+    # 둘 다 같은 값을 가리키게 두면 그 코드가 알아서 중복을 지운다.
+    supabase_storage_bucket: str = "woorialbum-private"
+    supabase_private_storage_bucket: str = "woorialbum-private"
 
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
