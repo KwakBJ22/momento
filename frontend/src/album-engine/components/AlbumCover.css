@@ -1,63 +1,91 @@
+/* 열람용 PDF 1쪽 — 표지 (SCREEN_SPEC §9). 이 컴포넌트는 인쇄 모드에서만 그려진다.
+   크기는 전부 mm 다 — A4 실물에서 재고 정한 값이다(화면 감각으로 정하면 작다). */
+
 .album-cover {
-  display: grid;
-  gap: 1.25rem;
-  justify-items: center;
+  /* 위에서부터 흘리지 않고 **페이지에 고르게 앉힌다** — 예전에는 grid 의 남는 높이가
+     행마다 늘어나 위쪽 절반이 비어 보였다. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 남는 높이는 위아래로 나눈다 — 위쪽 절반만 비는 일이 없다(I-4-2). */
+  justify-content: center;
   text-align: center;
-  padding: 2.5rem 1.25rem 2rem;
+  gap: 8mm;
+  padding: 20mm 18mm 18mm;
   break-after: page;
   page-break-after: always;
 }
 
-.album-cover__eyebrow {
-  margin: 0;
-  color: var(--c-brand-text);
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
+/* 로고는 표지에서 가장 크게 — 이 서비스를 알아볼 유일한 자리다(§9). */
+.album-cover__brand { flex: 0 0 auto; }
 
 .album-cover__title {
   margin: 0;
   color: var(--c-text);
-  font-size: clamp(1.85rem, 4.5vw, 2.35rem);
+  /* A4 실측: 12mm ≈ 34pt. 손에 들고 봤을 때 제목이 먼저 읽힌다. */
+  font-size: 12mm;
   font-weight: 780;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
   line-height: 1.25;
+}
+
+.album-cover__head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4mm;
 }
 
 .album-cover__period {
   margin: 0;
-  color: var(--c-text-muted);
-  font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  color: var(--c-text-soft);
+  /* A4 실측: 5mm ≈ 14pt. 제목 아래 한 줄이라 본문보다 조금 크다. */
+  font-size: 5mm;
   font-weight: 600;
 }
 
-/* 표지 사진은 절대 늘이지 않는다. 세로가 긴 사진은 넘치는 부분을 잘라 낸다.
+/* 표지 사진 — 본문과 같은 폴라로이드 프레임. 남는 높이를 사진이 가져간다.
  *
+ * ★ 상자로 잘라 내지 않는다. 예전에는 max-height + overflow:hidden 이라 세로 사진이
+ *   아래에서 잘렸다(I-4-2). §9 는 "사진은 자르지 않는다" 이다.
  * ★ object-fit 을 쓰지 않는 이유: PDF 는 html2canvas 로 캡처하는데 html2canvas 는
- * object-fit 을 무시하고 이미지를 박스 크기에 그대로 늘려 그린다(같은 이유로
- * AlbumRenderer.css 의 낱장 사진도 print 에서 object-fit 을 피한다). 그래서 박스에
- * max-height 를 두고 이미지는 제 비율대로(height:auto) 두어, 넘치는 부분만 박스가
- * 잘라 내게 한다 — 화면·공유·PDF 가 모두 같은 결과가 된다. */
+ *   object-fit 을 무시하고 이미지를 상자 크기에 그대로 늘려 그린다. 그래서 **이미지에
+ *   직접 상한**(max-width/max-height)을 주고 비율은 브라우저가 지키게 둔다. */
 .album-cover__hero {
-  margin: 0.5rem 0 0;
-  width: min(100%, 520px);
-  max-height: 420px;
-  overflow: hidden;
-  border-radius: 8px;
+  /* ★ 늘리지 않는다. 프레임은 사진 크기에 맞춰 줄어든다 — 늘리면 프레임 안이 텅 빈다.
+     남는 높이는 justify-content: center 가 위아래로 나눈다. */
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+  padding: 4mm;
+  box-sizing: border-box;
+  border: 1px solid var(--c-border);
+  border-radius: 2mm;
+  background: var(--c-surface);
 }
 
+/* 세로 사진 상한 — A4 실측으로 정한 값이다. 위 요소들(여백 38 + 로고 14.6 + 간격 8 +
+   제목·기간 25.9 + 간격 8 + 프레임 여백 8 + 이름 줄 6)을 297mm 에서 빼면 약 188mm 이
+   남는다. 175mm 로 두어 이름 줄이 길어져도 페이지를 넘지 않는다.
+   ★ 백분율(max-height: 100%)로 두지 않는다 — 부모 높이가 확정되지 않아 세로 사진이
+   상한 없이 늘어난다. */
 .album-cover__hero-img {
   display: block;
-  width: 100%;
+  max-width: 100%;
+  max-height: 175mm;
+  width: auto;
   height: auto;
-  border-radius: 8px;
 }
 
 .album-cover__people {
+  flex: 0 0 auto;
   margin: 0;
-  color: var(--c-text-subtle);
-  font-size: 0.82rem;
+  color: var(--c-text-soft);
+  /* A4 실측: 4.2mm ≈ 12pt. 이름 줄이라 본문보다 작지 않게 둔다. */
+  font-size: 4.2mm;
   font-weight: 500;
 }

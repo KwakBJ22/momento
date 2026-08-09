@@ -294,3 +294,24 @@ export function buildAlbumLayoutOnly(
 ): LayoutSelection {
   return selectLayout(sortEnginePhotos(photos), context);
 }
+
+/**
+ * 표지의 기간 표시 — **년·월을 두 번 쓰지 않는다** (I-4-2 · SCREEN_SPEC §9).
+ *
+ *   2018.11.18 ~ 2018.11.20  →  2018년 11월 18일 ~ 20일
+ *
+ * 표지는 이 앨범이 언제 일인지 한눈에 보여주는 자리다. 같은 값을 두 번 읽게 하면
+ * 그만큼 읽는 데 시간이 걸린다. 아는 모양이 아니면 **손대지 않고 그대로 둔다** —
+ * 이 값은 서버가 준 문자열일 수도 있어서, 못 알아보면 지어내지 않는다.
+ */
+export function formatCoverPeriodLabel(label: string | null | undefined): string {
+  const raw = (label ?? "").trim();
+  const match = raw.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:\s*[~–-]\s*(\d{4})\.(\d{1,2})\.(\d{1,2}))?$/);
+  if (!match) return raw;
+  const [, y1, m1, d1, y2, m2, d2] = match;
+  const day = (year: string, month: string, date: string) => `${Number(year)}년 ${Number(month)}월 ${Number(date)}일`;
+  if (!y2) return day(y1, m1, d1);
+  if (y1 !== y2) return `${day(y1, m1, d1)} ~ ${day(y2, m2!, d2!)}`;
+  if (m1 !== m2) return `${day(y1, m1, d1)} ~ ${Number(m2)}월 ${Number(d2)}일`;
+  return `${day(y1, m1, d1)} ~ ${Number(d2)}일`;
+}

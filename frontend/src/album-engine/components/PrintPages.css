@@ -71,6 +71,14 @@
   flex: 0 0 auto;
 }
 
+/* 표지 로고 — 표지에서 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9 · I-4-2).
+   ★ 크기를 여기서 따로 주는 이유: album-brand-mark 의 글자 크기는 화면 기준 rem 고정값
+   이라 부모의 font-size 를 물려받지 않는다. 인쇄에서만 mm 로 다시 정한다.
+   A4 실측 11mm ≈ 31pt — 제목(12mm) 바로 아래 급이다. */
+.album-renderer--print .album-cover__brand .album-brand-mark { gap: 2.5mm; margin: 0; }
+.album-renderer--print .album-cover__brand .album-brand-mark__icon { width: 11mm; height: 11mm; }
+.album-renderer--print .album-cover__brand .album-brand-mark__word { font-size: 11mm; }
+
 /* 표지·브랜드 페이지도 정확히 한 장이다(§9 — 각각 독립 페이지). */
 .album-renderer--print .album-cover,
 .album-renderer--print .album-renderer__brand-page {

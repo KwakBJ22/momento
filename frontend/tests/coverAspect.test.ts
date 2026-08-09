@@ -16,14 +16,21 @@ function block(selector: string): string {
 test("표지 사진은 제 비율대로 그려진다 — 높이를 강제하지 않는다", () => {
   const img = block(".album-cover__hero-img");
   assert.match(img, /height: auto;/);          // 비율은 이미지가 정한다
-  assert.doesNotMatch(img, /max-height/);      // 박스에 맞춰 눌리지 않는다
   assert.doesNotMatch(img, /aspect-ratio/);    // 고정 비율 상자에 밀어 넣지 않는다
   // object-fit 은 html2canvas 가 무시하므로 왜곡 방지에 기대지 않는다.
   assert.doesNotMatch(img, /object-fit/);
 });
 
-test("넘치는 부분은 잘라 낸다 — 늘이지 않는다", () => {
+// ★ I-4-2 에서 뒤집힌 규칙. 예전에는 상자(max-height 420px + overflow:hidden)가 넘치는
+// 부분을 **잘라 냈고**, 실물 표지에서 세로 사진이 아래에서 잘려 나왔다.
+// §9 "지킬 것" 은 `사진은 자르지 않는다(contain)` 이다 — 상한을 상자가 아니라
+// **이미지**에 주어, 잘리는 대신 작아져서 페이지 안에 온전히 들어온다.
+test("★ 표지 사진을 잘라 내지 않는다 — 상한은 상자가 아니라 이미지에 있다", () => {
   const figure = block(".album-cover__hero");
-  assert.match(figure, /max-height: 420px;/);  // 표지가 한 페이지를 넘지 않게 상한은 박스에
-  assert.match(figure, /overflow: hidden;/);   // 상한을 넘는 부분은 잘라 낸다
+  assert.doesNotMatch(figure, /overflow: hidden/, "상자가 사진을 잘라 낸다");
+  assert.doesNotMatch(figure, /max-height:\s*\d+px/, "상자에 px 상한이 남아 있다");
+
+  const img = block(".album-cover__hero-img");
+  assert.match(img, /max-height: 175mm/);  // A4 실측으로 정한 상한(세로 사진)
+  assert.match(img, /max-width: 100%/);    // 가로 사진은 폭이 먼저 걸린다
 });
