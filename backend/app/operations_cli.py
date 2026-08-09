@@ -20,7 +20,7 @@ from app.services.supabase import get_supabase_client
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Momento operational maintenance")
+    parser = argparse.ArgumentParser(description="우리앨범 operational maintenance")
     parser.add_argument("command", choices=("check_storage", "cleanup_storage", "cleanup_temp", "check_integrity", "scheduled_cleanup"))
     parser.add_argument("--album-id")
     parser.add_argument("--limit", type=int, default=100)

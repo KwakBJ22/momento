@@ -77,7 +77,7 @@ type PreviewSnapshot = {
 
 function debugTiming(label: string, startedAt: number): void {
   if (import.meta.env.DEV && typeof performance !== "undefined") {
-    console.debug(`[Momento] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
+    console.debug(`[우리앨범] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
   }
 }
 
@@ -268,7 +268,7 @@ export default function ContributeWorkspace({
       setPendingUploads((current) => current.map((pending) => (
         items.some((item) => item.id === pending.id) ? { ...pending, status: "failed" } : pending
       )));
-      console.warn("[Momento] Contribution photo upload failed.", err);
+      console.warn("[우리앨범] Contribution photo upload failed.", err);
       setError("사진을 추가하지 못했습니다.");
     } finally {
       setIsUploading(false);
@@ -353,7 +353,7 @@ export default function ContributeWorkspace({
         content: memory.comment,
       }]);
     } catch (err) {
-      console.warn("[Momento] Contribution memory save failed.", err);
+      console.warn("[우리앨범] Contribution memory save failed.", err);
       setWorkspace((current) => current
         ? {
             ...current,

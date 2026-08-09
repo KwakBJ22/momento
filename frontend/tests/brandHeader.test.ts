@@ -34,9 +34,10 @@ test("브랜드 문자열은 상수 모듈 한 곳에서만 정의된다", () =>
 test("소스에 'Momento' 리터럴이 남아 있지 않다 (보이지 않는 자리는 제외)", () => {
   // 제외: 저장소 경로·패키지명·환경변수·DB 컬럼·localStorage 키처럼 사용자에게
   // 보이지 않는 식별자. 이름이 바뀌어도 그대로 두는 자리다.
+  // ★ K-1-a 에서 개발 콘솔 로그 접두사(`[Momento]`)를 뺐다 — 이제 예외가 아니다.
+  //   남은 예외는 저장 키·헤더·호스트·버킷이고 K-1-b · K-1-c 에서 차례로 없앤다.
   const invisible = [
     /momento-[a-z-]+/g,          // storage keys: momento-auth-return-to 등
-    /\[Momento\]/g,              // 개발 콘솔 로그 접두사
     /momento-ashen-rho/g,        // 배포 호스트
     /X-Momento-[A-Za-z-]+/g,     // HTTP 헤더 이름(백엔드와의 계약 — 이름과 무관)
     /supabase|railway|vercel/gi, // 인프라 식별자
@@ -114,4 +115,30 @@ test("앨범 헤더가 유일한 브랜드 표기 — 제목 위 eyebrow는 제�
   const appHeader = read("components/AppHeader.tsx");
   assert.match(appHeader, /BRAND_NAME_KO_PARTS\.lead/);
   assert.doesNotMatch(appHeader, /BRAND_NAME_EN/); // 헤더는 한 줄(높이 축소)
+});
+
+// --- K-1-a · 개발자에게만 보이는 문자열도 이름을 맞춘다 ---
+
+test("★ 콘솔 로그 접두사가 `[우리앨범]` 이다", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles()) {
+    const text = readFileSync(file, "utf8");
+    if (text.includes("[Momento]")) offenders.push(file.replace(SRC, ""));
+  }
+  assert.deepEqual(offenders, []);
+  // 실제로 쓰는 자리가 있어야 이 규칙이 헛돌지 않는다.
+  const kakao = readFileSync(`${SRC}${sep}hooks${sep}useKakaoSdk.ts`, "utf8");
+  assert.match(kakao, /\[우리앨범\]/);
+});
+
+test("★ 새 계정의 기본 표시 이름이 `우리앨범 사용자` 다", () => {
+  // 이름은 상수 모듈 한 곳에서 나오고, DB 트리거도 같은 값을 쓴다(K-1-a migration).
+  assert.equal(BRAND_DEFAULT_USER_NAME, "우리앨범 사용자");
+  const migration = readFileSync(
+    new URL("../../supabase/migrations/20260809120000_default_display_name_rename.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /'우리앨범 사용자'/);
+  // ★ 옛 migration 은 고치지 않는다 — 이력이라 그대로 둔다. 새 정의로 덮는다.
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.handle_new_auth_user_profile/);
 });

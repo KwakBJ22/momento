@@ -170,12 +170,12 @@ export async function sharePublicAlbum(
     invokeKakaoShare();
     return "kakao";
   } catch (cause) {
-    console.warn("[Momento] Kakao share unavailable; copying public link instead.", cause);
+    console.warn("[우리앨범] Kakao share unavailable; copying public link instead.", cause);
     try {
       await copyPublicLink();
       return "copied";
     } catch (copyCause) {
-      console.warn("[Momento] Public link copy fallback failed.", copyCause);
+      console.warn("[우리앨범] Public link copy fallback failed.", copyCause);
       return "copy_failed";
     }
   }

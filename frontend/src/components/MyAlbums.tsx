@@ -12,7 +12,7 @@ function formatDate(value: string): string {
 
 function debugTiming(label: string, startedAt: number): void {
   if (import.meta.env.DEV && typeof performance !== "undefined") {
-    console.debug(`[Momento] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
+    console.debug(`[우리앨범] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
   }
 }
 

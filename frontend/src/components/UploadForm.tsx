@@ -211,7 +211,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
 
   const handlePickerChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = snapshotSelectedFiles(event.currentTarget.files);
-    if (import.meta.env.DEV) console.debug("[Momento] Album picker files selected", { count: selected.length });
+    if (import.meta.env.DEV) console.debug("[우리앨범] Album picker files selected", { count: selected.length });
     // Reset only after taking a stable copy so the same files can be selected again.
     event.currentTarget.value = "";
     void addFiles(selected);

@@ -37,7 +37,7 @@ export function useKakaoSdk(): UseKakaoSdkResult {
     const initialize = () => {
       const key = import.meta.env.VITE_KAKAO_JS_KEY;
       if (!key) {
-        console.warn("[Momento] Kakao SDK initialization skipped: VITE_KAKAO_JS_KEY is missing.");
+        console.warn("[우리앨범] Kakao SDK initialization skipped: VITE_KAKAO_JS_KEY is missing.");
         return;
       }
       if (!window.Kakao) return;
@@ -45,15 +45,15 @@ export function useKakaoSdk(): UseKakaoSdkResult {
         if (!window.Kakao.isInitialized()) window.Kakao.init(key);
         const ready = window.Kakao.isInitialized();
         if (active) setIsSdkReady(ready);
-        if (import.meta.env.DEV) console.debug("[Momento] Kakao SDK initialized", { ready });
+        if (import.meta.env.DEV) console.debug("[우리앨범] Kakao SDK initialized", { ready });
       } catch (cause) {
-        console.warn("[Momento] Kakao SDK initialization failed.", cause);
+        console.warn("[우리앨범] Kakao SDK initialization failed.", cause);
         if (active) setIsSdkReady(false);
       }
     };
 
     const script = document.querySelector<HTMLScriptElement>('script[src*="kakao_js_sdk"]');
-    const onScriptError = () => console.warn("[Momento] Kakao SDK script failed to load.");
+    const onScriptError = () => console.warn("[우리앨범] Kakao SDK script failed to load.");
     initialize();
     script?.addEventListener("load", initialize);
     script?.addEventListener("error", onScriptError);
@@ -92,7 +92,7 @@ export function useKakaoSdk(): UseKakaoSdkResult {
       ],
       });
     } catch (cause) {
-      console.warn("[Momento] Kakao share invocation failed.", cause);
+      console.warn("[우리앨범] Kakao share invocation failed.", cause);
       throw new Error("Kakao share invocation failed.");
     }
   }, []);

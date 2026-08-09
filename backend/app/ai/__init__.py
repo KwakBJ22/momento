@@ -1,4 +1,4 @@
-"""Momento AI engine package."""
+"""우리앨범 AI engine package."""
 
 from app.ai.ai_service import AIService
 from app.ai.model_router import ModelRouter

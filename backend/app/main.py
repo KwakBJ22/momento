@@ -42,7 +42,7 @@ def _validation_error_response(request: Request, error_count: int) -> JSONRespon
     return JSONResponse(status_code=422, content={"detail": "입력 내용을 확인해주세요."})
 
 fastapi_app = FastAPI(
-    title="Momento API",
+    title="우리앨범 API",
     description="카카오톡 웹뷰 기반 모임 앨범 생성 서비스",
     version="0.1.0",
 )

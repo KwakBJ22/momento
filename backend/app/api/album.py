@@ -2358,7 +2358,7 @@ async def generate_epilogue(
             chapter_text = await generate_narrative(
                 date_photos,
                 str(album.get("meeting_type") or "family"),
-                str(album.get("title") or "Momento"),
+                str(album.get("title") or "우리앨범"),
                 settings,
                 event_date=date_label,
                 description=date_description,

@@ -78,7 +78,7 @@ function hasParticipantName(value: string | null | undefined): boolean {
 
 function debugTiming(label: string, startedAt: number): void {
   if (import.meta.env.DEV && typeof performance !== "undefined") {
-    console.debug(`[Momento] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
+    console.debug(`[우리앨범] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
   }
 }
 
@@ -167,7 +167,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       document.querySelector('meta[name="description"]')?.setAttribute("content", data.og_description);
     }).catch((cause) => {
       if (!active) return;
-      console.warn("[Momento] Public album request failed.", cause);
+      console.warn("[우리앨범] Public album request failed.", cause);
       const status = (cause as { status?: number } | null)?.status;
       if (status && [401, 403, 404, 410].includes(status)) clearPublicShareCache(token);
       setAlbum(null);
@@ -253,7 +253,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       setNameAction(null);
       if (authenticatedUser) authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
     } catch (cause) {
-      console.warn("[Momento] Public contribution session start failed.", cause);
+      console.warn("[우리앨범] Public contribution session start failed.", cause);
       setContributionError(cause instanceof Error ? cause.message : "참여를 시작하지 못했어요.");
     } finally {
       setIsStartingContribution(false);
