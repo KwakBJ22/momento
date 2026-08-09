@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
-import { deleteAlbum, getMyAlbums, type MyAlbum } from "../lib/api";
+import { deleteAlbum, getMyAlbums, removeAlbumBookmark, type MyAlbum } from "../lib/api";
+import { bookmarkRemoveTroubleMessage } from "../lib/albumTrouble";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 import ConfirmSheet from "./ConfirmSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
@@ -48,6 +49,9 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   const deletingIdsRef = useRef<Set<string>>(new Set());
   // 지우기 전 물음 — window.confirm 을 쓰지 않는다(§11). 확인 대상 앨범을 담아 둔다.
   const [pendingDelete, setPendingDelete] = useState<MyAlbum | null>(null);
+  // 담아둔 앨범을 목록에서 빼는 중 · 못 뺐을 때 (K-16).
+  const [removingBookmarkId, setRemovingBookmarkId] = useState<string | null>(null);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -99,7 +103,29 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
     return `/album/${album.album_id}`;
   };
 
-  const renderCard = (album: MyAlbum, index: number, canDelete: boolean) => {
+  /**
+   * 담아둔 앨범을 **내 목록에서만** 뺀다 (K-16 · SCREEN_SPEC §1).
+   *
+   * ★ 앨범을 지우는 것이 아니다. 남의 앨범이고, 링크가 있으면 언제든 다시 담을 수 있다.
+   *   그래서 **다시 묻지 않는다** — 되돌릴 수 없는 일에만 묻는다(§11).
+   * ★ 빼는 것은 **앨범 id 로** 한다(K-6). 담을 때 쓴 링크가 죽어도 뺄 수는 있어야 한다.
+   */
+  const handleRemoveBookmark = async (album: MyAlbum) => {
+    if (removingBookmarkId) return;
+    setRemovingBookmarkId(album.album_id);
+    setBookmarkError(null);
+    try {
+      await removeAlbumBookmark(album.album_id);
+      setBookmarked((current) => current.filter((item) => item.album_id !== album.album_id));
+    } catch (cause) {
+      // 조용히 끝내지 않는다(§11). 목록은 그대로 둔다 — 없어진 척하지 않는다.
+      console.error("Bookmark removal failed", { albumId: album.album_id, cause });
+      setBookmarkError(bookmarkRemoveTroubleMessage());
+    } finally {
+      setRemovingBookmarkId(null);
+    }
+  };
+  const renderCard = (album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false) => {
     const imageUrl = myAlbumCardImageUrl(album);
     const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
     return (
@@ -130,6 +156,18 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
             onClick={() => setPendingDelete(album)}
           >
             {deletingId === album.album_id ? "삭제 중" : "삭제"}
+          </button>
+        ) : null}
+        {/* ★ `삭제` 라고 쓰지 않는다(K-16). 앨범이 없어지는 것이 아니라 **내 목록에서만**
+            빠진다는 것이 말에서 읽혀야 한다. 이 자리가 유일한 빼기 자리다(§1 25차). */}
+        {canRemoveBookmark ? (
+          <button
+            type="button"
+            className="my-albums__unbookmark"
+            disabled={removingBookmarkId === album.album_id}
+            onClick={() => void handleRemoveBookmark(album)}
+          >
+            {removingBookmarkId === album.album_id ? "빼는 중" : "내 목록에서 빼기"}
           </button>
         ) : null}
       </div>
@@ -179,8 +217,9 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
           <header className="my-albums__header my-albums__header--section">
             <div><h2>담아둔 앨범</h2></div>
           </header>
+          {bookmarkError ? <p className="notice notice--error" role="alert">{bookmarkError}</p> : null}
           <div className="my-albums__list">
-            {bookmarked.map((album, index) => renderCard(album, index, false))}
+            {bookmarked.map((album, index) => renderCard(album, index, false, true))}
           </div>
         </>
       ) : null}

@@ -17,7 +17,7 @@ test("getMyAlbums returns both owned and participating lists (additive contract)
 test("MyAlbums renders the participating section only when non-empty, reusing the card", () => {
   const view = read("components/MyAlbums.tsx");
   // One shared card renderer (no duplicate markup).
-  assert.match(view, /const renderCard = \(album: MyAlbum, index: number, canDelete: boolean\)/);
+  assert.match(view, /const renderCard = \(album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false\)/);
   assert.match(view, /albums\.map\(\(album, index\) => renderCard\(album, index, true\)\)/);
   // Participating section is gated on length > 0 (no empty section) and shows the title.
   assert.match(view, /participating\.length > 0 \?/);
