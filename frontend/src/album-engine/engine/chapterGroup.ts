@@ -28,6 +28,22 @@ export function formatKoreanDate(dateKey: string): string {
   return `${year}년 ${month}월 ${day}일`;
 }
 
+/**
+ * 인쇄 본문의 날짜 머리글 — **날짜 하나** (I-4-3 · SCREEN_SPEC §9).
+ *
+ *   11월 18일            (같은 해 안에서는 연도를 쓰지 않는다 — 표지에 이미 있다)
+ *   2018년 11월 18일      (해가 바뀌는 앨범에서 그 해 **첫 날짜**에만)
+ *
+ * 예전에는 매 쪽 위에 `2018년 11월` 한 줄이 더 있고, 그 아래가
+ * `2018.11.18 (사진 4장)` 이었다. 매 쪽 같은 값이 반복되고, 세는 것은 앨범이 할
+ * 일이 아니다.
+ */
+export function formatPrintDateHeading(dateKey: string, withYear: boolean): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const dayLabel = `${month}월 ${day}일`;
+  return withYear ? `${year}년 ${dayLabel}` : dayLabel;
+}
+
 export function formatDotDate(dateKey: string): string {
   return dateKey.replaceAll("-", ".");
 }

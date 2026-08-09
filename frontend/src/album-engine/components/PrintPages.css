@@ -17,6 +17,24 @@
   page-break-inside: avoid;
 }
 
+/* 날짜 머리글 — 남는 것은 **날짜 하나**다(I-4-3 · §9). 매 쪽 반복되던 `2018년 11월`
+   줄과 `(사진 N장)` 을 없앴다. 한 줄뿐이라 그 한 줄이 제목 노릇을 한다.
+   A4 실측 6mm ≈ 17pt — 본문(4.8mm)보다 확실히 커야 쪽을 넘길 때 눈에 걸린다. */
+.album-renderer--print .chapter-header--print-date {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 0 2mm;
+  text-align: center;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__dayline {
+  margin: 0;
+  color: var(--c-text);
+  font-size: 6mm;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
 /* 사진 자리는 남는 높이를 전부 쓴다 — "그 안에서는 빈 공간을 남기지 않는다"(§9). */
 .album-renderer--print .print-page__photos {
   flex: 1 1 auto;

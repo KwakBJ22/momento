@@ -53,7 +53,25 @@ function PhotoFrame({ photo }: { photo: EnginePhoto }) {
   );
 }
 
+/**
+ * 연도를 붙일 챕터 = **그 해의 첫 날짜**. 한 해 안에서 끝나는 앨범이면 비어 있다
+ * (표지에 연도가 이미 있으므로 본문에서는 한 번도 쓰지 않는다 — §9 · I-4-3).
+ */
+export function yearFirstChapterIndexes(dates: Array<string | null>): Set<number> {
+  const seen = new Set<string>();
+  const first: Array<[number, string]> = [];
+  dates.forEach((date, index) => {
+    const year = date?.slice(0, 4);
+    if (!year || seen.has(year)) return;
+    seen.add(year);
+    first.push([index, year]);
+  });
+  // 해가 하나뿐이면 연도를 아예 쓰지 않는다.
+  return seen.size <= 1 ? new Set() : new Set(first.map(([index]) => index));
+}
+
 export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode {
+  const yearFirstChapters = yearFirstChapterIndexes(album.chapters.map((chapter) => chapter.date ?? null));
   return (
     <>
       {album.chapters.map((chapter, chapterIndex) => {
@@ -79,8 +97,8 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                     place={chapter.place}
                     locationSource={chapter.locationSource}
                     kind={chapter.kind}
-                    photoCount={chapter.photos.length}
-                    variant="date-only"
+                    variant="print-date"
+                    showYear={yearFirstChapters.has(chapterIndex)}
                   />
                 ) : null}
                 <div className="print-page__photos">
