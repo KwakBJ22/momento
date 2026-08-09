@@ -82,16 +82,21 @@ test("웹뷰에서는 blob 대신 저장된 파일 주소로 보낸다 — 기�
   assert.match(exportPdf, /import \{ getAlbumPdfUrl, uploadAlbumPdf \} from "\.\/api"/);
 });
 
+/**
+ * ★ 이 문구는 K-8 에서 **다시 썼다.** 규칙이 둘 바뀌었다:
+ *   · 좋은 소식(파일은 만들어져 있다)을 먼저 말한다 — 예전에는 `막혀 있어요` 로 시작했다
+ *   · `크롬이나 사파리` 라는 **이름을 빼낸다** — 이름을 대면 그것을 찾아 헤맨다
+ *   자세한 것은 pdfActionSheet.test.ts. 여기서는 앱 이름 판정만 잠근다.
+ */
 test("웹뷰 안내 문구: 앱 이름을 정확히 부르고, 사실만 말한다", () => {
   const kakao = webviewSaveMessage("Mozilla/5.0 (Linux; Android 14) KAKAOTALK 10.5.0");
-  assert.match(kakao, /카카오톡 안에서는 파일 저장이 막혀 있어요/);
+  assert.match(kakao, /카카오톡에서는 바로 저장되지 않아요/);
   assert.match(kakao, /다른 브라우저로 열기/);   // 사용자가 찾을 수 있게 메뉴 이름 그대로
-  assert.match(kakao, /크롬이나 사파리/);         // 어느 브라우저인지 구체적으로
   for (const forbidden of ["곧", "준비 중", "출시 예정", "업그레이드", "AI", "GPT", "인공지능"]) {
     assert.equal(kakao.includes(forbidden), false, `쓰지 않는 표현: ${forbidden}`);
   }
   // 카카오가 아닌 웹뷰에서는 앱 이름을 지어내지 않는다.
-  assert.match(webviewSaveMessage("Mozilla/5.0 Instagram 300.0"), /지금 쓰는 앱 안에서는/);
+  assert.match(webviewSaveMessage("Mozilla/5.0 Instagram 300.0"), /지금 쓰는 앱에서는/);
 });
 
 test("웹뷰 판정은 한 곳에만 있다 — 갤러리와 PDF 가 같은 함수를 쓴다", () => {

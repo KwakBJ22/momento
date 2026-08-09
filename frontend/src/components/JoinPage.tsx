@@ -176,9 +176,13 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
             {" "}계정으로 함께하면<br />내가 올린 사진과 글을 언제든 다시 찾을 수 있어요.
           </p>
           {/* ★ 로그인 상태를 다 읽기 전에는 누를 수 없다(§11). 눌러도 아무 일이 없는
-              것보다 **못 누르는 것이 낫다** — 왜 그런지 라벨이 말한다. */}
+              것보다 **못 누르는 것이 낫다** — 왜 그런지 라벨이 말한다.
+              ★ `시작하기` 가 아니라 **`계속하기`** 다(K-8). `시작하기` 는 처음 오는
+                사람에게만 맞는 말이라, 이미 회원인 사람에게는 **가입처럼 읽힌다** —
+                PO 가 실기기에서 실제로 그렇게 느꼈다. 로그인 대화상자(AuthPanel)와
+                같은 말을 쓴다. 같은 행동에 말이 둘이면 다른 일처럼 보인다. */}
           <button type="button" className="join-page__kakao" disabled={!authReady} onClick={() => void onKakao()}>
-            {authReady ? "카카오로 시작하기" : "잠시만 기다려 주세요"}
+            {authReady ? "카카오로 계속하기" : "잠시만 기다려 주세요"}
           </button>
         </>
       )}

@@ -1,3 +1,6 @@
+import { isPdfActionNotice, splitPdfActionNotice } from "../lib/pdfNotice";
+
+import "./AlbumScreen.css";
 import "./AlbumPdfStatus.css";
 
 /**
@@ -14,6 +17,20 @@ import "./AlbumPdfStatus.css";
  *   진행 표시는 "하고 있다"는 사실 한 줄이다.
  * ★ 끝나면 **우리 문구로** 알린다 — 시스템 알림을 유일한 신호로 두지 않는다.
  * ★ 실패하면 실패라고 말한다. 조용히 끝나지 않는다.
+ *
+ * ★ **자리가 셋이다** (K-8 · SCREEN_SPEC §11):
+ *
+ *     만드는 중              하단 고정 · 가리지 않음      (I-3 그대로)
+ *     끝났고 할 일 없음      하단 고정 · 사용자가 닫음    (I-3 그대로)
+ *     끝났는데 할 일이 있음  **딤 위 시트**
+ *
+ *   셋째만 새로 갈라냈다. 그 안내는 **사용자가 뭔가를 해야** 파일을 받을 수 있는
+ *   내용인데, 화면 맨 아래에 지나가듯 떠서 눈에 안 띄었다. 방금 누른 행동의 결과이므로
+ *   **가려도 된다** — 놓치면 무엇을 해야 할지 모른다.
+ * ★ 딤과 시트는 **이미 있는 것을 쓴다**(album-sheet-dim · album-inline-action).
+ *   새로 만들지 않는다. 버튼은 `확인` 하나다 — 되돌릴 것이 없다.
+ * ★ 오류가 아니라 **안내**다. danger 색을 쓰지 않는다(I-5b). 눈에 띄는 것은 색이
+ *   아니라 자리와 딤이 맡는다.
  */
 
 /** 만드는 동안의 한 줄. 내부 사정(크기 줄이기·렌더)을 말하지 않는다(§10). */
@@ -29,6 +46,23 @@ interface AlbumPdfStatusProps {
 
 export default function AlbumPdfStatus({ working, notice, onDismiss }: AlbumPdfStatusProps) {
   if (!working && !notice) return null;
+  // 끝났고 **할 일이 남은** 결과 — 하단이 아니라 딤 위 시트다(K-8).
+  if (!working && notice && isPdfActionNotice(notice)) {
+    const { title, body } = splitPdfActionNotice(notice);
+    return (
+      <>
+        <div className="album-sheet-dim" aria-hidden="true" onClick={onDismiss} />
+        <section className="album-inline-action album-pdf-action" role="dialog" aria-modal="true" aria-label={title}>
+          <div className="album-inline-action__header"><h2>{title}</h2><button type="button" onClick={onDismiss}>닫기</button></div>
+          <div className="album-inline-action__body album-pdf-action__body">
+            <p className="album-pdf-action__text">{body}</p>
+            {/* 되돌릴 것이 없다 — 버튼은 하나다. */}
+            <button type="button" className="album-pdf-action__confirm" onClick={onDismiss}>확인</button>
+          </div>
+        </section>
+      </>
+    );
+  }
   return (
     <div className="album-pdf-status" role="status" aria-live="polite">
       <p className="album-pdf-status__text">{working ? PDF_WORKING_MESSAGE : notice}</p>

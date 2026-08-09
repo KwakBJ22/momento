@@ -116,3 +116,10 @@
 
 /* 담아두지 못했을 때 한 줄 (K-7b). 껍데기는 styles/notice.css 의 오류가 준다. */
 .album-guest-save__error { margin: 8px 0 0; font-size: var(--t-xs); }
+
+/* PDF 결과 중 **할 일이 남은 것**만 뜨는 시트 (K-8). 틀은 위 album-inline-action 그대로다.
+   ★ 오류가 아니라 안내다 — danger 색을 쓰지 않는다(I-5b). 눈에 띄는 것은 딤과 자리다.
+   ★ 제목만 굵다(헤더가 이미 h2 다). 본문은 지금 크기 그대로 두고 줄바꿈만 살린다. */
+.album-pdf-action__body { display: grid; gap: 14px; padding: 16px; }
+.album-pdf-action__text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; white-space: pre-line; }
+.album-pdf-action__confirm { min-height: 52px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); color: var(--c-text); font: inherit; font-weight: 700; cursor: pointer; }
