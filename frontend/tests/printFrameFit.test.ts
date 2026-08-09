@@ -27,12 +27,15 @@ function rule(selector: string): string {
   return printCss.slice(start + selector.length + 2, printCss.indexOf("}", start));
 }
 
-test("★ 프레임을 칸 높이에 늘리지 않는다 — 칸 가운데 두고 사진 크기로 줄인다", () => {
+test("★ 칸은 남는 높이를 나눠 갖되, 사진과 캡션은 붙어 있다", () => {
   const grid = rule(".album-renderer--print .print-page__photos");
-  assert.match(grid, /align-items: center/, "칸에 stretch 되면 프레임이 늘어난다");
-  assert.match(grid, /justify-items: center/);
-  // 칸은 여전히 남는 높이를 나눠 갖는다(§9 — 그 안에서는 빈 공간을 남기지 않는다).
-  assert.match(grid, /flex: 1 1 auto/);
+  // I-4b-4 에서 뒤집혔다: 같은 줄의 프레임은 아래끝을 맞춘다(stretch). 인쇄는 정돈이다(§9).
+  // 4-4 가 고치려던 것은 **프레임이 늘어나는 것**이 아니라 사진과 캡션이 벌어지는 것이었고,
+  // 그것은 프레임 안에서 위에서부터 쌓는 것으로 지킨다(아래 테스트).
+  assert.match(grid, /align-items: stretch/);
+  assert.match(grid, /justify-items: stretch/);
+  // 사진 묶음 자체는 늘어나지 않는다 — 남는 높이는 쪽이 위아래로 나눈다(I-4b-3).
+  assert.match(grid, /flex: 0 1 auto/);
 });
 
 test("★ 사진 자리도 늘리지 않는다 — 늘리면 사진과 캡션 사이가 벌어진다", () => {
@@ -60,15 +63,16 @@ test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율
   }
 });
 
-test("★ 날짜 이야기가 같이 들어가는 쪽은 상한이 더 낮다 (사진 자리가 그만큼 줄어든다)", () => {
-  for (const count of [1, 2, 3, 4]) {
+test("★ 날짜 이야기가 같은 쪽에 남는 경우(1·2장)에는 상한이 더 낮다", () => {
+  // 3장부터는 이야기가 다음 쪽으로 넘어가므로(I-4b-5) 낮은 상한 자체가 없다.
+  for (const count of [1, 2, 4]) {
     const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     assert.ok(withStory && plain, `${count}장: 두 벌이 다 있어야 한다`);
-    assert.ok(Number(withStory![1]) < Number(plain![1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
+    assert.ok(Number(withStory[1]) < Number(plain[1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
   }
-  // 그 표시는 이야기가 실제로 붙는 쪽에만 달린다(그 날 마지막 장).
-  assert.match(printPages, /data-has-story=\{pageIndex === pages\.length - 1 && chapter\.storyBody \? "" : undefined\}/);
+  // 그 표시는 이야기가 **그 쪽에 실제로 남는** 경우에만 달린다.
+  assert.match(printPages, /data-has-story=\{[^}]*!storyGoesToOwnPage\(photos\.length\)[^}]*\}/);
 });
 
 test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", () => {

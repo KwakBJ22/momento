@@ -29,6 +29,20 @@ import "./PrintPages.css";
 /** A4 한 장에 담는 사진 수 상한 — 이 값을 올리지 않는다(§9). */
 export const PRINT_PHOTOS_PER_PAGE = 4;
 
+/** ★ 사진의 짧은 변은 이보다 작아지지 않는다 (I-4b-5). 38mm 는 엄지손톱만 하다. */
+export const PRINT_MIN_PHOTO_SHORT_SIDE_MM = 60;
+
+/**
+ * 날짜 이야기를 **다음 쪽으로 넘길지** (I-4b-5).
+ *
+ * 사진과 이야기가 한 쪽에 같이 들어가면 사진 자리가 그만큼 줄어든다. 3장부터는
+ * 그 줄어든 자리에서 짧은 변 60mm 를 지킬 수 없다 — 그때는 **사진을 줄이지 않고
+ * 이야기를 넘긴다.** 사진이 가장 중요하다(§6).
+ */
+export function storyGoesToOwnPage(photoCount: number): boolean {
+  return photoCount >= 3;
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   const pages: T[][] = [];
   for (let index = 0; index < items.length; index += size) pages.push(items.slice(index, index + size));
@@ -85,7 +99,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 data-print-page=""
                 data-photo-count={photos.length}
                 /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
-                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody ? "" : undefined}
+                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody && !storyGoesToOwnPage(photos.length) ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}
               >
                 {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9). */}
@@ -106,12 +120,19 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 <div className="print-page__photos">
                   {photos.map((photo) => <PhotoFrame key={photo.id} photo={photo} />)}
                 </div>
-                {/* 날짜 이야기는 그 날 마지막 장에 붙는다. */}
-                {pageIndex === pages.length - 1 && chapter.storyBody ? (
+                {/* 날짜 이야기는 그 날 마지막 장에 붙는다 — 다만 사진이 많은 쪽에서는
+                    사진이 60mm 아래로 작아지므로 다음 쪽으로 넘긴다(I-4b-5). */}
+                {pageIndex === pages.length - 1 && chapter.storyBody && !storyGoesToOwnPage(photos.length) ? (
                   <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
                 ) : null}
               </section>
             ))}
+            {/* 넘어온 날짜 이야기는 자기 쪽 하나를 갖는다. */}
+            {chapter.storyBody && storyGoesToOwnPage(pages[pages.length - 1]?.length ?? 0) ? (
+              <section className="print-page print-page--story" data-print-page="" data-photo-count="0">
+                <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
+              </section>
+            ) : null}
           </Fragment>
         );
       })}
