@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { albumTroubleCopy } from "../src/lib/albumTrouble";
 import { isRequestAborted } from "../src/lib/requestAbort";
 
 const component = (name: string) => readFileSync(
@@ -168,12 +169,19 @@ test("owner-only actions hide behind server capability flags; PDF stays for part
   assert.match(source, /\{shareOpen && role === "owner" \? \(/);
 });
 
+/**
+ * ★ 이 테스트는 K-11 에서 **문구를 화면에서 함수로 옮기며** 다시 썼다.
+ *   규칙은 그대로다 — 우리 말로 말하고, 403 에는 `다시 시도` 를 내지 않는다.
+ *   달라진 것은 그 판단이 이제 `lib/albumTrouble` 한 곳에 있다는 것뿐이다.
+ *   (문구 자체는 albumTroubleCopy.test.ts 가 값으로 잠근다)
+ */
 test("permission errors speak Korean and never offer 다시 시도", () => {
-  const albumView = component("AlbumView");
-  assert.match(albumView, /errorStatus === 403 \? "이 앨범을 볼 수 없어요"/);
-  assert.match(albumView, /권한이 없어요\. 앨범 주인이 보내 준 링크로 다시 열어 주세요\./);
-  // Retry renders ONLY for non-403 (transient) failures.
-  assert.match(albumView, /errorStatus === 403 \? null : <button[\s\S]{0,220}다시 시도/);
+  const forbidden = albumTroubleCopy("load", 403);
+  assert.match(forbidden.title, /열 수 없어요/);
+  assert.match(forbidden.description, /권한이 없어요\. 앨범 주인이 보내 준 링크로 다시 열어 주세요\./);
+  // Retry renders ONLY for transient failures.
+  assert.equal(forbidden.canRetry, false);
+  assert.equal(albumTroubleCopy("load", 500).canRetry, true);
   // The API layer carries the HTTP status so the view can distinguish the two.
   const api = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
   assert.match(api, /error\.status = response\.status/);

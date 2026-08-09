@@ -6,6 +6,7 @@ import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages,
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
+import { albumTroubleCopy, type AlbumViewTrouble } from "../lib/albumTrouble";
 import { withAlbumVersion } from "../lib/albumVersion";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
@@ -43,6 +44,9 @@ interface AlbumViewProps {
   /** ⋯ 시트 최상단 계정 행(App 이 만든 노드). 헤더 우측은 [내 앨범]+[⋯] 둘로 줄이고
    *  계정 진입점은 시트 안으로 들어간다 — 동작은 App 의 기존 것을 그대로 쓴다. */
   accountSheet?: ReactNode;
+  /** 앨범을 못 열었다 — 하단 네비를 감춘다(K-11). 열지도 못하는 앨범에
+   *  `사진 추가`·`한마디 쓰기`·`공유하기` 를 권하지 않는다. */
+  onUnavailable?: (unavailable: boolean) => void;
   /** ⋯ 시트의 로그아웃·회원 탈퇴(§5 순서상 아래쪽). 비로그인이면 넘기지 않는다. */
   onLogout?: () => void;
   onWithdraw?: () => void;
@@ -60,7 +64,7 @@ export const DELETE_ALBUM_WARNING = [
   "이미 보낸 링크도 함께 사라져요. 받은 분들은 더 이상 앨범을 볼 수 없어요.",
 ].join("\n");
 
-export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet, onLogout, onWithdraw }: AlbumViewProps) {
+export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet, onUnavailable, onLogout, onWithdraw }: AlbumViewProps) {
 
   const editionValue = new URLSearchParams(window.location.search).get("edition");
   const requestedEdition = editionValue && /^\d+$/.test(editionValue) ? Number(editionValue) : null;
@@ -75,7 +79,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const stageRef = useRef<HTMLDivElement | null>(null);
   useSignedUrlRefresh(albumId, requestedEdition, setPhotos, stageRef);
 
-  const [error, setError] = useState<string | null>(null);
+  // ★ 서버가 보낸 말을 담지 않는다(K-11 · §8). **무엇이 안 됐는지**만 담고,
+  //   화면에 낼 말은 아래 오류 화면이 우리 말로 고른다.
+  const [error, setError] = useState<AlbumViewTrouble | null>(null);
   // 403 gets its own screen: Korean copy, and NO "다시 시도" (retrying cannot help).
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [photosReady, setPhotosReady] = useState(false);
@@ -133,6 +139,15 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [storySaveError, setStorySaveError] = useState<string | null>(null);
 
 
+  // 앨범을 못 열면 하단 네비를 감춘다(K-11). 매 렌더 새로 만들어지는 콜백이라
+  // ref 로 들고 있는다 — 이것 때문에 아래 효과가 다시 돌지 않게 한다.
+  const notifyUnavailableRef = useRef(onUnavailable);
+  notifyUnavailableRef.current = onUnavailable;
+  useEffect(() => {
+    notifyUnavailableRef.current?.(error === "load");
+    return () => notifyUnavailableRef.current?.(false);
+  }, [error]);
+
   // 방명록 토큰 확보(1회). 실패해도 앨범 열람에는 영향이 없다 — 구역만 렌더링되지 않는다.
   useEffect(() => {
     if (!album || requestedEdition !== null) return;
@@ -176,7 +191,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       .then(([albumData, photoData]) => {
         if (!active) return;
         if (!Array.isArray(photoData)) {
-          setError("앨범 사진을 불러오지 못했습니다.");
+          setError("load");
           return;
         }
         setAlbum(albumData);
@@ -186,7 +201,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       })
       .catch((err) => {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "앨범을 불러오지 못했어요.");
+        // ★ 서버가 보낸 말은 **기록에만** 남긴다(K-11 · §8). 화면에는 우리 말을 낸다 —
+        //   실기기에서 `You do not have permission to view this album.` 이 그대로 보였다.
+        console.error("Album load failed", { albumId, cause: err });
+        setError("load");
         setErrorStatus(err instanceof Error ? ((err as Error & { status?: number }).status ?? null) : null);
       });
 
@@ -355,7 +373,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       await deleteAlbum(albumId);
       window.location.assign("/my-albums");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "앨범을 삭제하지 못했어요.");
+      console.error("Album delete failed", { albumId, cause });
+      setError("delete");
       setIsDeleting(false);
       deletingRef.current = false;
     }
@@ -490,42 +509,26 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   }, [albumId]);
 
   if (error) {
-
+    const { title, description, canRetry } = albumTroubleCopy(error, errorStatus);
     return (
-
       <div className="album-page">
-
         <div className="album-page__layout">
-
           <article className="album-page__book album-result">
-
-            <h2 className="album-result__title">{errorStatus === 403 ? "이 앨범을 볼 수 없어요" : "앨범을 찾을 수 없어요"}</h2>
-
-            <p className="album-result__subtitle">{errorStatus === 403 ? "앨범을 볼 수 있는 권한이 없어요. 앨범 주인이 보내 준 링크로 다시 열어 주세요." : error}</p>
-
-            {errorStatus === 403 ? null : <button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>
-
-              다시 시도
-
-            </button>}
-
+            <h2 className="album-result__title">{title}</h2>
+            <p className="album-result__subtitle">{description}</p>
+            {canRetry ? (
+              <button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>
+                다시 시도
+              </button>
+            ) : null}
             <a className="btn btn--secondary" href="/">
-
               새 앨범 만들기
-
             </a>
-
           </article>
-
         </div>
-
       </div>
-
     );
-
   }
-
-
 
   if (!photosReady || loadedAlbumId !== loadedKey) {
 

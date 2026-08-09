@@ -54,6 +54,8 @@ function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);
+  // 앨범을 못 열었다 — 하단 네비를 감춘다(K-11). AlbumView 가 알려 준다.
+  const [albumUnavailable, setAlbumUnavailable] = useState(false);
   // 게스트 앨범 가져오기 실패 — 조용히 삼키지 않는다(K-9 · §11).
   const [guestClaimError, setGuestClaimError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -271,7 +273,8 @@ function App() {
   // 어느 화면에서도 감추지 않는다 — 헤더는 App 이 그리는 하나뿐이다.
   const albumOwnsHeaderSlot = Boolean(sharedAlbumId || shareToken);
   // 전역 네비(app variant) 또는 AlbumScreen 이 자체로 그리는 고정 네비가 있는 화면.
-  const hasBottomNavigation = showGlobalBottomNavigation || Boolean(sharedAlbumId || shareToken || contributeAlbumId || result);
+  // 네비를 감췄으면 그 자리도 비우지 않는다 — 아무것도 없는 띠가 남는다(K-11).
+  const hasBottomNavigation = !albumUnavailable && (showGlobalBottomNavigation || Boolean(sharedAlbumId || shareToken || contributeAlbumId || result));
   // 계정 진입점(드롭다운 5항목: 이름·이메일·내 앨범·로그아웃·회원 탈퇴)은 한 곳에서
   // 만들어 전역 헤더와 앨범 헤더가 같은 노드를 쓴다 — 자리만 옮기고 동작은 그대로.
   // 40~60대 기준: 아이콘만 두지 않는다. 로그인 상태는 이름 첫 글자(아바타 있으면 사진),
@@ -344,7 +347,7 @@ function App() {
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
           : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)
-          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} />)
+          : sharedAlbumId ? albumSurface(sharedAlbumId, <AlbumView albumId={sharedAlbumId} guestOwner={!user && hasGuestAlbumToken(sharedAlbumId)} onGuestSave={() => startGuestClaim(sharedAlbumId)} onUnavailable={setAlbumUnavailable} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} />)
           : questionsAlbumId ? requiresLogin(<QuestionFlow albumId={questionsAlbumId} albumTitle="우리 앨범" profileId={user?.id || ""} onComplete={() => window.location.assign(`/album/${questionsAlbumId}`)} />)
           : inviteToken ? requiresLogin(<InviteAccept token={inviteToken} isLoggedIn={Boolean(user)} />)
           : myAlbumsPage ? requiresLogin(<MyAlbums userId={user?.id ?? null} />)
@@ -364,7 +367,9 @@ function App() {
       {/* 하단도 화면당 하나. 고정 네비가 있는 화면에서만 그 높이만큼 여백을 준다 —
           네비가 없는 화면에 여백을 주면 빈 공간이 된다. */}
       {!adminRoute ? <AppFooter withBottomNavigation={hasBottomNavigation} /> : null}
-      {showGlobalBottomNavigation ? (
+      {/* ★ 못 여는 앨범 화면에는 하단 네비를 두지 않는다(K-11) — 열지도 못하는 앨범에
+          사진을 더하라고 권하는 꼴이었다. */}
+      {showGlobalBottomNavigation && !albumUnavailable ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} />
       ) : null}

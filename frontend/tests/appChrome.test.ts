@@ -79,7 +79,9 @@ test("푸터 여백은 하단 네비가 있는 화면에서만 — 네비 높이
   const base = css.split(".app-footer {")[1].split("}")[0];
   assert.doesNotMatch(base, /--nav-height/);
   const app = read("App.tsx");
-  assert.match(app, /const hasBottomNavigation = showGlobalBottomNavigation \|\| Boolean\(/);
+  // ★ K-11 에서 조건이 하나 앞에 붙었다 — 못 여는 앨범 화면에서는 네비를 감추므로
+  //   그 자리도 비우지 않는다. 규칙은 그대로다: 네비가 있는 화면에만 여백이 있다.
+  assert.match(app, /const hasBottomNavigation = !albumUnavailable && \(showGlobalBottomNavigation \|\| Boolean\(/);
 });
 
 test("참여 화면(/join, /contribute)은 헤더 우측을 비운다", () => {
