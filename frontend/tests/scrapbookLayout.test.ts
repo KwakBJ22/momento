@@ -73,15 +73,21 @@ test("겹침은 10~15%, 한 번에 두 장까지, 날짜 안에서만", async ()
   assert.equal(typeof photoOverlapRatio("2026-08-02", "p1", 1), "number");
 });
 
-test("★ 캡션에는 기울기가 없다 — 글은 똑바로", async () => {
+test("★ 기우는 것은 프레임 하나다 — 사진과 캡션이 함께 기운다 (§9 12차)", async () => {
+  // 10차에는 `글은 똑바로` 라고 적혀 있어 캡션을 프레임 밖으로 뺐다(11차). 되돌렸다 —
+  // 프레임 밖으로 나가면 어느 사진에 붙은 말인지 눈으로 안 보인다(I-1b).
+  // 그 문장은 겹침·회전이 커질 때를 걱정한 것이고, ±3° 안에서는 함께 기울어도 읽힌다.
   const view = await renderAlbum("screen", [photo("p1", "2026-08-01", "그날 바람이 좋았다.")]);
+  const block = view.container.querySelector(".photo-block") as HTMLElement;
   const frame = view.container.querySelector(".album-photo-frame") as HTMLElement;
   const caption = view.container.querySelector(".photo-memory-lines") as HTMLElement | null;
-  assert.match(frame.getAttribute("style") || "", /rotate\(/, "사진은 기운다");
-  assert.equal(/rotate\(/.test(caption?.getAttribute("style") || ""), false, "캡션은 기울지 않는다");
-  // 기울기는 프레임에만 붙는다 — 블록(사진+캡션 묶음)에 붙이면 글까지 기운다.
-  const block = view.container.querySelector(".photo-block") as HTMLElement;
-  assert.equal(/rotate\(/.test(block.getAttribute("style") || ""), false);
+  // 회전은 폴라로이드 프레임(= .photo-block) 하나에만 붙는다.
+  assert.match(block.getAttribute("style") || "", /rotate\(/, "프레임이 기운다");
+  // 사진·캡션은 그 안에 있으므로 자기 회전을 따로 갖지 않는다(이중 회전 금지).
+  assert.equal(/rotate\(/.test(frame.getAttribute("style") || ""), false, "사진만 따로 돌지 않는다");
+  assert.equal(/rotate\(/.test(caption?.getAttribute("style") || ""), false, "캡션에 회전을 따로 주지 않는다");
+  // 캡션이 그 프레임 **안**에 있다 — 형제로 빠져나가면 안 된다.
+  assert.ok(block.contains(caption), "캡션은 프레임 안이다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 

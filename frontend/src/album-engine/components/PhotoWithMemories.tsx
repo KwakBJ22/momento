@@ -43,13 +43,18 @@ export default function PhotoWithMemories({
   const tilt = isScreen ? photoTiltDeg(photo.id, index, { isHero }) : 0;
   const overlap = isScreen && !isHero ? photoOverlapRatio(dateKey, photo.id, index) : 0;
   void albumKey;
-  // ★ 기울기는 **사진에만** 준다. 캡션은 똑바로 서 있어야 읽힌다(글은 기울이지 않는다).
-  const frameStyle: CSSProperties | undefined = tilt !== 0 ? { transform: `rotate(${tilt}deg)` } : undefined;
+  // ★ 기우는 것은 **프레임 하나**다 — 사진과 캡션이 함께 기운다(§9 12차).
+  // 폴라로이드 한 장이 비스듬히 놓인 모양이다. 사진만 돌고 프레임이 서 있으면 따로 놀고(I-1),
+  // 캡션을 프레임 밖으로 빼면 어느 사진의 말인지 눈으로 안 보인다(I-1b).
+  // 흰 여백·테두리·그림자를 가진 요소가 이 블록이므로, 회전도 여기 붙는다.
   // 겹침은 앞 사진 위로 끌어당기는 음수 여백이다. 위로 오는 순서는 고정값이다.
-  // ★ 값만 넘기고 **적용 여부는 CSS 가 정한다** — 격자가 한 칸으로 접히는 좁은 화면에서는
+  // ★ 겹침 값만 넘기고 **적용 여부는 CSS 가 정한다** — 격자가 한 칸으로 접히는 좁은 화면에서는
   // 옆 사진이 없어, 그대로 당기면 사진이 화면 밖으로 밀려난다(실측 -37px).
-  const blockStyle: CSSProperties | undefined = overlap > 0
-    ? ({ "--photo-overlap": overlap, zIndex: photoStackOrder(overlap) } as CSSProperties)
+  const blockStyle: CSSProperties | undefined = tilt !== 0 || overlap > 0
+    ? ({
+      ...(tilt !== 0 ? { transform: `rotate(${tilt}deg)` } : null),
+      ...(overlap > 0 ? { "--photo-overlap": overlap, zIndex: photoStackOrder(overlap) } : null),
+    } as CSSProperties)
     : undefined;
 
   // 캡션 자리는 이 사진을 내가 쓸 수 있을 때만 비워 둔다(사진마다 다르다 — §7).
@@ -59,7 +64,6 @@ export default function PhotoWithMemories({
   return (
     <div className="photo-block album-photo-card" data-photo-id={photo.id} data-tilt={tilt || undefined} data-overlap={overlap || undefined} style={blockStyle}>
       <AlbumPhotoFrame
-        style={frameStyle}
         src={photo.src}
         alt={photo.alt || ""}
         className={frameClassName}

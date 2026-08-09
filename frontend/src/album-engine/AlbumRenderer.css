@@ -53,11 +53,10 @@
   }
 }
 
-/* ★ 흰 카드는 **사진만** 감싼다(I-1). 예전에는 이 블록(사진 + 캡션)이 카드였는데
-   기울기는 안쪽 figure 에 걸려 있어, 사진만 기울고 카드는 똑바로 서서 따로 놀았다.
-   카드와 기울기가 같은 요소에 있어야 함께 돈다. 캡션은 카드 밖에 남아 똑바로 선다
-   (§9 `글은 똑바로` · CLAUDE.md §6 `캡션에 카드·테두리·그림자·배경색 금지`).
-   블록은 이제 자리만 잡는다 — 겹침(--photo-overlap)의 기준 폭도 그대로다. */
+/* 폴라로이드 한 장(§9 12차) — **사진 + 캡션을 함께 담는 프레임**이다.
+   화면에서는 이 프레임이 통째로 기운다(회전은 PhotoWithMemories 가 인라인으로 준다).
+   캡션을 프레임 밖으로 빼지 않는다 — 빼면 어느 사진에 붙은 말인지 눈으로 안 보인다.
+   ±3° 는 읽기에 지장이 없으므로 캡션도 함께 기운다. */
 .album-renderer--screen .album-screen-photo-grid > .photo-block {
   display: flex;
   flex-direction: column;
@@ -65,11 +64,15 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 0.75rem;
   box-sizing: border-box;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  /* Card boundary on white: --c-border (1.56:1) reads as a render error, so use
+     --c-border-strong (2.16:1). Thickness/radius/layout unchanged. See DESIGN_SYSTEM §1. */
+  border: 1px solid var(--c-border-strong);
+  border-radius: 9px;
+  background: var(--c-surface);
+  box-shadow: var(--sh-md);
+  transform-origin: center center;
 }
 
 .album-renderer--screen .album-screen-photo-grid > .photo-block:only-child {
@@ -78,20 +81,15 @@
   justify-self: center;
 }
 
-/* 흰 카드이자 기울어지는 요소 — 사진만 감싼다(I-1).
-   Card boundary on white: --c-border (1.56:1) reads as a render error, so use
-   --c-border-strong (2.16:1). Thickness/radius unchanged. See DESIGN_SYSTEM §1. */
 .album-renderer--screen .album-screen-photo-card__frame {
   display: block;
   width: 100%;
   margin: 0;
-  padding: 0.75rem;
-  box-sizing: border-box;
-  border: 1px solid var(--c-border-strong);
-  border-radius: 9px;
-  box-shadow: var(--sh-md);
-  background: var(--c-surface);
-  transform-origin: center center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: none;
+  background: transparent;
 }
 
 .album-renderer--screen .album-screen-photo-card__frame .album-photo-frame__img {
@@ -353,8 +351,7 @@
     gap: 0.85rem;
   }
 
-  /* 카드는 사진을 감싸는 frame 이다(I-1) — 좁은 화면의 여백도 그쪽에 준다. */
-  .album-renderer--screen .album-screen-photo-card__frame {
+  .album-renderer--screen .album-screen-photo-grid > .photo-block {
     padding: 0.6rem;
   }
 }
