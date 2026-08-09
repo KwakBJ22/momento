@@ -29,7 +29,7 @@ import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPho
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
-import { guestClaimTroubleMessage, isRetryableClaimFailure } from "./lib/albumTrouble";
+import { guestClaimTroubleMessage, runAfterLogin } from "./lib/albumTrouble";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, clearPendingGuestClaim, readPendingGuestClaim, setPendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
@@ -50,16 +50,6 @@ function getShareTokenFromPath() { return routeId(/^\/s\/([^/]+)$/); }
 function getParticipantsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-F-]{36})\/participants$/); }
 function isMyAlbumsPage() { return window.location.pathname === "/my-albums"; }
 function isAuthCallbackPage() { return window.location.pathname === "/auth/callback"; }
-
-/**
- * 게스트 앨범 가져오기를 **말없이 다시 해보는 횟수와 간격** (K-13).
- *
- * 로그인 왕복 직후에는 화면이 한 번 더 뜨면서 요청이 끊긴다(프로덕션에서 실제로
- * 첫 시도가 그렇게 죽었고 두 번째가 200 으로 성공했다). 그 사이를 사용자가 알 필요는
- * 없다 — 다만 끝없이 기다리게 두지도 않는다. 셋까지만 해보고, 그래도 안 되면 말한다.
- */
-const GUEST_CLAIM_ATTEMPTS = 3;
-const GUEST_CLAIM_RETRY_MS = 700;
 
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
@@ -184,36 +174,22 @@ function App() {
     setGuestClaimBusy(true);
     setGuestClaimError(null);
     void (async () => {
-      for (let attempt = 1; attempt <= GUEST_CLAIM_ATTEMPTS; attempt += 1) {
-        try {
-          await claimGuestAlbum(token);
-          clearPendingGuestClaim();
-          clearGuestAlbumToken(albumId);
-          window.location.assign(`/album/${albumId}`);
-          return;
-        } catch (cause) {
-          const status = (cause as { status?: number } | null)?.status;
-          if (!isRetryableClaimFailure(status)) {
-            // 지웠다가는 다시 가져올 길이 없어진다 — 토큰이 쓸모없는 두 갈래에서만 지운다(K-9).
-            if (status === 410 || status === 404) {
-              clearPendingGuestClaim();
-              clearGuestAlbumToken(albumId);
-            }
-            if (!cancelled) { setGuestClaimBusy(false); setGuestClaimError(guestClaimTroubleMessage(status)); }
-            guestClaimRunningRef.current = false;
-            return;
-          }
-          if (cancelled) { guestClaimRunningRef.current = false; return; }
-          // ★ 끊긴 것은 실패가 아니다 — **말없이 다시 한다.** 두 번째가 성공하면
-          //   사용자는 실패했다는 사실 자체를 몰라야 한다(실제로 두 번째가 성공했다).
-          if (attempt < GUEST_CLAIM_ATTEMPTS) {
-            await new Promise((resolve) => { window.setTimeout(resolve, GUEST_CLAIM_RETRY_MS * attempt); });
-          }
-        }
+      // ★ 다시 해보는 방식은 K-13 이 만든 한 곳에 있다(담아두기도 같은 것을 쓴다).
+      const result = await runAfterLogin(() => claimGuestAlbum(token).then(() => undefined));
+      if (result.ok) {
+        clearPendingGuestClaim();
+        clearGuestAlbumToken(albumId);
+        window.location.assign(`/album/${albumId}`);
+        return;
+      }
+      // 지웠다가는 다시 가져올 길이 없어진다 — 토큰이 쓸모없는 두 갈래에서만 지운다(K-9).
+      // 끝까지 끊기기만 한 갈래(status === null)는 **남긴다.** 다음에 이어서 한다.
+      if (result.status === 410 || result.status === 404) {
+        clearPendingGuestClaim();
+        clearGuestAlbumToken(albumId);
       }
       // 여기까지 왔으면 **더 해볼 것이 없다.** 이제 말한다.
-      // 하려던 일은 남겨 둔다 — 다음에 이 앨범을 열면 이어서 한다.
-      if (!cancelled) { setGuestClaimBusy(false); setGuestClaimError(guestClaimTroubleMessage(null)); }
+      if (!cancelled) { setGuestClaimBusy(false); setGuestClaimError(guestClaimTroubleMessage(result.status)); }
       guestClaimRunningRef.current = false;
     })();
     return () => { cancelled = true; };

@@ -94,17 +94,20 @@ const claimEffect = (() => {
 
 test("★ ② 로그인해서 돌아오면 claim 을 부른다", () => {
   assert.match(claimEffect, /const token = getGuestAlbumToken\(albumId\);/);
-  // ★ K-13 에서 `.then` 사슬이 `await` 로 바뀌었다(끊기면 말없이 다시 하려고).
+  // ★ K-13 에서 `.then` 사슬이 `await` 로 바뀌었고(끊기면 말없이 다시 하려고),
+  //   K-15 에서 그 다시 하기가 `runAfterLogin` 한 곳으로 빠졌다(담아두기와 같은 것을 쓴다).
   //   규칙은 그대로다 — 부르고, **성공했을 때에만** 지운다.
-  assert.match(claimEffect, /await claimGuestAlbum\(token\);\s+clearPendingGuestClaim\(\);/);
+  assert.match(claimEffect, /await runAfterLogin\(\(\) => claimGuestAlbum\(token\)/);
+  assert.match(claimEffect, /if \(result\.ok\) \{\s+clearPendingGuestClaim\(\);/);
 });
 
 test("★ ② 실패해도 의도를 함부로 버리지 않는다", () => {
   // 끊김·서버 오류는 **남긴다.** 다음에 다시 뜰 때 이어서 한다.
-  assert.match(claimEffect, /if \(status === 410 \|\| status === 404\) \{/);
+  assert.match(claimEffect, /if \(result\.status === 410 \|\| result\.status === 404\) \{/);
   // ★ 403 은 지우지 않는다 — "다른 계정이 이미 가져감"은 그 계정으로 들어오면 되고,
   //   "앨범을 너무 많이 만들었음"은 서버가 세션을 7일 늘려 두고 거절하는 갈래다.
   assert.equal(/status === 403/.test(claimEffect), false, "나중에 되는 일을 막는다");
+  // 끝까지 끊기기만 한 갈래(status === null)도 남긴다 — 다음에 이어서 한다(K-13).
 });
 
 test("★ ② 실패하면 말한다 (§11)", () => {

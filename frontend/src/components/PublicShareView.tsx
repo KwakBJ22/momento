@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
+
 import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
 import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace";
@@ -10,6 +12,8 @@ import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
+import { bookmarkTroubleMessage, runAfterLogin } from "../lib/albumTrouble";
+import { clearPendingBookmark, readPendingBookmark, setPendingBookmark } from "../lib/guestAlbum";
 import { getPublicShare, loadCollabSession, saveCollabSession, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import type { GuestbookItem } from "../types";
@@ -99,6 +103,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
   // 담아둔 앨범(§1 9차) — 구경꾼에게 흔적을 남기는 자리. ★ 권한은 바뀌지 않는다.
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  // 한 화면에서 두 번 시작하지 않는다(K-13 과 같은 규칙).
+  const bookmarkRunningRef = useRef(false);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   // 구경꾼은 본문 맨 아래에서 이 구역을 만난다(§4 8차 — 네비 칸을 쓰지 않는다).
   const guestbookRef = useRef<HTMLDivElement | null>(null);
@@ -434,25 +440,62 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
    * ★ 여기에 **빼기는 없다.** 빼는 자리는 `내 앨범` 의 담아둔 목록 하나다 —
    *   담자마자 뺄 일은 없고, 버튼이 둘이면 무엇을 누를지 생각해야 한다(§1 25차).
    */
-  const saveBookmark = async () => {
-    if (!authenticatedUser) { onLogin?.(); return; }
-    if (!album || bookmarked) return;
+  /**
+   * 이 앨범을 내 앨범에 담는다 (K-12 · K-15 · §1).
+   *
+   * ★ 여기에 **빼기는 없다.** 빼는 자리는 `내 앨범` 의 담아둔 목록 하나다 —
+   *   담자마자 뺄 일은 없고, 버튼이 둘이면 무엇을 누를지 생각해야 한다(§1 25차).
+   * ★ 다시 해보는 방식·말할 때를 가르는 규칙은 **K-13 이 만든 한 곳**을 쓴다.
+   *   게스트 저장과 같은 것이다 — 담아두기용으로 두 벌 만들지 않는다.
+   */
+  const runBookmark = async () => {
+    if (!album) return;
     setBookmarkBusy(true);
     setBookmarkError(null);
-    try {
-      // ★ 담을 때는 **이 링크로** 담는다(K-7b). 서버가 링크를 함께 저장해 두고,
-      // `담아둔 앨범` 에서 그 링크로 연다 — 구경꾼은 /album/{id} 로 못 연다.
-      await saveSharedAlbumBookmark(token);
+    // ★ 담을 때는 **이 링크로** 담는다(K-7b). 서버가 링크를 함께 저장해 두고,
+    // `담아둔 앨범` 에서 그 링크로 연다 — 구경꾼은 /album/{id} 로 못 연다.
+    const result = await runAfterLogin(() => saveSharedAlbumBookmark(token));
+    if (result.ok) {
+      // 하려던 일은 **끝났을 때** 지운다(K-9 의 규칙 그대로).
+      clearPendingBookmark();
       // 화면이 서버를 따라간다 — 다시 그려도 담긴 상태가 유지된다(K-12).
       setAlbum((current) => (current ? { ...current, viewer_bookmarked: true } : current));
-    } catch (cause) {
-      // ★ 조용히 삼키지 않는다(§11). 예전에는 상태만 되돌려서, 403 이 나도 화면이
-      // 아무 말을 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다(무한 반복).
-      setBookmarkError(cause instanceof Error ? cause.message : "담아두지 못했어요. 잠시 후 다시 시도해 주세요.");
-    } finally {
       setBookmarkBusy(false);
+      return;
     }
+    // 링크가 죽었으면 다시 눌러도 소용없다 — 하려던 일을 지운다.
+    if (result.status === 404 || result.status === 410) clearPendingBookmark();
+    // ★ 더 해볼 것이 없을 때만 말한다(§11 26차). 끊긴 것은 실패가 아니라서
+    //   위 runAfterLogin 이 이미 말없이 다시 해봤다.
+    setBookmarkBusy(false);
+    setBookmarkError(bookmarkTroubleMessage(result.status));
   };
+  const saveBookmark = async () => {
+    if (!authenticatedUser) {
+      // ★ **하려던 일을 남기고** 로그인으로 보낸다(K-15 — K-9 의 장치를 그대로 쓴다).
+      //   예전에는 로그인만 열려서, 돌아오면 물음이 그대로였고 한 번 더 눌러야 했다.
+      setPendingBookmark(token);
+      onLogin?.();
+      return;
+    }
+    if (!album || bookmarked) return;
+    await runBookmark();
+  };
+  /**
+   * 로그인하고 돌아왔으면 **저절로 담는다** (K-15).
+   *
+   * 남겨 둔 것이 이 링크일 때만 이어서 한다 — 다른 앨범을 담으려던 것이면 그 화면에서
+   * 이어진다. 이미 담겨 있으면 아무것도 하지 않는다.
+   */
+  useEffect(() => {
+    if (!authenticatedUser || !album || bookmarked) return;
+    if (readPendingBookmark() !== token) return;
+    if (bookmarkRunningRef.current) return;
+    bookmarkRunningRef.current = true;
+    void runBookmark().finally(() => { bookmarkRunningRef.current = false; });
+    // 앨범과 로그인 상태가 갖춰졌을 때 한 번 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticatedUser?.id, album?.album_id, bookmarked, token]);
   /**
    * 같은 자리가 **묻는 말**과 **담긴 상태** 둘을 겸한다 (K-12 · §1 25차).
    *
@@ -474,7 +517,17 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       <div className="album-guest-save__actions">
         <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void saveBookmark()}>담아두기</button>
       </div>
-      {bookmarkError ? <p className="notice notice--error album-guest-save__error" role="alert">{bookmarkError}</p> : null}
+      {/* 끝날 때까지는 **하는 중이라고만** 말한다(§11 26차). */}
+      {bookmarkBusy ? <p className="notice notice--progress" role="status">내 앨범에 담아두는 중이에요.</p> : null}
+      {/* ★ 한 번 낸 말은 사용자가 없앨 때까지 남는다 — 저절로 사라지지 않는다. */}
+      {bookmarkError ? (
+        <p className="notice notice--error album-guest-save__error" role="alert">
+          {bookmarkError}
+          <button type="button" className="notice__close" onClick={() => setBookmarkError(null)} aria-label="안내 닫기">
+            <X size={16} aria-hidden="true" />
+          </button>
+        </p>
+      ) : null}
     </div>
   );
   const publicActions = (

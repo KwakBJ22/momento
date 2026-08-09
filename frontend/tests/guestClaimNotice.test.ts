@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 
-import { guestClaimTroubleMessage, isRetryableClaimFailure } from "../src/lib/albumTrouble";
+import { guestClaimTroubleMessage, isRetryableFailure } from "../src/lib/albumTrouble";
 
 /**
  * 🔴 저장이 **되는 중에** `저장할 수 없어요` 가 떴다 사라진다 (K-13 · SCREEN_SPEC §11 26차).
@@ -34,19 +34,21 @@ const app = readFileSync(path.join(SRC, "App.tsx"), "utf8");
 
 // --- 말할 실패와 말없이 다시 할 실패를 가르는 규칙 ---
 
+// ★ K-15 에서 이름이 `isRetryableFailure` 가 됐다 — 게스트 저장뿐 아니라 담아두기도
+//   같은 가름을 쓴다. 규칙은 그대로다.
 test("★ 끊긴 것은 실패가 아니다 — 말없이 다시 한다", () => {
   // 응답을 받지도 못했다(끊김·네트워크). 서버가 거절한 것이 아니다 — 프로덕션의 그 자리다.
-  assert.equal(isRetryableClaimFailure(undefined), true);
-  assert.equal(isRetryableClaimFailure(null), true);
+  assert.equal(isRetryableFailure(undefined), true);
+  assert.equal(isRetryableFailure(null), true);
   // 세션이 아직 자리잡기 전 · 잠깐 몰림 · 서버 쪽 사정.
   for (const status of [401, 408, 429, 500, 502, 503, 504]) {
-    assert.equal(isRetryableClaimFailure(status), true, `${status} 를 실패로 말한다`);
+    assert.equal(isRetryableFailure(status), true, `${status} 를 실패로 말한다`);
   }
 });
 
 test("★ 거절은 다시 해도 같은 답이 온다 — 그때 말한다", () => {
   for (const status of [400, 403, 404, 410]) {
-    assert.equal(isRetryableClaimFailure(status), false, `${status} 를 말없이 다시 한다`);
+    assert.equal(isRetryableFailure(status), false, `${status} 를 말없이 다시 한다`);
   }
 });
 
@@ -66,7 +68,7 @@ test("문구를 고르는 자리는 한 곳이다 — 새 파일을 만들지 �
   const trouble = readFileSync(path.join(SRC, "lib/albumTrouble.ts"), "utf8");
   assert.match(trouble, /export function albumTroubleCopy/);
   assert.match(trouble, /export function guestClaimTroubleMessage/);
-  assert.match(trouble, /export function isRetryableClaimFailure/);
+  assert.match(trouble, /export function isRetryableFailure/);
   // 화면은 문구를 직접 쓰지 않는다.
   assert.equal(app.includes("저장하지 못했어요."), false, "화면이 문구를 직접 들고 있다");
 });
@@ -86,18 +88,23 @@ test("★ 끝날 때까지는 하는 중이라고만 한다", () => {
 });
 
 test("★ 다시 해볼 수 있으면 말하지 않는다 — 말없이 다시 한다", () => {
-  assert.match(effect, /if \(!isRetryableClaimFailure\(status\)\) \{/);
-  // 말하는 자리는 둘뿐이다: 거절일 때, 그리고 다 해보고도 안 됐을 때.
-  assert.equal((effect.match(/setGuestClaimError\(guestClaimTroubleMessage\(/g) || []).length, 2);
-  // 다시 하는 사이에는 기다린다(바로 세 번 몰아치면 같은 순간에 세 번 다 끊긴다).
-  assert.match(effect, /GUEST_CLAIM_RETRY_MS \* attempt/);
-  assert.match(app, /const GUEST_CLAIM_ATTEMPTS = 3;/);
+  // ★ K-15 에서 다시 해보기가 `runAfterLogin` 한 곳으로 빠졌다 — 담아두기와 같은 것을
+  //   쓴다(두 벌 만들지 않는다). 가름·횟수·기다리는 방식이 전부 거기 있다.
+  assert.match(effect, /await runAfterLogin\(/);
+  // 말하는 자리는 하나다: runAfterLogin 이 끝난 뒤.
+  assert.equal((effect.match(/setGuestClaimError\(guestClaimTroubleMessage\(/g) || []).length, 1);
+  const trouble = readFileSync(path.join(SRC, "lib/albumTrouble.ts"), "utf8");
+  assert.match(trouble, /if \(!isRetryableFailure\(status\)\) return \{ ok: false, status \};/);
+  assert.match(trouble, /await wait\(AFTER_LOGIN_RETRY_MS \* attempt\)/);
+  assert.match(trouble, /export const AFTER_LOGIN_ATTEMPTS = 3;/);
 });
 
 test("★ 더 해볼 것이 없을 때만 낸다", () => {
   const tail = effect.slice(effect.indexOf("여기까지 왔으면"));
-  assert.match(tail, /setGuestClaimBusy\(false\); setGuestClaimError\(guestClaimTroubleMessage\(null\)\);/);
-  // 그 갈래에서는 하려던 일을 **남긴다** — 다음에 이어서 한다(K-9 의 장치를 그대로 쓴다).
+  assert.match(tail, /setGuestClaimBusy\(false\); setGuestClaimError\(guestClaimTroubleMessage\(result\.status\)\);/);
+  // ★ 끝까지 끊기기만 한 갈래(status === null)에서는 하려던 일을 **남긴다** —
+  //   다음에 이어서 한다(K-9 의 장치를 그대로 쓴다). 지우는 것은 410·404 뿐이다.
+  assert.match(effect, /if \(result\.status === 410 \|\| result\.status === 404\) \{/);
   assert.equal(tail.includes("clearPendingGuestClaim"), false);
 });
 
@@ -108,7 +115,7 @@ test("★ 한 번 낸 말은 사용자가 없앨 때까지 남는다 (§11)", ()
 });
 
 test("성공하면 아무 말도 남기지 않는다 — 실패한 적 없는 것처럼 보여야 한다", () => {
-  const success = effect.slice(effect.indexOf("await claimGuestAlbum(token);"), effect.indexOf("} catch (cause)"));
+  const success = effect.slice(effect.indexOf("if (result.ok) {"), effect.indexOf("// 지웠다가는"));
   assert.match(success, /clearPendingGuestClaim\(\);/);
   assert.match(success, /clearGuestAlbumToken\(albumId\);/);
   assert.match(success, /window\.location\.assign\(`\/album\/\$\{albumId\}`\);/);

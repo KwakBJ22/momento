@@ -9,6 +9,7 @@
 
 const tokenKey = (albumId: string) => `woorialbum-guest-album-token:${albumId}`;
 const PENDING_CLAIM_KEY = "woorialbum-guest-pending-claim";
+const PENDING_BOOKMARK_KEY = "woorialbum-pending-bookmark";
 
 export function saveGuestAlbumToken(albumId: string, token: string): void {
   try {
@@ -41,38 +42,55 @@ export function hasGuestAlbumToken(albumId: string): boolean {
 // The album a guest asked to save, remembered across the login round-trip so the
 // claim can run once the user comes back authenticated.
 /**
- * `저장하기` 를 눌렀다는 **의도**를 남긴다 (K-9).
+ * **하려던 일을 기억하는 한 가지 방법** (K-9 · K-15).
  *
- * ★ **localStorage 다.** 예전에는 sessionStorage 였는데, 카카오 로그인은 앱 밖으로
- *   나갔다 돌아오는 길이라 그 사이에 웹뷰가 새로 뜨면 sessionStorage 가 통째로
- *   사라진다. 그러면 돌아와서 **가져올 것이 있다는 사실 자체를 잊는다.**
- *   게스트 토큰은 이미 localStorage 에 있다 — 의도도 같은 수명이어야 짝이 맞는다.
+ * 로그인은 앱 밖으로 나갔다 돌아오는 길이다. 그 사이에 하려던 일을 잊으면 사용자는
+ * 돌아와서 **아무 일도 안 일어난 화면**을 본다 — 게스트 저장이 그랬고(K-9),
+ * 담아두기가 그랬다(K-15, BJ 가 두 번 눌렀다).
+ *
+ * ★ **localStorage 다.** 카카오 왕복 중에 웹뷰가 새로 뜨면 sessionStorage 는 통째로
+ *   사라진다. 그러면 돌아와서 **할 일이 있었다는 사실 자체를 잊는다.**
+ * ★ **읽어도 지우지 않는다.** 지우는 것은 **끝났을 때**(또는 다시 해도 소용없는 실패일
+ *   때) 부르는 쪽이 한다. 읽으면서 지우면 중간에 한 번 끊기는 것만으로 영영 잃는다.
+ *
+ * 이 셋을 두 벌 만들지 않는다 — 규칙이 갈라지면 한쪽만 고쳐진다.
  */
-export function setPendingGuestClaim(albumId: string): void {
-  try {
-    localStorage.setItem(PENDING_CLAIM_KEY, albumId);
-  } catch {
-    /* no-op */
-  }
+function rememberIntent(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* no-op */ }
 }
 
-/**
- * 가져올 앨범이 있는지 **본다. 지우지 않는다** (K-9).
- *
- * ★ 예전에는 읽으면서 바로 지웠다(`take`). 그래서 가져오기가 끝나기 전에 화면이
- *   한 번 다시 뜨면 — 프로덕션 로그가 정확히 그랬다 — 의도가 이미 사라져 있어서
- *   **다시 시도할 방법이 없었다.** 지우는 것은 성공했을 때(또는 다시 해도 소용없는
- *   실패일 때) `clearPendingGuestClaim` 이 한다.
- */
+function readIntent(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function forgetIntent(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* no-op */ }
+  // 옛 자리에 남은 것도 함께 치운다(K-9 이전에는 sessionStorage 였다).
+  try { sessionStorage.removeItem(key); } catch { /* no-op */ }
+}
+
+/** 게스트 앨범 `저장하기` — 로그인 뒤 이 앨범을 계정으로 가져온다 (K-9). */
+export function setPendingGuestClaim(albumId: string): void {
+  rememberIntent(PENDING_CLAIM_KEY, albumId);
+}
+
 export function readPendingGuestClaim(): string | null {
-  try {
-    return localStorage.getItem(PENDING_CLAIM_KEY);
-  } catch {
-    return null;
-  }
+  return readIntent(PENDING_CLAIM_KEY);
 }
 
 export function clearPendingGuestClaim(): void {
-  try { localStorage.removeItem(PENDING_CLAIM_KEY); } catch { /* no-op */ }
-  try { sessionStorage.removeItem(PENDING_CLAIM_KEY); } catch { /* no-op */ }
+  forgetIntent(PENDING_CLAIM_KEY);
+}
+
+/** 공유 앨범 `담아두기` — 로그인 뒤 **이 링크로** 담는다 (K-15). */
+export function setPendingBookmark(shareToken: string): void {
+  rememberIntent(PENDING_BOOKMARK_KEY, shareToken);
+}
+
+export function readPendingBookmark(): string | null {
+  return readIntent(PENDING_BOOKMARK_KEY);
+}
+
+export function clearPendingBookmark(): void {
+  forgetIntent(PENDING_BOOKMARK_KEY);
 }

@@ -34,13 +34,16 @@ test("★ 담았는지는 앨범 응답 한 곳에서 읽는다 — 따로 베�
 });
 
 test("★ 담고 나면 앨범 값 자체를 고친다 — 다시 그려도 유지된다", () => {
-  const fn = view.slice(view.indexOf("const saveBookmark = async"), view.indexOf("const bookmarkCard"));
-  assert.match(fn, /await saveSharedAlbumBookmark\(token\);/);
+  // ★ K-15 에서 부르는 자리가 `runBookmark` 으로 나뉘었다 — 눌러서 담는 길과
+  //   로그인 뒤 저절로 담기는 길이 **같은 것**을 쓴다.
+  const fn = view.slice(view.indexOf("const runBookmark = async"), view.indexOf("const bookmarkCard"));
+  assert.match(fn, /runAfterLogin\(\(\) => saveSharedAlbumBookmark\(token\)\);/);
   assert.match(fn, /setAlbum\(\(current\) => \(current \? \{ \.\.\.current, viewer_bookmarked: true \} : current\)\);/);
-  // 이미 담긴 앨범에 다시 요청하지 않는다.
-  assert.match(fn, /if \(!album \|\| bookmarked\) return;/);
   // 로그인하지 않았으면 로그인부터다(담을 곳이 계정이기 때문이다 — §1).
-  assert.match(fn, /if \(!authenticatedUser\) \{ onLogin\?\.\(\); return; \}/);
+  // ★ K-15 에서 그 앞에 **하려던 일을 남기는** 한 줄이 붙었다 — 돌아와서 저절로 담긴다.
+  const press = view.slice(view.indexOf("const saveBookmark = async"), view.indexOf("로그인하고 돌아왔으면"));
+  assert.match(press, /setPendingBookmark\(token\);\s+onLogin\?\.\(\);/);
+  assert.match(press, /if \(!album \|\| bookmarked\) return;/);
 });
 
 test("★ 같은 자리가 담긴 상태로 바뀐다 (§1 25차)", () => {

@@ -39,8 +39,11 @@ export function albumTroubleCopy(trouble: AlbumViewTrouble, status: number | nul
 }
 
 /**
- * 게스트 앨범을 계정으로 가져오다 실패했을 때 — **말할 실패인가, 말없이 다시 할
- * 실패인가** (K-13 · SCREEN_SPEC §11 26차).
+ * 로그인 뒤에 이어서 하는 일이 실패했을 때 — **말할 실패인가, 말없이 다시 할
+ * 실패인가** (K-13 · K-15 · SCREEN_SPEC §11 26차).
+ *
+ * ★ 이 가름은 **게스트 저장(K-9)과 담아두기(K-15)가 함께 쓴다.** 두 벌 만들지 않는다 —
+ *   둘 다 "로그인 왕복 직후라 화면이 한 번 더 뜨는" 같은 자리에서 끊긴다.
  *
  * 실기기(2026-08-09 14:40, 노트20 · 카카오톡 웹뷰)에서 `저장할 수 없어요` 가 떴다가
  * 아무도 안 눌렀는데 사라졌다. 프로덕션 로그가 그 이유를 그대로 보여준다:
@@ -59,7 +62,7 @@ export function albumTroubleCopy(trouble: AlbumViewTrouble, status: number | nul
  *   · 끊김·서버 오류·세션이 아직 없음 → **말없이 다시 한다.** 아직 끝난 게 아니다.
  *   · 거절(403·404·410·400)          → **말한다.** 다시 해도 같은 답이 온다.
  */
-export function isRetryableClaimFailure(status: number | null | undefined): boolean {
+export function isRetryableFailure(status: number | null | undefined): boolean {
   // 상태가 없다 = 응답을 받지도 못했다(끊김·네트워크). 서버가 거절한 것이 아니다.
   if (typeof status !== "number") return true;
   // 401 은 세션이 아직 자리잡기 전이다 — 조금 뒤면 된다.
@@ -77,4 +80,54 @@ export function guestClaimTroubleMessage(status: number | null | undefined): str
   if (status === 410) return "임시 보관 기간이 지나서 저장하지 못했어요.";
   if (status === 404) return "저장할 앨범을 찾지 못했어요.";
   return "아직 저장하지 못했어요. 잠시 후 이 앨범을 다시 열면 이어서 저장할게요.";
+}
+
+/**
+ * 로그인 뒤에 이어서 할 일을 **말없이 다시 해본다** (K-13 · K-15).
+ *
+ * ★ 게스트 저장과 담아두기가 **이 하나를 같이 쓴다.** 다시 하는 횟수도, 사이를 두는
+ *   방식도, 언제 포기하는지도 한 곳에 있다 — 두 벌이면 한쪽만 고쳐진다.
+ *
+ * 성공하면 `{ ok: true }`. 거절이면 그 상태를 담아 돌려주고, 끝까지 끊기기만 했으면
+ * `status: null` 이다(부르는 쪽이 그때 무슨 말을 할지 고른다).
+ */
+export const AFTER_LOGIN_ATTEMPTS = 3;
+export const AFTER_LOGIN_RETRY_MS = 700;
+
+export type AfterLoginResult = { ok: true } | { ok: false; status: number | null };
+
+const sleep = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
+
+export async function runAfterLogin(
+  task: () => Promise<void>,
+  wait: (ms: number) => Promise<void> = sleep,
+): Promise<AfterLoginResult> {
+  for (let attempt = 1; attempt <= AFTER_LOGIN_ATTEMPTS; attempt += 1) {
+    try {
+      await task();
+      return { ok: true };
+    } catch (cause) {
+      const status = (cause as { status?: number } | null)?.status ?? null;
+      // 거절이면 다시 해도 같은 답이 온다 — 여기서 멈추고 부르는 쪽이 말한다.
+      if (!isRetryableFailure(status)) return { ok: false, status };
+      // 바로 몰아치면 같은 순간에 다 끊긴다. 조금씩 늦춰 가며 다시 한다.
+      if (attempt < AFTER_LOGIN_ATTEMPTS) await wait(AFTER_LOGIN_RETRY_MS * attempt);
+    }
+  }
+  return { ok: false, status: null };
+}
+
+/**
+ * 담아두기가 안 됐을 때 화면에 낼 말 (K-15 · §8).
+ * 문구를 고르는 자리는 여기 하나다 — 화면이 직접 쓰지 않는다.
+ */
+export function bookmarkTroubleMessage(status: number | null | undefined): string {
+  if (status === 404 || status === 410) return "링크가 지났거나 앨범이 지워져서 담아두지 못했어요.";
+  if (status === 403) return "이 앨범을 담아두지 못했어요.";
+  return "아직 담아두지 못했어요. 잠시 후 이 앨범을 다시 열면 이어서 담아둘게요.";
+}
+
+/** 담아둔 앨범을 목록에서 빼지 못했을 때 (K-16 · §11). 조용히 끝내지 않는다. */
+export function bookmarkRemoveTroubleMessage(): string {
+  return "목록에서 빼지 못했어요. 잠시 후 다시 시도해 주세요.";
 }

@@ -48,8 +48,10 @@ test("★ 담아둬도 쓰기 권한이 생기지 않는다", () => {
   const view = read("components/PublicShareView.tsx");
   // ★ K-12 에서 `toggleBookmark` 이 `saveBookmark` 이 됐다 — 이 화면에는 빼기가 없다
   //   (빼는 자리는 `내 앨범` 하나다, §1 25차). 규칙은 그대로다: 담기는 권한을 안 건드린다.
-  const save = view.slice(view.indexOf("const saveBookmark"), view.indexOf("const bookmarkCard"));
-  assert.match(save, /await saveSharedAlbumBookmark\(token\);/);
+  // ★ K-15 에서 부르는 자리가 `runBookmark` 으로 나뉘었다(로그인 뒤 저절로 담는 길과
+  //   눌러서 담는 길이 같은 것을 쓰게 하려고다). 규칙은 그대로다.
+  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const bookmarkCard"));
+  assert.match(save, /runAfterLogin\(\(\) => saveSharedAlbumBookmark\(token\)\);/);
   for (const forbidden of ["startPublicContribution", "canContribute =", "setContributionSession", "can_edit"]) {
     assert.equal(save.includes(forbidden), false, `담기가 권한을 건드린다: ${forbidden}`);
   }
@@ -91,7 +93,8 @@ test("구경꾼 안내 문구가 §1 그대로다 — 명령이 아니라 물음
 
 test("로그인해야 담아둘 수 있다 (어디에 담을지가 계정이다)", async () => {
   const view = read("components/PublicShareView.tsx");
-  assert.match(view, /if \(!authenticatedUser\) \{ onLogin\?\.\(\); return; \}/);
+  // ★ K-15 에서 로그인으로 보내기 전에 **하려던 일을 남긴다** — 돌아와서 저절로 담긴다.
+  assert.match(view, /if \(!authenticatedUser\) \{[\s\S]{0,500}setPendingBookmark\(token\);\s+onLogin\?\.\(\);/);
   // 서버도 로그인을 요구한다.
   const share = readFileSync(new URL("../../backend/app/api/share.py", import.meta.url), "utf8");
   const put = share.slice(share.indexOf('@router.put("/public/shares/{token}/bookmark"'), share.indexOf('@router.post("/public/shares/{token}/reactions"'));
@@ -129,8 +132,9 @@ test("담아둔 앨범이 아니면 지금 그대로 연다", () => {
 
 test("★ 담아두지 못하면 **말한다** (§11 — 무한 반복의 원인이었다)", () => {
   const view = read("components/PublicShareView.tsx");
-  const save = view.slice(view.indexOf("const saveBookmark"), view.indexOf("const bookmarkCard"));
+  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const bookmarkCard"));
   // 예전에는 상태만 되돌리고 아무 말도 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다.
-  assert.match(save, /setBookmarkError\(cause instanceof Error \? cause\.message :/);
+  // ★ K-15 에서 **언제** 말하는지가 갈렸다 — 끝난 뒤에만(pendingBookmarkAfterLogin.test.ts).
+  assert.match(save, /setBookmarkError\(bookmarkTroubleMessage\(result\.status\)\);/);
   assert.match(view, /className="notice notice--error album-guest-save__error" role="alert"/);
 });
