@@ -3,13 +3,24 @@ export type MeetingType = "family" | "friend" | "work" | "university";
 export type TemplateType = "A" | "B" | "C";
 export type AlbumTemplateType = "warm" | "joyful" | "special";
 
+/**
+ * 앨범을 만들 때 고르는 분류 — **다섯 개**다 (I-7).
+ *
+ * `반려동물`을 뺐다. 사람들은 반려동물을 가족으로 여긴다. 따로 두면 "우리 강아지는
+ * 가족이 아닌가" 하고 한 번 멈춘다.
+ * `여행`을 뺐다. 나머지는 **누구와** 만든 앨범인지인데 여행만 **무엇을** 했는지다.
+ * 기준이 섞여 있어 가족과 간 여행은 어디에 넣을지 알 수 없다.
+ *
+ * ★ **고르는 목록에서만 뺀다.** 이미 `pet` · `travel` 로 저장된 앨범은 그 사람의
+ *   앨범이다. 값도, 문체·표지 규칙도 그대로 남는다 — `AlbumCategory` 타입과
+ *   `CATEGORY_DEFAULT_TEMPLATE`, 백엔드의 `album_styles` · `story_service` 를
+ *   건드리지 않는다. 빼면 기존 앨범을 읽다 막힌다.
+ */
 export const ALBUM_CATEGORY_OPTIONS: Array<{ value: AlbumCategory; label: string }> = [
   { value: "family", label: "가족" },
   { value: "friend", label: "친구" },
   { value: "couple", label: "연인" },
   { value: "colleague", label: "동료" },
-  { value: "pet", label: "반려동물" },
-  { value: "travel", label: "여행" },
   { value: "other", label: "기타" },
 ];
 
