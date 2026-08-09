@@ -768,13 +768,29 @@ export async function getJoinPreview(token: string) {
   }>;
 }
 
+/**
+ * 초대 링크로 참여한다.
+ *
+ * ★ 로그인해 있으면 **그 사실을 함께 보낸다** (K-7 · §1). 서버는 이 요청에서
+ *   `optional_authenticated_user` 로 로그인 여부를 읽어 참여를 **계정에 붙인다**.
+ *   예전에는 맨 `fetch` 라 토큰이 안 갔고, 로그인한 사람도 게스트로 참여했다 —
+ *   그러면 `내 앨범`·`함께 만드는 앨범` 에서 자기가 참여한 앨범을 못 찾는다.
+ * ★ 로그인하지 않은 사람도 그대로 참여한다. 토큰이 없으면 안 보낼 뿐이다.
+ */
 export async function joinCollaboration(
   token: string,
   body: { display_name: string; relationship?: string | null; guest_id?: string | null },
 ) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  try {
+    const session = await getSession();
+    if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+  } catch {
+    // 로그인 상태를 못 읽어도 참여는 된다 — 게스트로 진행한다.
+  }
   const response = await fetch(`${API_BASE}/api/join/${encodeURIComponent(token)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error(await parseError(response));

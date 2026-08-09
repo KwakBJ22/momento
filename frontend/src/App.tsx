@@ -300,7 +300,7 @@ function App() {
       <main className="app__main">
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
-          : joinToken ? <JoinPage token={joinToken} />
+          : joinToken ? <JoinPage token={joinToken} user={user ?? null} authReady={authReady && user !== undefined} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
           : creatingAlbumId ? albumSurface(creatingAlbumId, <AlbumCreating albumId={creatingAlbumId} />)

@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { getJoinPreview, joinCollaboration, saveCollabSession } from "../lib/api";
-import { signIn } from "../services/authService";
+import { signIn, type AppUser } from "../services/authService";
 import { BRAND_NAME_KO_PARTS } from "../lib/brand";
 import LinkUnavailable from "./LinkUnavailable";
 import "./JoinPage.css";
 
 interface JoinPageProps {
   token: string;
+  /** 지금 로그인한 사람. 아직 확인 중이면 `undefined` 다(§1 — 판정은 App 한 곳). */
+  user?: AppUser | null;
+  /** 로그인 상태를 다 읽었는가. 읽기 전에는 카카오 버튼을 누를 수 없다. */
+  authReady?: boolean;
 }
 
 /**
@@ -20,7 +24,7 @@ interface JoinPageProps {
  * `album_contributors.relationship` 컬럼과 API 는 그대로 두고 화면에서만 뺐다
  * (§8 참여 정체성 띠는 관계가 비어 있는 갈래를 이미 갖고 있다).
  */
-export default function JoinPage({ token }: JoinPageProps) {
+export default function JoinPage({ token, user, authReady = true }: JoinPageProps) {
   const [preview, setPreview] = useState<{
     album_id: string;
     title: string;
@@ -33,6 +37,25 @@ export default function JoinPage({ token }: JoinPageProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 사용자가 이름을 직접 고쳤는가 — 고쳤으면 프로필 이름으로 덮지 않는다.
+  const [nameTouched, setNameTouched] = useState(false);
+  const signedIn = Boolean(user);
+
+  /**
+   * ★ 로그인하면 이 화면이 **따라간다** (K-7 · §11).
+   *
+   * 예전에는 이 화면이 로그인 상태를 아예 읽지 않았다. 카카오 왕복은 제대로 돌고
+   * 세션도 만들어졌는데(실측: `auth.users.last_sign_in_at` 이 그 시각으로 찍힌다),
+   * 돌아온 화면이 그대로라 **아무 일도 안 일어난 것처럼 보였다.**
+   *
+   * ★ 자동으로 참여시키지 않는다(§1 — 참여는 이름을 적고 시작하는 일이다).
+   *   이름만 채워 주고, 시작하는 것은 그 사람이 한다.
+   */
+  useEffect(() => {
+    if (!user || nameTouched) return;
+    const profileName = (user.displayName || "").trim();
+    if (profileName) setName((current) => current.trim() ? current : profileName);
+  }, [user, nameTouched]);
 
   useEffect(() => {
     let active = true;
@@ -129,7 +152,7 @@ export default function JoinPage({ token }: JoinPageProps) {
         value={name}
         maxLength={40}
         autoComplete="name"
-        onChange={(event) => setName(event.target.value)}
+        onChange={(event) => { setNameTouched(true); setName(event.target.value); }}
         placeholder="앨범에서 이 이름으로 불려요"
       />
 
@@ -139,16 +162,26 @@ export default function JoinPage({ token }: JoinPageProps) {
         {busy ? "참여 중…" : "앨범에 참여하기"}
       </button>
 
-      {/* 위계는 색이 아니라 순서·크기로 준다: 참여 버튼은 입력창에 붙고, 카카오는 구분선
-          뒤로 떨어지며 설명 두 줄을 먼저 읽게 한다(56 vs 52, 18/800 vs 17/600). */}
-      <div className="join-page__rule join-page__rule--section" aria-hidden="true" />
-      <p className="join-page__account-copy">
-        <span className="join-page__logo">
-          <b>{BRAND_NAME_KO_PARTS.lead}</b><i>{BRAND_NAME_KO_PARTS.tail}</i>
-        </span>
-        {" "}계정으로 함께하면<br />내가 올린 사진과 글을 언제든 다시 찾을 수 있어요.
-      </p>
-      <button type="button" className="join-page__kakao" onClick={() => void onKakao()}>카카오로 시작하기</button>
+      {/* ★ 이미 로그인한 사람에게는 이 구역을 통째로 보여주지 않는다(K-7).
+          할 일이 없는 버튼이 남아 있으면 눌러 보게 되고, 눌러도 아무 일이 없다.
+          위계는 색이 아니라 순서·크기로 준다: 참여 버튼은 입력창에 붙고, 카카오는
+          구분선 뒤로 떨어지며 설명 두 줄을 먼저 읽게 한다(56 vs 52, 18/800 vs 17/600). */}
+      {signedIn ? null : (
+        <>
+          <div className="join-page__rule join-page__rule--section" aria-hidden="true" />
+          <p className="join-page__account-copy">
+            <span className="join-page__logo">
+              <b>{BRAND_NAME_KO_PARTS.lead}</b><i>{BRAND_NAME_KO_PARTS.tail}</i>
+            </span>
+            {" "}계정으로 함께하면<br />내가 올린 사진과 글을 언제든 다시 찾을 수 있어요.
+          </p>
+          {/* ★ 로그인 상태를 다 읽기 전에는 누를 수 없다(§11). 눌러도 아무 일이 없는
+              것보다 **못 누르는 것이 낫다** — 왜 그런지 라벨이 말한다. */}
+          <button type="button" className="join-page__kakao" disabled={!authReady} onClick={() => void onKakao()}>
+            {authReady ? "카카오로 시작하기" : "잠시만 기다려 주세요"}
+          </button>
+        </>
+      )}
     </section>
   );
 }
