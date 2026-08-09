@@ -476,8 +476,13 @@ export default function AlbumRenderer({
               (BrandMark: 우리(진한 글자색) + 앨범(브랜드색)). 없는 것을 약속하지 않는다(§10). */}
           <section className="album-renderer__brand-page">
             <BrandMark label={BRAND_NAME_KO} />
-            <p>{BRAND_PDF_FOOTER}</p>
-            <p>{BRAND_PDF_INVITE}</p>
+            {/* ★ 두 줄을 한 상자에 묶는다(I-4-6). 따로 두면 줄마다 가운데를 맞추느라
+                시작 위치가 어긋나, 실물에서 둘째 줄 앞에 공백이 하나 있는 것처럼
+                보였다(실측 0.74mm 차이 — 글자 하나 폭이다). */}
+            <div className="album-renderer__brand-lines">
+              <p>{BRAND_PDF_FOOTER}</p>
+              <p>{BRAND_PDF_INVITE}</p>
+            </div>
           </section>
         </div>
         </DateStoryEditProvider>
