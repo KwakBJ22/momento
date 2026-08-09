@@ -38,6 +38,50 @@ def check_storage(client: Any, settings: Settings) -> dict[str, Any]:
     return {"status": "ok", "buckets": checks}
 
 
+def count_orphan_files(client: Any, settings: Settings, *, limit: int = 5000) -> dict[str, Any]:
+    """저장소에는 있는데 DB 가 모르는 파일이 **몇 개인지 센다** (K-3).
+
+    ★ **지우지 않는다. 세기만 한다.** 조건이 틀리면 지우고 나서 안다(§9) — 사진은
+      되살릴 수 없다. 며칠 숫자를 보고 나서 삭제를 켜는 것이 순서다.
+
+    ★ **저장소와 DB 를 한 트랜잭션으로 묶을 수 없다.** Storage 는 별도 서비스라
+      Postgres 트랜잭션 밖에 있다. 그래서 묶으려 하지 않고 **"지우고 남으면 나중에
+      줍는다"** 로 간다. 이 함수가 그 "나중에" 의 첫 단계다.
+
+    ``check_integrity`` 와 방향이 반대다 — 그쪽은 DB 가 가리키는데 파일이 없는 것을
+    찾고, 이쪽은 파일이 있는데 가리키는 DB 행이 없는 것을 찾는다.
+    """
+    storage = StorageService.for_supabase(client, settings)
+    bucket = settings.supabase_private_storage_bucket
+    stored = {
+        str(item.get("path") or "").strip("/")
+        for item in storage.list_recursive(bucket, "albums")
+    }
+    stored.discard("")
+    known: set[str] = set()
+    rows = client.table("album_photos").select("storage_path,thumbnail_path,display_path").limit(limit).execute().data or []
+    for row in rows:
+        for key in ("storage_path", "thumbnail_path", "display_path"):
+            value = str(row.get(key) or "").strip("/")
+            if value:
+                known.add(value)
+    # 앨범 자체가 들고 있는 결과물(PDF 등)도 DB 가 아는 파일이다.
+    for album in client.table("albums").select("result_path").limit(limit).execute().data or []:
+        value = str(album.get("result_path") or "").strip("/")
+        if value:
+            known.add(value)
+    orphans = sorted(stored - known)
+    return {
+        "status": "ok",
+        "bucket": bucket,
+        "stored_count": len(stored),
+        "known_count": len(known),
+        "orphan_count": len(orphans),
+        # 지우지 않으므로 목록은 눈으로 볼 만큼만 낸다.
+        "orphan_sample": orphans[:20],
+    }
+
+
 def check_integrity(client: Any, settings: Settings, *, album_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Compare active album DB references with storage objects without mutation."""
     storage = StorageService.for_supabase(client, settings)

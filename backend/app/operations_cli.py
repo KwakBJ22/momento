@@ -3,6 +3,7 @@
 Examples:
   python -m app.operations_cli check_storage
   python -m app.operations_cli check_integrity --limit 20
+  python -m app.operations_cli count_orphans
   python -m app.operations_cli cleanup_temp --album-id <id> --execute
 """
 from __future__ import annotations
@@ -15,13 +16,13 @@ from typing import Any
 
 from app.config import get_settings
 from app.services.operations import operation_context
-from app.services.operations_service import check_integrity, check_storage, cleanup_storage, cleanup_temp
+from app.services.operations_service import check_integrity, check_storage, cleanup_storage, cleanup_temp, count_orphan_files
 from app.services.supabase import get_supabase_client
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="우리앨범 operational maintenance")
-    parser.add_argument("command", choices=("check_storage", "cleanup_storage", "cleanup_temp", "check_integrity", "scheduled_cleanup"))
+    parser.add_argument("command", choices=("check_storage", "cleanup_storage", "cleanup_temp", "check_integrity", "count_orphans", "scheduled_cleanup"))
     parser.add_argument("--album-id")
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--execute", action="store_true", help="Perform deletion. Omit for dry-run output.")
@@ -38,6 +39,9 @@ def run_command(args: argparse.Namespace, *, client: Any | None = None) -> tuple
     with operation_context(f"maintenance.{args.command}"):
         if args.command == "check_storage":
             report = check_storage(client, settings)
+        elif args.command == "count_orphans":
+            # ★ 세기만 한다. 지우는 갈래를 만들지 않는다(K-3) — 며칠 숫자를 보고 켠다.
+            report = count_orphan_files(client, settings, limit=max(args.limit, 1000))
         elif args.command == "check_integrity":
             report = check_integrity(client, settings, album_id=args.album_id, limit=args.limit)
         elif args.command == "cleanup_temp":

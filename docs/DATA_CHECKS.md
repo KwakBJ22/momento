@@ -178,6 +178,36 @@ order by u.created_at;
 
 ---
 
+## 7. 저장소 — DB 가 모르는 파일이 남아 있는지 (K-3)
+
+```sql
+-- storage.objects 에는 있는데 album_photos·albums 가 가리키지 않는 파일.
+with stored as (
+  select name as path
+  from storage.objects
+  where bucket_id = 'woorialbum-private' and name like 'albums/%'
+),
+known as (
+  select storage_path as path from public.album_photos where storage_path is not null
+  union select thumbnail_path from public.album_photos where thumbnail_path is not null
+  union select display_path   from public.album_photos where display_path is not null
+  union select result_path    from public.albums       where result_path is not null
+)
+select count(*) as orphan_count from stored
+where path not in (select path from known);
+```
+
+> ★ **저장소와 DB 는 한 트랜잭션으로 묶을 수 없다.** Storage 는 별도 서비스라 Postgres
+> 트랜잭션 밖에 있다. 묶으려 하지 말고 **"지우고 남으면 나중에 줍는다"** 로 간다.
+>
+> ★ **처음에는 지우지 않는다. 세기만 한다.** 조건이 틀리면 **지우고 나서** 안다 —
+> 사진은 되살릴 수 없다(§9). 며칠 숫자를 보고 나서 삭제를 켠다.
+>
+> 같은 것을 명령으로도 셀 수 있다 — `python -m app.operations_cli count_orphans`.
+> 2026-08-10 실측: 저장된 파일 46개 중 **고아 30개** (그날 지운 게스트 앨범 3건의 파일).
+
+---
+
 ## 쓰는 법
 
 1. Supabase SQL Editor에 붙여넣어 순서대로 돌린다.

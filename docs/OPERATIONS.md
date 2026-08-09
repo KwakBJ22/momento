@@ -50,6 +50,7 @@ Railway shell 또는 백엔드 작업 디렉터리(`backend`)에서 실행한다
 python -m app.operations_cli check_storage
 python -m app.operations_cli check_integrity --limit 100
 python -m app.operations_cli check_integrity --album-id <album-id>
+python -m app.operations_cli count_orphans
 python -m app.operations_cli cleanup_temp --album-id <album-id>
 python -m app.operations_cli cleanup_storage --album-id <album-id>
 ```
@@ -64,6 +65,15 @@ python -m app.operations_cli cleanup_storage --album-id <album-id> --execute
 - `check_storage`: 현재 private 및 legacy bucket의 읽기 접근을 확인한다.
 - `check_integrity`: DB가 참조하는 사진/미디어/결과/PDF path가 실제 Storage에
   존재하는지 확인한다. DB나 Storage를 바꾸지 않는다.
+- `count_orphans` (K-3): 저장소에는 있는데 **DB 가 가리키지 않는** 파일이 몇 개인지 센다.
+  `check_integrity` 와 방향이 반대다 — 그쪽은 DB 가 가리키는데 파일이 없는 것을 찾는다.
+  - ★ **지우지 않는다. 세기만 한다.** 조건이 틀리면 지우고 나서 안다(§9). 사진은 되살릴
+    수 없다. **며칠 숫자를 보고 나서** 삭제를 켠다.
+  - ★ 저장소와 DB 를 한 트랜잭션으로 묶을 수 없다(Storage 는 별도 서비스다). 묶으려 하지
+    말고 **"지우고 남으면 나중에 줍는다"** 로 간다. 이 명령이 그 "나중에" 의 첫 단계다.
+  - API 를 타지 않는 삭제(주인 없는 게스트 앨범 정리 등)는 파일을 남긴다. 그것이 여기 잡힌다.
+  - 2026-08-10 실측: 저장된 파일 46개 중 **고아 30개** (그날 지운 게스트 앨범 3건의 파일).
+  - 같은 것을 SQL 로도 셀 수 있다 — `docs/DATA_CHECKS.md` §7.
 - `cleanup_temp`: `albums/{albumId}/temp/` 아래 **24시간이 지난** 임시 파일 후보를 정리한다.
 - `cleanup_storage`: canonical `albums/{albumId}/` 아래 DB에서 참조하지 않는
   **비임시** 파일 후보를 정리한다. 생성 후 24시간이 지나지 않은 앨범과 오래된 legacy
