@@ -27,14 +27,13 @@ function rule(selector: string): string {
   return printCss.slice(start + selector.length + 2, printCss.indexOf("}", start));
 }
 
-test("★ 칸은 남는 높이를 나눠 갖되, 사진과 캡션은 붙어 있다", () => {
+test("★ 프레임은 사진 크기다 — 칸 높이를 따라가지 않는다 (I-4c 에서 다시 뒤집혔다)", () => {
   const grid = rule(".album-renderer--print .print-page__photos");
-  // I-4b-4 에서 뒤집혔다: 같은 줄의 프레임은 아래끝을 맞춘다(stretch). 인쇄는 정돈이다(§9).
-  // 4-4 가 고치려던 것은 **프레임이 늘어나는 것**이 아니라 사진과 캡션이 벌어지는 것이었고,
-  // 그것은 프레임 안에서 위에서부터 쌓는 것으로 지킨다(아래 테스트).
-  assert.match(grid, /align-items: stretch/);
-  assert.match(grid, /justify-items: stretch/);
-  // 사진 묶음 자체는 늘어나지 않는다 — 남는 높이는 쪽이 위아래로 나눈다(I-4b-3).
+  // 4b-4 는 "아래끝을 맞춘다"(stretch)였는데 4c 에서 철회됐다 — 늘리면 빈 액자가 되고,
+  // 칸이 사진보다 작으면 사진이 프레임을 뚫고 나온다.
+  assert.match(grid, /align-items: start/);
+  assert.match(grid, /grid-auto-rows: auto/);
+  // 사진 묶음 자체도 늘어나지 않는다.
   assert.match(grid, /flex: 0 1 auto/);
 });
 
@@ -63,21 +62,23 @@ test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율
   }
 });
 
-test("★ 날짜 이야기가 같은 쪽에 남는 경우(1·2장)에는 상한이 더 낮다", () => {
-  // 3장부터는 이야기가 다음 쪽으로 넘어가므로(I-4b-5) 낮은 상한 자체가 없다.
-  for (const count of [1, 2, 4]) {
+test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (1·2장 — 이야기는 늘 사진과 같은 쪽이다)", () => {
+  // 4c-3 뒤로 이야기가 붙는 쪽은 사진 2장 이하다(그보다 많으면 사진을 나눈다).
+  for (const count of [1, 2]) {
     const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     assert.ok(withStory && plain, `${count}장: 두 벌이 다 있어야 한다`);
     assert.ok(Number(withStory[1]) < Number(plain[1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
   }
-  // 그 표시는 이야기가 **그 쪽에 실제로 남는** 경우에만 달린다.
-  assert.match(printPages, /data-has-story=\{[^}]*!storyGoesToOwnPage\(photos\.length\)[^}]*\}/);
+  // 3·4장 쪽에는 이야기가 붙지 않으므로 낮은 상한이 없다.
+  for (const count of [3, 4]) {
+    assert.equal(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\]`).test(printCss), false, `${count}장에 이야기용 상한이 남아 있다`);
+  }
 });
 
 test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", () => {
   assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 4;/);
-  assert.match(printPages, /chunk\(chapter\.photos, PRINT_PHOTOS_PER_PAGE\)/);
+  assert.match(printPages, /chunk\(photos, PRINT_PHOTOS_PER_PAGE\)/);
 });
 
 test("화면은 건드리지 않았다 — 이 파일의 모든 규칙이 인쇄 아래에 있다", () => {

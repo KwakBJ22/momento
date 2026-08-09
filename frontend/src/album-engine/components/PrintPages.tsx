@@ -32,21 +32,33 @@ export const PRINT_PHOTOS_PER_PAGE = 4;
 /** ★ 사진의 짧은 변은 이보다 작아지지 않는다 (I-4b-5). 38mm 는 엄지손톱만 하다. */
 export const PRINT_MIN_PHOTO_SHORT_SIDE_MM = 60;
 
-/**
- * 날짜 이야기를 **다음 쪽으로 넘길지** (I-4b-5).
- *
- * 사진과 이야기가 한 쪽에 같이 들어가면 사진 자리가 그만큼 줄어든다. 3장부터는
- * 그 줄어든 자리에서 짧은 변 60mm 를 지킬 수 없다 — 그때는 **사진을 줄이지 않고
- * 이야기를 넘긴다.** 사진이 가장 중요하다(§6).
- */
-export function storyGoesToOwnPage(photoCount: number): boolean {
-  return photoCount >= 3;
-}
+/** 날짜 이야기가 함께 들어가는 쪽에 담는 사진 수 상한 (I-4c-3). */
+export const STORY_PAGE_MAX_PHOTOS = 2;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const pages: T[][] = [];
   for (let index = 0; index < items.length; index += size) pages.push(items.slice(index, index + size));
   return pages;
+}
+
+/**
+ * 그 날의 사진을 쪽으로 나눈다 (I-4c-3).
+ *
+ * ★ **글만 있는 쪽을 만들지 않는다.** 날짜 이야기는 그 날의 **마지막 사진과 같은
+ * 쪽**에 둔다. 자리가 모자라면 이야기를 넘기지 말고 **사진을 나눈다.**
+ *
+ *   4장 + 이야기  →  2장 / 2장 + 이야기
+ *   3장 + 이야기  →  2장 / 1장 + 이야기
+ *
+ * 예전에는 이야기를 다음 쪽으로 넘겼는데(4b-5), 글 세 줄만 있는 쪽이 생겨 더 나빴다.
+ */
+export function paginateChapterPhotos<T>(photos: T[], hasStory: boolean): T[][] {
+  const pages = chunk(photos, PRINT_PHOTOS_PER_PAGE);
+  if (!hasStory || !pages.length) return pages;
+  const last = pages[pages.length - 1];
+  if (last.length <= STORY_PAGE_MAX_PHOTOS) return pages;
+  // 마지막 쪽을 둘로 나눈다 — 앞 쪽에 2장, 이야기가 붙는 쪽에 나머지.
+  return [...pages.slice(0, -1), last.slice(0, STORY_PAGE_MAX_PHOTOS), last.slice(STORY_PAGE_MAX_PHOTOS)];
 }
 
 function PhotoFrame({ photo }: { photo: EnginePhoto }) {
@@ -89,7 +101,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
   return (
     <>
       {album.chapters.map((chapter, chapterIndex) => {
-        const pages = chunk(chapter.photos, PRINT_PHOTOS_PER_PAGE);
+        const pages = paginateChapterPhotos(chapter.photos, Boolean(chapter.storyBody));
         const storyTitle = chapter.dateRangeLabel ? `${chapter.dateRangeLabel}의 이야기` : "그날의 이야기";
         return (
           <Fragment key={`print-chapter-${chapter.date ?? chapterIndex}`}>
@@ -99,7 +111,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 data-print-page=""
                 data-photo-count={photos.length}
                 /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
-                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody && !storyGoesToOwnPage(photos.length) ? "" : undefined}
+                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}
               >
                 {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9). */}
@@ -122,17 +134,11 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 </div>
                 {/* 날짜 이야기는 그 날 마지막 장에 붙는다 — 다만 사진이 많은 쪽에서는
                     사진이 60mm 아래로 작아지므로 다음 쪽으로 넘긴다(I-4b-5). */}
-                {pageIndex === pages.length - 1 && chapter.storyBody && !storyGoesToOwnPage(photos.length) ? (
+                {pageIndex === pages.length - 1 && chapter.storyBody ? (
                   <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
                 ) : null}
               </section>
             ))}
-            {/* 넘어온 날짜 이야기는 자기 쪽 하나를 갖는다. */}
-            {chapter.storyBody && storyGoesToOwnPage(pages[pages.length - 1]?.length ?? 0) ? (
-              <section className="print-page print-page--story" data-print-page="" data-photo-count="0">
-                <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
-              </section>
-            ) : null}
           </Fragment>
         );
       })}
