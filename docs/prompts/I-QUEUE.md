@@ -682,7 +682,7 @@ components/photoCaptionSegments.ts:22 add(photo.comment, photo.authorLabel);
 
 ---
 
-## I-7. 앨범 만들 때 고르는 분류를 다섯 개로
+## I-7. 앨범 만들 때 고르는 분류를 다섯 개로 [완료 27abd49]
 
 지금 일곱 개다 — `가족 · 친구 · 연인 · 동료 · 반려동물 · 여행 · 기타`.
 
