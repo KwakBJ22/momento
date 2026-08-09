@@ -92,7 +92,8 @@
    기존 시트 틀(album-inline-action)을 그대로 쓰고 본문만 정의한다. */
 .album-confirm-sheet { z-index: 90; }
 .album-confirm-sheet__body { display: grid; gap: 14px; padding: 16px; }
-.album-confirm-sheet__text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; }
+/* 두 문단이 될 수 있다(J-9 — 링크도 함께 사라진다는 한 줄). 줄바꿈이 그대로 보여야 한다. */
+.album-confirm-sheet__text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; white-space: pre-line; }
 .album-confirm-sheet__actions { display: grid; gap: 8px; }
 .album-confirm-sheet__confirm, .album-confirm-sheet__cancel { min-height: 52px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: var(--t-sm); font-weight: 700; cursor: pointer; }
 /* 되돌릴 수 없는 것은 빨간 "글자"만 — 배경을 채우지 않는다(§5). */

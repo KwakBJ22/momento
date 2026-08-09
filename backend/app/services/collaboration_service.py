@@ -14,6 +14,7 @@ from supabase import Client
 
 from app.models.album_photo_status import is_deleted_album_photo, is_ready_album_photo, ready_album_photo_query
 from app.models.schemas import DEFAULT_ALBUM_PHOTO_CAPACITY
+from app.services.link_trouble import classify_invite_trouble, link_trouble_message
 from app.services.share_service import create_token, hash_token
 from app.services.supabase import soft_delete_album_photo_with_references
 
@@ -189,20 +190,40 @@ def get_active_invite_by_token(client: Client, token: str) -> dict[str, Any] | N
     return invite
 
 
+def find_invite_by_token(client: Client, token: str) -> dict[str, Any] | None:
+    """토큰으로 초대 행을 찾는다 — **거르지 않고** 있는 그대로.
+
+    ★ `is_active` 로 걸러서 가져오면 *없는 것*과 *꺼진 것*이 같아져 왜 안 열리는지
+    가를 수 없다(J-9). 판정은 `link_trouble.classify_invite_trouble` 한 곳에서 한다.
+    """
+    result = (
+        client.table("album_invites")
+        .select("*")
+        .eq("token_hash", hash_token(token))
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    return rows[0] if rows else None
+
+
 def get_album_for_invite(client: Client, token: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    invite = get_active_invite_by_token(client, token)
-    if not invite:
-        raise HTTPException(status_code=404, detail="초대 링크를 찾을 수 없거나 만료되었습니다.")
-    album = client.table("albums").select("*").eq("id", invite["album_id"]).limit(1).execute()
-    rows = album.data or []
-    if not rows:
-        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    record = rows[0]
-    if not record.get("collaboration_enabled"):
-        raise HTTPException(status_code=403, detail="함께 만들기가 비활성화된 앨범입니다.")
-    status = record.get("collaboration_status") or "draft"
-    if status in {"closed"}:
-        raise HTTPException(status_code=403, detail="함께 만들기가 종료된 앨범입니다.")
+    """초대 링크로 앨범을 연다. 못 열면 **왜 못 여는지** 사용자 말로 알린다(J-9).
+
+    예전에는 없음·만료·무효화가 전부 `"찾을 수 없거나 만료되었습니다"` 한 문장이었다.
+    받는 사람은 자기 잘못인지 링크가 낡은 건지 알 수 없었다.
+    """
+    invite = find_invite_by_token(client, token)
+    record: dict[str, Any] | None = None
+    if invite:
+        album = client.table("albums").select("*").eq("id", invite["album_id"]).limit(1).execute()
+        rows = album.data or []
+        record = rows[0] if rows else None
+    trouble = classify_invite_trouble(invite, record)
+    if trouble or record is None:
+        # 여는 데 실패한 이유는 넷 다 "볼 수 없다" 이므로 상태 코드는 하나로 둔다 —
+        # 화면은 코드가 아니라 이 문구로 무엇을 보여줄지 정한다.
+        raise HTTPException(status_code=404, detail=link_trouble_message(trouble or "gone", "invite"))
     return record, invite
 
 

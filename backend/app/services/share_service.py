@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
+
+from app.services.link_trouble import classify_share_trouble, link_trouble_message
 from supabase import Client
 
 from app.services.analytics_service import insert_analytics_event
@@ -35,11 +37,33 @@ def _active_share(client: Client, token: str) -> dict[str, Any] | None:
     return share
 
 
+def find_share_by_token(client: Client, token: str) -> dict[str, Any] | None:
+    """토큰으로 공유 링크 행을 찾는다 — **거르지 않고** 있는 그대로 (J-9).
+
+    걸러서 가져오면 *없는 것*과 *꺼진 것*이 같아져 왜 안 열리는지 가를 수 없다.
+    """
+    result = client.table("share_links").select("*").eq("token_hash", hash_token(token)).limit(1).execute()
+    rows = result.data or []
+    return rows[0] if rows else None
+
+
 def get_active_share(client: Client, token: str) -> dict[str, Any]:
-    share = _active_share(client, token)
-    if not share:
-        raise HTTPException(status_code=404, detail="공유 링크를 찾을 수 없거나 만료되었습니다.")
+    """구경용 링크를 연다. 못 열면 **왜 못 여는지** 사용자 말로 알린다(J-9)."""
+    share = find_share_by_token(client, token)
+    trouble = classify_share_trouble(share)
+    if trouble or share is None:
+        # 기간이 지난 링크는 그 사실을 행에도 적어 둔다(예전 동작 그대로).
+        if share and trouble == "expired" and share.get("status") == "active":
+            client.table("share_links").update({"status": "expired"}).eq("id", share["id"]).execute()
+        raise HTTPException(status_code=404, detail=link_trouble_message(trouble or "gone", "share"))
     return share
+
+
+def _is_expired(value: Any) -> bool:
+    if not value:
+        return False
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00")) <= datetime.now(timezone.utc)
+
 
 
 # 공유 링크 종류(SCREEN_SPEC §1 "링크 두 종류"). DB 기본값은 'contribute' 이고,

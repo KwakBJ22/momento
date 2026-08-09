@@ -4,6 +4,7 @@ import { authDebug } from "../lib/authDebug";
 import type { AppUser } from "../services/authService";
 import type { PublicShareAlbum } from "../types";
 import AlbumView from "./AlbumView";
+import LinkUnavailable from "./LinkUnavailable";
 import type { ReactNode } from "react";
 import PublicShareView from "./PublicShareView";
 
@@ -97,7 +98,10 @@ export default function ShareEntryRouter({ token, user, authReady, authError = n
   // owner screen visible for the effect that resolves the Guest path.
   if (state.kind === "owner" && !user) return <p className="notice notice--progress auth-panel__notice" role="status">앨범을 여는 중이에요.</p>;
   if (state.kind === "loading") return <p className="notice notice--progress auth-panel__notice" role="status">앨범을 여는 중이에요.</p>;
-  if (state.kind === "error") return <div className="album-result"><h2 className="album-result__title">앨범을 열지 못했어요.</h2><p>{state.message}</p></div>;
+  // ★ 링크가 안 열리는 것은 오류가 아니라 안내다(J-9). `앨범을 열지 못했어요` 라는
+  // 제목은 우리가 못 했다는 말이고, 그 아래 사정이 따로 붙어 두 번 말하게 된다.
+  // 서버가 준 두 줄만 그대로 보여주고 다음에 할 일을 붙인다.
+  if (state.kind === "error") return <LinkUnavailable message={state.message} />;
   if (state.kind === "owner") return <AlbumView albumId={state.albumId} />;
   return <PublicShareView token={token} initialAlbum={state.album} authenticatedUser={user ?? null} onLogin={onLogin} accountSheet={accountSheet} onLogout={onLogout} onWithdraw={onWithdraw} />;
 }

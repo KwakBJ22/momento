@@ -1,0 +1,32 @@
+/* 열리지 않는 링크 화면 (J-9). 오류가 아니라 안내다 — 껍데기는 styles/notice.css 의
+   `--info` 를 쓰고 여기서는 자리만 준다(배경·테두리를 새로 만들지 않는다). */
+
+.link-unavailable {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 32px 0;
+}
+
+/* 두 줄이다. 첫 줄이 사실, 둘째 줄이 할 수 있는 일 — 줄바꿈이 그대로 보여야 한다. */
+.link-unavailable__message {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* ★ 막다른 골목을 만들지 않는다. 어느 경우에도 다음에 할 일이 있다. */
+.link-unavailable__action {
+  display: inline-grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 12px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  text-decoration: none;
+}

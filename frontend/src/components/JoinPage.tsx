@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getJoinPreview, joinCollaboration, saveCollabSession } from "../lib/api";
 import { signIn } from "../services/authService";
 import { BRAND_NAME_KO_PARTS } from "../lib/brand";
+import LinkUnavailable from "./LinkUnavailable";
 import "./JoinPage.css";
 
 interface JoinPageProps {
@@ -85,8 +86,11 @@ export default function JoinPage({ token }: JoinPageProps) {
     }
   };
 
+  // ★ 초대장을 아직 한 번도 못 연 상태의 실패는 **링크가 안 열리는 것**이다(J-9).
+  // 오류 화면이 아니라 안내 화면이고, 다음에 할 일이 함께 있다.
+  // 문구는 서버가 준다 — 왜 안 열리는지는 서버만 안다.
   if (error && !preview) {
-    return <section className="join-page"><p className="notice notice--error join-page__error" role="alert">{error}</p></section>;
+    return <section className="join-page"><LinkUnavailable message={error} /></section>;
   }
 
   if (!preview) {

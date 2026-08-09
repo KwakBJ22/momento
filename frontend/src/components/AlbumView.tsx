@@ -47,6 +47,18 @@ interface AlbumViewProps {
   onWithdraw?: () => void;
 
 }
+/**
+ * 앨범을 지우기 전 확인 문구 (§5).
+ *
+ * ★ 둘째 줄은 J-9 에서 더했다 — **이미 보낸 링크도 함께 사라진다.**
+ *   카카오톡 메시지는 지울 수 없으므로 **지우기 전에 아는 것**이 유일한 방법이다.
+ *   지우는 동작 자체는 바꾸지 않는다. 한 줄 알려줄 뿐이다.
+ */
+export const DELETE_ALBUM_WARNING = [
+  "지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요. 함께 만든 사람들이 남긴 것도 함께 사라져요.",
+  "이미 보낸 링크도 함께 사라져요. 받은 분들은 더 이상 앨범을 볼 수 없어요.",
+].join("\n");
+
 export default function AlbumView({ albumId, guestOwner = false, onGuestSave, accountSheet, onLogout, onWithdraw }: AlbumViewProps) {
 
   const editionValue = new URLSearchParams(window.location.search).get("edition");
@@ -595,7 +607,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       {deleteConfirmOpen ? (
         <ConfirmSheet
           title="이 앨범을 지울까요?"
-          description="지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요. 함께 만든 사람들이 남긴 것도 함께 사라져요."
+          description={DELETE_ALBUM_WARNING}
           confirmLabel="앨범 지우기"
           danger
           busy={isDeleting}
