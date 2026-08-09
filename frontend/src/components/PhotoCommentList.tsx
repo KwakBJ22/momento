@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { PhotoItem } from "../types";
 import "./PhotoCommentList.css";
 
@@ -5,13 +7,18 @@ interface PhotoCommentListProps {
   photos: PhotoItem[];
   onCommentChange: (id: string, comment: string) => void;
   onRemove: (id: string) => void;
+  /** 미리보기 주소가 죽었다 — 부모가 그 사진 것만 한 번 다시 만든다(K-10). */
+  onPreviewBroken: (id: string) => void;
   coverPhotoId: string | null;
   onCoverChange: (id: string) => void;
 }
 
 const COMMENT_PLACEHOLDER = "한 줄 남겨보세요...";
 
-export default function PhotoCommentList({ photos, onCommentChange, onRemove, coverPhotoId, onCoverChange }: PhotoCommentListProps) {
+export default function PhotoCommentList({ photos, onCommentChange, onRemove, onPreviewBroken, coverPhotoId, onCoverChange }: PhotoCommentListProps) {
+  // 다시 만들어도 안 뜬 사진들. 여기 담기면 회색 자리를 둔다(K-10).
+  const [brokenIds, setBrokenIds] = useState<string[]>([]);
+
   if (!photos.length) return null;
 
   return (
@@ -28,13 +35,26 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
         {photos.map((photo, index) => (
           <li key={photo.id} className="photo-comments__item">
             <div className="photo-comments__image-wrap">
-              <img
-                src={photo.previewUrl}
-                alt={`선택한 사진 ${index + 1}`}
-                className="photo-comments__image"
-                loading="lazy"
-                decoding="async"
-              />
+              {/* ★ 주소가 죽으면 **회색 자리**를 둔다(K-10 · §8). 예전에는 `alt` 이 그대로
+                  드러나 `선택한 사진 1` 이라는 개발용 문구가 화면에 보였다.
+                  `alt=""` 인 것은 이 그림이 장식이라서가 아니라, 바로 옆의 삭제·대표사진
+                  버튼이 이미 `사진 N` 이라고 말하기 때문이다 — 읽는 사람에게 같은 말이
+                  두 번 가지 않는다. */}
+              {brokenIds.includes(photo.id) ? (
+                <div className="photo-comments__image photo-comments__image--blank" />
+              ) : (
+                <img
+                  src={photo.previewUrl}
+                  alt=""
+                  className="photo-comments__image"
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => {
+                    if (photo.previewRetried) setBrokenIds((current) => (current.includes(photo.id) ? current : [...current, photo.id]));
+                    else onPreviewBroken(photo.id);
+                  }}
+                />
+              )}
               <button
                 type="button"
                 className="photo-comments__remove"

@@ -331,7 +331,12 @@ export interface AlbumOwnershipFields {
 export interface PhotoItem {
   id: string;
   file: File;
+  /** 이 사진의 미리보기 주소. **사진 한 장에 하나**다 — 다시 그릴 때 새로 만들지 않는다(K-10). */
   previewUrl: string;
+  /** `previewUrl` 을 만든 원본 덩어리. 주소가 죽었을 때 **한 번만** 다시 만드는 데 쓴다(K-10). */
+  previewSource: Blob;
+  /** 이미 한 번 다시 만들었는가. 두 번째로 깨지면 회색 자리를 둔다(K-10). */
+  previewRetried?: boolean;
   story: string;
   capturedAt: string | null;
 }

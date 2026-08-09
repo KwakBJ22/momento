@@ -31,6 +31,12 @@
   object-fit: cover;
 }
 
+/* 미리보기 주소가 죽었을 때 두는 회색 자리 (K-10).
+   깨진 그림 아이콘도 대체 문구도 보이지 않는다 — 사진은 그대로 올라간다. */
+.photo-comments__image--blank {
+  background: var(--c-border);
+}
+
 .photo-comments__remove {
   position: absolute;
   top: 0.65rem;

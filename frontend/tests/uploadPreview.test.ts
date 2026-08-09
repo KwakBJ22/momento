@@ -101,7 +101,10 @@ const photoList = readFileSync(new URL("../src/components/PhotoCommentList.tsx",
 
 test("UploadForm builds previewUrl from previewBlob, falling back to the upload file", () => {
   assert.match(uploadForm, /prepareUploadAndPreview\(file\)/);
-  assert.match(uploadForm, /createObjectURL\(previewBlob \?\? file\)/);
+  // ★ K-10 에서 한 단계 늘었다 — 만든 덩어리를 `previewSource` 로 함께 들고 있는다.
+  //   깨진 주소를 파일을 다시 읽지 않고 한 번 되살리려는 것이다. 고르는 규칙은 그대로다.
+  assert.match(uploadForm, /const previewSource = previewBlob \?\? file;/);
+  assert.match(uploadForm, /previewUrl: URL\.createObjectURL\(previewSource\), previewSource,/);
   assert.match(uploadForm, /createPhotoItem\(prepared, previewBlob, capturedAt\)/);
 });
 

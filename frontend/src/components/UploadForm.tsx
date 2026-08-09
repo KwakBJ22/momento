@@ -37,7 +37,9 @@ const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
 function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null): PhotoItem {
   // Prefer the small 800px preview; fall back to the upload file when it is null
   // (GIF / HEIC / decode failure), preserving the current behavior.
-  return { id: createId(), file, previewUrl: URL.createObjectURL(previewBlob ?? file), story: "", capturedAt };
+  const previewSource = previewBlob ?? file;
+  // ★ 덩어리를 함께 들고 있는다 — 주소가 죽었을 때 파일을 다시 읽지 않고 되살리려고다(K-10).
+  return { id: createId(), file, previewUrl: URL.createObjectURL(previewSource), previewSource, story: "", capturedAt };
 }
 
 export default function UploadForm({ category, photosNeedReselect = false, onSuccess }: UploadFormProps) {
@@ -205,6 +207,24 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
     });
   };
 
+  /**
+   * 미리보기 주소가 죽었을 때 **그 사진 것만** 한 번 다시 만든다 (K-10).
+   *
+   * 실기기에서 3장을 고르면 앞쪽 미리보기가 빈 분홍 박스가 됐다(노트20 · 카카오톡 웹뷰).
+   * 파일 자체는 멀쩡하다 — 그대로 만든 앨범에는 세 장 다 나온다. 주소만 죽는 것이다.
+   *
+   * ★ 주소는 사진 한 장에 하나다. 여기서도 **다시 그릴 때가 아니라 깨졌을 때만** 만든다.
+   *   죽은 주소는 그 자리에서 거두고, 두 번째로 깨지면 회색 자리를 둔다(더 시도하면
+   *   깨짐→다시 만듦 이 끝없이 돈다).
+   */
+  const repairPreview = (id: string) => {
+    setPhotos((previous) => previous.map((photo) => {
+      if (photo.id !== id || photo.previewRetried) return photo;
+      URL.revokeObjectURL(photo.previewUrl);
+      return { ...photo, previewUrl: URL.createObjectURL(photo.previewSource), previewRetried: true };
+    }));
+  };
+
   const updatePhotoComment = (id: string, story: string) => {
     setPhotos((previous) => previous.map((photo) => (photo.id === id ? { ...photo, story } : photo)));
   };
@@ -328,7 +348,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           </div>
         </div>
       ) : null}
-      <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
+      <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} onPreviewBroken={repairPreview} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       {showsSubmitButton(photos.length) ? (
         <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>
           {isSubmitting ? "앨범 만드는 중..." : "앨범 만들기"}
