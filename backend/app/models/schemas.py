@@ -213,6 +213,9 @@ class MyAlbumListItem(BaseModel):
     new_memory_count: int = 0
     is_latest_edition: bool = True
     status: str = "active"
+    #: 담아둔 앨범을 **열 때 쓸 구경용 링크**(K-7b). 담아둔 칸에서만 채워진다.
+    #: 구경꾼은 멤버가 아니라 `/album/{id}` 로 열면 403 이다 — `/s/{token}` 으로 연다.
+    share_token: str | None = None
 
 
 class MyAlbumsResponse(BaseModel):

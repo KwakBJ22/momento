@@ -28,13 +28,17 @@ function server() {
   return calls;
 }
 
-test("담기·빼기가 같은 자리를 켜고 끈다", async () => {
+test("★ 담을 때는 **그 링크로**, 뺄 때는 앨범 id 로 (K-7b)", async () => {
+  // 담아두기는 구경꾼의 행동이다(§1). 옛 경로는 앨범 읽기 권한을 요구해서
+  // 구경꾼이 로그인해도 403 이었다 — 실측 세 번, `album_bookmarks` 0건.
+  // 뺄 때는 링크가 필요 없다: 자기 목록에서 자기 것을 빼는 일이고,
+  // 링크가 죽은 뒤에도 뺄 수 있어야 한다.
   const calls = server();
-  const { setAlbumBookmark } = await import("../src/lib/api");
-  await setAlbumBookmark("album-1", true);
-  await setAlbumBookmark("album-1", false);
+  const { saveSharedAlbumBookmark, removeAlbumBookmark } = await import("../src/lib/api");
+  await saveSharedAlbumBookmark("tok-1");
+  await removeAlbumBookmark("album-1");
   assert.deepEqual(calls, [
-    { url: "/api/albums/album-1/bookmark", method: "PUT" },
+    { url: "/api/public/shares/tok-1/bookmark", method: "PUT" },
     { url: "/api/albums/album-1/bookmark", method: "DELETE" },
   ]);
 });
@@ -43,7 +47,8 @@ test("★ 담아둬도 쓰기 권한이 생기지 않는다", () => {
   // 화면은 담기 결과로 어떤 권한 플래그도 바꾸지 않는다 — 목록에 남을 뿐이다.
   const view = read("components/PublicShareView.tsx");
   const toggle = view.slice(view.indexOf("const toggleBookmark"), view.indexOf("const bookmarkCard"));
-  assert.match(toggle, /await setAlbumBookmark\(album\.album_id, next\);/);
+  assert.match(toggle, /await saveSharedAlbumBookmark\(token\);/);
+  assert.match(toggle, /await removeAlbumBookmark\(album\.album_id\);/);
   for (const forbidden of ["startPublicContribution", "canContribute =", "setContributionSession", "can_edit"]) {
     assert.equal(toggle.includes(forbidden), false, `담기가 권한을 건드린다: ${forbidden}`);
   }
@@ -88,9 +93,12 @@ test("로그인해야 담아둘 수 있다 (어디에 담을지가 계정이다)
   const view = read("components/PublicShareView.tsx");
   assert.match(view, /if \(!authenticatedUser\) \{ onLogin\?\.\(\); return; \}/);
   // 서버도 로그인을 요구한다.
-  const album = readFileSync(new URL("../../backend/app/api/album.py", import.meta.url), "utf8");
-  const put = album.slice(album.indexOf('@router.put("/albums/{album_id}/bookmark"'), album.indexOf('@router.delete("/albums/{album_id}/bookmark"'));
+  const share = readFileSync(new URL("../../backend/app/api/share.py", import.meta.url), "utf8");
+  const put = share.slice(share.indexOf('@router.put("/public/shares/{token}/bookmark"'), share.indexOf('@router.post("/public/shares/{token}/reactions"'));
   assert.match(put, /authenticated_user_id: str = Depends\(require_authenticated_user\)/);
+  // ★ 다만 "구경꾼인지" 까지 서버가 따지지 않는다 — 판정이 두 곳이 되면 또 갈라진다(§1).
+  //   설명(docstring)에는 그 이름이 나온다 — 왜 없앴는지 적어 둔 자리다. 코드만 본다.
+  assert.equal(put.replace(/"""[\s\S]*?"""/g, "").includes("require_album_read"), false);
 });
 
 test("지금 상태는 서버가 알려준다 (화면이 추측하지 않는다)", () => {
@@ -98,4 +106,29 @@ test("지금 상태는 서버가 알려준다 (화면이 추측하지 않는다)
   assert.match(view, /if \(album\) setBookmarked\(Boolean\(album\.viewer_bookmarked\)\);/);
   const share = readFileSync(new URL("../../backend/app/api/share.py", import.meta.url), "utf8");
   assert.match(share, /viewer_bookmarked=bool\(user_id\) and is_bookmarked\(/);
+});
+
+// --- K-7b · 담아둔 뒤 어떻게 여는가 ---
+
+test("★ 담아둔 앨범은 **담을 때 쓴 링크로** 연다 — /album/{id} 가 아니다", () => {
+  const list = read("components/MyAlbums.tsx");
+  assert.match(list, /if \(album\.share_token\) return `\/s\/\$\{album\.share_token\}`;/);
+  // 카드가 그 규칙 하나만 쓴다 — 자리마다 주소를 만들지 않는다.
+  assert.match(list, /href=\{myAlbumHref\(album\)\}/);
+  assert.equal(/href=\{album\.status === "processing"/.test(list), false, "옛 주소 규칙이 남았다");
+});
+
+test("담아둔 앨범이 아니면 지금 그대로 연다", () => {
+  const list = read("components/MyAlbums.tsx");
+  const fn = list.slice(list.indexOf("const myAlbumHref"), list.indexOf("const renderCard"));
+  assert.match(fn, /\/album\/\$\{album\.album_id\}\/creating/);
+  assert.match(fn, /return `\/album\/\$\{album\.album_id\}`;/);
+});
+
+test("★ 담아두지 못하면 **말한다** (§11 — 무한 반복의 원인이었다)", () => {
+  const view = read("components/PublicShareView.tsx");
+  const toggle = view.slice(view.indexOf("const toggleBookmark"), view.indexOf("const bookmarkCard"));
+  // 예전에는 상태만 되돌리고 아무 말도 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다.
+  assert.match(toggle, /setBookmarkError\(cause instanceof Error \? cause\.message :/);
+  assert.match(view, /className="notice notice--error album-guest-save__error" role="alert"/);
 });

@@ -159,6 +159,9 @@ export type MyAlbum = {
   new_memory_count: number;
   is_latest_edition?: boolean;
   status?: "processing" | "active" | "failed" | string;
+  /** 담아둔 앨범을 **열 때 쓸 구경용 링크**(K-7b). 담아둔 칸에서만 온다.
+   *  구경꾼은 멤버가 아니라 `/album/{id}` 로 열면 403 이다. */
+  share_token?: string | null;
 };
 
 export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[] }> {
@@ -168,11 +171,25 @@ export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating:
   return { albums: data.albums ?? [], participating: data.participating ?? [], bookmarked: data.bookmarked ?? [] };
 }
 
-/** 담아두기 (§1 9차) — ★ 권한을 주지 않는다. 목록에 남을 뿐 여전히 보기만 한다. */
-export async function setAlbumBookmark(albumId: string, bookmarked: boolean): Promise<void> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/bookmark`, {
-    method: bookmarked ? "PUT" : "DELETE",
+/**
+ * 담아두기 (§1 9차) — ★ 권한을 주지 않는다. 목록에 남을 뿐 여전히 보기만 한다.
+ *
+ * ★ **담을 때는 공유 링크로 담는다**(K-7b). 담아두기는 구경꾼의 행동인데, 예전 경로
+ *   (`PUT /albums/{id}/bookmark`)는 앨범 읽기 권한을 요구해서 **구경꾼은 로그인해도
+ *   403** 이었다. 실측(2026-08-09): 세 번 눌러 세 번 다 403, `album_bookmarks` 0건.
+ *   서버는 담을 때 그 링크를 함께 저장한다 — 목록에서 `/s/{token}` 으로 열기 위해서다.
+ * ★ **뺄 때는 앨범 id 로 뺀다.** 자기 목록에서 자기 것을 빼는 일이라 링크가 필요 없다
+ *   (링크가 죽은 뒤에도 뺄 수 있어야 한다).
+ */
+export async function saveSharedAlbumBookmark(shareToken: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/public/shares/${encodeURIComponent(shareToken)}/bookmark`, {
+    method: "PUT",
   });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function removeAlbumBookmark(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/bookmark`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));
 }
 

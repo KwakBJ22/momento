@@ -85,12 +85,26 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   // One card shape for both sections (no duplicate markup). Participating albums pass
   // canDelete=false — a non-owner can't delete, so no delete control (section title,
   // not a badge, distinguishes owner vs participant).
+  /**
+   * 카드를 눌렀을 때 갈 자리.
+   *
+   * ★ **담아둔 앨범은 담을 때 쓴 링크로 연다**(K-7b). 담아둔 사람은 구경꾼이라
+   *   멤버가 아니다 — `/album/{id}` 로 열면 403 이다. 서버가 담을 때 그 링크를
+   *   함께 저장해 두고 `share_token` 으로 내려준다.
+   * ★ 담아둬도 권한은 바뀌지 않는다(§1). 링크로 여는 것이 그 사실 그대로다.
+   */
+  const myAlbumHref = (album: MyAlbum) => {
+    if (album.share_token) return `/s/${album.share_token}`;
+    if (album.status === "processing" || album.status === "failed") return `/album/${album.album_id}/creating`;
+    return `/album/${album.album_id}`;
+  };
+
   const renderCard = (album: MyAlbum, index: number, canDelete: boolean) => {
     const imageUrl = myAlbumCardImageUrl(album);
     const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
     return (
       <div key={album.album_id} className="my-albums__card">
-        <a className="my-albums__card-link" href={album.status === "processing" || album.status === "failed" ? `/album/${album.album_id}/creating` : `/album/${album.album_id}`}>
+        <a className="my-albums__card-link" href={myAlbumHref(album)}>
           <div className="my-albums__image-wrap">
             {imageUrl && !imageFailed ? (
               <img

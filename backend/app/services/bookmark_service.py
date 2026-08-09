@@ -20,14 +20,27 @@ from supabase import Client
 _TABLE = "album_bookmarks"
 
 
-def add_bookmark(client: Client, user_id: str, album_id: str) -> None:
-    """담아둔다. 이미 담아 뒀으면 아무 일도 없다(켜고 끄는 것이지 쌓이는 것이 아니다)."""
+def add_bookmark(client: Client, user_id: str, album_id: str, share_token: str | None = None) -> None:
+    """담아둔다. 이미 담아 뒀으면 링크만 새로 적는다.
+
+    ★ **담은 링크를 함께 저장한다**(K-7b). 구경꾼은 멤버가 아니라 `/album/{id}` 로
+    열면 403 이다 — 목록에서 열 때 `/s/{token}` 으로 열어야 한다.
+    이미 담아 둔 앨범을 다시 담으면 **토큰을 갱신한다**: 옛 링크가 죽고 새 링크를
+    받아 다시 담는 경우가 그것이다(켜고 끄는 것이지 쌓이는 것이 아니다).
+    """
+    row = {"user_id": user_id, "album_id": album_id}
+    if share_token:
+        row["share_token"] = share_token
     try:
-        client.table(_TABLE).insert({"user_id": user_id, "album_id": album_id}).execute()
+        client.table(_TABLE).insert(row).execute()
     except APIError as exc:
-        # 유일 제약(user_id, album_id) 위반 = 이미 담아 둔 것. 성공으로 본다.
+        # 유일 제약(user_id, album_id) 위반 = 이미 담아 둔 것.
         if str(getattr(exc, "code", "")) != "23505":
             raise
+        if share_token:
+            client.table(_TABLE).update({"share_token": share_token}).eq(
+                "user_id", user_id
+            ).eq("album_id", album_id).execute()
 
 
 def remove_bookmark(client: Client, user_id: str, album_id: str) -> None:
@@ -69,6 +82,31 @@ def list_bookmarked_album_ids(client: Client, user_id: str, exclude_ids: set[str
         if album_id and album_id not in exclude_ids and album_id not in ordered:
             ordered.append(album_id)
     return ordered
+
+
+def bookmark_share_tokens(client: Client, user_id: str, album_ids: list[str]) -> dict[str, str]:
+    """담아둔 앨범 → 담을 때 쓴 링크 토큰 (K-7b).
+
+    ★ 목록에서 그 앨범을 열 때 쓴다. 구경꾼은 `/album/{id}` 로 못 연다.
+    옛 행에는 토큰이 없다 — 그 앨범은 링크를 모르므로 목록에서 열 수 없고,
+    화면이 그 사실을 알아야 한다(§11 — 눌렀는데 아무 일도 없으면 안 된다).
+    """
+    if not album_ids:
+        return {}
+    rows = (
+        client.table(_TABLE)
+        .select("album_id, share_token")
+        .eq("user_id", user_id)
+        .in_("album_id", album_ids)
+        .execute()
+        .data
+        or []
+    )
+    return {
+        str(row["album_id"]): str(row["share_token"])
+        for row in rows
+        if row.get("album_id") and row.get("share_token")
+    }
 
 
 def bookmarked_album_records(

@@ -55,7 +55,7 @@ from app.services.image_service import (
 from app.services.openai_service import generate_narrative, parse_stories_json
 from app.services.visitor_key import resolve_visitor_key
 from app.services.bookmark_service import (
-    add_bookmark,
+    bookmark_share_tokens,
     bookmarked_album_records,
     is_bookmarked,
     list_bookmarked_album_ids,
@@ -1876,15 +1876,22 @@ async def get_my_albums(
         client, authenticated_user_id, set(album_ids) | set(participating_ids)
     )
     bookmark_records = bookmarked_album_records(client, bookmark_ids)
+    # 담아둔 앨범은 **담은 그 링크로** 연다(K-7b). 구경꾼은 /album/{id} 로 403 이다.
+    bookmark_tokens = bookmark_share_tokens(
+        client, authenticated_user_id, [str(record["id"]) for record in bookmark_records]
+    )
     bookmark_photo_rows = await asyncio.to_thread(
         list_album_photo_list_summaries, client, [str(record["id"]) for record in bookmark_records]
     )
     payload = MyAlbumsResponse(
-        bookmarked=_attach_participating_cover_urls(
-            client,
-            settings,
-            _my_album_list_items(client, settings, bookmark_records, {}, bookmark_photo_rows),
-        ),
+        bookmarked=[
+            item.model_copy(update={"share_token": bookmark_tokens.get(str(item.album_id))})
+            for item in _attach_participating_cover_urls(
+                client,
+                settings,
+                _my_album_list_items(client, settings, bookmark_records, {}, bookmark_photo_rows),
+            )
+        ],
         albums=_attach_my_album_cover_urls(
             client,
             settings,
@@ -1907,25 +1914,12 @@ async def get_my_albums(
     return payload
 
 
-@router.put("/albums/{album_id}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
-async def add_album_bookmark(
-    album_id: str,
-    authenticated_user_id: str = Depends(require_authenticated_user),
-) -> Response:
-    """이 앨범을 `담아둔 앨범` 에 넣는다 (§1 9차).
-
-    ★ 권한을 주지 않는다. 담아둬도 여전히 보기만 한다 — album_contributors 를 건드리지
-    않는다(그 표에 행을 만드는 것은 "참여자가 됐다" 는 뜻이다).
-    ★ 볼 수 있는 앨범만 담을 수 있다 — 읽기 권한은 공유 링크가 준 것이고, 여기서는
-    그 권한을 확인만 한다.
-    """
-    client = get_supabase_client()
-    record = get_album_record(client, album_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    require_album_read(get_album_access(client, record, authenticated_user_id))
-    add_bookmark(client, authenticated_user_id, album_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+# ★ `PUT /albums/{id}/bookmark` 는 **없앴다**(K-7b). 그 자리는 `require_album_read`
+# (멤버 요구)를 걸고 있어서 **구경꾼이 로그인해도 403** 이었다 — 담아두기는 구경꾼의
+# 행동이므로(§1) 그 검사가 틀린 자리였다. 지금은 `PUT /public/shares/{token}/bookmark`
+# 하나다: 링크를 가진 사람이 자기 목록에 담고, 담은 링크가 함께 저장된다.
+# 빼는 것(DELETE)은 앨범 id 로 그대로 둔다 — 자기 목록에서 자기 것을 빼는 일이라
+# 앨범을 볼 수 있는지와 무관하다.
 
 
 @router.delete("/albums/{album_id}/bookmark", status_code=status.HTTP_204_NO_CONTENT)

@@ -19,7 +19,7 @@ from app.models.schemas import (
 from app.services.authorization import require_album_edit_settings
 from app.services.auth import optional_authenticated_user, require_authenticated_user
 from app.services.membership import get_album_access
-from app.services.bookmark_service import is_bookmarked
+from app.services.bookmark_service import add_bookmark, is_bookmarked
 from app.services.visitor_key import resolve_visitor_key
 from app.services.share_service import (
     add_guestbook_entry, add_reaction, contribution_block_reason, create_share_link, deactivate_share_link,
@@ -448,6 +448,33 @@ async def start_public_contribution(
         "guest_id": str(contributor.get("guest_id")) if contributor.get("guest_id") else None,
         "display_name": str(contributor.get("display_name") or display_name),
     }
+
+
+@router.put("/public/shares/{token}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
+async def bookmark_shared_album(
+    token: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """구경하던 앨범을 `담아둔 앨범` 에 넣는다 (K-7b · SCREEN_SPEC §1).
+
+    ★ **담아두기는 구경꾼의 행동이다**(§1). 예전에는 `PUT /albums/{id}/bookmark` 하나뿐이었고
+    그 자리가 `require_album_read`(멤버 요구)를 걸고 있어서, 구경꾼은 로그인해도 **403** 이었다.
+    실측(2026-08-09): 로그인 성공한 기기에서 세 번 눌러 세 번 다 403,
+    `album_bookmarks` 0건. 화면은 "로그인이 안 됐나 보다" 하고 카드를 그대로 뒀고
+    사용자는 또 눌렀다 — 무한 반복이었다.
+
+    ★ **서버는 "구경꾼인지" 까지 따지지 않는다.** 자기 목록에 자기가 담는 일이라 남에게
+    해가 없다. 누구에게 이 버튼을 보일지는 화면이 §1 대로 정한다 — 판정을 서버에도 두면
+    같은 판단이 두 곳이 된다(§1).
+
+    ★ **로그인은 필요하다.** 어디에 담을지가 계정이다.
+    ★ 링크가 죽었으면 `get_active_share` 가 J-9 의 세 갈래 문구로 막는다. 새로 만들지 않는다.
+    ★ 담을 때 쓴 **링크를 함께 저장한다.** 구경꾼은 `/album/{id}` 로 못 열기 때문이다.
+    """
+    client = get_supabase_client()
+    share = get_active_share(client, token)
+    add_bookmark(client, authenticated_user_id, str(share["album_id"]), share_token=token)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/public/shares/{token}/reactions", status_code=status.HTTP_204_NO_CONTENT)

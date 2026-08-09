@@ -113,3 +113,6 @@
 /* 참여가 끝난 앨범의 한 줄 (J-8). 껍데기는 styles/notice.css 의 안내(--info)를 쓴다 —
    배경도 글머리도 없다. 여기서는 자리만 준다. */
 .album-contribution-closed { margin: 0 0 4px; }
+
+/* 담아두지 못했을 때 한 줄 (K-7b). 껍데기는 styles/notice.css 의 오류가 준다. */
+.album-guest-save__error { margin: 8px 0 0; font-size: var(--t-xs); }

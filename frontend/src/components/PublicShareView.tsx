@@ -10,7 +10,7 @@ import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
-import { getPublicShare, loadCollabSession, saveCollabSession, setAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
+import { getPublicShare, loadCollabSession, saveCollabSession, removeAlbumBookmark, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
@@ -100,6 +100,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 담아둔 앨범(§1 9차) — 구경꾼에게 흔적을 남기는 자리. ★ 권한은 바뀌지 않는다.
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   // 구경꾼은 본문 맨 아래에서 이 구역을 만난다(§4 8차 — 네비 칸을 쓰지 않는다).
   const guestbookRef = useRef<HTMLDivElement | null>(null);
   // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
@@ -415,12 +416,18 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     if (!authenticatedUser) { onLogin?.(); return; }
     const next = !bookmarked;
     setBookmarkBusy(true);
+    setBookmarkError(null);
     try {
-      await setAlbumBookmark(album.album_id, next);
+      // ★ 담을 때는 **이 링크로** 담는다(K-7b). 서버가 링크를 함께 저장해 두고,
+      // `담아둔 앨범` 에서 그 링크로 연다 — 구경꾼은 /album/{id} 로 못 연다.
+      if (next) await saveSharedAlbumBookmark(token);
+      else await removeAlbumBookmark(album.album_id);
       setBookmarked(next);
-    } catch {
-      // 조용히 삼키지 않는다 — 상태를 되돌려 다시 누를 수 있게 둔다(§11).
+    } catch (cause) {
+      // ★ 조용히 삼키지 않는다(§11). 예전에는 상태만 되돌려서, 403 이 나도 화면이
+      // 아무 말을 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다(무한 반복).
       setBookmarked(!next);
+      setBookmarkError(cause instanceof Error ? cause.message : "담아두지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setBookmarkBusy(false);
     }
@@ -433,6 +440,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       <div className="album-guest-save__actions">
         <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아두기</button>
       </div>
+      {bookmarkError ? <p className="notice notice--error album-guest-save__error" role="alert">{bookmarkError}</p> : null}
     </div>
   ) : null;
   const publicActions = (
