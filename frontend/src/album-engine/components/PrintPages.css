@@ -35,12 +35,18 @@
   letter-spacing: -0.02em;
 }
 
-/* 사진 자리는 남는 높이를 전부 쓴다 — "그 안에서는 빈 공간을 남기지 않는다"(§9). */
+/* 사진 자리는 남는 높이를 전부 쓴다(§9). ★ 다만 **칸이 크다고 프레임이 늘어나지는
+   않는다** — align-items: center 로 프레임을 칸 가운데 두고, 프레임 자체는 사진
+   크기에 맞춰 줄어든다(I-4-4). 예전에는 프레임이 칸 높이를 다 먹어서 가로 사진 한
+   장짜리 쪽에서 사진 아래가 47.6mm 비고 캡션이 카드 바닥에 붙었다.
+   "한 장짜리 쪽이 페이지를 억지로 채우지 않는다. 남는 여백은 남겨 둔다"(§9 · I-4-4). */
 .album-renderer--print .print-page__photos {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
   gap: 6mm;
+  align-items: center;
+  justify-items: center;
 }
 
 /* 장수에 따라 칸을 나눈다. 1장은 크게, 4장은 2×2. */
@@ -52,12 +58,17 @@
   grid-template-rows: 1fr 1fr;
 }
 
-/* 사진과 캡션을 하나의 프레임 안에 — 캡션이 그 사진에 딸린 말임이 보여야 한다(§9). */
+/* 사진과 캡션을 하나의 프레임 안에 — 캡션이 그 사진에 딸린 말임이 보여야 한다(§9).
+   ★ 프레임 높이를 고정하지 않는다. 사진 크기에 맞춰 줄어들고, 캡션은 **사진 바로
+   아래**에 붙는다(I-4-4). 폴라로이드 한 장이다. */
 .album-renderer--print .print-frame {
   display: flex;
   flex-direction: column;
   gap: 3mm;
   min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
   margin: 0;
   padding: 4mm;
   border: 1px solid var(--c-border);
@@ -67,23 +78,49 @@
   page-break-inside: avoid;
 }
 
+/* ★ 사진 자리도 늘리지 않는다(flex-grow 0). 늘리면 사진과 캡션 사이가 벌어진다. */
 .album-renderer--print .print-frame__photo {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 /* html2canvas 는 object-fit 을 무시하고 이미지를 상자에 늘려 그린다 — 상한을 이미지에
-   직접 주고, 비율은 브라우저가 지키게 둔다(KNOWN_ISSUES 의 표지 왜곡과 같은 이유). */
+   직접 주고, 비율은 브라우저가 지키게 둔다(KNOWN_ISSUES 의 표지 왜곡과 같은 이유).
+   ★ 세로 상한은 **mm 로** 준다. 백분율은 부모(프레임) 높이가 확정되지 않아 통하지 않고,
+   그대로 두면 세로 사진이 페이지를 넘는다. 값은 A4 실측이다 — 아래 장수별 규칙 참고. */
 .album-renderer--print .print-frame__photo img {
   max-width: 100%;
-  max-height: 100%;
   width: auto;
   height: auto;
 }
+
+/* 장수별 사진 세로 상한 — **A4 실측값**이다(I-4-4).
+ *
+ * 왜 mm 인가: 백분율(max-height: 100%)은 부모 높이가 확정되어야 먹는데, 프레임을
+ * 사진 크기에 맞춰 줄이는 순간(align-items: center) 그 높이가 auto 가 된다. 그래서
+ * 상한을 숫자로 준다. 대신 **한 쪽에 실제로 남는 높이**를 재서 정했다.
+ *
+ * 잰 값(210×297mm, 위아래 여백 14/12mm, 날짜 머리글 약 10mm):
+ *   사진 자리 높이   날짜 이야기가 있는 쪽 196.3mm · 없는 쪽 255.0mm
+ *   프레임 껍데기     여백 4mm×2 + 사이 3mm + 캡션 두 줄 13.7mm = 24.7mm
+ *   → 한 칸에 들어갈 사진 = (사진 자리 ÷ 줄수 − 칸 사이 6mm) − 24.7mm
+ *
+ * 날짜 이야기가 있는 쪽이 더 빡빡하므로 두 벌로 나눈다. 한 벌로 두면 이야기 없는
+ * 쪽의 사진까지 작아진다 — 사진이 가장 크다(§6).
+ * 가로 사진은 폭(max-width)이 먼저 걸려 이 값에 닿지 않는다. */
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: 200mm; }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: 100mm; }
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: 56mm; }
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: 100mm; }
+
+/* 날짜 이야기가 함께 들어가는 쪽은 사진 자리가 59mm 줄어든다. */
+.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: 165mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: 68mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: 34mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: 68mm; }
 
 .album-renderer--print .print-frame__caption {
   flex: 0 0 auto;

@@ -84,6 +84,8 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 className="print-page"
                 data-print-page=""
                 data-photo-count={photos.length}
+                /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
+                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}
               >
                 {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9). */}
