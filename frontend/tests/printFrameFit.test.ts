@@ -48,8 +48,10 @@ test("★ 캡션은 프레임 **안**이다 — 밖으로 빼지 않는다(§9 1
   assert.match(printPages, /<figure className="print-frame"[\s\S]{0,400}<figcaption className="print-frame__caption">/);
   const caption = rule(".album-renderer--print .print-frame__caption");
   assert.match(caption, /flex: 0 0 auto/);
-  // 프레임 껍데기(테두리·배경)는 프레임의 것이고 캡션에 하나 더 씌우지 않는다.
-  assert.equal(/border|background|box-shadow/.test(caption), false);
+  // 프레임 껍데기(테두리·배경·그림자)는 프레임의 것이고 캡션에 하나 더 씌우지 않는다.
+  // ★ **속성 이름**으로 본다. box-sizing: border-box 는 껍데기가 아니라 폭 계산이라
+  //   값에 border 가 들어가도 걸리면 안 된다(I-4d-1).
+  assert.equal(/(^|\s)(border|background|box-shadow)\s*:/.test(caption), false);
 });
 
 test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율은 부모 높이가 auto 라 먹지 않는다", () => {
@@ -62,18 +64,19 @@ test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율
   }
 });
 
-test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (1·2장 — 이야기는 늘 사진과 같은 쪽이다)", () => {
-  // 4c-3 뒤로 이야기가 붙는 쪽은 사진 2장 이하다(그보다 많으면 사진을 나눈다).
-  for (const count of [1, 2]) {
+test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (네 장수 모두)", () => {
+  // 4d-3 뒤로 이야기는 1~4장 어느 쪽에나 함께 들어간다 — 그만큼 상한이 낮다.
+  for (const count of [1, 2, 3, 4]) {
     const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
     assert.ok(withStory && plain, `${count}장: 두 벌이 다 있어야 한다`);
     assert.ok(Number(withStory[1]) < Number(plain[1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
   }
-  // 3·4장 쪽에는 이야기가 붙지 않으므로 낮은 상한이 없다.
-  for (const count of [3, 4]) {
-    assert.equal(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\]`).test(printCss), false, `${count}장에 이야기용 상한이 남아 있다`);
-  }
+  // 짧은 변 60mm 하한을 지키는 값이다 — 3:4 세로 사진에서 상한 80mm 면 폭이 60mm 다.
+  const lowest = Math.min(...[1, 2, 3, 4].map((count) => Number(
+    printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`))![1],
+  )));
+  assert.ok(lowest >= 80, `가장 낮은 상한이 ${lowest}mm — 3:4 세로 사진의 폭이 60mm 아래로 내려간다`);
 });
 
 test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", () => {

@@ -32,8 +32,19 @@ export const PRINT_PHOTOS_PER_PAGE = 4;
 /** ★ 사진의 짧은 변은 이보다 작아지지 않는다 (I-4b-5). 38mm 는 엄지손톱만 하다. */
 export const PRINT_MIN_PHOTO_SHORT_SIDE_MM = 60;
 
-/** 날짜 이야기가 함께 들어가는 쪽에 담는 사진 수 상한 (I-4c-3). */
-export const STORY_PAGE_MAX_PHOTOS = 2;
+/**
+ * 날짜 이야기가 함께 들어가는 쪽에 담는 사진 수 상한 (I-4c-3 · I-4d-3).
+ *
+ * ★ **먼저 한 쪽에 넣어 본다.** 두 칸 격자(2×2)로 돌아오면서 4장 + 이야기가 한 쪽에
+ * 들어가고, 그 크기에서도 짧은 변 60mm 하한을 지킨다(세로 상한 80mm → 3:4 폭 60mm).
+ * 그래서 지금은 4장까지 그대로 둔다 — 나누면 종이만 두 장 쓰고 사진이 작아진다.
+ *
+ * 이 값을 낮춰야 할 때(사진이 더 작아지는 배치로 바뀔 때)를 위해 나누는 길은 남겨 둔다.
+ */
+export const STORY_PAGE_MAX_PHOTOS = 4;
+
+/** 나눠야 할 때 **앞 쪽**에 남기는 사진 수 (4c: 4장 → 2/2 · 3장 → 2/1). */
+export const STORY_SPLIT_FRONT_PHOTOS = 2;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const pages: T[][] = [];
@@ -47,18 +58,25 @@ function chunk<T>(items: T[], size: number): T[][] {
  * ★ **글만 있는 쪽을 만들지 않는다.** 날짜 이야기는 그 날의 **마지막 사진과 같은
  * 쪽**에 둔다. 자리가 모자라면 이야기를 넘기지 말고 **사진을 나눈다.**
  *
+ * 나눌 때의 모양(4c 규칙):
  *   4장 + 이야기  →  2장 / 2장 + 이야기
  *   3장 + 이야기  →  2장 / 1장 + 이야기
  *
  * 예전에는 이야기를 다음 쪽으로 넘겼는데(4b-5), 글 세 줄만 있는 쪽이 생겨 더 나빴다.
+ * ★ 지금은 두 칸 격자라 4장 + 이야기가 한 쪽에 들어가므로 나눌 일이 없다(I-4d-3).
  */
-export function paginateChapterPhotos<T>(photos: T[], hasStory: boolean): T[][] {
+export function paginateChapterPhotos<T>(
+  photos: T[],
+  hasStory: boolean,
+  maxWithStory: number = STORY_PAGE_MAX_PHOTOS,
+): T[][] {
   const pages = chunk(photos, PRINT_PHOTOS_PER_PAGE);
   if (!hasStory || !pages.length) return pages;
   const last = pages[pages.length - 1];
-  if (last.length <= STORY_PAGE_MAX_PHOTOS) return pages;
-  // 마지막 쪽을 둘로 나눈다 — 앞 쪽에 2장, 이야기가 붙는 쪽에 나머지.
-  return [...pages.slice(0, -1), last.slice(0, STORY_PAGE_MAX_PHOTOS), last.slice(STORY_PAGE_MAX_PHOTOS)];
+  if (last.length <= maxWithStory) return pages;
+  // 나눌 때는 앞 쪽에 2장, 이야기가 붙는 쪽에 나머지(4c 규칙 그대로).
+  const keep = Math.min(last.length - 1, STORY_SPLIT_FRONT_PHOTOS);
+  return [...pages.slice(0, -1), last.slice(0, keep), last.slice(keep)];
 }
 
 function PhotoFrame({ photo }: { photo: EnginePhoto }) {

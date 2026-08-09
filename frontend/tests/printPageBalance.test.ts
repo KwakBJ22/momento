@@ -53,8 +53,31 @@ test("★ 같은 줄의 사진은 위끝을 맞춘다 (아래끝은 비율대로
   assert.match(rule(".album-renderer--print .print-page__photos"), /align-items: start/);
 });
 
-test("★ 좌우 기준선은 쪽 안에서 하나다 (4b-3 에서 맞았던 것 — 남긴다)", () => {
-  assert.match(rule(".album-renderer--print .print-page__photos"), /justify-items: stretch/);
+test("★ 프레임 폭이 사진 폭 + 여백이다 — 칸 폭을 따라가지 않는다 (I-4d-1)", () => {
+  // 4b-3 의 "좌우 기준선은 하나"(justify-items: stretch)는 4d 에서 철회됐다 —
+  // 프레임이 칸을 채우면 세로만 붙고 가로로는 빈 액자가 된다.
+  assert.match(rule(".album-renderer--print .print-page__photos"), /justify-items: center/);
+  const frame = rule(".album-renderer--print .print-frame");
+  assert.match(frame, /width: fit-content/);
+  assert.match(frame, /padding: 4mm/);
+  // 캡션이 프레임 폭을 정하면 긴 캡션 한 줄이 프레임을 쪽 폭까지 늘린다.
+  const caption = rule(".album-renderer--print .print-frame__caption");
+  assert.match(caption, /width: 0/);
+  assert.match(caption, /min-width: 100%/);
+});
+
+test("★ 사진은 나란히 놓는다 — 세로로 쌓지 않는다 (I-4d-2)", () => {
+  const columns = (count: number) => {
+    const at = printCss.indexOf(`.print-page[data-photo-count="${count}"] .print-page__photos`);
+    assert.notEqual(at, -1, `${count}장 칸 규칙이 없다`);
+    const body = printCss.slice(at, printCss.indexOf("}", at));
+    const match = body.match(/grid-template-columns:\s*([^;]+);/);
+    return match ? match[1].trim() : printCss.slice(at, printCss.indexOf("}", printCss.indexOf("grid-template-columns", at))).match(/grid-template-columns:\s*([^;]+)/)![1].trim();
+  };
+  assert.equal(columns(1), "1fr");
+  for (const count of [2, 3, 4]) assert.equal(columns(count), "1fr 1fr", `${count}장이 세로로 쌓인다`);
+  // 3장은 위에 둘, 아래 한 장을 가운데.
+  assert.match(printCss, /\[data-photo-count="3"\] \.print-frame:last-child \{\s*grid-column: 1 \/ -1;/);
 });
 
 test("캡션은 사진 바로 아래 3mm 그대로다", () => {
@@ -101,17 +124,17 @@ test("가운데 정렬은 표지와 브랜드 쪽에만 남는다", () => {
 test("★ 날짜 이야기는 그 날 마지막 사진과 같은 쪽에 둔다 — 자리가 모자라면 사진을 나눈다", async () => {
   const { paginateChapterPhotos, STORY_PAGE_MAX_PHOTOS } = await import("../src/album-engine/components/PrintPages");
   const photos = (count: number) => Array.from({ length: count }, (_, index) => index + 1);
-  // 큐가 준 두 예시 그대로.
-  assert.deepEqual(paginateChapterPhotos(photos(4), true), [[1, 2], [3, 4]]);
-  assert.deepEqual(paginateChapterPhotos(photos(3), true), [[1, 2], [3]]);
-  // 이야기가 없으면 나누지 않는다.
-  assert.deepEqual(paginateChapterPhotos(photos(4), false), [[1, 2, 3, 4]]);
-  // 이미 2장 이하면 그대로 둔다.
+  // ★ I-4d-3 — 먼저 한 쪽에 넣어 본다. 두 칸 격자라 4장 + 이야기가 한 쪽에 들어간다.
+  assert.equal(STORY_PAGE_MAX_PHOTOS, 4);
+  assert.deepEqual(paginateChapterPhotos(photos(4), true), [[1, 2, 3, 4]]);
+  assert.deepEqual(paginateChapterPhotos(photos(3), true), [[1, 2, 3]]);
   assert.deepEqual(paginateChapterPhotos(photos(2), true), [[1, 2]]);
-  assert.deepEqual(paginateChapterPhotos(photos(1), true), [[1]]);
-  // 여러 쪽이면 마지막 쪽만 나눈다.
-  assert.deepEqual(paginateChapterPhotos(photos(7), true), [[1, 2, 3, 4], [5, 6], [7]]);
-  assert.equal(STORY_PAGE_MAX_PHOTOS, 2);
+  // 이야기가 없으면 당연히 그대로.
+  assert.deepEqual(paginateChapterPhotos(photos(4), false), [[1, 2, 3, 4]]);
+  // 나눠야 할 때의 모양은 4c 규칙 그대로다(상한을 낮춰 확인한다).
+  assert.deepEqual(paginateChapterPhotos(photos(4), true, 2), [[1, 2], [3, 4]]);
+  assert.deepEqual(paginateChapterPhotos(photos(3), true, 2), [[1, 2], [3]]);
+  assert.deepEqual(paginateChapterPhotos(photos(7), true, 2), [[1, 2, 3, 4], [5, 6], [7]]);
 });
 
 test("★ 글만 있는 쪽을 만들지 않는다 (`우리의 이야기` 는 예외 — 원래 자기 쪽을 갖는다)", () => {
