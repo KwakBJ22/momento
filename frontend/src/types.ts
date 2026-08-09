@@ -372,3 +372,10 @@ export interface MemoryQuestion {
   thumbnail_url: string | null;
   answers: MemoryAnswer[];
 }
+
+/** 탈퇴 확인 화면이 보여줄 숫자 (K-17 · §5 27차). 세는 곳은 서버 한 곳이다. */
+export interface WithdrawalSummary {
+  owned_albums: number;
+  owned_photos: number;
+  other_album_photos: number;
+}

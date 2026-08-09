@@ -1,4 +1,4 @@
-import type { AlbumResult } from "../types";
+import type { AlbumResult, WithdrawalSummary } from "../types";
 import { getAccessToken, getSession, refreshSession } from "../services/authService";
 import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
@@ -196,6 +196,18 @@ export async function removeAlbumBookmark(albumId: string): Promise<void> {
 export async function deleteAlbum(albumId: string): Promise<void> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));
+}
+
+/**
+ * 탈퇴하면 무엇이 얼마나 사라지는지 (K-17 · SCREEN_SPEC §5 27차).
+ *
+ * ★ 세는 것은 **서버 한 곳**이다. 화면은 받아서 보여주기만 하고, 지울 때 이 값을
+ *   되돌려 보내지 않는다 — 프런트가 보내는 숫자를 서버가 믿지 않는다(§10).
+ */
+export async function getWithdrawalSummary(): Promise<WithdrawalSummary> {
+  const response = await authenticatedFetch("/api/auth/account/summary", { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as WithdrawalSummary;
 }
 
 export async function deleteAccount(): Promise<void> {

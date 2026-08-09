@@ -594,6 +594,10 @@ body {
 .app__withdraw-dialog h2 { margin: 0 0 0.7rem; font-size: 1.05rem; color: var(--c-text); }
 .app__withdraw-dialog p { margin: 0 0 0.55rem; font-size: var(--t-xs); line-height: 1.6; color: var(--c-text-soft); }
 .app__withdraw-hint { color: var(--c-text-muted); font-size: var(--t-xs); }
+/* 무엇이 사라지는지 세어서 보여주는 줄 (K-17 · §5 27차). 숫자가 먼저 눈에 들어와야
+   한다 — 되돌릴 수 없는 일을 무엇이 사라지는지 모른 채 누르게 하지 않는다.
+   ★ 겁주는 빨강을 쓰지 않는다. 사실을 굵게 말할 뿐이다. */
+.app__withdraw-counts { margin: 0 0 0.35rem; font-weight: 700; }
 .app__withdraw-error { font-size: var(--t-xs); }
 
 .app__withdraw-actions { display: flex; gap: 0.5rem; margin-top: 1.1rem; }

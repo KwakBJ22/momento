@@ -406,6 +406,18 @@ class ProfileContactRequest(BaseModel):
     email: str | None = Field(default=None, max_length=254)
 
 
+class WithdrawalSummaryResponse(BaseModel):
+    """탈퇴하면 무엇이 얼마나 사라지는지 (K-17 · SCREEN_SPEC §5 27차).
+
+    ★ 화면은 이 숫자를 **보여주기만** 한다. 지울 때 이 값을 되돌려 받지 않는다 —
+      프런트가 보내는 숫자를 믿지 않는다(§10).
+    """
+
+    owned_albums: int = 0
+    owned_photos: int = 0
+    other_album_photos: int = 0
+
+
 class ProfileContactResponse(BaseModel):
     """★ **본인에게는 원본이 내려간다.** 가리는 일은 화면이 한다.
     평소 표시는 여전히 010-****-5678 / ab***@example.com 이지만, `수정` 을 누르면

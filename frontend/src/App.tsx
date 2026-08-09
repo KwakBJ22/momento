@@ -25,7 +25,8 @@ import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
-import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos } from "./lib/api";
+import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
+import type { WithdrawalSummary } from "./types";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
@@ -82,6 +83,8 @@ function App() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  // 탈퇴하면 무엇이 얼마나 사라지는지 — **서버가 센 값**이다(K-17). 화면은 보여주기만 한다.
+  const [withdrawSummary, setWithdrawSummary] = useState<WithdrawalSummary | null>(null);
   // Album cap from /auth/bootstrap — used to warn before the create flow (backend enforces).
   // Bootstrap still records album_count/max_albums in state; the creation gate is
   // removed (limit is now an abuse ceiling, not a paywall). Kept for a future paid plan.
@@ -230,8 +233,14 @@ function App() {
   const openWithdraw = () => {
     withdrawReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setWithdrawError(null);
+    setWithdrawSummary(null);
     setAccountMenuOpen(false);
     setWithdrawOpen(true);
+    // ★ 숫자를 실제로 세어서 넣는다 — `000개` 같은 빈칸을 두지 않는다(§5 27차).
+    //   못 세면 숫자 없는 문장만 남는다. 그래도 무엇이 사라지는지는 말한다.
+    void getWithdrawalSummary()
+      .then(setWithdrawSummary)
+      .catch((cause) => { console.error("Withdrawal summary failed", { cause }); });
   };
   const withdraw = async () => {
     if (withdrawing) return;
@@ -409,14 +418,27 @@ function App() {
       {accountContactGuard}
       {loginModal}
       <SheetDialog open={withdrawOpen} labelledBy="withdraw-title" onClose={() => setWithdrawOpen(false)} locked={withdrawing} returnFocusRef={withdrawReturnFocusRef} className="app__withdraw">
-        <h2 id="withdraw-title">정말 떠나시겠어요?</h2>
-        <p>탈퇴하면 내가 만든 앨범과 사진이 모두 사라지고, 다시 되돌릴 수 없어요.</p>
-        <p className="app__withdraw-hint">남기고 싶은 앨범이 있다면 먼저 PDF로 저장해 주세요. 함께 만든 앨범에 남긴 사진과 한마디는 이름 없이 그 앨범에 남아요.</p>
+        <h2 id="withdraw-title">정말 탈퇴하시겠어요?</h2>
+        {/* ★ 무엇이 사라지는지 **숫자로** 말한다(§5 27차). 숫자는 서버가 센 것이고,
+            해당 없는 문단은 아예 보이지 않는다 — 없는 일을 걱정하게 하지 않는다.
+            `영구 복구 불가능합니다` 라고 쓰지 않는다 → `되돌릴 수 없어요`(§10). */}
+        {withdrawSummary && withdrawSummary.owned_albums > 0 ? (
+          <>
+            <p className="app__withdraw-counts">내가 만든 앨범 {withdrawSummary.owned_albums}개 · 사진 {withdrawSummary.owned_photos}장</p>
+            <p>탈퇴하면 앨범과 사진이 모두 지워지고 되돌릴 수 없어요.<br />함께 만든 분들도 더 이상 볼 수 없어요.</p>
+          </>
+        ) : (
+          <p>탈퇴하면 계정과 내가 만든 것이 모두 지워지고 되돌릴 수 없어요.</p>
+        )}
+        {withdrawSummary && withdrawSummary.other_album_photos > 0 ? (
+          <p className="app__withdraw-hint">다른 분의 앨범에 남긴 사진 {withdrawSummary.other_album_photos}장은<br />그 앨범이 비어 보이지 않도록 이름만 지워져요.</p>
+        ) : null}
         {withdrawError ? <p className="notice notice--error app__withdraw-error" role="alert">{withdrawError}</p> : null}
         <div className="app__withdraw-actions">
-          <button type="button" disabled={withdrawing} onClick={() => setWithdrawOpen(false)}>더 써볼게요</button>
+          {/* ★ `그만두기` 가 왼쪽이고 기본이다 — 되돌릴 수 없는 일이라 실수로 눌리면 안 된다. */}
+          <button type="button" disabled={withdrawing} onClick={() => setWithdrawOpen(false)}>그만두기</button>
           <button type="button" className="app__withdraw-confirm" disabled={withdrawing} onClick={() => void withdraw()}>
-            {withdrawing ? "정리하는 중..." : "탈퇴할게요"}
+            {withdrawing ? "정리하는 중..." : "탈퇴하기"}
           </button>
         </div>
       </SheetDialog>

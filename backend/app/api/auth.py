@@ -9,8 +9,9 @@ from app.models.schemas import (
     AuthBootstrapResponse,
     ProfileContactRequest,
     ProfileContactResponse,
+    WithdrawalSummaryResponse,
 )
-from app.services.account_service import delete_account
+from app.services.account_service import count_withdrawal_impact, delete_account
 from app.services.profile_contact_service import get_contact, save_contact
 from app.services.auth import require_authenticated_user
 from app.services.collaboration_service import attribute_contributions
@@ -91,6 +92,22 @@ async def update_profile_contact(
         **{field: getattr(body, field) for field in ("phone", "email") if field in provided},
     )
     return ProfileContactResponse(**saved)
+
+
+@router.get("/account/summary", response_model=WithdrawalSummaryResponse)
+async def get_withdrawal_summary(
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> WithdrawalSummaryResponse:
+    """탈퇴 확인 화면이 보여줄 숫자 (K-17 · §5 27차).
+
+    ★ 세는 곳은 하나다(`count_withdrawal_impact`). 지우는 쪽도 같은 목록을 쓰므로
+      보여준 수와 실제로 지워지는 것이 어긋나지 않는다.
+    ★ `000개` 같은 빈칸을 두지 않으려고 만든 자리다 — 무엇이 사라지는지 모르는 채로
+      되돌릴 수 없는 일을 누르게 하지 않는다.
+    """
+    settings = get_settings()
+    counts = count_withdrawal_impact(get_supabase_client(settings), authenticated_user_id)
+    return WithdrawalSummaryResponse(**counts)
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
