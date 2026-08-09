@@ -106,6 +106,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 헤더 ⋯ 시트 — 앨범 상세와 같은 컴포넌트를 쓴다(§5). 없으면 공유 링크로 들어온
   // 참여자가 PDF·함께한 사람에 아예 접근할 수 없다.
   const [moreOpen, setMoreOpen] = useState(false);
+  // 로그인 여부 — 헤더(§3)와 ⋯ 시트(§5)가 **역할이 아니라 이 값**으로 갈린다(K-7c).
+  const signedIn = Boolean(authenticatedUser);
   const { requestClose: requestCloseMore, guard: contactGuard } = useContactCloseGuard(() => setMoreOpen(false));
   const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -372,8 +374,13 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           onExportPdf={role === "contributor" ? () => { void handleSharePdf(); } : undefined}
           isExportingPdf={isExportingPdf}
           showAbsentNotice={role === "contributor"}
-          onLogout={role === "contributor" ? onLogout : undefined}
-          onWithdraw={role === "contributor" ? onWithdraw : undefined}
+          // ★ 로그인했으면 **자기 계정을 다루는 줄**은 역할과 무관하게 보인다
+          // (K-7c · §5 22차). 예전에는 `role === "contributor"` 로 걸어서, 담아두기로
+          // 로그인한 구경꾼에게 이메일 줄 아래로 아무것도 없었다 — 로그아웃할 길이
+          // 없었다. 앨범 권한은 하나도 늘지 않는다: 표지·PDF·함께한 사람·새 앨범·
+          // 앨범 지우기는 위 줄들에서 그대로 막혀 있다.
+          onLogout={signedIn ? onLogout : undefined}
+          onWithdraw={signedIn ? onWithdraw : undefined}
         />
       ) : null}
       {/* 앨범 상세와 같은 표시를 쓴다(I-3) — 시트를 닫아도 남는다. */}
@@ -483,14 +490,20 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     }
   };
 
-  // §3 — 공유 앨범의 우측은 **항상 하나**다: 비로그인 = `로그인`, 로그인 = `⋯`.
-  // 둘을 함께 두면, 로그인하지 않은 사람이 ⋯ 를 눌렀을 때 시트 안에 `로그인` 하나만
-  // 있는 꼴이 된다(§5). 두 번 누를 일이 아니다.
-  const signedIn = Boolean(authenticatedUser);
+  // §3 — 공유 앨범의 우측: **비로그인 = `로그인` 하나 / 로그인 = `내 앨범` + `⋯`**.
+  // 로그인하지 않은 사람에게 `⋯` 를 주면 시트 안에 `로그인` 하나만 있는 꼴이라(§5)
+  // 두 번 누를 일이 된다. 그래서 비로그인은 `로그인` 하나다.
+  //
+  // ★ 로그인한 사람에게는 `내 앨범` 을 **함께** 둔다(K-7c · §3 22차). 이 화면의 하단
+  //   네비는 구경꾼에게 1칸(`내 앨범 만들기`)뿐이라, 우측에 `내 앨범` 이 없으면
+  //   **자기 앨범으로 돌아갈 길이 아예 없다.** F-1(담아두기)이 `로그인한 구경꾼` 을
+  //   만들면서 "구경꾼 = 비로그인" 이라는 옛 전제가 깨졌는데 이 자리가 안 따라갔다.
+  // ★ 판단 기준은 **역할이 아니라 로그인 여부**다. `내 앨범` 링크는 앨범 상세와 같은
+  //   것(`AlbumScreen` 의 `backHref`)을 쓴다 — 새로 만들지 않는다(§13).
   const headerRight = !signedIn && onLogin
     ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
     : undefined;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} onMore={signedIn ? () => setMoreOpen(true) : undefined} preHeader={bookmarkCard} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} backHref={signedIn ? "/my-albums" : undefined} onMore={signedIn ? () => setMoreOpen(true) : undefined} preHeader={bookmarkCard} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
 }

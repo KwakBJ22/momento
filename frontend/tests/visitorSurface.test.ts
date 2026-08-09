@@ -174,11 +174,67 @@ test("★ 구경꾼 `⋯` 시트에 함께한 사람·PDF 가 없다", async () 
   await React.act(async () => { root.unmount(); });
 });
 
-test("구경꾼에게는 그 값들을 아예 넘기지 않는다 (눌러서 막지 않는다)", () => {
+test("★ 앨범 권한은 역할로, 계정 줄은 로그인 여부로 갈린다 (K-7c · §5 22차)", () => {
   const view = read("components/PublicShareView.tsx");
   const sheet = view.slice(view.indexOf("<AlbumMoreSheet"), view.indexOf("/>", view.indexOf("<AlbumMoreSheet")));
+  // 앨범에 대한 것은 그대로 역할로 막는다 — 구경꾼에게는 아예 넘기지 않는다.
   assert.match(sheet, /contributorCount=\{role === "contributor" \? album\.contributor_count \?\? null : null\}/);
   assert.match(sheet, /onExportPdf=\{role === "contributor" \? \(\) => \{ void handleSharePdf\(\); \} : undefined\}/);
-  assert.match(sheet, /onLogout=\{role === "contributor" \? onLogout : undefined\}/);
-  assert.match(sheet, /onWithdraw=\{role === "contributor" \? onWithdraw : undefined\}/);
+  // ★ 자기 계정을 다루는 줄은 **로그인 여부**다. 예전에는 역할로 걸어서, 담아두기로
+  //   로그인한 구경꾼에게 로그아웃할 길이 없었다(실기기 2026-08-09).
+  assert.match(sheet, /onLogout=\{signedIn \? onLogout : undefined\}/);
+  assert.match(sheet, /onWithdraw=\{signedIn \? onWithdraw : undefined\}/);
+});
+
+// --- K-7c · 로그인한 구경꾼 (§3 · §5 22차) ---
+
+test("★ 로그인한 구경꾼 시트 — 계정·로그아웃·회원 탈퇴 셋. 앨범 권한은 그대로 없다", async () => {
+  const { registerCssStub, setupDom } = await import("./support/domEnv");
+  registerCssStub();
+  setupDom("https://test.local/");
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: AlbumMoreSheet } = await import("../src/components/AlbumMoreSheet");
+
+  const container = document.getElementById("root")!;
+  container.innerHTML = "";
+  const root = createRoot(container);
+  // PublicShareView 가 **로그인한** 구경꾼에게 넘기는 값 그대로:
+  // 앨범에 대한 것은 여전히 undefined, 계정을 다루는 것만 들어온다.
+  await React.act(async () => {
+    root.render(React.createElement(AlbumMoreSheet, {
+      onClose: () => undefined,
+      accountSheet: React.createElement("p", null, "kbjkwak@gmail.com"),
+      canEdit: false,
+      canDelete: false,
+      photoCount: 12,
+      contributorCount: null,
+      albumId: "album-1",
+      onExportPdf: undefined,
+      showAbsentNotice: false,
+      onLogout: () => undefined,
+      onWithdraw: () => undefined,
+    } as never));
+  });
+  const text = container.textContent || "";
+  // 나갈 길과 로그아웃할 길이 생긴다 — 이것이 없어서 화면에 갇혔다.
+  assert.match(text, /로그아웃/);
+  assert.match(text, /회원 탈퇴/);
+  assert.match(text, /kbjkwak@gmail\.com/);
+  // ★ 앨범 권한은 하나도 늘지 않는다.
+  for (const forbidden of ["함께한 사람", "함께 만든 사람", "파일로 저장하기", "표지 사진", "새 앨범", "앨범 지우기"]) {
+    assert.equal(text.includes(forbidden), false, `구경꾼에게 보이면 안 된다: ${forbidden}`);
+  }
+  await React.act(async () => { root.unmount(); });
+});
+
+test("★ 헤더 — 비로그인은 `로그인` 하나, 로그인은 `내 앨범` + `⋯` (§3 22차)", () => {
+  const view = read("components/PublicShareView.tsx");
+  // 비로그인: 로그인 버튼 하나.
+  assert.match(view, /const headerRight = !signedIn && onLogin/);
+  // 로그인: `내 앨범` 링크(AlbumScreen 의 backHref — 앨범 상세와 같은 것을 쓴다) + `⋯`.
+  assert.match(view, /backHref=\{signedIn \? "\/my-albums" : undefined\}/);
+  assert.match(view, /onMore=\{signedIn \? \(\) => setMoreOpen\(true\) : undefined\}/);
+  // ★ 역할로 갈리지 않는다 — 이번 건은 로그인 여부다(resolveAlbumRole 은 그대로).
+  assert.equal(/backHref=\{role ===/.test(view), false);
 });
