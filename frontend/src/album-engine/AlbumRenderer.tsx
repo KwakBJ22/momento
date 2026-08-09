@@ -24,7 +24,7 @@ import { waitForAlbumAssets } from "./waitForAlbumAssets";
 // 비용은 없다: 번들러가 한 부로 합치고, :root 변수라 실리는 순서도 상관없다.
 import "../styles/tokens.css";
 import "./AlbumRenderer.css";
-import { BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE } from "../lib/brand";
+import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
 export { waitForAlbumAssets } from "./waitForAlbumAssets";
@@ -482,6 +482,15 @@ export default function AlbumRenderer({
               (BrandMark: 우리(진한 글자색) + 앨범(브랜드색)). 없는 것을 약속하지 않는다(§10). */}
           <section className="album-renderer__brand-page">
             <BrandMark label={BRAND_NAME_KO} />
+            {/* 로고 아래 영문과 주소(I-4f-2). 인쇄에만 넣는다 — 화면 렌더는 건드리지
+                않는다. 문자열은 lib/brand.ts 한 곳에서 읽는다(§3). 주소는 **글자로만**
+                쓴다 — 인쇄물이라 링크로 만들지 않는다. */}
+            {mode === "print" ? (
+              <p className="album-renderer__brand-id">
+                <span className="album-renderer__brand-en">{BRAND_NAME_EN}</span>
+                <span className="album-renderer__brand-url">{BRAND_SITE_URL}</span>
+              </p>
+            ) : null}
             {/* ★ 두 줄을 한 상자에 묶는다(I-4-6). 따로 두면 줄마다 가운데를 맞추느라
                 시작 위치가 어긋나, 실물에서 둘째 줄 앞에 공백이 하나 있는 것처럼
                 보였다(실측 0.74mm 차이 — 글자 하나 폭이다). */}

@@ -56,3 +56,51 @@ export function wholePagesCaptureHeightPx(
   //   1122.5px 로 두면 1123px 로 올라가 다시 1px 이 넘친다 — 소수점이 남으면 안 고쳐진다.
   return { pages, heightPx: Math.floor((pages * canvasPageHeight) / scale) };
 }
+
+
+/**
+ * 브랜드 블록을 `우리의 이야기` 쪽 **아래**에 넣어 본다 (I-4f-1).
+ *
+ * 로고와 몇 줄뿐인데 종이 한 장을 쓰던 자리다. **먼저 같은 쪽에 넣어 보고, 자리가
+ * 모자라면 제 쪽으로 되돌린다** — 판정 기준은 자리가 있느냐 하나다.
+ * 되돌린 모양은 지금 그대로다(쪽 가운데).
+ *
+ * 값을 재서 정하는 것이 아니라 **들어가는지 안 들어가는지**만 본다.
+ */
+/**
+ * 그 쪽에 내용이 다 들어가는가.
+ *
+ * ★ 그냥 재면 안 된다. `.print-closing` 은 `overflow: hidden` 이라 넘쳐도 안 넘친
+ *   것처럼 보이고, flex 자식은 기본으로 **줄어들 수 있어**(flex-shrink: 1) 넘치는
+ *   대신 눌린다. 둘 다 잠깐 풀고 재야 진짜 높이가 나온다.
+ */
+function measureFits(page: HTMLElement): boolean {
+  const overflow = page.style.overflow;
+  const children = Array.from(page.children) as HTMLElement[];
+  const shrink = children.map((child) => child.style.flexShrink);
+  page.style.overflow = "visible";
+  for (const child of children) child.style.flexShrink = "0";
+  const fits = page.scrollHeight <= page.clientHeight + 1;
+  page.style.overflow = overflow;
+  children.forEach((child, index) => { child.style.flexShrink = shrink[index]; });
+  return fits;
+}
+
+export function placeBrandOnClosingPage(element: HTMLElement): "closing" | "own-page" {
+  const closing = element.querySelector<HTMLElement>(".print-closing");
+  const brand = element.querySelector<HTMLElement>(".album-renderer__brand-page");
+  if (!closing || !brand || closing.contains(brand)) return "own-page";
+  const parent = brand.parentElement;
+  const nextSibling = brand.nextSibling;
+  if (!parent) return "own-page";
+
+  brand.dataset.printBrandInline = "1";
+  closing.appendChild(brand);
+  const fits = measureFits(closing);
+  if (fits) return "closing";
+
+  // 안 들어간다 — 제 쪽으로 되돌린다.
+  delete brand.dataset.printBrandInline;
+  parent.insertBefore(brand, nextSibling);
+  return "own-page";
+}

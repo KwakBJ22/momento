@@ -6,7 +6,7 @@ import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
 import { currentUserAgent, isInAppWebView } from "./webview";
 import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
-import { PDF_CANVAS_SCALE, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
+import { PDF_CANVAS_SCALE, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
   albumId: string;
@@ -127,6 +127,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
     // 이미지 로드가 끝나 높이가 확정된 뒤에 페이지 나눔을 계산해야 한다.
     await waitForAlbumAssets(element);
     if (!element) throw new Error("PDF 렌더 영역을 찾지 못했어요.");
+    // 브랜드 블록을 끝 글 쪽 아래에 넣어 본다 — 안 들어가면 제 쪽에 남는다(I-4f-1).
+    logPdf("pdf_brand_placed", { where: placeBrandOnClosingPage(element) });
     alignBlocksToPrintPages(element);
     // ★ 마지막에 빈 페이지가 한 장 더 붙는 것을 막는다(I-4-1). 이유는 pdfPageBreak 주석.
     const contentHeight = element.scrollHeight;

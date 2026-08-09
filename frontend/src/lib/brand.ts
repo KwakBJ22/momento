@@ -16,6 +16,10 @@ export const BRAND_NAME_KO_PARTS = { lead: "우리", tail: "앨범" } as const;
 /** 영문 표기(로고 하단 소문자). */
 export const BRAND_NAME_EN = "woorialbum";
 
+/** 웹 주소 — 인쇄물에는 **글자로만** 쓴다(링크로 만들지 않는다).
+ *  ★ 화면·PDF 가 같은 값을 본다. 주소가 바뀌면 고칠 자리는 여기 하나다(§3 · I-4f-2). */
+export const BRAND_SITE_URL = "www.woorialbum.com";
+
 /** 앨범 본문·PDF 마지막의 브랜드 푸터 문구.
  *  무료 PDF 전용이라는 결정은 그대로 유지한다(docs/PRINT_LAYOUT.md §8). */
 export const BRAND_PDF_FOOTER = `이 추억은 ${BRAND_NAME_KO}에서 함께 만들었습니다.`;
