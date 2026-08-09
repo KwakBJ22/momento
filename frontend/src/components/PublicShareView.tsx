@@ -10,7 +10,7 @@ import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
-import { getPublicShare, loadCollabSession, saveCollabSession, removeAlbumBookmark, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
+import { getPublicShare, loadCollabSession, saveCollabSession, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
@@ -98,7 +98,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [contributionAlbumId, setContributionAlbumId] = useState<string | null>(null);
   const [contributionSession, setContributionSession] = useState<CollabSession | null>(null);
   // 담아둔 앨범(§1 9차) — 구경꾼에게 흔적을 남기는 자리. ★ 권한은 바뀌지 않는다.
-  const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   // 구경꾼은 본문 맨 아래에서 이 구역을 만난다(§4 8차 — 네비 칸을 쓰지 않는다).
@@ -117,6 +116,17 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // ★ 역할 판정은 lib/albumRole 한 곳이다(§1 · H-1). 화면이 따로 추측하지 않는다 —
   // 링크 종류가 아니라 서버가 내려준 능력 플래그로 갈린다.
   const role = resolveAlbumRole(album);
+  /**
+   * 담아뒀는가 — **앨범 응답 하나**에서 읽는다 (K-12 · §1 25차).
+   *
+   * ★ 예전에는 이 값을 따로 든 state 에 베껴 뒀다. 그런데 앨범이 다시 그려질 때마다
+   *   그 베낀 값이 **응답의 옛 값으로 덮였다** — 담아둔 직후에도 `담아둘까요?` 물음이
+   *   그대로 돌아왔고, 사람은 안 담긴 줄 알고 또 눌렀다(실기기에서 그랬다).
+   *   담고 나면 앨범 값 자체를 고친다(아래 `saveBookmark`). 근거가 하나면 어긋나지 않는다.
+   *
+   * 로그인했을 때만 의미가 있다 — 비로그인이면 서버가 늘 false 로 내려준다.
+   */
+  const bookmarked = Boolean(album?.viewer_bookmarked);
 
   const [nameAction, setNameAction] = useState<"photo" | "memory" | null>(null);
   const [participantName, setParticipantName] = useState("");
@@ -219,7 +229,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     // 다만 **이미 참여자인 사람은 다시 묻지 않는다.** 서버가 기존 album_contributors 행을
     // viewer_contributor 로 내려주므로, 그것을 그대로 받아 참여자 화면을 연다.
     // ★ 여기서 아무것도 만들지 않는다 — 읽어서 쓰기만 한다.
-    if (album) setBookmarked(Boolean(album.viewer_bookmarked));
     if (!album?.viewer_contributor || contributionSession || loadedToken !== token) return;
     const existing = album.viewer_contributor;
     const session = {
@@ -419,43 +428,58 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     variant: "visitor" as const,
     onCreateAlbum: () => window.location.assign("/"),
   };
-  const toggleBookmark = async () => {
+  /**
+   * 이 앨범을 내 앨범에 담는다 (K-12 · §1).
+   *
+   * ★ 여기에 **빼기는 없다.** 빼는 자리는 `내 앨범` 의 담아둔 목록 하나다 —
+   *   담자마자 뺄 일은 없고, 버튼이 둘이면 무엇을 누를지 생각해야 한다(§1 25차).
+   */
+  const saveBookmark = async () => {
     if (!authenticatedUser) { onLogin?.(); return; }
-    const next = !bookmarked;
+    if (!album || bookmarked) return;
     setBookmarkBusy(true);
     setBookmarkError(null);
     try {
       // ★ 담을 때는 **이 링크로** 담는다(K-7b). 서버가 링크를 함께 저장해 두고,
       // `담아둔 앨범` 에서 그 링크로 연다 — 구경꾼은 /album/{id} 로 못 연다.
-      if (next) await saveSharedAlbumBookmark(token);
-      else await removeAlbumBookmark(album.album_id);
-      setBookmarked(next);
+      await saveSharedAlbumBookmark(token);
+      // 화면이 서버를 따라간다 — 다시 그려도 담긴 상태가 유지된다(K-12).
+      setAlbum((current) => (current ? { ...current, viewer_bookmarked: true } : current));
     } catch (cause) {
       // ★ 조용히 삼키지 않는다(§11). 예전에는 상태만 되돌려서, 403 이 나도 화면이
       // 아무 말을 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다(무한 반복).
-      setBookmarked(!next);
       setBookmarkError(cause instanceof Error ? cause.message : "담아두지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setBookmarkBusy(false);
     }
   };
-  // §1 게스트 저장 안내와 같은 방식 — 명령이 아니라 물음이다.
-  const bookmarkCard = role === "visitor" && !bookmarked ? (
+  /**
+   * 같은 자리가 **묻는 말**과 **담긴 상태** 둘을 겸한다 (K-12 · §1 25차).
+   *
+   * ★ 스스로 사라지는 알림으로 처리하지 않는다(§11). 담겼다는 사실은 화면에 남아 있어야
+   *   한다 — 사라지고 나면 담겼는지 알 길이 다시 없어진다.
+   * ★ `내 앨범에서 보기` 는 헤더의 `내 앨범` 과 같은 곳이다(K-7c 에서 쓴 그 주소).
+   */
+  const bookmarkCard = role !== "visitor" ? null : bookmarked ? (
+    <div className="album-guest-save">
+      <p className="album-guest-save__title">내 앨범에 담아뒀어요.</p>
+      <div className="album-guest-save__actions">
+        <a className="btn btn--primary" href="/my-albums">내 앨범에서 보기</a>
+      </div>
+    </div>
+  ) : (
     <div className="album-guest-save">
       <p className="album-guest-save__title">이 앨범을 내 앨범에 담아둘까요?</p>
       <p className="album-guest-save__copy">담아두면 다음에도 이 앨범을 찾을 수 있어요.</p>
       <div className="album-guest-save__actions">
-        <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아두기</button>
+        <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void saveBookmark()}>담아두기</button>
       </div>
       {bookmarkError ? <p className="notice notice--error album-guest-save__error" role="alert">{bookmarkError}</p> : null}
     </div>
-  ) : null;
+  );
   const publicActions = (
     <div className="album-result__actions">
-      {/* 담아둔 뒤에는 뺄 수도 있어야 한다. */}
-      {role === "visitor" && bookmarked ? (
-        <button type="button" className="btn btn--ghost" disabled={bookmarkBusy} onClick={() => void toggleBookmark()}>담아둔 앨범에서 빼기</button>
-      ) : null}
+      {/* ★ 여기에 `빼기` 를 두지 않는다(§1 25차). 빼는 자리는 `내 앨범` 의 담아둔 목록 하나다. */}
       <a className="btn btn--ghost" href="/">새 앨범 만들기</a>
     </div>
   );

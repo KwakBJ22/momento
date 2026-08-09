@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 
-from app.services.bookmark_service import list_bookmarked_album_ids
+from app.services.bookmark_service import is_bookmarked, list_bookmarked_album_ids
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,6 +34,9 @@ class _Query:
         return self
 
     def order(self, *_a, **_k):
+        return self
+
+    def limit(self, *_a, **_k):
         return self
 
     def execute(self):
@@ -131,3 +134,40 @@ class BookmarkResponseTests(TestCase):
     def test_share_response_tells_the_current_state(self) -> None:
         share = (ROOT / "app/api/share.py").read_text(encoding="utf-8")
         self.assertIn("viewer_bookmarked=bool(user_id) and is_bookmarked(client, str(user_id), album_id)", share)
+
+
+class ShareResponseBookmarkStateTests(TestCase):
+    """★ 다시 들어와도 담긴 상태로 보인다 (K-12 · SCREEN_SPEC §1 25차).
+
+    실기기에서 담아둔 뒤에도 `담아둘까요?` 가 그대로 남았다. 화면 쪽이 담긴 값을 따로
+    베껴 두고 그것이 덮여서 났다 — 그래서 화면을 고쳤다(공유 화면 한 곳).
+
+    여기서는 **화면이 기댈 근거**를 잠근다: 공유 응답이 그 사실을 함께 싣는다.
+    새 API 를 만들지 않는다 — 기존 응답을 넓힌 것이다(§10).
+    """
+
+    def test_a_saved_album_reads_back_as_saved(self) -> None:
+        self.assertTrue(is_bookmarked(_Client([{"id": "b-1"}]), "u-1", "a-1"))
+
+    def test_an_unsaved_album_reads_back_as_not_saved(self) -> None:
+        self.assertFalse(is_bookmarked(_Client([]), "u-1", "a-1"))
+
+    def test_the_share_response_carries_the_field(self) -> None:
+        schemas = (ROOT / "app/models/schemas.py").read_text(encoding="utf-8")
+        # 기본값은 False 다 — 비로그인은 늘 안 담김이다.
+        self.assertIn("viewer_bookmarked: bool = False", schemas)
+
+    def test_the_share_endpoint_can_see_who_is_asking(self) -> None:
+        """로그인을 못 읽으면 담긴 앨범도 늘 안 담김으로 내려간다."""
+        share = code((ROOT / "app/api/share.py").read_text(encoding="utf-8"))
+        handler = share[share.index('@router.get("/public/shares/{token}"'):]
+        handler = handler[: handler.index("async def", handler.index("async def") + 1)]
+        self.assertIn("user_id: str | None = Depends(optional_authenticated_user)", handler)
+
+    def test_no_separate_api_asks_whether_it_is_saved(self) -> None:
+        """상태를 묻는 API 를 따로 만들지 않는다 — 공유 응답이 이미 말한다(§10)."""
+        album = code((ROOT / "app/api/album.py").read_text(encoding="utf-8"))
+        share = code((ROOT / "app/api/share.py").read_text(encoding="utf-8"))
+        for source in (album, share):
+            self.assertNotIn("bookmark/status", source)
+            self.assertNotIn("bookmarks/status", source)

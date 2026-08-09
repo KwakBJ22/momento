@@ -46,11 +46,12 @@ test("★ 담을 때는 **그 링크로**, 뺄 때는 앨범 id 로 (K-7b)", asy
 test("★ 담아둬도 쓰기 권한이 생기지 않는다", () => {
   // 화면은 담기 결과로 어떤 권한 플래그도 바꾸지 않는다 — 목록에 남을 뿐이다.
   const view = read("components/PublicShareView.tsx");
-  const toggle = view.slice(view.indexOf("const toggleBookmark"), view.indexOf("const bookmarkCard"));
-  assert.match(toggle, /await saveSharedAlbumBookmark\(token\);/);
-  assert.match(toggle, /await removeAlbumBookmark\(album\.album_id\);/);
+  // ★ K-12 에서 `toggleBookmark` 이 `saveBookmark` 이 됐다 — 이 화면에는 빼기가 없다
+  //   (빼는 자리는 `내 앨범` 하나다, §1 25차). 규칙은 그대로다: 담기는 권한을 안 건드린다.
+  const save = view.slice(view.indexOf("const saveBookmark"), view.indexOf("const bookmarkCard"));
+  assert.match(save, /await saveSharedAlbumBookmark\(token\);/);
   for (const forbidden of ["startPublicContribution", "canContribute =", "setContributionSession", "can_edit"]) {
-    assert.equal(toggle.includes(forbidden), false, `담기가 권한을 건드린다: ${forbidden}`);
+    assert.equal(save.includes(forbidden), false, `담기가 권한을 건드린다: ${forbidden}`);
   }
   // 서버도 참여자 표를 건드리지 않는다.
   const service = readFileSync(new URL("../../backend/app/services/bookmark_service.py", import.meta.url), "utf8")
@@ -83,10 +84,9 @@ test("구경꾼 안내 문구가 §1 그대로다 — 명령이 아니라 물음
   assert.match(view, />담아두기</);
   // 참여할 수 있는 사람(참여자)에게는 이 카드가 없다 — 그들은 이미 목록에 있다.
   // 역할 판정은 lib/albumRole 한 곳이다(H-1) — 화면이 플래그를 다시 읽지 않는다.
-  assert.match(view, /const bookmarkCard = role === "visitor" && !bookmarked \?/);
-  // 담아둔 뒤에는 뺄 수도 있다.
-  assert.match(view, />담아둔 앨범에서 빼기</);
-  assert.match(view, /\{role === "visitor" && bookmarked \? \(/);
+  // ★ K-12 에서 같은 자리가 **담긴 상태**도 겸하게 됐다. 구경꾼에게만 뜨는 것은 그대로다.
+  //   (담긴 뒤 문구·`빼기` 를 두지 않는 것은 shareBookmarkState.test.ts 가 본다)
+  assert.match(view, /const bookmarkCard = role !== "visitor" \? null : bookmarked \? \(/);
 });
 
 test("로그인해야 담아둘 수 있다 (어디에 담을지가 계정이다)", async () => {
@@ -103,7 +103,9 @@ test("로그인해야 담아둘 수 있다 (어디에 담을지가 계정이다)
 
 test("지금 상태는 서버가 알려준다 (화면이 추측하지 않는다)", () => {
   const view = read("components/PublicShareView.tsx");
-  assert.match(view, /if \(album\) setBookmarked\(Boolean\(album\.viewer_bookmarked\)\);/);
+  // ★ K-12: 베껴 두지 않고 **앨범 응답에서 바로 읽는다.** 베낀 값은 다시 그릴 때
+  //   응답의 옛 값으로 덮여서, 담아둔 직후에도 물음이 돌아왔다.
+  assert.match(view, /const bookmarked = Boolean\(album\?\.viewer_bookmarked\);/);
   const share = readFileSync(new URL("../../backend/app/api/share.py", import.meta.url), "utf8");
   assert.match(share, /viewer_bookmarked=bool\(user_id\) and is_bookmarked\(/);
 });
@@ -127,8 +129,8 @@ test("담아둔 앨범이 아니면 지금 그대로 연다", () => {
 
 test("★ 담아두지 못하면 **말한다** (§11 — 무한 반복의 원인이었다)", () => {
   const view = read("components/PublicShareView.tsx");
-  const toggle = view.slice(view.indexOf("const toggleBookmark"), view.indexOf("const bookmarkCard"));
+  const save = view.slice(view.indexOf("const saveBookmark"), view.indexOf("const bookmarkCard"));
   // 예전에는 상태만 되돌리고 아무 말도 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다.
-  assert.match(toggle, /setBookmarkError\(cause instanceof Error \? cause\.message :/);
+  assert.match(save, /setBookmarkError\(cause instanceof Error \? cause\.message :/);
   assert.match(view, /className="notice notice--error album-guest-save__error" role="alert"/);
 });

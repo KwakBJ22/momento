@@ -158,7 +158,8 @@ test("화면이 역할 값으로 시트를 채운다 (직접 플래그를 다시
   assert.match(view, /variant: navVariantForRole\(role\)/);
   const share = read("components/PublicShareView.tsx");
   assert.match(share, /onExportPdf=\{role === "contributor" \?/);
-  assert.match(share, /const bookmarkCard = role === "visitor" && !bookmarked \?/);
+  // ★ K-12 에서 이 자리가 담긴 상태도 겸하게 됐다 — 판정 근거는 여전히 role 하나다.
+  assert.match(share, /const bookmarkCard = role !== "visitor" \? null : bookmarked \? \(/);
 });
 
 // H-2 함께 — `여기에 없는 것` 안내가 **두 화면에서 같은 근거**로 나오는지 잠근다.
