@@ -29,7 +29,7 @@ import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPho
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
-import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, setPendingGuestClaim, takePendingGuestClaim } from "./lib/guestAlbum";
+import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, clearPendingGuestClaim, readPendingGuestClaim, setPendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
 import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
@@ -54,6 +54,8 @@ function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);
+  // 게스트 앨범 가져오기 실패 — 조용히 삼키지 않는다(K-9 · §11).
+  const [guestClaimError, setGuestClaimError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { requestClose: requestCloseAccountMenu, guard: accountContactGuard } = useContactCloseGuard(() => setAccountMenuOpen(false));
@@ -132,17 +134,52 @@ function App() {
     }
   }, []);
 
-  // A guest who pressed "저장하기" logs in, comes back here, and we transfer the
-  // album to their account, then reload it as the owner. Backend enforces the claim.
+  /**
+   * 게스트가 `저장하기` 를 누르고 로그인해서 돌아오면 **그 앨범을 계정으로 가져온다** (K-9).
+   *
+   * ★ 이 자리가 프로덕션에서 **한 번도 끝까지 간 적이 없었다.** 게스트 앨범 3건 모두
+   *   `owner_id`·`created_by` 가 NULL 이고 `guest_album_sessions` 도 안 닫혀 있었다.
+   *   로그(2026-08-09 13:33·13:38): `OPTIONS /api/guest-albums/claim` 200 은 있는데
+   *   **`POST` 가 없다.** 그 사이 `bootstrap` 이 499(client closed)로 끊긴다 —
+   *   요청을 시작한 직후 화면이 다시 뜬 것이다. 그런데 그때 이미 의도는 **읽으면서
+   *   지워져** 있어서 다시 시도할 방법이 없었고, 사용자는 403 화면만 봤다.
+   *
+   * 그래서 셋을 바꿨다.
+   *   · 의도를 localStorage 에 남긴다(웹뷰가 새로 떠도 살아남는다)
+   *   · **성공했을 때 지운다.** 중간에 끊기면 다음에 다시 뜰 때 이어서 한다.
+   *   · 실패하면 **말한다**(§11). 예전에는 조용히 삼켰다.
+   *
+   * ★ 서버(`claim_guest_album_ownership` RPC)는 이미 옳다 — `owner_id`·`created_by`
+   *   를 채우고 세션을 `claimed` 로 닫고, 다른 계정의 두 번째 claim 을 거절한다.
+   *   확인만 하고 건드리지 않았다.
+   */
   useEffect(() => {
     if (!user) return;
-    const albumId = takePendingGuestClaim();
+    const albumId = readPendingGuestClaim();
     if (!albumId) return;
     const token = getGuestAlbumToken(albumId);
-    if (!token) return;
+    if (!token) { clearPendingGuestClaim(); return; }
     void claimGuestAlbum(token)
-      .then(() => { clearGuestAlbumToken(albumId); window.location.assign(`/album/${albumId}`); })
-      .catch(() => { /* keep the token so the user can retry saving */ });
+      .then(() => {
+        clearPendingGuestClaim();
+        clearGuestAlbumToken(albumId);
+        window.location.assign(`/album/${albumId}`);
+      })
+      .catch((cause) => {
+        const status = (cause as { status?: number } | null)?.status;
+        // 지웠다가는 **다시 가져올 길이 없어진다.** 그래서 토큰이 아무 쓸모가 없는
+        // 두 갈래에서만 지운다 — 410 세션이 지났음 · 404 그런 앨범이 없음.
+        //
+        // ★ 403 은 지우지 않는다. 두 뜻을 겸한다:
+        //     · 다른 계정이 이미 가져갔다  → 그 계정으로 로그인하면 된다
+        //     · 앨범을 너무 많이 만들었다  → 서버가 세션을 7일 늘려 두고 거절한다
+        //   둘 다 **나중에 되는 일**이라, 여기서 지우면 서버가 만들어 준 그 길을 막는다.
+        if (status === 410 || status === 404) {
+          clearPendingGuestClaim();
+          clearGuestAlbumToken(albumId);
+        }
+        setGuestClaimError(cause instanceof Error ? cause.message : "앨범을 계정으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      });
   }, [user?.id]);
 
   useEffect(() => {
@@ -298,6 +335,9 @@ function App() {
       {/* 우측 slot: §3 표. 참여 화면은 비우고, 앨범 화면은 자기 것을 채운다. */}
       {!adminRoute && !albumOwnsHeaderSlot && !isJoinSurface ? <HeaderRight>{accountEntry}</HeaderRight> : null}
       <main className="app__main">
+        {/* 게스트 앨범을 계정으로 가져오지 못했으면 **말한다** (K-9 · §11).
+            예전에는 조용히 삼켜서, 사용자는 까닭 없는 403 화면만 봤다. */}
+        {guestClaimError ? <p className="notice notice--error" role="alert">{guestClaimError}</p> : null}
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} user={user ?? null} authReady={authReady && user !== undefined} />

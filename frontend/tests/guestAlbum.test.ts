@@ -14,7 +14,7 @@ class MemoryStorage {
 
 const {
   saveGuestAlbumToken, getGuestAlbumToken, clearGuestAlbumToken, hasGuestAlbumToken,
-  setPendingGuestClaim, takePendingGuestClaim,
+  clearPendingGuestClaim, readPendingGuestClaim, setPendingGuestClaim,
 } = await import("../src/lib/guestAlbum");
 
 test("a guest album token round-trips per album and is scoped by id", () => {
@@ -34,8 +34,16 @@ test("clearing one token leaves the others intact", () => {
   assert.equal(getGuestAlbumToken("album-b"), "tok-b");
 });
 
-test("a pending claim is consumed exactly once", () => {
+/**
+ * ★ 이 테스트는 K-9 에서 **뒤집혔다.** 예전에는 "의도는 한 번만 읽힌다"였다.
+ *   그 한 번이 가져오기가 **끝나기 전에** 소모되는 바람에, 로그인 왕복 직후 요청이
+ *   끊기면(프로덕션 로그의 499) 다시 시도할 방법이 없었고 앨범이 주인 없이 남았다.
+ *   이제는 **성공했을 때** 지운다. 자세한 것은 `guestAlbumClaim.test.ts`.
+ */
+test("a pending claim survives until it is explicitly cleared", () => {
   setPendingGuestClaim("album-c");
-  assert.equal(takePendingGuestClaim(), "album-c");
-  assert.equal(takePendingGuestClaim(), null); // second read is empty
+  assert.equal(readPendingGuestClaim(), "album-c");
+  assert.equal(readPendingGuestClaim(), "album-c"); // 끝날 때까지 남아 있는다
+  clearPendingGuestClaim();
+  assert.equal(readPendingGuestClaim(), null);
 });
