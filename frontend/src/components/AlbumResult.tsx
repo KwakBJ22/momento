@@ -250,13 +250,22 @@ export default function AlbumResultView({
     </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>
   );
 
-  const openEpilogueEditor = () => {
-    if (!canEditStories) return;
-    setIsEditing(true);
-    window.requestAnimationFrame(() => document.querySelector(".album-result__epilogue")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  /**
+   * ★ `한마디 쓰기` 는 **사진에 다는 한마디**를 연다 (J-7 · §4·§7).
+   *
+   * 예전에는 여기서 `우리의 이야기` 편집창이 열렸다 — 거기서 쓴 글은
+   * `PATCH /api/albums/{id}/epilogue` 로 **앨범 본문**에 저장된다(요청 본문으로 확인).
+   * 사진에 딸린 말이 아니다. 세 화면이 서로 다른 것을 열고 있었다(I-2 와 같은 병).
+   *
+   * 구현을 새로 만들지 않는다 — 앨범 상세가 이미 갖고 있는 그것을 연다.
+   * `우리의 이야기` 는 그 글 옆 진입점(`onEditEpilogue`)으로만 간다.
+   */
+  const openAddMemory = () => {
+    window.location.assign(`/album/${result.album_id}?action=memory`);
   };
+
   return <>
-    <AlbumScreen title={albumTitle} canEditTitle={canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: onReset, onAddMemory: openEpilogueEditor, onShare: () => setShareOpen(true), onCreateAlbum: onReset, canAddMemory: canEditStories }} />
+    <AlbumScreen title={albumTitle} canEditTitle={canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onTop: () => window.scrollTo({ top: 0, behavior: "smooth" }), onAddPhoto: onReset, onAddMemory: openAddMemory, onShare: () => setShareOpen(true), onCreateAlbum: onReset, canAddMemory: canEditStories }} />
     {/* ★ 시트를 닫아도 남는다(I-3) — 앨범 상세와 같은 표시를 쓴다. */}
     <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
     {shareOpen && isOwner ? (

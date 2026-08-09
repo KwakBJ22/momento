@@ -37,8 +37,11 @@ test("방명록은 공용 컴포넌트로, 공유 화면에서는 반응 뒤에 
   // ③ 방명록은 앨범 상세에도 붙는다 — 본문(AlbumRenderer) 밖 별도 구역.
   const view = readFileSync(new URL("../src/components/AlbumView.tsx", import.meta.url), "utf8");
   assert.match(view, /<AlbumGuestbook token=\{guestbookToken\}/);
-  // 하단 네비 "한마디 쓰기"가 이 구역을 연다(앨범 단위 행동).
-  assert.match(view, /onAddMemory: \(\) => \{ guestbookRef\.current\?\.scrollIntoView/);
+  // ★ J-7 로 뒤집힌 항목 — 하단 네비 `한마디 쓰기` 는 이 구역을 열지 않는다.
+  // §4: 그것이 여는 것은 **사진에 다는 한마디**다. `우리가 남긴 말` 은 본문 맨 아래에서
+  // 스크롤로 만난다 — 네비 칸을 쓰지 않는다.
+  assert.match(view, /onAddMemory: \(\) => void openContribution\("memory"\)/);
+  assert.equal(view.includes("guestbookRef"), false, "네비가 다시 이 구역을 연다");
 });
 
 test("guestbook and reactions live outside AlbumRenderer, so neither appears in the PDF", () => {
