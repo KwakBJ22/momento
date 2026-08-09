@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { registerCssStub } from "./support/domEnv";
+
 /**
  * 가로 사진의 캡션이 멀리 떨어진다 (I-4-4 · SCREEN_SPEC §9 `사진 프레임 — 폴라로이드 한 장`).
  *
@@ -17,6 +19,8 @@ import test from "node:test";
  * §9 는 "캡션은 프레임 안, **사진 바로 아래**" 이고 "한 장짜리 쪽이 페이지를 억지로
  * 채우지 않는다. 남는 여백은 남겨 둔다" 이다. 프레임이 사진 크기에 맞춰 줄어들어야 한다.
  */
+
+registerCssStub();
 
 const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages.css", import.meta.url), "utf8");
 const printPages = readFileSync(new URL("../src/album-engine/components/PrintPages.tsx", import.meta.url), "utf8");
@@ -58,30 +62,39 @@ test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율
   const img = rule(".album-renderer--print .print-frame__photo img");
   assert.match(img, /max-width: 100%/);
   assert.equal(/max-height:\s*100%/.test(img), false, "백분율 상한은 통하지 않는다");
-  // 장수별 상한이 넷 다 있다.
+  // 장수별 상한이 넷 다 있다. (I-4g 뒤로 캡션이 길어진 만큼 빼는 calc 다.)
   for (const count of [1, 2, 3, 4]) {
-    assert.match(printCss, new RegExp(`\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: \\d+mm; \\}`), `${count}장 상한이 없다`);
+    assert.match(printCss, new RegExp(`\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\(\\d+mm - var\\(--print-caption-extra, 0mm\\)\\); \\}`), `${count}장 상한이 없다`);
   }
 });
 
 test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (네 장수 모두)", () => {
   // 4d-3 뒤로 이야기는 1~4장 어느 쪽에나 함께 들어간다 — 그만큼 상한이 낮다.
   for (const count of [1, 2, 3, 4]) {
-    const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
-    const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`));
+    const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`));
+    const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`));
     assert.ok(withStory && plain, `${count}장: 두 벌이 다 있어야 한다`);
     assert.ok(Number(withStory[1]) < Number(plain[1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
   }
   // 짧은 변 60mm 하한을 지키는 값이다 — 3:4 세로 사진에서 상한 80mm 면 폭이 60mm 다.
   const lowest = Math.min(...[1, 2, 3, 4].map((count) => Number(
-    printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: (\\d+)mm; \\}`))![1],
+    printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`))![1],
   )));
   assert.ok(lowest >= 80, `가장 낮은 상한이 ${lowest}mm — 3:4 세로 사진의 폭이 60mm 아래로 내려간다`);
 });
 
-test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", () => {
+test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", async () => {
   assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 4;/);
-  assert.match(printPages, /chunk\(photos, PRINT_PHOTOS_PER_PAGE\)/);
+  // ★ 글자가 아니라 **결과**를 본다 — 나누는 코드가 바뀌어도 계약은 그대로여야 한다.
+  const { paginateChapterPhotos } = await import("../src/album-engine/components/PrintPages");
+  for (const total of [1, 4, 5, 9, 13]) {
+    const photos = Array.from({ length: total }, (_, index) => index);
+    for (const hasStory of [false, true]) {
+      for (const page of paginateChapterPhotos(photos, hasStory)) {
+        assert.ok(page.length <= 4, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
+      }
+    }
+  }
 });
 
 test("화면은 건드리지 않았다 — 이 파일의 모든 규칙이 인쇄 아래에 있다", () => {

@@ -151,9 +151,18 @@ test("사진 짧은 변 60mm 하한은 그대로다", () => {
   assert.match(printPages, /export const PRINT_MIN_PHOTO_SHORT_SIDE_MM = 60;/);
 });
 
-test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", () => {
+test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", async () => {
   assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 4;/);
-  assert.match(printPages, /chunk\(photos, PRINT_PHOTOS_PER_PAGE\)/);
+  // ★ 글자가 아니라 **결과**를 본다 — 나누는 코드가 바뀌어도 계약은 그대로여야 한다.
+  const { paginateChapterPhotos } = await import("../src/album-engine/components/PrintPages");
+  for (const total of [1, 4, 5, 9, 13]) {
+    const photos = Array.from({ length: total }, (_, index) => index);
+    for (const hasStory of [false, true]) {
+      for (const page of paginateChapterPhotos(photos, hasStory)) {
+        assert.ok(page.length <= 4, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
+      }
+    }
+  }
 });
 
 test("이 파일의 모든 규칙이 인쇄 아래에 있다 (화면에 새지 않는다)", () => {

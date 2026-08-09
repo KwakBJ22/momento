@@ -1,9 +1,10 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import ChapterHeader from "../blocks/ChapterHeader";
 import StoryBlock from "../blocks/StoryBlock";
 import PhotoMemoryLines from "./PhotoMemoryLines";
 import { buildPhotoCaptionSegments } from "./photoCaptionSegments";
+import { printCaptionExtraMm, printCaptionNeedsOwnPage } from "./printCaptionFit";
 import type { BuiltAlbum } from "../buildAlbum";
 import type { EnginePhoto } from "../types";
 import "./PrintPages.css";
@@ -53,6 +54,29 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
+ * 캡션이 아주 긴 사진을 **제 묶음**으로 떼어낸다 (I-4g).
+ *
+ * 그런 사진이 다른 사진과 한 쪽을 쓰면 그 쪽 사진이 전부 같이 작아진다.
+ * 혼자 두면 그 사진만 작아지고 나머지는 그대로다. 순서는 지킨다.
+ */
+function splitLongCaptions<T>(photos: T[], needsOwnPage?: (photo: T) => boolean): T[][] {
+  if (!needsOwnPage) return [photos];
+  const runs: T[][] = [];
+  let run: T[] = [];
+  for (const photo of photos) {
+    if (!needsOwnPage(photo)) {
+      run.push(photo);
+      continue;
+    }
+    if (run.length) runs.push(run);
+    runs.push([photo]);
+    run = [];
+  }
+  if (run.length) runs.push(run);
+  return runs.length ? runs : [photos];
+}
+
+/**
  * 그 날의 사진을 쪽으로 나눈다 (I-4c-3).
  *
  * ★ **글만 있는 쪽을 만들지 않는다.** 날짜 이야기는 그 날의 **마지막 사진과 같은
@@ -69,14 +93,26 @@ export function paginateChapterPhotos<T>(
   photos: T[],
   hasStory: boolean,
   maxWithStory: number = STORY_PAGE_MAX_PHOTOS,
+  /** ★ 캡션이 아주 긴 사진은 **혼자** 한 쪽을 쓴다(I-4g). 주지 않으면 지금 그대로다. */
+  needsOwnPage?: (photo: T) => boolean,
 ): T[][] {
-  const pages = chunk(photos, PRINT_PHOTOS_PER_PAGE);
+  const pages = splitLongCaptions(photos, needsOwnPage).flatMap((run) => chunk(run, PRINT_PHOTOS_PER_PAGE));
   if (!hasStory || !pages.length) return pages;
   const last = pages[pages.length - 1];
   if (last.length <= maxWithStory) return pages;
   // 나눌 때는 앞 쪽에 2장, 이야기가 붙는 쪽에 나머지(4c 규칙 그대로).
   const keep = Math.min(last.length - 1, STORY_SPLIT_FRONT_PHOTOS);
   return [...pages.slice(0, -1), last.slice(0, keep), last.slice(keep)];
+}
+
+/**
+ * 그 쪽의 사진 상한에서 뺄 높이 (I-4g). 뺄 것이 없으면 아무것도 얹지 않는다 —
+ * 캡션이 짧은 쪽의 모양은 지금 그대로다.
+ */
+function printCaptionExtraStyle(photos: EnginePhoto[]): CSSProperties | undefined {
+  const extraMm = printCaptionExtraMm(photos);
+  if (!(extraMm > 0)) return undefined;
+  return { "--print-caption-extra": `${extraMm.toFixed(2)}mm` } as CSSProperties;
 }
 
 function PhotoFrame({ photo }: { photo: EnginePhoto }) {
@@ -119,7 +155,12 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
   return (
     <>
       {album.chapters.map((chapter, chapterIndex) => {
-        const pages = paginateChapterPhotos(chapter.photos, Boolean(chapter.storyBody));
+        const pages = paginateChapterPhotos(
+          chapter.photos,
+          Boolean(chapter.storyBody),
+          STORY_PAGE_MAX_PHOTOS,
+          printCaptionNeedsOwnPage,
+        );
         const storyTitle = chapter.dateRangeLabel ? `${chapter.dateRangeLabel}의 이야기` : "그날의 이야기";
         return (
           <Fragment key={`print-chapter-${chapter.date ?? chapterIndex}`}>
@@ -128,6 +169,9 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 className="print-page"
                 data-print-page=""
                 data-photo-count={photos.length}
+                /* ★ 캡션이 두 줄을 넘으면 넘은 만큼 사진 상한을 낮춘다(I-4g).
+                   프레임 높이가 그대로라 쪽을 넘지 않는다. */
+                style={printCaptionExtraStyle(photos)}
                 /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
                 data-has-story={pageIndex === pages.length - 1 && chapter.storyBody ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}

@@ -206,17 +206,20 @@
  *
  * ★ 짧은 변 60mm 하한(I-4b-5)을 지키는 값이다 — 3:4 세로 사진 기준 상한 80mm 이면
  *   폭이 60mm 다. 그래서 이야기가 함께 오는 3·4장 쪽도 80mm 아래로 내리지 않는다. */
-.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: 195mm; }
-.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: 130mm; }
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: 100mm; }
-.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: 100mm; }
+/* ★ `--print-caption-extra` 는 캡션이 두 줄을 넘은 만큼이다(I-4g). 그만큼 사진을 낮춰
+ *   프레임 전체 높이를 그대로 둔다 — 캡션을 자르지 않으면서 쪽도 넘지 않는다.
+ *   값은 `printCaptionFit.ts` 가 A4 기하로 계산해 쪽마다 얹는다. 짧으면 0mm 다. */
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: calc(195mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: calc(130mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: calc(100mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: calc(100mm - var(--print-caption-extra, 0mm)); }
 
 /* 날짜 이야기가 함께 들어가는 쪽 — 이야기가 차지하는 만큼만 낮춘다.
    두 칸 격자 덕분에 4장 + 이야기도 한 쪽에 들어간다(I-4d-3). */
-.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: 165mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: 110mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: 80mm; }
-.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: 80mm; }
+.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: calc(165mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: calc(110mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: calc(80mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: calc(80mm - var(--print-caption-extra, 0mm)); }
 
 /* 🔴 캡션이 PDF 에 **한 글자도 안 찍히던** 자리다 (I-4e).
  *
@@ -244,6 +247,27 @@
   width: 0;
   min-width: 100%;
   box-sizing: border-box;
+}
+
+/* 🔴 인쇄에서 캡션이 **두 줄에서 잘리던** 자리다 (I-4g · §9).
+ *
+ * 화면은 사진을 크게 보이려고 두 줄에서 자른다(PhotoMemoryLines.css 의
+ * `-webkit-line-clamp: 2`, 작성자가 둘 이상이면 1). 그 규칙이 인쇄까지 따라와
+ * 문장이 중간에 끊겼다 — `…` 도 없이 그냥 끊긴다.
+ *
+ * **인쇄는 자를 이유가 없다.** 캡션은 인쇄까지 가는 유일한 사용자 글이라,
+ * 반쪽만 남으면 그 사람이 남긴 말이 아니게 된다. 화면의 두 줄 + `…` 는 그대로 둔다.
+ *
+ * ★ 선택자를 네 겹으로 쓰는 이유: 화면 규칙(`--caption.--multi .__text`)이 세 겹이라
+ *   같은 무게로는 파일 순서에 따라 이기고 질 수 있다. 순서에 기대지 않는다(§11). */
+.album-renderer--print .print-frame__caption .photo-memory-lines--caption .photo-memory-lines__text {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+}
+
+.album-renderer--print .print-frame__caption .photo-memory-lines--caption .photo-memory-lines__line {
+  overflow: visible;
 }
 
 /* 표지 로고 — 표지에서 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9 · I-4-2).
@@ -305,33 +329,6 @@
   line-height: var(--print-leading-body);
 }
 
-/* 로고 아래 영문과 주소 — 로고(29px)보다 작고, 색은 본문 보조색이다(I-4f-2).
-   로고가 주인공이라 이 두 줄에 브랜드색을 쓰지 않는다. */
-.album-renderer--print .album-renderer__brand-id {
-  display: grid;
-  margin: 0;
-  text-align: center;
-}
-
-.album-renderer--print .album-renderer__brand-en,
-.album-renderer--print .album-renderer__brand-url {
-  display: block;
-  color: var(--c-text-soft);
-  font-size: var(--print-brand-id);
-  line-height: 1.5;
-}
-
-/* ★ 브랜드 블록이 `우리의 이야기` 쪽 **아래**에 들어간 경우(I-4f-1).
-   자기 쪽일 때의 한 장 크기·가운데 정렬을 벗고, 끝 글 아래에 붙는다. */
-.album-renderer--print .print-closing > .album-renderer__brand-page[data-print-brand-inline] {
-  aspect-ratio: auto;
-  width: 100%;
-  padding: 0;
-  /* 본문 바로 뒤가 아니라 **쪽 아래**에 붙인다. */
-  margin-top: auto;
-}
-
-/* 끝 글(우리의 이야기 + 함께 만든 사람)도 한 장으로 묶는다 — 갈라지지 않게. */
 /* 로고 아래 영문과 주소 — 로고(29px)보다 작고, 색은 본문 보조색이다(I-4f-2).
    로고가 주인공이라 이 두 줄에 브랜드색을 쓰지 않는다. */
 .album-renderer--print .album-renderer__brand-id {

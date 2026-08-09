@@ -33,7 +33,8 @@ const SPEC: Array<{ day: string; shots: Array<{ shape: "가로" | "세로"; capt
     shots: [
       { shape: "가로", caption: "공항에서 내리자마자 바람이 셌다." },
       { shape: "세로", caption: "" },
-      { shape: "세로", caption: "숙소 앞 돌담. 여기서 한참 서 있었다. 아무도 먼저 들어가자는 말을 안 했다." },
+      // ★ 긴 캡션 — 인쇄에서 **잘리지 않는지** 눈으로 보는 자리다(I-4g).
+      { shape: "세로", caption: "숙소 앞 돌담. 여기서 한참 서 있었다. 아무도 먼저 들어가자는 말을 안 했다. 바람이 차가웠는데도 셋 다 그냥 서서 바다 쪽만 봤다." },
       { shape: "가로", caption: "" },
     ],
   },
