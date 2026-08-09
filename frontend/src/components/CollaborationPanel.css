@@ -255,15 +255,40 @@
 }
 
 .collab-panel__cover-grid button {
+  position: relative;
   min-height: 0;
   padding: 0;
-  overflow: hidden;
-  border-width: 2px;
+  /* 배지가 사진 모서리 위에 얹혀야 한다 — 잘라내지 않는다. */
+  overflow: visible;
+  border-width: 3px;
   aspect-ratio: 1;
 }
 
-.collab-panel__cover-grid button.is-selected { border-color: var(--c-text-soft); box-shadow: 0 0 0 2px var(--c-brand); }
-.collab-panel__cover-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 고른 사진 (J-6). 얇은 테두리 하나뿐이라 사진이 많으면 한눈에 안 들어왔다.
+   ★ **색만으로 구분하지 않는다** — 체크 배지가 있어야 색약인 사람도 안다(I-5b 와 같은 규칙).
+   ★ **고르지 않은 사진을 흐리게 하지 않는다.** 사진이 가장 중요하다(§6) —
+     고른 것을 도드라지게 할 뿐, 나머지를 죽이지 않는다. */
+.collab-panel__cover-grid button.is-selected { border-color: var(--c-brand); }
+
+.collab-panel__cover-grid button.is-selected::after {
+  content: "✓";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c-brand);
+  color: var(--c-surface);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* 테두리를 3px 로 키우면서 사진 모서리도 껍데기 안쪽에 맞춘다(overflow 를 풀었으므로). */
+.collab-panel__cover-grid img { width: 100%; height: 100%; border-radius: 7px; object-fit: cover; display: block; }
 .collab-panel__cover-actions { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; flex: 0 0 auto; gap: 0.5rem; margin-top: 1rem; padding: 0.75rem 0 calc(0.1rem + env(safe-area-inset-bottom)); background: var(--c-surface); }
 
 .collab-panel__picker-copy { margin: -0.25rem 0 0.75rem; color: var(--c-text-soft); font-size: 0.88rem; }

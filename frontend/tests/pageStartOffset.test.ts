@@ -60,3 +60,33 @@ test("시트 안에 끼워 넣은 같은 껍데기는 걸리지 않는다 (본�
   // `>` 직계 선택자라, 앨범 시트 안의 참여자 패널에는 위 여백이 붙지 않는다.
   assert.match(strip(appCss), /\.app--album \.app__main > \.family-panel \{/);
 });
+
+// --- J-6 · `대표사진 바꾸기` 에서 고른 것이 잘 보인다 ---
+
+const collabCss = readFileSync(path.join(SRC, "components/CollaborationPanel.css"), "utf8");
+
+test("★ 고른 사진에 체크 배지가 있다 — 색만으로 구분하지 않는다", () => {
+  const badge = rule(collabCss, ".collab-panel__cover-grid button.is-selected::after");
+  assert.match(badge, /content: "✓";/);
+  assert.match(badge, /width: 28px;/);
+  assert.match(badge, /height: 28px;/);
+  assert.match(badge, /border-radius: 50%;/);
+  assert.match(badge, /background: var\(--c-brand\);/);
+  assert.match(badge, /color: var\(--c-surface\);/);
+  // 사진 모서리에서 8px.
+  assert.match(badge, /top: 8px;/);
+  assert.match(badge, /right: 8px;/);
+});
+
+test("테두리는 3px 브랜드색이다", () => {
+  assert.match(rule(collabCss, ".collab-panel__cover-grid button"), /border-width: 3px;/);
+  assert.match(rule(collabCss, ".collab-panel__cover-grid button.is-selected"), /border-color: var\(--c-brand\);/);
+});
+
+test("★ 고르지 않은 사진을 흐리게 하지 않는다 (§6 — 사진이 가장 중요하다)", () => {
+  const grid = strip(collabCss).slice(
+    strip(collabCss).indexOf(".collab-panel__cover-grid"),
+    strip(collabCss).indexOf(".collab-panel__cover-actions"),
+  );
+  assert.equal(/opacity|filter|grayscale/.test(grid), false, "고르지 않은 사진을 죽인다");
+});
