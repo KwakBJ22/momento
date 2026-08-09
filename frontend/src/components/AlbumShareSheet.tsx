@@ -38,15 +38,16 @@ export default function AlbumShareSheet({
 }: AlbumShareSheetProps) {
   const { shareAlbum } = useKakaoSdk();
   const [copied, setCopied] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  /** 알림 한 줄 — 성공인지 실패인지 함께 들고 있어야 색과 읽힘이 갈린다(I-5b). */
+  const [notice, setNotice] = useState<{ text: string; kind: "success" | "error" } | null>(null);
 
   /** 카카오가 열리지 않으면 링크를 복사해 준다 — 조용히 끝나지 않는다(§11). */
   const fallbackToCopy = async (url: () => Promise<string>) => {
     try {
       await navigator.clipboard.writeText(await url());
-      setNotice("링크를 복사했어요.");
+      setNotice({ text: "링크를 복사했어요.", kind: "success" });
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "앨범을 공유하지 못했어요.");
+      setNotice({ text: cause instanceof Error ? cause.message : "앨범을 공유하지 못했어요.", kind: "error" });
     }
   };
 
@@ -91,7 +92,7 @@ export default function AlbumShareSheet({
       setCopied(true);
       window.setTimeout(() => setCopied(false), COPY_RESET_MS);
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "링크를 복사하지 못했어요.");
+      setNotice({ text: cause instanceof Error ? cause.message : "링크를 복사하지 못했어요.", kind: "error" });
     }
   };
 
@@ -115,7 +116,7 @@ export default function AlbumShareSheet({
             <span>{copied ? "구경용 링크를 복사했어요" : "링크 복사"}</span>
             <em>구경용 링크를 복사해요</em>
           </button>
-          {notice ? <p className="album-share-sheet__notice" role="status">{notice}</p> : null}
+          {notice ? <p className={`notice notice--${notice.kind} album-share-sheet__notice`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</p> : null}
         </div>
       </section>
     </>

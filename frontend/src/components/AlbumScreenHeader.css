@@ -13,4 +13,4 @@
    overflowing or wrapping on narrow (webview) widths — keeping it to one compact row. */
 .album-screen-header__editor input { flex: 1 1 7rem; min-width: 0; padding: 0.4rem 0.6rem; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text); font: inherit; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 700; }
 .album-screen-header__editor button { flex: 0 0 auto; min-height: 40px; padding: 0.4rem 0.9rem; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 0.95rem; cursor: pointer; }
-.album-screen-header__error { margin: 0; color: var(--c-danger); font-size: var(--t-xs); }
+.album-screen-header__error { margin: 0; font-size: var(--t-xs); }

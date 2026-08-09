@@ -86,7 +86,7 @@ export default function JoinPage({ token }: JoinPageProps) {
   };
 
   if (error && !preview) {
-    return <section className="join-page"><p className="join-page__error">{error}</p></section>;
+    return <section className="join-page"><p className="notice notice--error join-page__error" role="alert">{error}</p></section>;
   }
 
   if (!preview) {
@@ -129,7 +129,7 @@ export default function JoinPage({ token }: JoinPageProps) {
         placeholder="앨범에서 이 이름으로 불려요"
       />
 
-      {error ? <p className="join-page__error" role="alert">{error}</p> : null}
+      {error ? <p className="notice notice--error join-page__error" role="alert">{error}</p> : null}
 
       <button type="button" className="join-page__cta" disabled={busy} onClick={() => void onJoin()}>
         {busy ? "참여 중…" : "앨범에 참여하기"}

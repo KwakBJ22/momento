@@ -146,13 +146,13 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
   };
 
   if (loading) {
-    return <p className="question-flow__notice">한마디 질문을 준비하고 있어요...</p>;
+    return <p className="notice notice--progress question-flow__notice" role="status">한마디 질문을 준비하고 있어요...</p>;
   }
 
   if (error && questions.length === 0) {
     return (
       <div className="question-flow">
-        <p className="question-flow__error">{error}</p>
+        <p className="notice notice--error question-flow__error" role="alert">{error}</p>
         <button type="button" className="upload-form__submit" onClick={() => void load()}>
           다시 시도
         </button>
@@ -161,7 +161,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
   }
 
   if (!current) {
-    return <p className="question-flow__notice">질문이 아직 없어요.</p>;
+    return <p className="notice notice--info question-flow__notice">질문이 아직 없어요.</p>;
   }
 
   return (
@@ -198,9 +198,9 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
             onChange={(event) => setDraft(event.target.value)}
           />
         </label>
-        {saving && <p className="question-flow__notice">저장 중...</p>}
-        {notice && <p className="question-flow__notice">{notice}</p>}
-        {error && <p className="question-flow__error">{error}</p>}
+        {saving && <p className="notice notice--progress question-flow__notice" role="status">저장 중...</p>}
+        {notice && <p className="notice notice--success question-flow__notice" role="status">{notice}</p>}
+        {error && <p className="notice notice--error question-flow__error" role="alert">{error}</p>}
       </article>
 
       {otherAnswers.length > 0 && (

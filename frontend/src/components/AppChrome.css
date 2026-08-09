@@ -120,8 +120,8 @@
 .account-contact__actions { display: flex; justify-content: center; align-items: center; gap: 8px; }
 .account-contact__save { min-height: 44px; padding: 0 28px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .account-contact__save:disabled { border-color: var(--c-border); color: var(--c-text-subtle); cursor: default; }
-.account-contact__saved { margin: 0; color: var(--c-text-muted); font-size: 14px; text-align: center; }
-.account-contact__error { margin: 0; color: var(--c-danger); font-size: 14px; }
+.account-contact__saved { margin: 0; font-size: 14px; justify-content: center; }
+.account-contact__error { margin: 0; font-size: 14px; }
 
 /* 푸터의 `회사 정보` — 링크처럼 보이는 버튼(같은 줄의 약관·개인정보와 나란히). */
 .app-footer__company-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }

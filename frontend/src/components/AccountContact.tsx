@@ -158,8 +158,8 @@ export default function AccountContact() {
           ) : null}
         </div>
       ) : null}
-      {error ? <p className="account-contact__error" role="alert">{error}</p> : null}
-      {saved && !error ? <p className="account-contact__saved" role="status">저장했어요.</p> : null}
+      {error ? <p className="notice notice--error account-contact__error" role="alert">{error}</p> : null}
+      {saved && !error ? <p className="notice notice--success account-contact__saved" role="status">저장했어요.</p> : null}
     </div>
   );
 }

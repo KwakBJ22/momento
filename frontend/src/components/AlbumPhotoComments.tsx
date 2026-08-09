@@ -52,7 +52,7 @@ export default function AlbumPhotoComments({
   return (
     <section className="album-photo-comments" aria-label="사진별 한마디">
       {error && (
-        <p className="album-photo-comments__error" role="alert">
+        <p className="notice notice--error album-photo-comments__error" role="alert">
           {error}
         </p>
       )}

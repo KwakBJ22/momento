@@ -139,7 +139,6 @@ export default function ContributeWorkspace({
   const participantRootRef = useRef<HTMLElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
   const freshTimerRef = useRef<number | null>(null);
   const pendingUploadsRef = useRef<PendingUpload[]>([]);
 
@@ -149,14 +148,16 @@ export default function ContributeWorkspace({
 
   useEffect(() => () => {
     pendingUploadsRef.current.forEach((pending) => URL.revokeObjectURL(pending.previewUrl));
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (freshTimerRef.current) window.clearTimeout(freshTimerRef.current);
   }, []);
 
+  /**
+   * ★ 자동으로 사라지지 않는다 (I-5b). 전에는 4.2초 뒤 스스로 없앴다.
+   * 40~60대에게 4.2초는 짧다 — 다른 곳을 보고 있으면 못 본다.
+   * I-3 에서 PDF 결과 표시를 남겨 둔 것과 같은 이유다. 조건이 바뀔 때 사라진다.
+   */
   const showToast = useCallback((message: string) => {
     setToast(message);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 4200);
   }, []);
 
   const markFresh = useCallback((ids: string[]) => {
@@ -470,7 +471,7 @@ export default function ContributeWorkspace({
   };
 
   if (error && !workspace) {
-    return <section className="contribute"><p className="contribute__error">{error}</p></section>;
+    return <section className="contribute"><p className="notice notice--error contribute__error" role="alert">{error}</p></section>;
   }
 
   if (!workspace || !session) {
@@ -490,8 +491,8 @@ export default function ContributeWorkspace({
         </div>
       </header> : null}
 
-      {toast ? <p className="contribute__toast" role="status">{toast}</p> : null}
-      {error ? <p className="contribute__error">{error}</p> : null}
+      {toast ? <p className="notice notice--success contribute__toast" role="status">{toast}</p> : null}
+      {error ? <p className="notice notice--error contribute__error" role="alert">{error}</p> : null}
 
       {!embedded ? <div className="contribute__people">
         <p className="contribute__people-label">함께 만드는 사람 {workspace.contributors?.length || 0}명</p>
@@ -530,12 +531,12 @@ export default function ContributeWorkspace({
       />
       {tab === "photos" ? (
         <div className="contribute__panel">
-          {requestedAction === "memory" ? <p className="contribute__notice">한마디를 남길 사진을 골라 주세요.</p> : null}
+          {requestedAction === "memory" ? <p className="notice notice--info contribute__notice">한마디를 남길 사진을 골라 주세요.</p> : null}
           {requestedAction !== "memory"
             ? <label className="contribute__upload" htmlFor={PHOTO_INPUT_ID}>사진 추가하기</label>
             : null}
           {requestedAction !== "memory" ? (photoLimitReached
-            ? <p className="contribute__error" role="status">앨범이 가득 찼어요. 사진은 한 앨범에 최대 {workspace.photo_limit}장까지 담을 수 있어요.</p>
+            ? <p className="notice notice--error contribute__error" role="alert">앨범이 가득 찼어요. 사진은 한 앨범에 최대 {workspace.photo_limit}장까지 담을 수 있어요.</p>
             : <p className="contribute__limit">앨범에는 사진을 최대 {workspace.photo_limit}장까지 담을 수 있어요. 지금 {workspace.photo_count}장이 담겨 있어요.</p>) : null}
           {/* 빈 시트 금지: 파일창은 자동으로 열지 않으므로(§11) 무엇을 누르면 되는지 적는다. */}
           {isEmbeddedPhotoAdd && !photoLimitReached && !pendingUploads.length && !(workspace.photos || []).some((photo) => newItemIds.includes(photo.id))
@@ -547,7 +548,7 @@ export default function ContributeWorkspace({
                 <div className="contribute__pending-media">
                   <WorkspaceImage src={pending.previewUrl} alt="선택한 사진" />
                   <div className={`contribute__upload-overlay${pending.status === "failed" ? " contribute__upload-overlay--failed" : ""}`}>
-                    <p className="contribute__card-status" role="status">{pending.status === "uploading" ? "업로드 중..." : "업로드하지 못했습니다."}</p>
+                    <p className="notice notice--progress contribute__card-status" role="status">{pending.status === "uploading" ? "업로드 중..." : "업로드하지 못했습니다."}</p>
                     {pending.status === "failed" ? (
                       <button type="button" className="contribute__retry" disabled={isUploading} onClick={() => void uploadPending([pending])}>다시 시도</button>
                     ) : null}
@@ -587,7 +588,7 @@ export default function ContributeWorkspace({
                       ) : (
                         <>
                           <p className="contribute__memory-text">{memory.comment}</p>
-                          {memory.pending ? <p className="contribute__memory-pending" role="status">저장 중...</p> : null}
+                          {memory.pending ? <p className="notice notice--progress contribute__memory-pending" role="status">저장 중...</p> : null}
                           {newItemIds.includes(memory.id) ? <span className="contribute__fresh">방금 추가됨</span> : null}
                           {memory.mine && !memory.pending ? (
                             <div className="contribute__memory-actions">

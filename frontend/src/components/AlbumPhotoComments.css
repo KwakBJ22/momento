@@ -85,7 +85,6 @@
 }
 
 .album-photo-comments__error {
-  color: var(--c-danger);
   font-weight: 700;
 }
 

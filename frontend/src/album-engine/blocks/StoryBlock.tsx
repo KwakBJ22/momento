@@ -59,7 +59,7 @@ export default function StoryBlock({
             취소
           </button>
         </div>
-        {edit.error ? <p className="story-block__error" role="alert">{edit.error}</p> : null}
+        {edit.error ? <p className="notice notice--error story-block__error" role="alert">{edit.error}</p> : null}
       </section>
     );
   }

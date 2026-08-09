@@ -27,14 +27,19 @@
   font-size: 1rem;
 }
 
+/* 색·글머리는 styles/notice.css 가 준다(I-5b). 여기서는 배치만 남긴다. */
 .family-panel__notice,
 .family-panel__error {
   text-align: center;
-  color: var(--c-text-muted);
 }
 
 .family-panel__error {
-  color: var(--c-danger);
+  justify-content: center;
+}
+
+/* TODO(I-5b 3종): 성격 셋을 겸하는 자리라 다음 커밋에서 나눈다. */
+.family-panel__notice {
+  color: var(--c-text-muted);
 }
 
 .family-invite-form {

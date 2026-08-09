@@ -55,10 +55,6 @@
 .contribute__notice {
   margin: 0;
   padding: 0.8rem 1rem;
-  border-radius: 10px;
-  background: var(--c-brand-soft);
-  border: 1px solid var(--c-border);
-  color: var(--c-text-soft);
   font-size: 0.92rem;
   line-height: 1.5;
 }
@@ -66,17 +62,12 @@
 .contribute__toast {
   margin: 0;
   padding: 0.75rem 0.9rem;
-  border-radius: 10px;
-  background: var(--c-success-soft);
-  border: 1px solid var(--c-success-soft);
-  color: var(--c-success);
   font-size: 0.92rem;
   line-height: 1.45;
 }
 
 .contribute__error {
   margin: 0;
-  color: var(--c-danger);
 }
 
 .contribute__people {
@@ -245,10 +236,6 @@
   display: none;
 }
 
-.contribute__upload-overlay .contribute__card-status {
-  color: inherit;
-}
-
 .contribute__upload-overlay .contribute__retry {
   min-height: 34px;
   padding: 0.35rem 0.55rem;
@@ -396,7 +383,6 @@
 
 .contribute__memory-pending {
   margin: 0;
-  color: var(--c-brand-text);
   font-size: var(--t-xs);
   font-weight: 700;
 }

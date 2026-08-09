@@ -114,7 +114,7 @@ export default function PhotoMemoryLines({
               취소
             </button>
           </div>
-          {edit.error ? <p className="photo-memory-lines__error" role="alert">{edit.error}</p> : null}
+          {edit.error ? <p className="notice notice--error photo-memory-lines__error" role="alert">{edit.error}</p> : null}
         </div>
       </div>
     );

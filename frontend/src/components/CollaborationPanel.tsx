@@ -276,7 +276,7 @@ export default function CollaborationPanel({
       </div>
     ) : !status ? (
       <div className="collab-panel__error-block">
-        <p className="collab-panel__error">{error || "참여 현황을 불러오지 못했습니다."}</p>
+        <p className="notice notice--error collab-panel__error" role="alert">{error || "참여 현황을 불러오지 못했습니다."}</p>
         <button type="button" onClick={retryRefresh}>다시 시도</button>
       </div>
     ) : (
@@ -295,8 +295,8 @@ export default function CollaborationPanel({
       </>
     )}
 
-    {message ? <p className="collab-panel__message">{message}</p> : null}
-    {error && status ? <p className="collab-panel__error">{error}</p> : null}
+    {message ? <p className="notice notice--info collab-panel__message">{message}</p> : null}
+    {error && status ? <p className="notice notice--error collab-panel__error" role="alert">{error}</p> : null}
 
     {pending ? <LivingPicker pending={pending} selectedIds={selectedIds} setSelectedIds={setSelectedIds} mode={livingMode} setMode={setLivingMode} busy={busy === "apply"} onCancel={() => setPending(null)} onApply={() => void applySelected()} /> : null}
     {coverPickerOpen ? <div className="collab-panel__cover-modal" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title"><section>

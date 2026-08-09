@@ -185,7 +185,6 @@
 
 .join-page__error {
   margin: 12px 0 0;
-  color: var(--c-danger);
   font-size: var(--t-xs);
 }
 

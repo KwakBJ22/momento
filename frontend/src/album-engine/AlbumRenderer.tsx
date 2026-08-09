@@ -23,6 +23,9 @@ import { waitForAlbumAssets } from "./waitForAlbumAssets";
 // 프레임이 안 보이고 로고가 검게 찍힌다 — 예외도 경고도 없이 조용히 깨진다(§11).
 // 비용은 없다: 번들러가 한 부로 합치고, :root 변수라 실리는 순서도 상관없다.
 import "../styles/tokens.css";
+// 엔진 안에도 오류 블록이 있다(캡션·날짜 이야기 편집). 껍데기를 밖에서 실어 줬을 것에
+// 기대면 앱 밖 렌더에서 조용히 깨진다 — 토큰과 같은 이유다(I-4b · §11).
+import "../styles/notice.css";
 import "./AlbumRenderer.css";
 import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 

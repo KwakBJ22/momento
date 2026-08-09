@@ -53,7 +53,7 @@ export default function AlbumScreenHeader({ title, subtitle, canEdit = false, on
         </div>
       )}
       {subtitle && !editing ? <p className="album-screen-header__subtitle">{subtitle}</p> : null}
-      {error ? <p className="album-screen-header__error" role="alert">{error}</p> : null}
+      {error ? <p className="notice notice--error album-screen-header__error" role="alert">{error}</p> : null}
     </header>
   );
 }

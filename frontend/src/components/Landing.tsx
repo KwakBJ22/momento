@@ -89,7 +89,7 @@ export default function Landing({
           })}
         </div>
 
-        <p className={`landing__hint${hint ? " is-visible" : ""}`} aria-live="polite">
+        <p className={`notice notice--info landing__hint${hint ? " is-visible" : ""}`} aria-live="polite">
           {hint ?? "\u00a0"}
         </p>
 

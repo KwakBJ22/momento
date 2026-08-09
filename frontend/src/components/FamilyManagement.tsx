@@ -147,7 +147,7 @@ export default function FamilyManagement() {
         <p>내 역할: {ROLE_LABELS[family.role] || family.role}</p>
       </header>
 
-      {error && <p className="family-panel__error">{error}</p>}
+      {error && <p className="notice notice--error family-panel__error" role="alert">{error}</p>}
 
       {manager && (
         <section className="family-panel__section">

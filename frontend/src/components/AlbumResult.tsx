@@ -49,7 +49,8 @@ export default function AlbumResultView({
   const [isSavingAlbum, setIsSavingAlbum] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(SAVED_ALBUM_MESSAGE);
-  const [notice, setNotice] = useState<string | null>(null);
+  /** 알림 한 줄 — 성공인지 실패인지 함께 들고 있어야 색과 읽힘이 갈린다(I-5b). */
+  const [notice, setNotice] = useState<{ text: string; kind: "success" | "error" } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   // PDF 는 다른 안내와 자리를 나눈다(I-3) — 오래 걸리는 일이라 진행 표시가 따로 남는다.
   const [pdfNotice, setPdfNotice] = useState<string | null>(null);
@@ -126,9 +127,9 @@ export default function AlbumResultView({
       setSavedEpilogue(next);
       setEpilogue(next);
       setSaveStatus(SAVED_ALBUM_MESSAGE);
-      setNotice("우리의 이야기를 저장했어요.");
+      setNotice({ text: "우리의 이야기를 저장했어요.", kind: "success" });
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "이야기 저장에 실패했어요.");
+      setNotice({ text: err instanceof Error ? err.message : "이야기 저장에 실패했어요.", kind: "error" });
     } finally {
       setIsPersisting(false);
     }
@@ -146,10 +147,10 @@ export default function AlbumResultView({
         setEpilogue(next);
       }
       setSaveStatus(SAVED_ALBUM_MESSAGE);
-      setNotice("앨범 저장을 확인했어요.");
+      setNotice({ text: "앨범 저장을 확인했어요.", kind: "success" });
     } catch (err) {
       setSaveStatus("저장 확인에 실패했어요");
-      setNotice(err instanceof Error ? err.message : "앨범 저장 상태를 확인하지 못했어요.");
+      setNotice({ text: err instanceof Error ? err.message : "앨범 저장 상태를 확인하지 못했어요.", kind: "error" });
     } finally {
       setIsSavingAlbum(false);
     }
@@ -178,7 +179,7 @@ export default function AlbumResultView({
       // 화면이 읽는 필드는 caption 이다(같은 결함의 두 번째 얼굴).
       setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, caption: saved.caption } : item)));
       handleCancelPhotoCommentEdit();
-      setNotice("사진 한마디를 저장했어요.");
+      setNotice({ text: "사진 한마디를 저장했어요.", kind: "success" });
     } catch (err) {
       setPhotoCommentSaveError(err instanceof Error ? err.message : "사진 한마디를 저장하지 못했어요.");
     } finally {
@@ -224,7 +225,7 @@ export default function AlbumResultView({
     <>
       <div className="album-result__stage album-result__stage--web">
         {isStagePhotosLoading ? <p className="album-result__subtitle">앨범을 준비하는 중...</p> : stagePhotosError ? (
-          <div className="album-result__error"><p>{stagePhotosError}</p><button type="button" className="btn btn--secondary" onClick={() => setPhotoLoadAttempt((value) => value + 1)}>다시 시도</button></div>
+          <div className="notice notice--error album-result__error" role="alert"><p>{stagePhotosError}</p><button type="button" className="btn btn--secondary" onClick={() => setPhotoLoadAttempt((value) => value + 1)}>다시 시도</button></div>
         ) : (
           <AlbumRenderer contributorNames={result.contributor_names ?? []} photos={stagePhotos} title={albumTitle} epilogue={isEditing ? "" : epilogue} coverDateLabel={result.date} chapterStories={chapterStories} category={result.category} templateType={result.template_type} albumId={result.album_id} coverPhotoId={result.cover_photo_id} livingAppendPages={result.living_append_pages} mode="screen" onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined} photoCommentEdit={{ canEditPhoto: () => canEditStories, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: () => { void handleSavePhotoComment(); } }} />
         )}
@@ -232,7 +233,7 @@ export default function AlbumResultView({
       {isEditing ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleToggleEdit()} disabled={isPersisting}>{isPersisting ? "저장 중..." : "완료"}</button></div><p className="album-result__placeholder">{EDIT_HINT}</p><textarea className="album-result__editor" value={epilogue} onChange={(event) => setEpilogue(event.target.value)} rows={6} maxLength={800} placeholder={EDIT_HINT} autoFocus /></section> : null}
       {!isEditing && canEditStories && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => setIsEditing(true)}>우리의 이야기 쓰기</button></div> : null}
       {saveStatus ? <p className="album-result__save-status">{saveStatus}</p> : null}
-      {notice ? <p className="album-result__notice">{notice}</p> : null}
+      {notice ? <p className={`notice notice--${notice.kind} album-result__notice`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</p> : null}
     </>
   );
   const resultActions = (

@@ -313,12 +313,10 @@
   left: -10000px;
 }
 
+/* 색·글머리는 styles/notice.css 가 준다(I-5b). 배경은 벗는다 — 넷 다 배경이 없다. */
 .album-result__notice {
   margin: 0;
   padding: 0.8rem 1rem;
-  background: var(--c-brand-soft);
-  border-radius: 10px;
-  color: var(--c-brand-text);
   font-size: 0.95rem;
 }
 
@@ -490,7 +488,7 @@
 .public-share__guestbook-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .public-share__guestbook-count { color: var(--c-text-subtle); font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
 .public-share__guestbook-actions .upload-form__submit { width: auto; min-height: 40px; padding: 0.5rem 1rem; }
-.public-share__guestbook-error { margin: 0; color: var(--c-danger); font-size: var(--t-xs); }
+.public-share__guestbook-error { margin: 0; font-size: var(--t-xs); }
 .public-share__guestbook-list { list-style: none; margin: 0.85rem 0 0; padding: 0; display: grid; gap: 0.7rem; }
 .public-share__guestbook-item { padding: 0.7rem 0.8rem; border: 1px solid var(--c-bg-soft); border-radius: 12px; background: var(--c-surface); }
 .public-share__guestbook-item-head { display: flex; align-items: center; gap: 0.4rem; }
@@ -523,13 +521,11 @@
 
 .public-share__join-error {
   margin: 0.75rem 0 0;
-  color: var(--c-danger);
   font-size: 0.9rem;
 }
 
 .public-share__join-status {
   margin: 0.75rem 0 0;
-  color: var(--c-success);
   font-size: 0.9rem;
 }
 

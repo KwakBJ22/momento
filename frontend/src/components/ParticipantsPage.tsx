@@ -22,7 +22,7 @@ export default function ParticipantsPage({ albumId }: { albumId: string }) {
 
   return <section className="family-panel">
     <header className="family-panel__header"><h2>참여자</h2><p>이 앨범을 함께 만들고 있는 사람들이에요.</p></header>
-    {error ? <p className="family-panel__error">{error}</p> : null}
+    {error ? <p className="notice notice--error family-panel__error" role="alert">{error}</p> : null}
     <section className="family-panel__section">
       <ul className="member-list">
         {participants.map((participant) => <li key={participant.id} className="member-card"><div><strong>{participant.name}</strong><span className="member-card__role">{participant.role === "host" ? "주최자" : "참여자"} · 사진 {participant.photo_count}장 · 한마디 {participant.memory_count}개</span></div></li>)}

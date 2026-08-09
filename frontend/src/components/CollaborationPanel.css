@@ -282,8 +282,8 @@
 .collab-panel__pending-list strong { color: var(--c-text); font-size: var(--t-xs); }
 .collab-panel__pending-list small { margin-top: 0.18rem; color: var(--c-text-soft); font-size: var(--t-xs); }
 
-.collab-panel__message { color: var(--c-text-soft); font-size: 0.9rem; }
-.collab-panel__error { color: var(--c-danger); font-size: 0.9rem; }
+.collab-panel__message { font-size: 0.9rem; }
+.collab-panel__error { font-size: 0.9rem; }
 .collab-panel__minor-error { color: var(--c-brand-text); font-size: var(--t-xs); }
 .collab-panel__minor-error button { min-height: auto; padding: 0; border: 0; color: inherit; text-decoration: underline; }
 

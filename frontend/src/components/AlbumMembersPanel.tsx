@@ -92,7 +92,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
   return (
     <section className="family-panel__section">
       <h3>앨범 참여자</h3>
-      {error && <p className="family-panel__error">{error}</p>}
+      {error && <p className="notice notice--error family-panel__error" role="alert">{error}</p>}
       <ul className="member-list">
         {members.map((member) => (
           <li key={member.id} className="member-card">

@@ -93,7 +93,7 @@ export default function AlbumGuestbook({ token, albumId, initialEntries = [], de
           <span className="public-share__guestbook-count">{message.length}/{GUESTBOOK_MESSAGE_MAX}</span>
           <button type="submit" className="upload-form__submit" disabled={submitting}>{submitting ? "남기는 중..." : "여기에 남기기"}</button>
         </div>
-        {error ? <p className="public-share__guestbook-error" role="alert">{error}</p> : null}
+        {error ? <p className="notice notice--error public-share__guestbook-error" role="alert">{error}</p> : null}
       </form>
       {entries.length ? (
         <ul className="public-share__guestbook-list">

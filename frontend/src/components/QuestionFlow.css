@@ -16,13 +16,11 @@
 }
 
 .question-flow__notice {
-  color: var(--c-text-muted);
   text-align: center;
 }
 
 .question-flow__error {
-  color: var(--c-danger);
-  text-align: center;
+  justify-content: center;
 }
 
 .question-card {

@@ -580,7 +580,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const albumBody = (
     <>
       {activeAction && contributionSession ? <section className="album-inline-action" aria-label={activeAction === "photo" ? "사진 추가" : "한마디 쓰기"}><div className="album-inline-action__header"><h2>{activeAction === "photo" ? "사진 추가" : "한마디 쓰기"}</h2><button type="button" onClick={closeContribution}>닫기</button></div><div className="album-inline-action__body"><ContributeWorkspace albumId={albumId} embedded requestedAction={activeAction} initialWorkspace={contributionWorkspace} /></div></section> : null}
-      {actionError ? <p className="album-inline-action__error">{actionError}</p> : null}
+      {actionError ? <p className="notice notice--error album-inline-action__error" role="alert">{actionError}</p> : null}
       {/* ★ 시트를 닫아도 남는다(I-3). 진행 표시가 시트 안 버튼 라벨뿐이라, 누르는 순간
           시트와 함께 사라졌다 — 완료까지 화면에 아무 변화가 없었다. */}
       <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
