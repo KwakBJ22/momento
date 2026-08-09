@@ -29,6 +29,7 @@ import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPho
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
 import { readCreateStep, saveCreateStep } from "./lib/createStep";
+import { guestClaimTroubleMessage, isRetryableClaimFailure } from "./lib/albumTrouble";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, clearPendingGuestClaim, readPendingGuestClaim, setPendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
@@ -50,6 +51,16 @@ function getParticipantsAlbumIdFromPath() { return routeId(/^\/album\/([0-9a-fA-
 function isMyAlbumsPage() { return window.location.pathname === "/my-albums"; }
 function isAuthCallbackPage() { return window.location.pathname === "/auth/callback"; }
 
+/**
+ * 게스트 앨범 가져오기를 **말없이 다시 해보는 횟수와 간격** (K-13).
+ *
+ * 로그인 왕복 직후에는 화면이 한 번 더 뜨면서 요청이 끊긴다(프로덕션에서 실제로
+ * 첫 시도가 그렇게 죽었고 두 번째가 200 으로 성공했다). 그 사이를 사용자가 알 필요는
+ * 없다 — 다만 끝없이 기다리게 두지도 않는다. 셋까지만 해보고, 그래도 안 되면 말한다.
+ */
+const GUEST_CLAIM_ATTEMPTS = 3;
+const GUEST_CLAIM_RETRY_MS = 700;
+
 function App() {
   const [result, setResult] = useState<AlbumResult | null>(null);
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
@@ -57,7 +68,12 @@ function App() {
   // 앨범을 못 열었다 — 하단 네비를 감춘다(K-11). AlbumView 가 알려 준다.
   const [albumUnavailable, setAlbumUnavailable] = useState(false);
   // 게스트 앨범 가져오기 실패 — 조용히 삼키지 않는다(K-9 · §11).
+  // ★ 이 말은 **끝난 뒤에만** 낸다. 하는 중에는 `guestClaimBusy` 가 하는 중이라고만
+  //   한다(K-13 · §11 26차) — 예전에는 첫 시도가 끊기자마자 실패 문구를 냈고,
+  //   두 번째가 성공하며 화면을 옮겨 그 문구가 저절로 사라졌다.
   const [guestClaimError, setGuestClaimError] = useState<string | null>(null);
+  const [guestClaimBusy, setGuestClaimBusy] = useState(false);
+  const guestClaimRunningRef = useRef(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { requestClose: requestCloseAccountMenu, guard: accountContactGuard } = useContactCloseGuard(() => setAccountMenuOpen(false));
@@ -161,27 +177,46 @@ function App() {
     if (!albumId) return;
     const token = getGuestAlbumToken(albumId);
     if (!token) { clearPendingGuestClaim(); return; }
-    void claimGuestAlbum(token)
-      .then(() => {
-        clearPendingGuestClaim();
-        clearGuestAlbumToken(albumId);
-        window.location.assign(`/album/${albumId}`);
-      })
-      .catch((cause) => {
-        const status = (cause as { status?: number } | null)?.status;
-        // 지웠다가는 **다시 가져올 길이 없어진다.** 그래서 토큰이 아무 쓸모가 없는
-        // 두 갈래에서만 지운다 — 410 세션이 지났음 · 404 그런 앨범이 없음.
-        //
-        // ★ 403 은 지우지 않는다. 두 뜻을 겸한다:
-        //     · 다른 계정이 이미 가져갔다  → 그 계정으로 로그인하면 된다
-        //     · 앨범을 너무 많이 만들었다  → 서버가 세션을 7일 늘려 두고 거절한다
-        //   둘 다 **나중에 되는 일**이라, 여기서 지우면 서버가 만들어 준 그 길을 막는다.
-        if (status === 410 || status === 404) {
+    // 한 화면에서 두 번 시작하지 않는다. (화면이 통째로 다시 뜨는 것은 아래 다시 하기가 받는다)
+    if (guestClaimRunningRef.current) return;
+    guestClaimRunningRef.current = true;
+    let cancelled = false;
+    setGuestClaimBusy(true);
+    setGuestClaimError(null);
+    void (async () => {
+      for (let attempt = 1; attempt <= GUEST_CLAIM_ATTEMPTS; attempt += 1) {
+        try {
+          await claimGuestAlbum(token);
           clearPendingGuestClaim();
           clearGuestAlbumToken(albumId);
+          window.location.assign(`/album/${albumId}`);
+          return;
+        } catch (cause) {
+          const status = (cause as { status?: number } | null)?.status;
+          if (!isRetryableClaimFailure(status)) {
+            // 지웠다가는 다시 가져올 길이 없어진다 — 토큰이 쓸모없는 두 갈래에서만 지운다(K-9).
+            if (status === 410 || status === 404) {
+              clearPendingGuestClaim();
+              clearGuestAlbumToken(albumId);
+            }
+            if (!cancelled) { setGuestClaimBusy(false); setGuestClaimError(guestClaimTroubleMessage(status)); }
+            guestClaimRunningRef.current = false;
+            return;
+          }
+          if (cancelled) { guestClaimRunningRef.current = false; return; }
+          // ★ 끊긴 것은 실패가 아니다 — **말없이 다시 한다.** 두 번째가 성공하면
+          //   사용자는 실패했다는 사실 자체를 몰라야 한다(실제로 두 번째가 성공했다).
+          if (attempt < GUEST_CLAIM_ATTEMPTS) {
+            await new Promise((resolve) => { window.setTimeout(resolve, GUEST_CLAIM_RETRY_MS * attempt); });
+          }
         }
-        setGuestClaimError(cause instanceof Error ? cause.message : "앨범을 계정으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
-      });
+      }
+      // 여기까지 왔으면 **더 해볼 것이 없다.** 이제 말한다.
+      // 하려던 일은 남겨 둔다 — 다음에 이 앨범을 열면 이어서 한다.
+      if (!cancelled) { setGuestClaimBusy(false); setGuestClaimError(guestClaimTroubleMessage(null)); }
+      guestClaimRunningRef.current = false;
+    })();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   useEffect(() => {
@@ -340,7 +375,19 @@ function App() {
       <main className="app__main">
         {/* 게스트 앨범을 계정으로 가져오지 못했으면 **말한다** (K-9 · §11).
             예전에는 조용히 삼켜서, 사용자는 까닭 없는 403 화면만 봤다. */}
-        {guestClaimError ? <p className="notice notice--error" role="alert">{guestClaimError}</p> : null}
+        {/* 게스트 앨범을 계정에 저장하는 중 (K-13 · §11). 끝날 때까지는 **하는 중이라고만**
+            말한다 — 끊긴 것은 실패가 아니라서 말없이 다시 해보는 중이다. */}
+        {guestClaimBusy ? <p className="notice notice--progress" role="status">앨범을 계정에 저장하는 중이에요.</p> : null}
+        {/* 더 해볼 것이 없을 때만 낸다. ★ 한 번 낸 말은 **사용자가 없앨 때까지 남는다** —
+            저절로 사라지지 않는다(§11). 그래서 닫는 것도 사람이 한다. */}
+        {guestClaimError ? (
+          <p className="notice notice--error app__claim-error" role="alert">
+            {guestClaimError}
+            <button type="button" className="app__claim-error-close" onClick={() => setGuestClaimError(null)} aria-label="안내 닫기">
+              <X size={16} aria-hidden="true" />
+            </button>
+          </p>
+        ) : null}
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
           : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} user={user ?? null} authReady={authReady && user !== undefined} />

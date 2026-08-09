@@ -64,3 +64,22 @@
 .notice--success > * {
   min-width: 0;
 }
+
+/* 스스로 사라지지 않는 안내의 **닫기** (K-13 · §11 26차).
+   저절로 사라지면 사용자가 놓친다 — 없애는 것은 사람이 한다. 껍데기는 위 넷 그대로고
+   닫기 단추만 오른쪽 끝에 붙는다. */
+.notice__close,
+.app__claim-error-close {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}

@@ -94,9 +94,9 @@ const claimEffect = (() => {
 
 test("★ ② 로그인해서 돌아오면 claim 을 부른다", () => {
   assert.match(claimEffect, /const token = getGuestAlbumToken\(albumId\);/);
-  assert.match(claimEffect, /void claimGuestAlbum\(token\)/);
-  // 성공했을 때에만 지운다 — 그 순서가 뒤집히면 이 결함이 그대로 돌아온다.
-  assert.match(claimEffect, /\.then\(\(\) => \{\s*clearPendingGuestClaim\(\);/);
+  // ★ K-13 에서 `.then` 사슬이 `await` 로 바뀌었다(끊기면 말없이 다시 하려고).
+  //   규칙은 그대로다 — 부르고, **성공했을 때에만** 지운다.
+  assert.match(claimEffect, /await claimGuestAlbum\(token\);\s+clearPendingGuestClaim\(\);/);
 });
 
 test("★ ② 실패해도 의도를 함부로 버리지 않는다", () => {
@@ -109,9 +109,10 @@ test("★ ② 실패해도 의도를 함부로 버리지 않는다", () => {
 
 test("★ ② 실패하면 말한다 (§11)", () => {
   // 예전에는 `.catch(() => {})` 로 삼켰다. 사용자는 까닭 없는 403 화면만 봤다.
-  assert.match(claimEffect, /setGuestClaimError\(/);
+  // ★ K-13 에서 **언제** 말하는지가 갈렸다 — 끝난 뒤에만 말한다(guestClaimNotice.test.ts).
+  assert.match(claimEffect, /setGuestClaimError\(guestClaimTroubleMessage\(/);
   assert.equal(/catch \(\) => \{ \/\* /.test(claimEffect), false);
-  assert.match(app, /\{guestClaimError \? <p className="notice notice--error" role="alert">\{guestClaimError\}<\/p> : null\}/);
+  assert.match(app, /className="notice notice--error app__claim-error" role="alert">\s*\{guestClaimError\}/);
 });
 
 test("★ 돌아오는 자리는 /album/{id} 다 — claim 을 건너뛰고 문만 열지 않는다", () => {

@@ -103,9 +103,14 @@ export default function Landing({
         </button>
       </div>
 
+      {/* 이미 회원인 사람이 로그인한 채로 들어올 길 (K-13 · PO 판단 2026-08-09).
+          ★ **막지 않는다.** 누르지 않으면 지금처럼 게스트로 그냥 만들어진다 —
+            로그인 벽을 앞에 세우지 않는 것이 이 화면의 전제다.
+          ★ 버튼을 크게 만들지 않는다. 한 줄이다. 지금 쓰는 로그인 길을 그대로 쓴다.
+          ★ `쓰던` 이 있어야 "새로 만드는 것이 아니라 원래 내 것"이라고 읽힌다. */}
       {!hideLogin && (
         <button type="button" className="landing__login" onClick={onLogin}>
-          이미 계정이 있나요? 로그인
+          이미 쓰던 계정이 있나요? 로그인
         </button>
       )}
 
