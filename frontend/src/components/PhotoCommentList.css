@@ -95,7 +95,7 @@
    ★ 브랜드색을 쓰지 않는다. 이 자리는 버튼이 아니다.
    ★ 배경·테두리를 넣지 않는다(§11 — 알림 껍데기는 배경이 없다). */
 .photo-comments__guide {
-  margin: -0.1rem 0 0;
+  margin: -0.1rem 0 12px;
   color: var(--c-text);
   font-size: var(--t-sm);
   font-weight: 600;
@@ -107,13 +107,6 @@
   color: var(--c-text-soft);
   font-size: 0.92rem;
   font-weight: 400;
-}
-
-.photo-comments__cover-guide {
-  margin: -4px 0 12px;
-  color: var(--text-muted, var(--c-text-soft));
-  font-size: var(--t-xs);
-  line-height: 1.45;
 }
 
 @media (min-width: 640px) {

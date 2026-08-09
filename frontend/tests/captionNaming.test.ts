@@ -135,3 +135,17 @@ test("강조 — 본문은 굵고 한 단계 크게, `(선택)`은 뒤로 물러
   assert.match(optional, /font-weight: 400/);
   assert.match(optional, /font-size: 0\.92rem/); // 지금 크기 그대로
 });
+
+// --- J-3 · 대표사진 안내 문구를 지운다 ---
+
+test("★ 대표사진 설명 두 줄이 없다 — 배지가 이미 눈에 보인다", () => {
+  assert.equal(list.includes("앨범을 대표할 사진을 골라보세요"), false);
+  assert.equal(list.includes("첫 번째 사진이 대표사진으로 사용됩니다"), false);
+  assert.equal(listCss.includes("photo-comments__cover-guide"), false, "쓰지 않는 규칙이 남았다");
+});
+
+test("★ 배지와 고르는 동작은 그대로다 — 글자만 지웠다", () => {
+  assert.match(list, /\{coverPhotoId === photo\.id \? "대표사진" : "대표사진으로 선택"\}/);
+  assert.match(list, /aria-pressed=\{coverPhotoId === photo\.id\}/);
+  assert.match(list, /onCoverChange\(photo\.id\)/);
+});

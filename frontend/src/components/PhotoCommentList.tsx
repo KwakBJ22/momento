@@ -24,9 +24,6 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, co
       <p className="photo-comments__guide">
         사진마다 한 줄 적어두면 앨범이 훨씬 풍성해져요. <span className="photo-comments__guide-optional">(선택)</span>
       </p>
-      <p className="photo-comments__cover-guide">
-        앨범을 대표할 사진을 골라보세요. 선택하지 않으면 첫 번째 사진이 대표사진으로 사용됩니다.
-      </p>
       <ul className="photo-comments__list">
         {photos.map((photo, index) => (
           <li key={photo.id} className="photo-comments__item">
