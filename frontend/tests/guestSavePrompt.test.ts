@@ -28,7 +28,7 @@ test("닫아도 사라지지 않는다 — 하단 CTA 로 다시 찾을 수 있�
   assert.match(view, /const albumActions = guestOwner \? \(/);
   assert.match(view, /내 앨범으로 저장하기/);
   // 닫기는 이 화면 세션에만 기억한다(계정에 저장하지 않는다).
-  assert.match(view, /sessionStorage\.setItem\(`momento-guest-save-dismissed:\$\{albumId\}`/);
+  assert.match(view, /sessionStorage\.setItem\(`woorialbum-guest-save-dismissed:\$\{albumId\}`/);
 });
 
 // 실기기에서 `나중에` 가 두 줄로 쪼개졌다. 1:1 로 나란히 두면 폭이 기기마다 달라서다.

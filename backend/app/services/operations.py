@@ -16,9 +16,9 @@ from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
 
-_operation_id: ContextVar[str | None] = ContextVar("momento_operation_id", default=None)
-_operation_name: ContextVar[str | None] = ContextVar("momento_operation_name", default=None)
-_operation_stage: ContextVar[str | None] = ContextVar("momento_operation_stage", default=None)
+_operation_id: ContextVar[str | None] = ContextVar("woorialbum_operation_id", default=None)
+_operation_name: ContextVar[str | None] = ContextVar("woorialbum_operation_name", default=None)
+_operation_stage: ContextVar[str | None] = ContextVar("woorialbum_operation_stage", default=None)
 
 
 def new_operation_id() -> str:

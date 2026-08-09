@@ -611,8 +611,8 @@ async def apply_contributions(
 @router.get("/api/albums/{album_id}/contribute/workspace")
 async def contribute_workspace(
     album_id: str,
-    x_momento_guest_id: str | None = Header(default=None),
-    x_momento_contributor_id: str | None = Header(default=None),
+    x_woorialbum_guest_id: str | None = Header(default=None),
+    x_woorialbum_contributor_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> dict[str, Any]:
     settings = get_settings()
@@ -624,8 +624,8 @@ async def contribute_workspace(
     contributor = require_contributor(
         client,
         album_id,
-        contributor_id=_parse_uuid_header(x_momento_contributor_id),
-        guest_id=_parse_uuid_header(x_momento_guest_id),
+        contributor_id=_parse_uuid_header(x_woorialbum_contributor_id),
+        guest_id=_parse_uuid_header(x_woorialbum_guest_id),
         user_id=user_id,
     )
 
@@ -713,8 +713,8 @@ async def contribute_upload_photos(
     album_id: str,
     photos: list[UploadFile] = File(...),
     file_created_ats: list[str] | None = Form(default=None),
-    x_momento_guest_id: str | None = Header(default=None),
-    x_momento_contributor_id: str | None = Header(default=None),
+    x_woorialbum_guest_id: str | None = Header(default=None),
+    x_woorialbum_contributor_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> dict[str, Any]:
     settings = get_settings()
@@ -728,8 +728,8 @@ async def contribute_upload_photos(
     contributor = require_contributor(
         client,
         album_id,
-        contributor_id=_parse_uuid_header(x_momento_contributor_id),
-        guest_id=_parse_uuid_header(x_momento_guest_id),
+        contributor_id=_parse_uuid_header(x_woorialbum_contributor_id),
+        guest_id=_parse_uuid_header(x_woorialbum_guest_id),
         user_id=user_id,
     )
 
@@ -848,7 +848,7 @@ async def create_memory(
     album_id: str,
     photo_id: str,
     body: PhotoMemoryCreateRequest,
-    x_momento_guest_id: str | None = Header(default=None),
+    x_woorialbum_guest_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> PhotoMemoryResponse:
     settings = get_settings()
@@ -861,7 +861,7 @@ async def create_memory(
         client,
         album_id,
         contributor_id=str(body.contributor_id) if body.contributor_id else None,
-        guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_momento_guest_id),
+        guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
         user_id=user_id,
     )
     memory = create_photo_memory(
@@ -887,7 +887,7 @@ async def patch_memory(
     album_id: str,
     memory_id: str,
     body: PhotoMemoryUpdateRequest,
-    x_momento_guest_id: str | None = Header(default=None),
+    x_woorialbum_guest_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> PhotoMemoryResponse:
     settings = get_settings()
@@ -906,7 +906,7 @@ async def patch_memory(
             client,
             album_id,
             contributor_id=str(body.contributor_id) if body.contributor_id else None,
-            guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_momento_guest_id),
+            guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
         ) or {"id": "owner"}
     else:
@@ -914,7 +914,7 @@ async def patch_memory(
             client,
             album_id,
             contributor_id=str(body.contributor_id) if body.contributor_id else None,
-            guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_momento_guest_id),
+            guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
         )
 
@@ -945,7 +945,7 @@ async def remove_memory(
     memory_id: str,
     guest_id: str | None = None,
     contributor_id: str | None = None,
-    x_momento_guest_id: str | None = Header(default=None),
+    x_woorialbum_guest_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> dict[str, str]:
     settings = get_settings()
@@ -965,7 +965,7 @@ async def remove_memory(
             client,
             album_id,
             contributor_id=contributor_id,
-            guest_id=guest_id or _parse_uuid_header(x_momento_guest_id),
+            guest_id=guest_id or _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
         )
     delete_photo_memory(

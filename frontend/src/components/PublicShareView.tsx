@@ -41,7 +41,7 @@ interface PublicShareViewProps {
 }
 
 function contributionGuestId(): string {
-  const key = "momento-public-contribution-guest-id";
+  const key = "woorialbum-public-contribution-guest-id";
   const existing = localStorage.getItem(key);
   if (existing) return existing;
   const created = createId();

@@ -93,7 +93,7 @@ function App() {
     ? "album"
     : myAlbumsPage ? "my-albums" : category && isPhotoSelectionStep ? "new-album" : "home";
   const dispatchAlbumAction = (action: "top" | "photo" | "memory" | "share") => {
-    window.dispatchEvent(new CustomEvent("momento:album-action", { detail: { action } }));
+    window.dispatchEvent(new CustomEvent("woorialbum:album-action", { detail: { action } }));
   };
 
   useEffect(() => {

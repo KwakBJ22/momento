@@ -1,12 +1,12 @@
 // localStorage bookkeeping for attributing pre-login guest contributions to an account.
 // Kept free of network/env imports so it is unit-testable with a localStorage stub.
 //
-// A participant's contributor identity is stored per album as `momento-collab-session:<id>`
+// A participant's contributor identity is stored per album as `woorialbum-collab-session:<id>`
 // (see api.ts CollabSession). After login we send the guest ids to /auth/bootstrap; the
 // ones the backend attributes get FLAGGED (not deleted) so they aren't resent — deleting
 // would drop an in-progress participant session's contribution headers.
 
-export const COLLAB_SESSION_KEY = "momento-collab-session";
+export const COLLAB_SESSION_KEY = "woorialbum-collab-session";
 // A single login attributes at most this many contributions — bounds the bootstrap payload.
 export const MAX_CONTRIBUTION_ATTRIBUTIONS = 50;
 

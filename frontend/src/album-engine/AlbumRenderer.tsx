@@ -179,13 +179,13 @@ export default function AlbumRenderer({
     const unseen = new Set<string>();
     for (const page of livingAppendPages) {
       try {
-        if (!sessionStorage.getItem(`momento-living-page-seen:${albumId}:${page.id}`)) unseen.add(page.id);
+        if (!sessionStorage.getItem(`woorialbum-living-page-seen:${albumId}:${page.id}`)) unseen.add(page.id);
       } catch {
         // Rendering the page must not depend on WebView storage availability.
       }
     }
     setNewAppendPageIds(unseen);
-    const focusKey = `momento-living-focus:${albumId}`;
+    const focusKey = `woorialbum-living-focus:${albumId}`;
     let focusId: string | null = null;
     try {
       focusId = sessionStorage.getItem(focusKey);
@@ -200,7 +200,7 @@ export default function AlbumRenderer({
     }
     const timeout = window.setTimeout(() => {
       for (const page of livingAppendPages) {
-        try { sessionStorage.setItem(`momento-living-page-seen:${albumId}:${page.id}`, "1"); } catch { /* noop */ }
+        try { sessionStorage.setItem(`woorialbum-living-page-seen:${albumId}:${page.id}`, "1"); } catch { /* noop */ }
       }
       setNewAppendPageIds(new Set());
     }, 1400);

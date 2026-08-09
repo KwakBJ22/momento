@@ -12,7 +12,7 @@ export type PublicShareCache = {
   cachedAt: number;
 };
 
-const PUBLIC_SHARE_CACHE_PREFIX = "momento-public-share:";
+const PUBLIC_SHARE_CACHE_PREFIX = "woorialbum-public-share:";
 const PUBLIC_SHARE_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
 
 function cacheKey(token: string): string {

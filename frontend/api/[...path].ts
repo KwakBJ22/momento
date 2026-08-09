@@ -63,7 +63,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   proxyReq.on("error", (error) => {
-    console.error("Momento API proxy request failed", { message: error.message, target: target.origin });
+    console.error("우리앨범 API proxy request failed", { message: error.message, target: target.origin });
     if (res.headersSent) return;
     res.status(502).json({ detail: "백엔드 서버에 연결하지 못했습니다." });
   });

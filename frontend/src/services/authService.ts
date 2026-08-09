@@ -25,7 +25,7 @@ export interface AuthInitialization {
 /** Provider-neutral availability check for UI routes. */
 export const isAuthenticationConfigured = isSupabaseAuthConfigured;
 
-const RETURN_TO_KEY = "momento-auth-return-to";
+const RETURN_TO_KEY = "woorialbum-auth-return-to";
 function text(value: unknown): string | null {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;

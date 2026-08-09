@@ -116,11 +116,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 게스트 주최자의 저장 안내(§1). 앨범이 막 만들어진 직후 한 번 크게 보여주고, 닫아도
   // 하단 CTA 로 언제든 다시 찾을 수 있다 — 이 진입점을 잃으면 사용자가 앨범을 잃는다.
   const [guestSaveHidden, setGuestSaveHidden] = useState(() => {
-    try { return sessionStorage.getItem(`momento-guest-save-dismissed:${albumId}`) === "1"; } catch { return false; }
+    try { return sessionStorage.getItem(`woorialbum-guest-save-dismissed:${albumId}`) === "1"; } catch { return false; }
   });
   const dismissGuestSave = () => {
     setGuestSaveHidden(true);
-    try { sessionStorage.setItem(`momento-guest-save-dismissed:${albumId}`, "1"); } catch { /* 저장 실패해도 화면은 닫힌다 */ }
+    try { sessionStorage.setItem(`woorialbum-guest-save-dismissed:${albumId}`, "1"); } catch { /* 저장 실패해도 화면은 닫힌다 */ }
   };
   // 앨범 지우기 확인 — window.confirm 을 쓰지 않는다(§11). 시트로 묻는다.
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -472,9 +472,9 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       const action = new URLSearchParams(window.location.search).get("action");
       setActiveAction(action === "photo" || action === "memory" ? action : null);
     };
-    window.addEventListener("momento:album-action", onAction);
+    window.addEventListener("woorialbum:album-action", onAction);
     window.addEventListener("popstate", onPopState);
-    return () => { window.removeEventListener("momento:album-action", onAction); window.removeEventListener("popstate", onPopState); };
+    return () => { window.removeEventListener("woorialbum:album-action", onAction); window.removeEventListener("popstate", onPopState); };
   });
 
   // ★ 다른 화면에서 `한마디 쓰기` 로 넘어온 경우(`?action=memory`)에도 같은 것이 열린다.

@@ -58,7 +58,7 @@ test("collection is capped so a login never sends an unbounded payload", () => {
 });
 
 test("ignores non-collab localStorage keys", () => {
-  localStorage.setItem("momento-guest-album-token:X", "some-token");
+  localStorage.setItem("woorialbum-guest-album-token:X", "some-token");
   saveSession("A1", "G1");
   assert.deepEqual(collectContributorGuestIds(), ["G1"]);
 });

@@ -33,7 +33,7 @@ export const API_BASE = resolveApiBase();
 // so any album with several photos (~5+) fails. Exposed read-only for the smoke
 // test to assert; no behavior depends on it.
 if (typeof window !== "undefined") {
-  (window as unknown as { __momentoApiBase?: string }).__momentoApiBase = API_BASE;
+  (window as unknown as { __woorialbumApiBase?: string }).__woorialbumApiBase = API_BASE;
 }
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
@@ -81,7 +81,7 @@ async function albumOwnerFetch(albumId: string, path: string, init: RequestInit 
     return authenticatedFetch(path, init);
   }
   const headers = new Headers(init.headers);
-  headers.set("X-Momento-Guest-Album-Token", guestToken);
+  headers.set("X-Woorialbum-Guest-Album-Token", guestToken);
   return fetch(`${API_BASE}${path}`, { ...init, headers });
 }
 
@@ -94,7 +94,7 @@ export async function uploadAlbum(
   formData: FormData,
   options: { operationId: string; signal?: AbortSignal },
 ): Promise<{ album_id: string; generation_job_id?: string | null; guest_token?: string | null }> {
-  const headers = { "X-Momento-Operation-Id": options.operationId };
+  const headers = { "X-Woorialbum-Operation-Id": options.operationId };
   const session = await getSession();
   const response = session?.accessToken
     ? await authenticatedFetch("/api/upload-album", { method: "POST", body: formData, signal: options.signal, headers })
@@ -380,7 +380,7 @@ export async function getPublicShare(token: string, edition?: number | null): Pr
   // 로그인했으면 서버가 계정으로 세므로 토큰보다 계정이 우선한다(판정은 서버 한 곳).
   const headers: Record<string, string> = {};
   const visitor = getVisitorToken();
-  if (visitor) headers["X-Momento-Visitor"] = visitor;
+  if (visitor) headers["X-Woorialbum-Visitor"] = visitor;
   const session = await getSession();
   if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}${params}`, {
@@ -462,7 +462,7 @@ export function isPublicShareUrl(value: string | null | undefined): boolean {
   const candidate = value?.trim();
   if (!candidate) return false;
   try {
-    const origin = typeof window === "undefined" ? "https://momento.invalid" : window.location.origin;
+    const origin = typeof window === "undefined" ? "https://woorialbum.invalid" : window.location.origin;
     return /^\/s\/[^/]+\/?$/.test(new URL(candidate, origin).pathname);
   } catch {
     return false;
@@ -722,8 +722,8 @@ export async function bootstrapAccount(
 
 function collabHeaders(session: CollabSession | null): HeadersInit {
   const headers: Record<string, string> = {};
-  if (session?.guestId) headers["X-Momento-Guest-Id"] = session.guestId;
-  if (session?.contributorId) headers["X-Momento-Contributor-Id"] = session.contributorId;
+  if (session?.guestId) headers["X-Woorialbum-Guest-Id"] = session.guestId;
+  if (session?.contributorId) headers["X-Woorialbum-Contributor-Id"] = session.contributorId;
   return headers;
 }
 

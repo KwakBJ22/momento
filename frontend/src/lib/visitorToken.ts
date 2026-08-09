@@ -11,7 +11,7 @@ import { createId } from "./id";
  *
  * 로그인한 사람은 서버가 계정으로 센다 — 그 판정은 서버 한 곳(visitor_key)에 있다.
  */
-const STORAGE_KEY = "momento-visitor";
+const STORAGE_KEY = "woorialbum-visitor";
 
 export function getVisitorToken(): string | null {
   try {

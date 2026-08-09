@@ -8,7 +8,7 @@
 
 import type { AlbumCategory } from "../types";
 
-export const PENDING_CATEGORY_KEY = "momento-pending-album-category";
+export const PENDING_CATEGORY_KEY = "woorialbum-pending-album-category";
 
 export interface PendingCreateStep {
   category: AlbumCategory | null;

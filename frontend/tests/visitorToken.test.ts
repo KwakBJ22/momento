@@ -47,7 +47,7 @@ test("저장소를 못 쓰면 조용히 넘어간다 (숫자 하나 때문에 �
 test("공유 앨범을 열 때 이 값을 보낸다", () => {
   const api = read("lib/api.ts");
   const fn = api.slice(api.indexOf("export async function getPublicShare"), api.indexOf("export async function startPublicContribution"));
-  assert.match(fn, /headers\["X-Momento-Visitor"\] = visitor/);
+  assert.match(fn, /headers\["X-Woorialbum-Visitor"\] = visitor/);
   // 로그인했으면 서버가 계정으로 센다 — 그래서 토큰도 함께 보낸다(판정은 서버 한 곳).
   assert.match(fn, /headers\.Authorization = `Bearer \$\{session\.accessToken\}`/);
 });

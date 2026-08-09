@@ -50,7 +50,7 @@ interface CollaborationPanelProps {
   hideDuplicatedActions?: boolean;
 }
 
-const shareUrlStorageKey = (albumId: string) => `momento-collaboration-share-url:${albumId}`;
+const shareUrlStorageKey = (albumId: string) => `woorialbum-collaboration-share-url:${albumId}`;
 function readStoredShareUrl(albumId: string): string | null {
   try {
     const key = shareUrlStorageKey(albumId);
@@ -235,7 +235,7 @@ export default function CollaborationPanel({
     try {
       const result = await applyContributions(albumId, photoIds, memoryIds, livingMode);
       if (result.mode === "append_page" && result.append_page_id) {
-        try { sessionStorage.setItem(`momento-living-focus:${albumId}`, result.append_page_id); } catch { /* noop */ }
+        try { sessionStorage.setItem(`woorialbum-living-focus:${albumId}`, result.append_page_id); } catch { /* noop */ }
         setMessage("새로 더해진 사진과 한마디를 담았어요.");
       } else {
         setMessage("새로 더해진 것까지 담은 앨범입니다.");

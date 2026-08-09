@@ -34,7 +34,9 @@ test("★ 문자열은 lib/brand.ts 한 곳에서 나온다", () => {
   // 화면 코드에 문자열을 직접 적지 않는다 — 주소가 바뀔 때 고칠 자리가 하나여야 한다(§3).
   assert.match(renderer, /\{BRAND_NAME_EN\}/);
   assert.match(renderer, /\{BRAND_SITE_URL\}/);
-  assert.equal(renderer.includes("woorialbum"), false, "컴포넌트에 문자열을 직접 적었다");
+  // ★ 브랜드 **문자열**을 직접 적었는지만 본다. K-1-b 뒤로 저장 키가
+  //   `woorialbum-living-focus:…` 처럼 같은 낱말을 갖는다 — 그건 이름이 아니라 키다.
+  assert.equal(/["'`]woorialbum["'`]/.test(renderer), false, "컴포넌트에 문자열을 직접 적었다");
 });
 
 test("★ 순서는 로고 → 영문 → 주소다", async () => {

@@ -11,7 +11,7 @@
 
 import { rotateCollaborationInvite } from "./api";
 
-const inviteUrlStorageKey = (albumId: string) => `momento-collaboration-invite-url:${albumId}`;
+const inviteUrlStorageKey = (albumId: string) => `woorialbum-collaboration-invite-url:${albumId}`;
 
 export function isContributionInviteUrl(value: string | null | undefined): boolean {
   try {

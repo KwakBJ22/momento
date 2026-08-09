@@ -90,7 +90,7 @@ class ContributionUploadApiTests(TestCase):
         response = self.client.post(
             f"/api/albums/{ALBUM_ID}/contribute/photos",
             files={"photos": ("new.jpg", b"image", "image/jpeg")},
-            headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+            headers={"X-Woorialbum-Contributor-Id": CONTRIBUTOR_ID},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -106,7 +106,7 @@ class ContributionUploadApiTests(TestCase):
         response = self.client.post(
             f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/memories",
             json={"comment": "새로 남긴 기억", "contributor_id": CONTRIBUTOR_ID},
-            headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+            headers={"X-Woorialbum-Contributor-Id": CONTRIBUTOR_ID},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -121,7 +121,7 @@ class ContributionUploadApiTests(TestCase):
             self.client.post(
                 f"/api/albums/{ALBUM_ID}/contribute/photos",
                 files={"photos": ("new.jpg", b"image", "image/jpeg")},
-                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+                headers={"X-Woorialbum-Contributor-Id": CONTRIBUTOR_ID},
             )
         self.assertIn("photo_added", [call.args[1] for call in log.call_args_list])
 
@@ -129,7 +129,7 @@ class ContributionUploadApiTests(TestCase):
             self.client.post(
                 f"/api/albums/{ALBUM_ID}/photos/{PHOTO_ID}/memories",
                 json={"comment": "새로 남긴 기억", "contributor_id": CONTRIBUTOR_ID},
-                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+                headers={"X-Woorialbum-Contributor-Id": CONTRIBUTOR_ID},
             )
         self.assertIn("memory_added", [call.args[1] for call in log.call_args_list])
 
@@ -148,7 +148,7 @@ class ContributionUploadApiTests(TestCase):
             response = self.client.patch(
                 f"/api/albums/{ALBUM_ID}/memories/{MEMORY_ID}",
                 json={"comment": "Updated memory", "contributor_id": CONTRIBUTOR_ID},
-                headers={"X-Momento-Contributor-Id": CONTRIBUTOR_ID},
+                headers={"X-Woorialbum-Contributor-Id": CONTRIBUTOR_ID},
             )
 
         self.assertEqual(response.status_code, 200)

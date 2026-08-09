@@ -11,7 +11,7 @@ export function getGuestbookSessionKey(): string {
   return getReactionSessionKey();
 }
 
-const mineKey = (albumId: string) => `momento-guestbook-mine:${albumId}`;
+const mineKey = (albumId: string) => `woorialbum-guestbook-mine:${albumId}`;
 
 export function readMyGuestbookIds(albumId: string): Set<string> {
   try {

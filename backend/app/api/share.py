@@ -145,7 +145,7 @@ async def get_public_share(
     token: str,
     request: Request,
     edition: int | None = None,
-    x_momento_visitor: str | None = Header(default=None),
+    x_woorialbum_visitor: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> PublicShareAlbumResponse:
     _rate_limit(f"view:{token}", _PUBLIC_LIMIT)
@@ -159,7 +159,7 @@ async def get_public_share(
     # 토큰으로 키를 만든다. 판정은 visitor_key 한 곳에 있다.
     log_event(
         client, "public_album_viewed", album_id=str(album["id"]), share_link_id=str(share["id"]),
-        metadata={"source": "share"}, visitor_key=resolve_visitor_key(user_id, x_momento_visitor),
+        metadata={"source": "share"}, visitor_key=resolve_visitor_key(user_id, x_woorialbum_visitor),
     )
     settings = get_settings()
     media = [PublicMediaItem(media_type=row["media_type"], mime_type=row["mime_type"], processing_status=row["processing_status"], original_filename=row.get("original_filename")) for row in get_album_media_records(client, str(album["id"]))]

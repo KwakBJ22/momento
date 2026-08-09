@@ -2,13 +2,13 @@
 //
 // A guest album is created without an account and bound to a one-time session
 // token returned by the backend. The browser stores that raw token and sends it
-// as `X-Momento-Guest-Album-Token` to view/edit the album, and to claim it after
+// as `X-Woorialbum-Guest-Album-Token` to view/edit the album, and to claim it after
 // login. This is a DIFFERENT concept from a share-link contributor's guest id
 // (see PublicShareView) — that identifies someone adding to *someone else's*
 // album; this identifies the *owner* of an unclaimed album.
 
-const tokenKey = (albumId: string) => `momento-guest-album-token:${albumId}`;
-const PENDING_CLAIM_KEY = "momento-guest-pending-claim";
+const tokenKey = (albumId: string) => `woorialbum-guest-album-token:${albumId}`;
+const PENDING_CLAIM_KEY = "woorialbum-guest-pending-claim";
 
 export function saveGuestAlbumToken(albumId: string, token: string): void {
   try {

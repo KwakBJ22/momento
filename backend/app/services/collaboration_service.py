@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import html
 import logging
 import uuid
@@ -1196,7 +1195,3 @@ def set_cached_pdf_path(client: Client, album: dict[str, Any], version: int | st
 def new_guest_id() -> str:
     return str(uuid.uuid4())
 
-
-def guest_session_cookie_name(album_id: str) -> str:
-    digest = hashlib.sha256(album_id.encode("utf-8")).hexdigest()[:12]
-    return f"momento_collab_{digest}"

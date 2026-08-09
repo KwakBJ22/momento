@@ -276,7 +276,7 @@ def _actor_album_access(client: Any, album: dict[str, Any], user_id: str | None,
     return NO_ALBUM_ACCESS
 
 
-_GUEST_TOKEN_HEADER = Header(default=None, alias="X-Momento-Guest-Album-Token")
+_GUEST_TOKEN_HEADER = Header(default=None, alias="X-Woorialbum-Guest-Album-Token")
 
 
 def _resolve_cover_photo(album: dict[str, Any], photos: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -559,7 +559,7 @@ async def upload_album(
         require_family_write_role(family_membership["role"] if family_membership else None)
     else:
         family_id = None
-    operation_id = (request.headers.get("X-Momento-Operation-Id") or "").strip()
+    operation_id = (request.headers.get("X-Woorialbum-Operation-Id") or "").strip()
     try:
         album_id = str(UUID(operation_id)) if operation_id else create_album_id()
     except ValueError:

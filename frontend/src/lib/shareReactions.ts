@@ -7,8 +7,8 @@ export const REACTIONS: Array<{ code: ReactionCode; emoji: string; label: string
   { code: "smile", emoji: "😊", label: "웃음이 나요" },
 ];
 
-const SESSION_KEY = "momento-reaction-session";
-const pressedKey = (albumId: string) => `momento-reactions:${albumId}`;
+const SESSION_KEY = "woorialbum-reaction-session";
+const pressedKey = (albumId: string) => `woorialbum-reactions:${albumId}`;
 
 /** A stable per-browser session key so re-pressing dedupes by session_hash on the server. */
 export function getReactionSessionKey(): string {
