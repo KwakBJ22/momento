@@ -32,7 +32,9 @@ test("AlbumView saves a date story with a partial merge (no AlbumRenderer remoun
   const tsx = read("components/AlbumView.tsx");
   assert.match(tsx, /patchChapterStory/);
   // Partial setAlbum merge, exactly like the epilogue save; never bumps retryKey.
-  assert.match(tsx, /setAlbum\(\(current\) => current \? \{ \.\.\.current, chapter_stories: updated\.chapter_stories \}/);
+  // ★ K-6 뒤로 그 병합이 `withAlbumVersion` 을 지난다 — 부분 병합이라는 성질은 그대로다
+  //   (앨범 전체를 다시 넣지 않는다 → AlbumRenderer 가 다시 마운트되지 않는다).
+  assert.match(tsx, /setAlbum\(\(current\) => current \? withAlbumVersion\(\{ \.\.\.current, chapter_stories: updated\.chapter_stories \}, updated\)/);
   assert.doesNotMatch(read("components/AlbumView.tsx").match(/handleSaveStory[\s\S]*?\n  \};/)?.[0] ?? "", /setRetryKey/);
   // dateStoryEdit is owner-gated.
   assert.match(tsx, /dateStoryEdit=\{canEdit \?/);

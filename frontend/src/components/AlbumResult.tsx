@@ -14,6 +14,7 @@ import {
 } from "../lib/api";
 import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { resolveAlbumRole } from "../lib/albumRole";
+import { withAlbumVersion } from "../lib/albumVersion";
 import { resolveShareImageUrl } from "../lib/shareImage";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
@@ -67,6 +68,12 @@ export default function AlbumResultView({
 
   const hasEpilogue = Boolean(epilogue.trim());
   // ★ 공유는 주최자만 — 화면이 자기 나름의 추측을 만들지 않는다(H-1 · §5).
+  // ★ 앨범 버전은 저장할 때마다 서버에서 올라간다(K-6). `result` 는 부모가 가진 prop
+  // 이라 여기서 못 고치므로, 최신 값을 이 화면이 따로 들고 있는다 — PDF 는 이 값을 쓴다.
+  const [albumVersion, setAlbumVersion] = useState<number>(result.album_version ?? 0);
+  const rememberAlbumVersion = (saved: { album_version?: number | null } | null | undefined) => {
+    setAlbumVersion((current) => withAlbumVersion({ album_version: current }, saved).album_version ?? current);
+  };
   const isOwner = resolveAlbumRole(result) === "owner";
 
   useEffect(() => {
@@ -124,6 +131,7 @@ export default function AlbumResultView({
     try {
       const updated = await patchEpilogue(result.album_id, trimmed);
       const next = (updated.epilogue ?? updated.narrative ?? "").trim();
+      rememberAlbumVersion(updated);
       setSavedEpilogue(next);
       setEpilogue(next);
       setSaveStatus(SAVED_ALBUM_MESSAGE);
@@ -143,6 +151,7 @@ export default function AlbumResultView({
       if (epilogue.trim() !== savedEpilogue) {
         const updated = await patchEpilogue(result.album_id, epilogue.trim());
         const next = (updated.epilogue ?? updated.narrative ?? "").trim();
+        rememberAlbumVersion(updated);
         setSavedEpilogue(next);
         setEpilogue(next);
       }
@@ -177,6 +186,7 @@ export default function AlbumResultView({
     try {
       const saved = await saveAlbumPhotoCaption(result.album_id, photo.id, photoCommentDraft);
       // 화면이 읽는 필드는 caption 이다(같은 결함의 두 번째 얼굴).
+      rememberAlbumVersion(saved);
       setStagePhotos((photos) => photos.map((item) => (item.id === saved.id ? { ...item, caption: saved.caption } : item)));
       handleCancelPhotoCommentEdit();
       setNotice({ text: "사진에 남긴 한 줄을 저장했어요.", kind: "success" });
@@ -190,6 +200,7 @@ export default function AlbumResultView({
   const handleSaveTitle = async (next: string): Promise<string> => {
     if (!canEditStories) throw new Error("제목을 수정할 권한이 없어요.");
     const updated = await patchAlbumTitle(result.album_id, next.trim());
+    rememberAlbumVersion(updated);
     setAlbumTitle(updated.title);
     return updated.title;
   };
@@ -201,7 +212,7 @@ export default function AlbumResultView({
     try {
       const delivery = await downloadAlbumPdf({
         albumId: result.album_id,
-        albumVersion: result.album_version ?? 0,
+        albumVersion,
         contributorNames: result.contributor_names ?? [],
         title: albumTitle,
         photos: stagePhotos,

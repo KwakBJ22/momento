@@ -1345,7 +1345,12 @@ async def save_photo_comment(
     saved = update_album_photo_comment(client, album_id=album_id, photo_id=photo_id, comment=caption)
     if not saved:
         raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
-    return PhotoCaptionResponse(id=UUID(str(saved["id"])), caption=saved.get("caption"))
+    return PhotoCaptionResponse(
+        id=UUID(str(saved["id"])),
+        caption=saved.get("caption"),
+        # 저장하면서 올라간 앨범 버전. 화면이 이 값을 들고 있어야 PDF 가 409 를 안 맞는다(K-6).
+        album_version=int(saved.get("album_version") or 0),
+    )
 
 
 _STORY_INPUT_KEYS = {"memory_hint", "people", "highlight"}

@@ -694,7 +694,9 @@ def update_album_photo_comment(
     data = result.data or []
     row = data[0] if data else None
     if row:
-        bump_album_version(client, album_id)
+        # ★ 올라간 **새 버전을 행에 실어** 돌려준다(K-6). 부르는 쪽이 그 값을 화면에
+        # 그대로 옮겨 두지 않으면, 다음에 PDF 를 올릴 때 낡은 버전을 보내 409 를 맞는다.
+        row = {**row, "album_version": bump_album_version(client, album_id)}
     return row
 
 

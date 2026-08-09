@@ -426,6 +426,11 @@ class PhotoCaptionUpdate(BaseModel):
 class PhotoCaptionResponse(BaseModel):
     id: UUID
     caption: str | None = None
+    #: 캡션을 저장하면 앨범 버전이 **올라간다**(supabase.update_album_photo_comment).
+    #: 그 값을 돌려주지 않으면 화면이 낡은 버전을 들고 있다가 PDF 업로드에서 409 를
+    #: 맞는다 — 다른 세 경로(제목·이야기·우리의 이야기)는 앨범 전체를 돌려주므로
+    #: 이 하나만 빠져 있었다(K-6).
+    album_version: int = 0
 
 
 class AlbumMediaSummary(BaseModel):

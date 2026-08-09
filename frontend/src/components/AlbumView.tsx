@@ -6,6 +6,7 @@ import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages,
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
+import { withAlbumVersion } from "../lib/albumVersion";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
@@ -247,6 +248,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           item.id === saved.id ? { ...item, caption: saved.caption } : item,
         ),
       );
+      // ★ 저장하면 앨범 버전이 올라간다 — 안 옮기면 PDF 가 409 를 맞는다(K-6).
+      setAlbum((current) => current ? withAlbumVersion(current, saved) : current);
       handleCancelPhotoCommentEdit();
     } catch (cause) {
       setPhotoCommentSaveError(cause instanceof Error ? cause.message : "사진에 남긴 한 줄을 고치지 못했어요.");
@@ -259,11 +262,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     setIsSavingEpilogue(true);
     try {
       const updated = await patchEpilogue(albumId, epilogueDraft);
-      setAlbum((current) => current ? {
+      setAlbum((current) => current ? withAlbumVersion({
         ...current,
         epilogue: updated.epilogue ?? updated.narrative,
         narrative: updated.narrative,
-      } : current);
+      }, updated) : current);
       setIsEditingEpilogue(false);
     } finally {
       setIsSavingEpilogue(false);
@@ -277,7 +280,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       // Partial merge only (no AlbumRenderer remount): visibleChapterStories recomputes
       // from the new chapter_stories, exactly like the epilogue save path.
       const updated = await patchChapterStory(albumId, storyKey, storyDraft);
-      setAlbum((current) => current ? { ...current, chapter_stories: updated.chapter_stories } : current);
+      setAlbum((current) => current ? withAlbumVersion({ ...current, chapter_stories: updated.chapter_stories }, updated) : current);
       setEditingStoryKey(null);
       setStoryDraft("");
     } catch (cause) {
@@ -290,7 +293,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const handleSaveTitle = async (next: string): Promise<string> => {
     if (!album) throw new Error("앨범을 불러오지 못했어요.");
     const updated = await patchAlbumTitle(albumId, next.trim());
-    setAlbum((current) => current ? { ...current, title: updated.title } : current);
+    setAlbum((current) => current ? withAlbumVersion({ ...current, title: updated.title }, updated) : current);
     return updated.title;
   };
 

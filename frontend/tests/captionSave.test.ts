@@ -81,7 +81,9 @@ test("요청·응답 이름이 서버와 같다 (이름 하나가 어긋나면 �
   const api = read("lib/api.ts");
   const fn = api.slice(api.indexOf("export async function saveAlbumPhotoCaption"), api.indexOf("export type AlbumGenerationStatus"));
   assert.match(fn, /JSON\.stringify\(\{ caption: caption\.trim\(\) \|\| null \}\)/);
-  assert.match(fn, /\{ id: string; caption: string \| null \}/);
+  // ★ K-6 으로 `album_version` 이 한 자리 늘었다 — 저장하면 앨범 버전이 올라가고,
+  //   그 값을 화면이 받아 둬야 PDF 가 409 를 안 맞는다. 이름 셋이 그대로인지 본다.
+  assert.match(fn, /\{ id: string; caption: string \| null; album_version\?: number \}/);
   assert.doesNotMatch(fn, /comment:/);
 
   // 서버가 읽는 이름도 caption 하나다.
