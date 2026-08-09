@@ -112,6 +112,9 @@
 .account-contact__help { margin: -4px 0 2px; color: var(--c-text-muted); font-size: 14px; line-height: 1.45; }
 /* 칸은 전폭이다 — 옆에 버튼을 두면 좁은 기기에서 버튼이 밖으로 넘친다(실기기 결함). */
 .account-contact__field { display: grid; gap: 4px; }
+/* ★ 전화번호와 이메일은 **한 묶음**이다 — 따로 있는 것처럼 보이면 안 된다(J-5-1).
+   두 항목 사이만 12px 로 둔다(부모 격자 8px + 4px). 각 항목 안(라벨↔값 4px)은 그대로다. */
+.account-contact__field + .account-contact__field { margin-top: 4px; }
 .account-contact__label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .account-contact__label label { color: var(--c-text-muted); font-size: 14px; }
 /* 값이 있는 줄 — 가려진 값과 `수정` 만 보인다(§5). 입력칸·저장·지우기 없음. */

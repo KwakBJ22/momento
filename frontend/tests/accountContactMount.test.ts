@@ -134,10 +134,12 @@ test("서버에는 숫자만 보낸다 (하이픈은 화면에서만)", async ()
 
 test("★ 값이 있으면 가려진 값 + `수정` 만 보인다 (입력칸·저장·지우기 없음)", async () => {
   const view = await mount({ phone: "01012345678", email: "abc@example.com" });
-  // 평소 표시는 여전히 가려진 형태다 — 서버가 원본을 줘도 화면이 가린다(H-2).
+  // 전화번호는 여전히 가려진 형태다 — 서버가 원본을 줘도 화면이 가린다(H-2).
   assert.match(view.text(), /010-\*\*\*\*-5678/);
-  assert.match(view.text(), /ab\*\*\*@example\.com/);
-  assert.equal(view.text().includes("01012345678"), false, "평소에는 원본이 보이지 않는다");
+  assert.equal(view.text().includes("01012345678"), false, "전화번호 원본이 보이면 안 된다");
+  // ★ 이메일은 가리지 않는다(J-5-2). 바로 위 계정 행의 로그인 이메일도 안 가린다.
+  assert.match(view.text(), /abc@example\.com/);
+  assert.equal(/ab\*\*\*@/.test(view.text()), false, "이메일을 다시 가린다");
 
   assert.equal(view.input("전화번호"), undefined, "입력칸이 뜨면 안 된다");
   assert.equal(view.input("이메일"), undefined);
@@ -155,7 +157,7 @@ test("★ `수정` 을 누르면 그 줄만 입력칸이 되고 저장·취소�
   // ★ H-2 의 본체 — 빈칸이 아니라 **기존 값**이 들어가 있다(하이픈까지 붙여서).
   assert.equal(view.input("전화번호")?.value, "010-1234-5678", "수정을 누르면 기존 값이 채워진다");
   assert.equal(view.input("이메일"), undefined, "다른 줄은 그대로다");
-  assert.match(view.text(), /ab\*\*\*@example\.com/);
+  assert.match(view.text(), /abc@example\.com/);
   assert.ok(view.button("저장") && view.button("취소"));
 
   await view.type("전화번호", "01000009999");

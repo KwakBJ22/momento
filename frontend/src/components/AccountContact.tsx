@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getProfileContact, saveProfileContact, type ProfileContact } from "../lib/api";
-import { formatPhoneInput, maskEmail, maskPhone, phoneDigits } from "../lib/phoneFormat";
+import { formatPhoneInput, maskPhone, phoneDigits } from "../lib/phoneFormat";
 import { setContactUnsaved } from "../lib/unsavedContact";
 import "./AppChrome.css";
 
@@ -116,8 +116,12 @@ export default function AccountContact() {
             <label htmlFor={`account-contact-${field}`}>{LABEL[field]}</label>
             {/* 값이 있고 지금 고치는 중이 아니면 — 가려진 값 + `수정` 뿐이다.
                 입력칸도, 저장·지우기 버튼도 띄우지 않는다(§5). */}
+            {/* ★ 이메일은 가리지 않는다(J-5-2). 바로 위 계정 행에 로그인 이메일이
+                가려지지 않고 그대로 나온다 — 한 화면에서 같은 종류를 한쪽만 가리는 것은
+                규칙이 없는 것이다. 자기 계정 시트에서 자기 이메일을 자기가 보는 화면이다.
+                전화번호는 지금처럼 가린다. */}
             {!isOpen(field) ? (
-              <span className="account-contact__value">{field === "phone" ? maskPhone(contact[field]) : maskEmail(contact[field])}</span>
+              <span className="account-contact__value">{field === "phone" ? maskPhone(contact[field]) : contact[field]}</span>
             ) : null}
             {!isOpen(field) ? (
               <button type="button" className="account-contact__edit" disabled={busy}

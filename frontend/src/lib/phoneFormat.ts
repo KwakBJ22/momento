@@ -34,6 +34,12 @@ export function maskPhone(value: string | null | undefined): string | null {
   return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
 }
 
+/**
+ * @deprecated 연락처 이메일은 **가리지 않는다**(J-5-2 · SCREEN_SPEC §5).
+ * 자기 계정 시트에서 자기 이메일을 자기가 보는 화면이고, 바로 위 계정 행의
+ * 로그인 이메일은 원래 가려지지 않는다. 지우지 않고 남겨 둔 이유는 이 함수가
+ * 무엇이었는지와 왜 안 쓰는지가 같이 남아야 다시 붙지 않기 때문이다.
+ */
 export function maskEmail(value: string | null | undefined): string | null {
   const trimmed = (value || "").trim();
   if (!trimmed.includes("@")) return null;
