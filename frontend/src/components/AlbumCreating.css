@@ -10,7 +10,8 @@
 .album-creating__progress span { display: block; height: 100%; border-radius: inherit; background: var(--c-brand-action); transition: width .35s ease; }
 .album-creating__working { display: block; min-height: 1.2rem; margin: 8px 0 2px; color: var(--c-brand-text); font-size: 1.25rem; letter-spacing: .2em; animation: album-creating-dots 1.2s ease-in-out infinite; }
 .album-creating small { color: var(--c-text-muted); line-height: 1.5; }
-.album-creating__error { color: var(--c-danger); font-size: .9rem; }
+/* 색·글머리는 styles/notice.css 의 .notice--error 가 준다(I-5b). */
+.album-creating__error { font-size: .9rem; }
 .album-creating__actions { display: grid; gap: 10px; margin-top: 22px; }
 .album-creating__actions button, .album-creating__actions a { min-height: 48px; border: 0; border-radius: 12px; background: var(--c-brand-action); color: var(--c-surface); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
 .album-creating__actions a { display: grid; place-items: center; background: transparent; color: var(--c-text-soft); font-weight: 600; }

@@ -309,7 +309,6 @@
 .drop-zone__hint {
   margin: 0.5rem 0 0;
   font-size: 1rem;
-  color: var(--c-text-muted);
 }
 
 /* 사진 카드 */
@@ -415,13 +414,10 @@
   line-height: 1.5;
 }
 
-/* 에러 & 제출 */
+/* 에러 & 제출 — 색과 글머리는 `styles/notice.css` 의 `.notice--error` 가 준다(I-5b). */
 .upload-form__error {
   margin: 0;
   padding: 0.85rem 1rem;
-  background: var(--c-danger-soft);
-  border-radius: 12px;
-  color: var(--c-danger);
   font-size: 1.05rem;
   font-weight: 600;
 }
@@ -430,9 +426,6 @@
 .upload-form__notice {
   margin: 0;
   padding: 0.85rem 1rem;
-  background: var(--c-bg-soft);
-  border-radius: 12px;
-  color: var(--c-text-soft);
   font-size: 1.05rem;
   font-weight: 600;
 }

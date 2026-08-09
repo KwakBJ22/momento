@@ -181,7 +181,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
         </div>
         <p>{failed ? "사진은 안전하게 보관되어 있어요. 다시 시도해 주세요." : STEP_COPY[job?.current_step ?? "upload_completed"] ?? "앨범을 만들고 있어요"}</p>
         {!failed && <><div className="album-creating__progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${displayProgress.toFixed(1)}%` }} /></div><span className="album-creating__working" aria-hidden="true">···</span><small>페이지를 닫아도 앨범은 계속 만들어져요.</small></>}
-        {error ? <p className="album-creating__error">{error}</p> : null}
+        {error ? <p className="notice notice--error album-creating__error" role="alert">{error}</p> : null}
         {failed ? <div className="album-creating__actions"><button type="button" onClick={() => void retry()} disabled={retrying}>{retrying ? "다시 준비하고 있어요" : "다시 시도"}</button><a href="/my-albums">내 앨범으로 이동</a></div> : null}
       </div>
     </section>

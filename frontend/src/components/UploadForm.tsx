@@ -308,7 +308,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
         {showsEmptyState(photos.length, isPreparing) ? (
           <div className="drop-zone" role="button" tabIndex={0} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("drop-zone--active"); }} onDragLeave={(event) => event.currentTarget.classList.remove("drop-zone--active")} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("drop-zone--active"); void addFiles(event.dataTransfer.files); }}>
             <p className="drop-zone__title">고른 사진이 여기에 모여요</p>
-            <p className="drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
+            <p className="notice notice--info drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
           </div>
         ) : null}
         {showsSelectionCount(photos.length) && !isPreparing ? (
@@ -331,8 +331,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
           {isSubmitting ? "앨범 만드는 중..." : "앨범 만들기"}
         </button>
       ) : null}
-      {notice && <p className="upload-form__notice" aria-live="polite">{notice}</p>}
-      {error && <p className="upload-form__error">{error}</p>}
+      {notice && <p className="notice notice--info upload-form__notice" aria-live="polite">{notice}</p>}
+      {error && <p className="notice notice--error upload-form__error" role="alert">{error}</p>}
       {error && photos.length > 0 && <button type="button" className="upload-form__retry" onClick={() => void createAlbum()}>다시 시도</button>}
       {progressStep !== null && (
         <div className="upload-progress" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="upload-progress-title" aria-describedby="upload-progress-copy">

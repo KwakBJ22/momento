@@ -131,7 +131,8 @@ test("upload retry button is bound to the error slot, never the notice slot", ()
   assert.match(form, /const \[error, setError\]/);
   // Retry renders under `error`, not `notice`.
   assert.match(form, /\{error && photos\.length > 0 && <button[^]*upload-form__retry/);
-  assert.match(form, /\{notice && <p className="upload-form__notice"/);
+  // I-5b 뒤로 껍데기 클래스가 앞에 붙는다 — 성격(안내)과 붙는 자리는 그대로다.
+  assert.match(form, /\{notice && <p className="notice notice--info upload-form__notice"/);
   // The dropped-file (video/dedupe/limit) notices go to setNotice, not setError.
   assert.match(form, /setNotice\(failures\.length \? failures\.join\(" "\) : null\)/);
   assert.match(form, /setNotice\(noPhotosAddedNotice\(/);

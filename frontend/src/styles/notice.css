@@ -1,0 +1,66 @@
+/* 오류·안내 블록 — **성격 넷의 껍데기가 여기 하나뿐이다** (I-5b · SCREEN_SPEC §11).
+ *
+ * 조사 결과 껍데기가 31종이었는데 하는 일은 넷뿐이었다. 같은 성격인데 화면마다
+ * 색이 달랐고, 오류인데 스크린리더가 읽지 않는 자리가 26곳이었다. 사용자가 느끼는
+ * "제각각"의 남은 원인이다.
+ *
+ *   성격   글머리        글자색             배경    역할 속성
+ *   오류   ! (채운 원)   --c-danger         없음    role="alert"
+ *   성공   ✓             --c-success        없음    role="status"
+ *   진행   없음          --c-text-muted     없음    role="status"
+ *   안내   없음          --c-text-soft      없음    없음
+ *
+ * ★ **배경은 넷 다 없다.** 배경을 가진 것이 몇 종뿐이고 나머지가 없었다 —
+ *   다수를 따라가는 쪽이 화면 변화가 가장 적다. 예외는 `album-pdf-status` 하나로,
+ *   그것은 원래 떠 있는 카드다.
+ * ★ **글머리는 오류와 성공에만.** 그 둘이 갈리는 것이 중요하다. 진행과 안내는 둘 다
+ *   중립이라 헷갈려도 잃는 것이 없다.
+ * ★ **색만으로 성격을 구분하지 않는다.** 40~60대에 색약이 흔하다.
+ * ★ **크기·줄간격·여백은 여기서 정하지 않는다.** 지금 값 그대로 두려는 것이다 —
+ *   문구도 배치도 이번에 건드리지 않는다.
+ * ★ 글머리는 `::before` 로 넣는다. 아이콘 폰트·이미지를 새로 들이지 않는다.
+ */
+
+/* ★ 글머리가 있는 둘만 가로로 잡는다. 글머리가 없는 진행·안내는 배치를 아예 건드리지
+   않는다 — 지금 모양 그대로 두려는 것이다. */
+.notice--error,
+.notice--success {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+}
+
+.notice--error { color: var(--c-danger); }
+.notice--success { color: var(--c-success); }
+.notice--progress { color: var(--c-text-muted); }
+.notice--info { color: var(--c-text-soft); }
+
+/* 글머리 — 오류만 채운 원이다. 실패는 눈에 걸려야 한다. */
+.notice--error::before,
+.notice--success::before {
+  flex: none;
+  content: "✓";
+  font-weight: 800;
+  /* 글자 크기를 따라 커진다 — 화면마다 다른 크기를 쓰기 때문이다. */
+  font-size: 0.9em;
+  line-height: 1.65;
+}
+
+.notice--error::before {
+  content: "!";
+  display: block;
+  width: 1.25em;
+  height: 1.25em;
+  margin-top: 0.15em;
+  border-radius: 50%;
+  background: var(--c-danger);
+  color: var(--c-surface);
+  line-height: 1.25em;
+  text-align: center;
+}
+
+/* 글머리가 붙어도 줄바꿈은 글 쪽에서만 일어난다. */
+.notice--error > *,
+.notice--success > * {
+  min-width: 0;
+}
