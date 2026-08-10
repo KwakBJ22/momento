@@ -54,16 +54,18 @@ export function hasGuestAlbumToken(albumId: string): boolean {
  *   때) 부르는 쪽이 한다. 읽으면서 지우면 중간에 한 번 끊기는 것만으로 영영 잃는다.
  *
  * 이 셋을 두 벌 만들지 않는다 — 규칙이 갈라지면 한쪽만 고쳐진다.
+ * ★ 그래서 **밖에서도 쓴다.** 로그인 뒤 돌아갈 자리도 같은 장치를 쓴다(K-22 ·
+ *   authService). 게스트 저장·담아두기·돌아갈 자리 셋이 같은 규칙 위에 있다.
  */
-function rememberIntent(key: string, value: string): void {
+export function rememberIntent(key: string, value: string): void {
   try { localStorage.setItem(key, value); } catch { /* no-op */ }
 }
 
-function readIntent(key: string): string | null {
+export function readIntent(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
 }
 
-function forgetIntent(key: string): void {
+export function forgetIntent(key: string): void {
   try { localStorage.removeItem(key); } catch { /* no-op */ }
   // 옛 자리에 남은 것도 함께 치운다(K-9 이전에는 sessionStorage 였다).
   try { sessionStorage.removeItem(key); } catch { /* no-op */ }

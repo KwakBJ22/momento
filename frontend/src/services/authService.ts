@@ -2,6 +2,7 @@ import type { AuthChangeEvent, Provider, Session, User } from "@supabase/supabas
 import { BRAND_DEFAULT_USER_NAME } from "../lib/brand";
 import { isSupabaseAuthConfigured, supabase } from "../lib/supabase";
 import { authDebug } from "../lib/authDebug";
+import { forgetIntent, readIntent, rememberIntent } from "../lib/guestAlbum";
 
 export type AuthProvider = "kakao" | "naver";
 
@@ -26,6 +27,19 @@ export interface AuthInitialization {
 export const isAuthenticationConfigured = isSupabaseAuthConfigured;
 
 const RETURN_TO_KEY = "woorialbum-auth-return-to";
+/**
+ * 로그인 뒤 돌아갈 자리를 **기기에 남기는** 자리 (K-22).
+ *
+ * ★ 예전에는 `sessionStorage` 하나뿐이었다. 그런데 카카오 로그인은 앱 밖으로 나갔다
+ *   돌아오는 길이라, 그 사이 웹뷰가 새로 뜨면 `sessionStorage` 가 **통째로 사라진다** —
+ *   K-9 에서 이미 증명됐다(24차 §11). 그러면 콜백 주소의 `?returnTo=` 가 받아야 하는데,
+ *   그것도 (리다이렉트 허용목록·www→apex 넘김 등으로) 떨어질 수 있다. 둘 다 놓치면
+ *   초대받은 사람이 **첫 화면**으로 떨어지고, 초대장을 다시 보려면 카톡으로 돌아가야 한다.
+ *
+ * ★ K-9·K-15 가 쓰는 그 장치를 **그대로** 쓴다(`lib/guestAlbum` 의 rememberIntent).
+ *   새로 만들지 않는다 — 규칙이 갈라지면 한쪽만 고쳐진다.
+ */
+const RETURN_TO_DEVICE_KEY = "woorialbum-auth-return-to-device";
 function text(value: unknown): string | null {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;
@@ -76,20 +90,36 @@ function safeReturnTo(value: string | null | undefined): string {
 }
 
 function persistReturnTo(value?: string): void {
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const target = safeReturnTo(value || current);
   try {
-    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    sessionStorage.setItem(RETURN_TO_KEY, safeReturnTo(value || current));
+    sessionStorage.setItem(RETURN_TO_KEY, target);
   } catch { /* WebView storage can be unavailable. */ }
+  // ★ 왕복을 넘기는 것은 이쪽이다(K-22). sessionStorage 는 빠를 때만 살아 있다.
+  rememberIntent(RETURN_TO_DEVICE_KEY, target);
 }
 
+/**
+ * 돌아갈 자리를 꺼낸다 — **셋을 차례로 본다** (K-22).
+ *
+ *   ① sessionStorage      가장 빠르지만 왕복에서 자주 죽는다
+ *   ② 콜백 주소의 ?returnTo  중간에서 떨어질 수 있다
+ *   ③ localStorage        ★ 둘 다 놓쳤을 때 받는 자리 (K-9 의 장치)
+ *
+ * 어느 쪽에서 왔든 `safeReturnTo` 를 지난다 — 남의 주소로 보내지 않는다.
+ * 다 없으면 지금처럼 `/` 다.
+ */
 export function consumeReturnTo(): string {
+  let stored: string | null = null;
   try {
-    const value = sessionStorage.getItem(RETURN_TO_KEY);
+    stored = sessionStorage.getItem(RETURN_TO_KEY);
     sessionStorage.removeItem(RETURN_TO_KEY);
-    return safeReturnTo(value || new URLSearchParams(window.location.search).get("returnTo"));
-  } catch {
-    return safeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
-  }
+  } catch { /* WebView storage can be unavailable. */ }
+  const fromUrl = new URLSearchParams(window.location.search).get("returnTo");
+  const fromDevice = readIntent(RETURN_TO_DEVICE_KEY);
+  // 한 번 쓰면 지운다 — 다음 로그인이 옛 자리로 끌려가지 않는다.
+  forgetIntent(RETURN_TO_DEVICE_KEY);
+  return safeReturnTo(stored || fromUrl || fromDevice);
 }
 
 /**
