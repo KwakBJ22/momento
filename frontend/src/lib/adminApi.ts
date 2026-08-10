@@ -102,7 +102,8 @@ export type AdminFunnelStage = {
   conversion_from_previous?: number | null;
 };
 
-export const checkAdminAccess = () => adminGet<{ ok: boolean; user_id: string }>("/api/admin/me");
+/** `environment` 는 서버가 정한다 — 화면이 주소로 짐작하지 않는다(§10). */
+export const checkAdminAccess = () => adminGet<{ ok: boolean; user_id: string; environment?: string }>("/api/admin/me");
 export const fetchAdminDashboard = () => adminGet<AdminOpsDashboard>("/api/admin/dashboard");
 export const fetchAdminGrowth = () => adminGet<AdminGrowthDashboard>("/api/admin/growth");
 export const fetchAdminInvestor = () => adminGet<AdminInvestorDashboard>("/api/admin/investor");

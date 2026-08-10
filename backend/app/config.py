@@ -4,6 +4,12 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# ★ 운영 Supabase 프로젝트 ref. **어느 데이터를 지우게 되는지**를 정하는 값이라,
+#   "지금 어디를 보고 있는가"의 판정 근거를 이것 하나로 둔다(주소나 배포 이름이 아니다 —
+#   그것들은 바뀌고, 바뀌어도 지워지는 데이터는 이 프로젝트의 것이다).
+#   ref 는 서명된 사진 주소에도 그대로 드러나는 공개 식별자다. 비밀이 아니다.
+PRODUCTION_SUPABASE_REF = "hbywquveagumdxtjdzoh"
+
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -115,6 +121,23 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.strip().lower() == "production"
+
+    @property
+    def supabase_project_ref(self) -> str:
+        """`https://<ref>.supabase.co` 에서 ref 만 뽑는다."""
+        host = self.supabase_url.strip().rstrip("/").split("//")[-1].split("/")[0]
+        return host.split(".")[0].strip().lower()
+
+    @property
+    def deployment_environment(self) -> str:
+        """지금 붙어 있는 데이터가 운영인지 아닌지 — 관리자 화면이 이것을 보고 띠를 띄운다.
+
+        ★ 위의 `environment`(ENVIRONMENT 변수)를 쓰지 않는다. 그 값은 안 넣어도 기본값이
+          `development` 라, **운영에서 변수를 빠뜨리면 운영이 개발로 보인다.** 여기서는
+          반대로 잡는다 — 운영 프로젝트에 붙어 있을 때만 운영이고, 모르는 곳은 전부
+          개발로 본다. 헷갈릴 때 띠가 뜨는 쪽이 안전하다(지우면 되돌릴 수 없다).
+        """
+        return "production" if self.supabase_project_ref == PRODUCTION_SUPABASE_REF else "development"
 
     @property
     def should_hot_reload_prompts(self) -> bool:

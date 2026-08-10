@@ -893,6 +893,9 @@ class AdminCostDashboardResponse(BaseModel):
 class AdminAccessResponse(BaseModel):
     ok: bool = True
     user_id: str
+    # 지금 관리자가 보고 있는 데이터가 어디 것인지 — 판정은 서버가 한다(§10).
+    # 화면이 주소로 짐작하지 않는다. 주소는 바뀌고, 근거는 하나여야 한다.
+    environment: str = "production"
 
 
 class JoinPreviewResponse(BaseModel):

@@ -37,7 +37,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 @router.get("/me", response_model=AdminAccessResponse)
 async def admin_me(admin_user_id: str = Depends(require_platform_admin)) -> AdminAccessResponse:
-    return AdminAccessResponse(user_id=admin_user_id)
+    return AdminAccessResponse(user_id=admin_user_id, environment=get_settings().deployment_environment)
 
 
 @router.get("/dashboard", response_model=AdminOpsDashboardResponse)

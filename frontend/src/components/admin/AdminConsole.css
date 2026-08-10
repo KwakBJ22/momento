@@ -11,6 +11,31 @@
   color: var(--admin-text);
 }
 
+/* 지금 어느 쪽을 보고 있는지 — **개발일 때만** 뜬다. 운영은 아무것도 안 띄우는 것이 기본이다.
+   ★ danger 를 쓰지 않는다(I-5b). 오류가 아니라 안내다. 그래서 브랜드색 띠에 어두운 글자다
+     — 눈에는 걸리되 "무엇이 잘못됐다"로 읽히지 않아야 한다. */
+.admin__env-band {
+  margin: 0 0 16px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--admin-accent);
+  color: var(--c-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* 지우는 버튼 옆 표식 — 손이 가기 전에 무엇을 지우는 것인지 보인다. */
+.admin__env-tag {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--admin-accent);
+  color: var(--c-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .admin__shell {
   display: grid;
   grid-template-columns: 220px 1fr;

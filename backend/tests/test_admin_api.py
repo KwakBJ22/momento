@@ -31,6 +31,21 @@ class AdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["user_id"], ADMIN_ID)
 
+    def test_admin_me_says_which_data_it_is_looking_at(self) -> None:
+        """★ /admin 에는 앨범 삭제 버튼이 있고, 개발과 운영 화면이 똑같이 생겼다.
+
+        헷갈려서 운영 앨범을 지우면 되돌릴 수 없다. 그래서 **서버가** 어디인지 말해 준다.
+        화면이 주소로 짐작하지 않는다 — 주소는 바뀌고, 판정 근거는 하나여야 한다(§10).
+        """
+        with patch("app.api.admin.get_settings", return_value=SimpleNamespace(deployment_environment="development")):
+            response = self.client.get("/api/admin/me")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["environment"], "development")
+
+        with patch("app.api.admin.get_settings", return_value=SimpleNamespace(deployment_environment="production")):
+            response = self.client.get("/api/admin/me")
+        self.assertEqual(response.json()["environment"], "production")
+
     def test_admin_dashboard_returns_payload(self) -> None:
         payload = {
             "today": {"new_users": 1, "new_albums": 2, "new_pages": 0, "new_editions": 0, "share_count": 0, "pdf_generated": 0, "new_memories": 0},

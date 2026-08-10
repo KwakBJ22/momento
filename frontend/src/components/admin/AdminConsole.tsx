@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   checkAdminAccess,
   deleteAdminAlbum,
@@ -29,6 +29,24 @@ import ConfirmSheet from "../ConfirmSheet";
 
 export type { AdminRoute } from "./adminRoute";
 export { parseAdminRoute } from "./adminRoute";
+
+/**
+ * 지금 보고 있는 데이터가 어디 것인가 — **서버가 정한 값**을 그대로 나른다(§10).
+ *
+ * ★ /admin 에는 앨범 삭제 버튼이 있는데 개발과 운영 화면이 똑같이 생겼다.
+ *   헷갈려서 운영 앨범을 지우면 되돌릴 수 없다.
+ * ★ 기본값이 "production" 인 것은 일부러다 — 아직 못 물어본 순간에 띠부터 띄우면
+ *   운영에서 잠깐 "개발 서버입니다"가 번쩍인다. 띠는 답을 받은 뒤에만 뜬다.
+ */
+const DataEnvironmentContext = createContext<string>("production");
+const useIsDevelopmentData = () => useContext(DataEnvironmentContext) === "development";
+
+/** 지우는 자리 옆에 붙는 표식 — 무엇을 지우는 것인지 손이 가기 전에 보인다. */
+function DevelopmentDataTag() {
+  const isDevelopment = useIsDevelopmentData();
+  if (!isDevelopment) return null;
+  return <span className="admin__env-tag">개발 데이터</span>;
+}
 
 const NAV: { href: string; label: string; section: string }[] = [
   { href: "/admin", label: "운영", section: "dashboard" },
@@ -370,6 +388,7 @@ function AlbumDetailView({ albumId }: { albumId: string }) {
             >
               삭제
             </button>
+            <DevelopmentDataTag />
           </div>
           {pendingDeleteAlbumId ? (
             <ConfirmSheet
@@ -599,6 +618,7 @@ type AdminConsoleProps = {
 export default function AdminConsole({ route }: AdminConsoleProps) {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [dataEnvironment, setDataEnvironment] = useState("production");
   const [ops, setOps] = useState<AdminOpsDashboard | null>(null);
   const [growth, setGrowth] = useState<AdminGrowthDashboard | null>(null);
   const [investor, setInvestor] = useState<AdminInvestorDashboard | null>(null);
@@ -613,7 +633,12 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
   useEffect(() => {
     let active = true;
     void checkAdminAccess()
-      .then(() => active && setReady(true))
+      .then((access) => {
+        if (!active) return;
+        // 서버가 말해 준 그대로 쓴다 — 주소를 보고 따로 판정하지 않는다(§10).
+        setDataEnvironment(access.environment || "production");
+        setReady(true);
+      })
       .catch((reason) => active && setAccessError(reason instanceof Error ? reason.message : "접근할 수 없습니다."));
     return () => {
       active = false;
@@ -688,7 +713,12 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
   if (activeSection === "costs") content = <CostDashboardView />;
 
   return (
+    <DataEnvironmentContext.Provider value={dataEnvironment}>
     <section className="admin">
+      {/* ★ 운영에서는 아무것도 띄우지 않는다 — 그것이 기본이다. 띠는 개발일 때만 뜬다. */}
+      {dataEnvironment === "development" ? (
+        <p className="admin__env-band" role="status">개발 서버입니다</p>
+      ) : null}
       <div className="admin__shell">
         <nav className="admin__nav" aria-label="Admin">
           <h2>Admin Console</h2>
@@ -702,5 +732,6 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
         <div className="admin__main">{content || <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p>}</div>
       </div>
     </section>
+    </DataEnvironmentContext.Provider>
   );
 }
