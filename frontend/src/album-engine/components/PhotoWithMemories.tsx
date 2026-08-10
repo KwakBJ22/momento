@@ -5,7 +5,8 @@ import { useAlbumRenderMode } from "./AlbumRenderModeContext";
 import { photoOverlapRatio, photoStackOrder, photoTiltDeg } from "../engine/scrapbookLayout";
 import { usePhotoCommentEdit } from "./PhotoCommentEditContext";
 import AlbumPhotoFrame from "./album/AlbumPhotoFrame";
-import { buildPhotoCaptionSegments } from "./photoCaptionSegments";
+import PhotoMemoryList from "./PhotoMemoryList";
+import { buildPhotoCaptionSegments, buildPhotoMemoryEntries } from "./photoCaptionSegments";
 import type { MemoryFlowPlan } from "../engine/memoryFlow";
 import type { EnginePhoto } from "../types";
 import "./PhotoWithMemories.css";
@@ -36,6 +37,8 @@ export default function PhotoWithMemories({
   const edit = usePhotoCommentEdit();
   void flowPlan;
   const captionSegments = buildPhotoCaptionSegments(photo);
+  // 한마디는 캡션과 **다른 계층**이다 — 프레임 밖에서 이름과 함께 그린다(K-23 · §7).
+  const memoryEntries = buildPhotoMemoryEntries(photo);
 
   // ★ 인쇄는 정돈, 화면은 리듬(§9 10차). 기울기·겹침은 **화면에서만** 준다 —
   // 인쇄에 새면 결함이다. 값은 사진 ID 로 정해져 새로고침해도 바뀌지 않는다.
@@ -81,6 +84,9 @@ export default function PhotoWithMemories({
           showEditWhenEmpty={canEditThisCaption && !captionSegments?.length}
         />
       ) : null}
+      {/* ★ 한마디는 프레임 **밖**이고 **인쇄되지 않는다**(§7). 그래서 화면일 때만 그린다.
+          기울기와 같은 자리에서 화면/인쇄를 가른다 — 판단 근거를 둘로 만들지 않는다. */}
+      {isScreen ? <PhotoMemoryList entries={memoryEntries} /> : null}
     </div>
   );
 }

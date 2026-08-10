@@ -2,12 +2,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { buildPhotoCaptionSegments } from "../src/album-engine/components/photoCaptionSegments";
+import { buildPhotoCaptionSegments, buildPhotoMemoryEntries } from "../src/album-engine/components/photoCaptionSegments";
 import { myAlbumCardImageUrl } from "../src/lib/myAlbumCardImage";
 import { selectAlbumPhotoUrl } from "../src/lib/imageUrls";
 
-test("saved photo comments and participant memories survive renderer normalization", () => {
-  const segments = buildPhotoCaptionSegments({
+/**
+ * ★ 이 검사는 K-23 에서 **뒤집혔다.** 예전에는 캡션과 한마디가 **한 목록**으로 나오는
+ *   것을 정상으로 잠그고 있었는데, 그것이 바로 결함이었다 — 그 목록이 캡션 자리에
+ *   캡션 모양으로 그려져서 한마디가 캡션처럼 보였다(§7 은 둘을 자리로 가른다).
+ *   이제 캡션은 캡션만, 한마디는 이름과 함께 따로 나온다.
+ *   자세한 것은 photoMemoryLayer.test.ts.
+ */
+test("saved photo comments and participant memories stay in separate layers", () => {
+  const photo = {
     id: "photo-1",
     comment: "  사용자가 남긴 코멘트  ",
     authorLabel: "주최자",
@@ -16,10 +23,16 @@ test("saved photo comments and participant memories survive renderer normalizati
       { author: "참여자", text: "함께 남긴 기억" },
       { author: "다른 이름", text: "사용자가 남긴 코멘트" },
     ],
-  });
-  assert.deepEqual(segments, [
+  };
+  // 캡션은 그 사진의 한 줄 하나다(공백은 다듬는다).
+  assert.deepEqual(buildPhotoCaptionSegments(photo), [
     { photoId: "photo-1", author: "주최자", text: "사용자가 남긴 코멘트" },
-    { photoId: "photo-1", author: "참여자", text: "함께 남긴 기억" },
+  ]);
+  // 한마디는 따로, 이름과 함께. 빈 글만 버린다 —
+  // ★ 캡션과 글자가 같아도 버리지 않는다. 다른 사람이 쓴 다른 계층의 말이다.
+  assert.deepEqual(buildPhotoMemoryEntries(photo), [
+    { author: "참여자", text: "함께 남긴 기억" },
+    { author: "다른 이름", text: "사용자가 남긴 코멘트" },
   ]);
 });
 

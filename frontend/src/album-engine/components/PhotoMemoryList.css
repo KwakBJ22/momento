@@ -1,0 +1,34 @@
+/* 사진에 달린 한마디 목록 (K-23 · SCREEN_SPEC §7).
+   ★ 사진 프레임 **밖**이다. 캡션과 자리가 다른 것이 이 계층의 정의다.
+   ★ 카드·테두리·그림자·배경을 쓰지 않는다 — 사진이 가장 커야 한다(§6).
+   ★ 이름은 굵게, 말은 보통 — 한 줄에 이어 읽힌다. */
+.photo-memory-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.photo-memory-list__item {
+  color: var(--c-text-soft);
+  font-size: var(--t-sm);
+  line-height: 1.55;
+  word-break: keep-all;
+}
+
+.photo-memory-list__author {
+  margin-right: 0.4em;
+  color: var(--c-text);
+  font-weight: 700;
+}
+
+.photo-memory-list__text {
+  white-space: pre-line;
+}
+
+/* 인쇄에서는 아예 없다. 부르는 쪽이 화면일 때만 그리지만, PDF 가 화면 DOM 을 찍는
+   경로(html2canvas)도 있어서 여기서도 한 번 더 막는다 — 종이는 되돌릴 수 없다. */
+@media print {
+  .photo-memory-list { display: none !important; }
+}
