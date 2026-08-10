@@ -269,6 +269,114 @@ class ShareApiTests(TestCase):
         )
         self.assertTrue(all(item["author_name"] == "민수" for item in body["pending_items"]))
 
+    def test_public_share_shows_every_memory_on_a_visible_photo(self) -> None:
+        """🔴 공유 화면에서 참여자가 남긴 한마디가 사진 밑에서 사라진다 (K-24 · SCREEN_SPEC §7).
+
+        ★ 저장은 처음부터 옳았다(개발 DB 실측 2026-08-10). 사진 6f434e11 에 세 건,
+          셋 다 deleted_at NULL 이었다. 그런데 공유 응답에는 주최자가 쓴 한 건만 있었다.
+
+        원인은 `is_pending_memory` 였다 — 사진과 **같은 잣대**로 한마디를 걸렀다.
+          참여자가 썼고 · 앨범이 만들어진 뒤에 썼고 · 아직 반영 전이면 `pending`
+        사진은 주최자가 반영해야 앨범에 들어가는 것이 맞지만, 한마디까지 그렇게 걸러
+        내니 이미 보이는 사진 밑에서 참여자의 글만 사라졌다. 주최자 글은 owner 라
+        애초에 pending 이 될 수 없어 늘 남았다 — 그래서 "하나만 보인다".
+
+        ★ 사람이 남긴 글을 임의로 고르지 않는다. 사진이 보이면 그 사진의 한마디는 전부 보인다.
+        """
+        visible_photo_id = "44444444-4444-4444-4444-444444444444"
+        pending_photo_id = "66666666-6666-6666-6666-666666666666"
+        participant_id = "99999999-9999-9999-9999-999999999999"
+        album_with_contributions = {
+            **album(),
+            "created_at": "2026-07-01T00:00:00+00:00",
+            "applied_contribution_photo_ids": [],
+            "applied_contribution_memory_ids": [],
+        }
+
+        def photo(photo_id: str, contributor_id: str) -> dict[str, object]:
+            return {
+                "id": photo_id,
+                "sort_order": 0,
+                "created_at": "2026-07-02T10:00:00+00:00",
+                "uploaded_by_contributor_id": contributor_id,
+                "storage_bucket": "private",
+                "storage_path": f"photos/{photo_id}.jpg",
+                "thumbnail_bucket": "private",
+                "thumbnail_path": f"thumbs/{photo_id}.jpg",
+            }
+
+        memories = [
+            # 참여자가 먼저 썼다 — 예전에는 이것이 통째로 빠졌다.
+            {
+                "id": "a1111111-1111-1111-1111-111111111111",
+                "photo_id": visible_photo_id,
+                "contributor_id": participant_id,
+                "author_name": "둘째",
+                "comment": "신난 리원이",
+                "created_at": "2026-07-02T05:43:00+00:00",
+            },
+            # 주최자가 나중에 썼다 — 이것만 남아서 "하나만 보인다"로 보였다.
+            {
+                "id": "a2222222-2222-2222-2222-222222222222",
+                "photo_id": visible_photo_id,
+                "contributor_id": OWNER_ID,
+                "author_name": "곽병준",
+                "comment": "아싸 신나~~",
+                "created_at": "2026-07-02T06:40:00+00:00",
+            },
+            # 이름을 못 풀어도 글은 남는다 — 이름만 빈다(K-17 과 같은 방식).
+            {
+                "id": "a3333333-3333-3333-3333-333333333333",
+                "photo_id": visible_photo_id,
+                "contributor_id": "",
+                "author_name": "",
+                "comment": "이름이 없어도 남는 말",
+                "created_at": "2026-07-02T07:00:00+00:00",
+            },
+            # 아직 안 그려지는 사진의 한마디는 `새로 더해진` 자리에 남는다
+            # — 그래야 어디에도 안 보이는 글이 생기지 않는다.
+            {
+                "id": "a4444444-4444-4444-4444-444444444444",
+                "photo_id": pending_photo_id,
+                "contributor_id": participant_id,
+                "author_name": "둘째",
+                "comment": "아직 안 붙은 사진의 말",
+                "created_at": "2026-07-02T08:00:00+00:00",
+            },
+        ]
+
+        with patch("app.api.share.get_active_share", return_value=share()), patch(
+            "app.api.share.get_album_record", return_value=album_with_contributions
+        ), patch("app.api.share.get_album_media_records", return_value=[]), patch(
+            "app.api.share.get_album_photo_records",
+            return_value=[photo(visible_photo_id, OWNER_ID), photo(pending_photo_id, participant_id)],
+        ), patch("app.api.share.list_photo_memories", return_value=memories), patch(
+            "app.api.share.list_contributors",
+            return_value=[
+                {"id": OWNER_ID, "role": "owner", "display_name": "곽병준"},
+                {"id": participant_id, "role": "contributor", "display_name": "둘째"},
+            ],
+        ), patch(
+            "app.api.share.get_signed_url", side_effect=lambda _client, _bucket, path, _ttl: f"https://cdn.example/{path}"
+        ), patch("app.api.share.get_public_url", return_value="https://cdn.example/result.png"), patch(
+            "app.api.share.increment_view"
+        ), patch("app.api.share.log_event"):
+            response = self.client.get("/api/public/shares/opaque-token")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        shown = next(item for item in body["photos"] if item["id"] == visible_photo_id)
+        # ★ 순서까지 쓴 순서 그대로다 — 먼저 쓴 사람이 먼저다.
+        self.assertEqual(
+            [(comment["author"], comment["text"]) for comment in shown["comments"]],
+            [("둘째", "신난 리원이"), ("곽병준", "아싸 신나~~"), (None, "이름이 없어도 남는 말")],
+        )
+        # 사진 밑에 보이는 글은 `새로 더해진` 자리에 겹쳐 쓰지 않는다.
+        pending_texts = {item.get("content") for item in body["pending_items"]}
+        self.assertNotIn("신난 리원이", pending_texts)
+        # 아직 안 그려지는 사진의 글은 그 자리에 남는다 — 사라지지 않는다.
+        self.assertIn("아직 안 붙은 사진의 말", pending_texts)
+
     def test_public_contribution_requires_and_persists_a_display_name(self) -> None:
         with patch("app.api.share.get_active_share", return_value=share()), patch(
             "app.api.share.get_album_record", return_value=album()

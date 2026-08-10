@@ -198,30 +198,47 @@ async def get_public_share(
         )
 
     pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)] if edition is None else []
-    pending_memories = [memory for memory in memories if is_pending_memory(memory)] if edition is None else []
     shared_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
+    # 사진이 그려지는 자리 — 이 사진에 달린 한마디는 사진 밑에 그대로 나온다(K-24).
+    rendered_photo_ids = {str(photo["id"]) for photo in shared_photo_records}
+    # ★ K-24: 한마디는 `아직 반영 안 된 참여` 로 치지 않는다.
+    #   사진은 주최자가 반영해야 앨범에 들어간다(그래서 위 `is_pending_photo` 는 그대로다).
+    #   그런데 한마디까지 같은 잣대로 걸러 내는 바람에, 공유 화면에서는 참여자가 쓴 글이
+    #   사진 밑에서 사라지고 주최자가 쓴 것만 남았다. 사람이 남긴 글을 임의로 고르지 않는다.
+    #   사진이 아직 안 그려지는 한마디만 `새로 더해진` 자리에 남는다 — 그래야 어디에도
+    #   안 보이는 글이 생기지 않고, 같은 글이 두 곳에 겹치지도 않는다.
+    pending_memories = [
+        memory for memory in memories
+        if is_pending_memory(memory) and str(memory.get("photo_id") or "") not in rendered_photo_ids
+    ] if edition is None else []
     current_document, selected_append_pages = _public_edition_document_and_pages(album, edition)
     document_photo_ids = album_document_photo_ids(current_document)
     visible_photo_records = [
         photo for photo in shared_photo_records
         if not document_photo_ids or str(photo["id"]) in document_photo_ids
     ]
-    visible_photo_ids = {str(photo["id"]) for photo in visible_photo_records}
-    shared_memories = [memory for memory in memories if not is_pending_memory(memory)]
-    visible_memories = [
-        memory
-        for memory in shared_memories
-        if str(memory.get("photo_id") or "") in visible_photo_ids
-    ]
     chapter_stories = visible_date_stories(album.get("chapter_stories"), visible_photo_records)
-    memories_by_photo: dict[str, list[dict]] = {}
-    for mem in visible_memories:
-        pid = str(mem.get("photo_id") or "")
-        memories_by_photo.setdefault(pid, []).append(mem)
 
     all_memories_by_photo: dict[str, list[dict]] = {}
-    for mem in shared_memories:
+    for mem in memories:
         all_memories_by_photo.setdefault(str(mem.get("photo_id") or ""), []).append(mem)
+
+    # 참여자의 **지금** 이름 (list_contributors 가 profiles 에서 이미 채워 둔 값 — §1).
+    contributor_display = {
+        str(row["id"]): str(row.get("display_name") or "").strip() for row in contributors
+    }
+
+    def memory_author(memory: dict[str, object]) -> str | None:
+        """한마디에 붙는 이름 — 못 풀어도 **글은 남긴다**. 이름만 비운다(K-17 과 같은 방식).
+
+        저장된 이름이 먼저다(쓸 때의 이름). 비어 있으면 지금 참여자 이름으로 채우고,
+        그것도 없으면 None 이다. `익명` 같은 말을 지어내 붙이지 않는다 — 이름 자리가
+        아예 없는 것과, 누군가 `익명`이라고 이름을 지은 것은 다르다.
+        """
+        name = str(memory.get("author_name") or "").strip() or contributor_display.get(
+            str(memory.get("contributor_id") or ""), ""
+        )
+        return None if name in _LEGACY_ANONYMOUS_NAMES else name
 
     # Public album rendering can include the same photo in the album, a Living
     # page and pending content. Create each signed URL once per response rather
@@ -252,7 +269,7 @@ async def get_public_share(
             sort_order=int(photo.get("sort_order") or 0),
             caption=str(photo.get("caption") or "").strip() or None,
             comments=[
-                {"author": m.get("author_name"), "text": str(m.get("comment") or "")}
+                {"author": memory_author(m), "text": str(m.get("comment") or "")}
                 for m in mems
                 if str(m.get("comment") or "").strip()
             ] or None,
@@ -268,7 +285,7 @@ async def get_public_share(
     shared_photo_models = {str(photo["id"]): to_public_photo(photo) for photo in shared_photo_records}
     photos = [shared_photo_models[str(photo["id"])] for photo in visible_photo_records]
 
-    memory_by_id = {str(memory["id"]): memory for memory in shared_memories}
+    memory_by_id = {str(memory["id"]): memory for memory in memories}
     living_append_pages: list[dict] = []
     for page in selected_append_pages:
         if not isinstance(page, dict):
@@ -281,7 +298,7 @@ async def get_public_share(
         page_memories = [
             {
                 "id": str(memory["id"]),
-                "author_name": _public_author_name(memory.get("author_name")),
+                "author_name": memory_author(memory) or "",
                 "content": str(memory.get("comment") or "").strip(),
                 "created_at": memory.get("created_at"),
             }
@@ -309,9 +326,7 @@ async def get_public_share(
             )
         )
     for memory in pending_memories:
-        author_name = _public_author_name(
-            memory.get("author_name") or contributor_names.get(str(memory.get("contributor_id") or ""))
-        )
+        author_name = memory_author(memory) or ""
         pending_items.append(
             PublicContributionItem(
                 id=str(memory["id"]),
