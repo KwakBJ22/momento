@@ -32,13 +32,13 @@ export { parseAdminRoute } from "./adminRoute";
 
 const NAV: { href: string; label: string; section: string }[] = [
   { href: "/admin", label: "운영", section: "dashboard" },
-  { href: "/admin/growth", label: "Growth", section: "growth" },
   { href: "/admin/investor", label: "Investor", section: "investor" },
   { href: "/admin/albums", label: "앨범", section: "albums" },
   { href: "/admin/users", label: "사용자", section: "users" },
   { href: "/admin/events", label: "이벤트", section: "events" },
   { href: "/admin/errors", label: "오류", section: "errors" },
   { href: "/admin/costs", label: "비용", section: "costs" },
+  { href: "/admin/growth", label: "Growth", section: "growth" },
 ];
 
 function formatDate(value?: string | null): string {
@@ -53,7 +53,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function MetricGrid({ items }: { items: { label: string; value: string | number }[] }) {
+function MetricGrid({ items }: { items: { label: string; value: ReactNode }[] }) {
   return (
     <div className="admin__grid">
       {items.map((item) => (
@@ -67,6 +67,7 @@ function MetricGrid({ items }: { items: { label: string; value: string | number 
 }
 
 function TrendChart({ title, points }: { title: string; points: AdminTrendPoint[] }) {
+  if (!points.some((point) => point.value > 0)) return null;
   const max = Math.max(1, ...points.map((point) => point.value));
   return (
     <section className="admin__section">
@@ -81,6 +82,47 @@ function TrendChart({ title, points }: { title: string; points: AdminTrendPoint[
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+function UsageValue({ bytes, limit }: { bytes: number | null | undefined; limit: number }) {
+  if (bytes == null) return <>측정 불가</>;
+  return <>{formatBytes(bytes)} ({((bytes / limit) * 100).toFixed(1)}%)</>;
+}
+
+function BlockedList({ data }: { data: AdminOpsDashboard }) {
+  const items = data.blocked ?? [];
+  return (
+    <section className="admin__section admin__blocked">
+      <h3>막힌 것</h3>
+      {!items.length ? <p className="admin__clear">지금 막힌 것이 없어요</p> : (
+        <div className="admin__blocked-list">
+          {items.map((item) => (
+            <article key={item.kind} className="admin__blocked-item">
+              <div><strong>{item.label}</strong><p>{item.detail}</p></div>
+              <b>{item.count}건</b>
+              {item.albums?.length ? <ul>{item.albums.map((album) => <li key={album.album_id}>{album.title} · 만료까지 {album.days_remaining}일</li>)}</ul> : null}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DataHealth({ health }: { health: AdminOpsDashboard["data_health"] }) {
+  return (
+    <section className="admin__section">
+      <h3>데이터 건강</h3>
+      <MetricGrid items={[
+        { label: "Storage 고아 파일", value: health.orphan_files ?? 0 },
+        { label: "주인 없는 앨범", value: health.unowned_albums ?? 0 },
+        { label: "미-claim 세션", value: health.unclaimed_sessions ?? 0 },
+        { label: "3일 내 만료", value: health.expiring_sessions_3d ?? 0 },
+        { label: "Supabase DB / 500MB", value: <UsageValue bytes={health.database_bytes} limit={500 * 1024 * 1024} /> },
+        { label: "Storage / 1GB", value: <UsageValue bytes={health.storage_bytes} limit={1024 * 1024 * 1024} /> },
+      ]} />
     </section>
   );
 }
@@ -177,6 +219,8 @@ function OpsDashboardView({ data, funnel }: { data: AdminOpsDashboard; funnel: A
         <h1>Admin Dashboard</h1>
         <p>오늘의 운영 지표와 누적 현황</p>
       </header>
+      <BlockedList data={data} />
+      <DataHealth health={data.data_health ?? {}} />
       <section className="admin__section">
         <h3>오늘</h3>
         <MetricGrid
@@ -605,6 +649,7 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
       <>
         <header className="admin__header">
           <h1>Growth Dashboard</h1>
+          <p>표본이 적어 아직 참고만 하세요</p>
         </header>
         <GrowthPanels growth={growth} />
         <ViralFunnel stages={funnel.length ? funnel : []} />

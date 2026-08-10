@@ -82,6 +82,22 @@ def count_orphan_files(client: Any, settings: Settings, *, limit: int = 5000) ->
     }
 
 
+def storage_usage(client: Any, settings: Settings) -> dict[str, Any]:
+    """Measure the configured private bucket without changing any object."""
+    storage = StorageService.for_supabase(client, settings)
+    bucket = settings.supabase_private_storage_bucket
+    files = storage.list_recursive(bucket)
+    total_bytes = 0
+    for item in files:
+        metadata = item.get("metadata") or {}
+        size = metadata.get("size", item.get("size", 0)) if isinstance(metadata, dict) else 0
+        try:
+            total_bytes += int(size or 0)
+        except (TypeError, ValueError):
+            continue
+    return {"bucket": bucket, "file_count": len(files), "bytes": total_bytes}
+
+
 def check_integrity(client: Any, settings: Settings, *, album_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Compare active album DB references with storage objects without mutation."""
     storage = StorageService.for_supabase(client, settings)

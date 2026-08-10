@@ -20,6 +20,14 @@ export type AdminOpsDashboard = {
   today: Record<string, number>;
   totals: Record<string, number>;
   trends: Record<string, AdminTrendPoint[]>;
+  blocked: {
+    kind: string;
+    label: string;
+    count: number;
+    detail?: string;
+    albums?: { album_id: string; title: string; expires_at?: string; days_remaining: number }[];
+  }[];
+  data_health: Record<string, number | null>;
 };
 
 export type AdminGrowthDashboard = {

@@ -47,7 +47,7 @@ async def admin_ops_dashboard(
 ) -> AdminOpsDashboardResponse:
     response.headers["Cache-Control"] = "no-store"
     client = get_supabase_client(get_settings())
-    payload = build_ops_dashboard(client)
+    payload = build_ops_dashboard(client, get_settings())
     return AdminOpsDashboardResponse(**payload)
 
 

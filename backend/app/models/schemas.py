@@ -750,6 +750,8 @@ class AdminOpsDashboardResponse(BaseModel):
     today: dict[str, int]
     totals: dict[str, int]
     trends: dict[str, list[AdminTrendPoint]]
+    blocked: list[dict[str, Any]] = Field(default_factory=list)
+    data_health: dict[str, Any] = Field(default_factory=dict)
 
 
 class AdminGrowthDashboardResponse(BaseModel):

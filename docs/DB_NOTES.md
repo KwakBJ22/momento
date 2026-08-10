@@ -105,3 +105,9 @@ f68ddc25...   provider_id 5025495165 · 5010497815
 
 - 확인하는 조회는 `docs/DATA_CHECKS.md` §6 에 있다.
 - 지금 할 일은 없다. **카카오 개발자 콘솔에서 앱을 다시 만들지 않는 것**이 유일한 예방이다.
+
+## Analytics event identity note (2026-08-10)
+
+`analytics_events` has no `user_id` column. User journeys must not be inferred as
+person-level data until the identity model for this table is decided; identifiers in
+`metadata` are not a durable person-level analytics contract.

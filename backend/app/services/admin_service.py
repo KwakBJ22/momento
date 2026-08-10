@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import timedelta
 from typing import Any
 
 from supabase import Client
@@ -38,6 +39,7 @@ from app.services.collaboration_service import list_photo_memories
 from app.services.membership import get_user_email
 from app.services.supabase import delete_album_record, get_album_photo_records, get_album_record, get_public_url
 from app.config import Settings
+from app.services.operations_service import count_orphan_files, storage_usage
 
 
 def _contributor_added_counts(client: Client, album_ids: list[str]) -> tuple[dict[str, int], dict[str, int]]:
@@ -77,7 +79,89 @@ def _contributor_added_counts(client: Client, album_ids: list[str]) -> tuple[dic
     return dict(photo_counts), dict(memory_counts)
 
 
-def build_ops_dashboard(client: Client) -> dict[str, Any]:
+def _database_size_bytes(client: Client) -> int | None:
+    try:
+        payload = client.rpc("admin_database_size_bytes").execute().data
+    except Exception:
+        return None
+    if isinstance(payload, list):
+        payload = payload[0] if payload else None
+    try:
+        return int(payload) if payload is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_blocked_items(client: Client) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    now = _utc_now()
+    week_ago = _days_ago(7)
+    failed_jobs = (
+        client.table("album_generation_jobs")
+        .select("id")
+        .eq("status", "failed")
+        .gte("updated_at", week_ago.isoformat())
+        .limit(5000)
+        .execute()
+        .data
+        or []
+    )
+    albums = (
+        client.table("albums")
+        .select("id,title,owner_id,created_by")
+        .is_("deleted_at", "null")
+        .limit(5000)
+        .execute()
+        .data
+        or []
+    )
+    albums_by_id = {str(row.get("id")): row for row in albums}
+    sessions = client.table("guest_album_sessions").select("album_id,status,claimed_profile_id,expires_at").limit(5000).execute().data or []
+    unclaimed: list[dict[str, Any]] = []
+    expires_within_three_days = 0
+    for session in sessions:
+        album = albums_by_id.get(str(session.get("album_id") or ""))
+        expires_at = _parse_ts(session.get("expires_at"))
+        is_unclaimed = session.get("status") != "claimed" and not session.get("claimed_profile_id")
+        is_guest_album = bool(album) and not album.get("owner_id") and not album.get("created_by")
+        if not (is_guest_album and is_unclaimed):
+            continue
+        remaining_days = max(0, (expires_at - now).total_seconds() / 86400) if expires_at else 0
+        unclaimed.append({"album_id": str(album["id"]), "title": str(album.get("title") or "제목 없는 앨범"), "expires_at": session.get("expires_at"), "days_remaining": round(remaining_days, 1)})
+        if expires_at and now <= expires_at <= now + timedelta(days=3):
+            expires_within_three_days += 1
+
+    invites = (
+        client.table("album_invites")
+        .select("album_id,expires_at")
+        .eq("is_active", True)
+        .limit(5000)
+        .execute()
+        .data
+        or []
+    )
+    active_invite_album_ids = {
+        str(invite.get("album_id"))
+        for invite in invites
+        if not _parse_ts(invite.get("expires_at")) or _parse_ts(invite.get("expires_at")) > now
+    }
+    contributors = client.table("album_contributors").select("album_id,role").eq("status", "active").limit(5000).execute().data or []
+    participant_album_ids = {str(row.get("album_id")) for row in contributors if row.get("role") != "owner"}
+    no_participant_album_ids = active_invite_album_ids - participant_album_ids
+
+    errors = list_error_dashboard(client).get("errors", [])
+    items: list[dict[str, Any]] = []
+    if failed_jobs:
+        items.append({"kind": "generation_failed", "label": "앨범 생성 실패", "count": len(failed_jobs), "detail": "최근 7일"})
+    if unclaimed:
+        items.append({"kind": "unclaimed_guest", "label": "저장되지 않은 게스트 앨범", "count": len(unclaimed), "detail": "만료까지 남은 날을 확인하세요", "albums": unclaimed})
+    if no_participant_album_ids:
+        items.append({"kind": "invite_no_participant", "label": "활성 초대는 있지만 참여자가 없는 앨범", "count": len(no_participant_album_ids), "detail": "초대 토큰별 대상자 미참여 여부는 알 수 없습니다"})
+    if errors:
+        items.append({"kind": "recent_errors", "label": "최근 오류", "count": sum(int(row.get("count") or 0) for row in errors), "detail": ", ".join(f"{row.get('event_name')} {row.get('count')}건" for row in errors[:3])})
+    return items, {"unowned_albums": len(unclaimed), "unclaimed_sessions": len(unclaimed), "expiring_sessions_3d": expires_within_three_days}
+
+
+def build_ops_dashboard(client: Client, settings: Settings | None = None) -> dict[str, Any]:
     today = _start_of_day_utc()
     all_event_today = fetch_event_counts(client, since=today)
     buckets = build_event_counts_by_day(client, days=14)
@@ -97,6 +181,13 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
     total_shares = count_analytics(client, "share_link_created") or count_rows(client, "share_links")
     total_pdf = count_analytics(client, "pdf_generated")
     missing_display = count_missing_display_photos(client)
+    blocked, guest_health = _build_blocked_items(client)
+    orphan_files = 0
+    storage_bytes = 0
+    if settings is not None:
+        orphan_files = int(count_orphan_files(client, settings).get("orphan_count") or 0)
+        storage_bytes = int(storage_usage(client, settings).get("bytes") or 0)
+    database_bytes = _database_size_bytes(client)
 
     return {
         "today": {
@@ -121,6 +212,15 @@ def build_ops_dashboard(client: Client) -> dict[str, Any]:
             "new_albums": daily_series(buckets, "album_created", 14),
             "share_views": daily_series(buckets, "public_album_viewed", 14),
             "new_memories": daily_series(buckets, "guest_memory_completed", 14),
+        },
+        "blocked": blocked,
+        "data_health": {
+            "orphan_files": orphan_files,
+            **guest_health,
+            "database_bytes": database_bytes,
+            "storage_bytes": storage_bytes,
+            "database_limit_bytes": 500 * 1024 * 1024,
+            "storage_limit_bytes": 1024 * 1024 * 1024,
         },
     }
 

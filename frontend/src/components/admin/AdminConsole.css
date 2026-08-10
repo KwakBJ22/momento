@@ -99,6 +99,38 @@
   font-size: 1rem;
 }
 
+.admin__blocked-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin__blocked-item {
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--admin-card);
+}
+
+.admin__blocked-item > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin__blocked-item p,
+.admin__blocked-item ul {
+  margin: 5px 0 0;
+  color: var(--admin-muted);
+}
+
+.admin__blocked-item ul {
+  padding-left: 18px;
+}
+
+.admin__clear {
+  margin: 0;
+}
+
 .admin__trend {
   display: flex;
   align-items: flex-end;
