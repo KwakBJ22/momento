@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>우리앨범 - 모임 앨범</title>
+    <title>우리앨범 — 함께 만드는 사진 앨범</title>
+    <meta name="description" content="사진을 모으면 우리의 이야기가 됩니다. 가족과 친구가 함께 만드는 앨범이에요." />
+    <!-- 링크를 붙여 넣었을 때 뜨는 카드(카카오톡·문자·SNS). 이것이 없으면 <title> 만
+         가져가서 제목 한 줄만 뜬다.
+         ★ og:url 은 www 없는 정본이다 (docs/DOMAIN_SWITCH.md).
+         ★ og:image 는 **일부러 넣지 않았다.** 파일이 아직 없다. 없는 주소를 적으면
+           카드에 깨진 그림이 뜨는데, 그것이 그림이 없는 것보다 나쁘다.
+           PO 가 이미지를 주면 여기에 og:image 한 줄을 더한다.
+         ★ 앨범 공유·초대 카드는 카카오 SDK 가 앨범마다 따로 문구를 보낸다(useKakaoSdk).
+           여기 값은 그 자리에 쓰이지 않는다 — 사이트 주소를 그냥 붙여 넣었을 때만 쓰인다. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="우리앨범" />
+    <meta property="og:title" content="우리앨범" />
+    <meta property="og:description" content="사진을 모으면 우리의 이야기가 됩니다. 가족과 친구가 함께 만드는 앨범이에요." />
+    <meta property="og:url" content="https://woorialbum.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Pretendard: 기기 기본 글꼴에 의존하면 안드로이드 카톡 웹뷰에서
          제조사 기본 글꼴이 나온다. dynamic-subset 은 필요한 글자만 받아 가볍다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
