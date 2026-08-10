@@ -81,10 +81,11 @@ export type AdminUserListItem = {
   email?: string | null;
   display_name?: string | null;
   created_at?: string | null;
-  last_seen_at?: string | null;
+  last_login_at?: string | null;
   album_count: number;
   participation_count: number;
   share_count: number;
+  status: string;
 };
 
 export type AdminEventItem = {

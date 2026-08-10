@@ -111,3 +111,11 @@ f68ddc25...   provider_id 5025495165 · 5010497815
 `analytics_events` has no `user_id` column. User journeys must not be inferred as
 person-level data until the identity model for this table is decided; identifiers in
 `metadata` are not a durable person-level analytics contract.
+
+## Owner-id follow-up (2026-08-10)
+
+The admin member console now uses `albums.owner_id` alone for “created albums”,
+as required by `SCREEN_SPEC.md` §1. The same legacy `created_by OR owner_id`
+predicate remains outside the admin console in `account_service.list_all_owned_album_ids`
+(withdrawal) and `plan_limits.count_owned_albums` (album cap). It was not changed
+as part of this admin-only correction and needs a separate ownership-impact review.

@@ -59,6 +59,42 @@ class AdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["totals"]["albums"], 5)
 
+    def test_admin_users_response_requires_status(self) -> None:
+        """Keep the API payload and AdminUserListItem schema in lockstep.
+
+        26e4932 deployed the schema before search_users supplied status, which
+        turned /api/admin/users into a response-validation 500. A missing status
+        must fail here before the two halves can be deployed separately again.
+        """
+        payload = {
+            "users": [{
+                "user_id": ADMIN_ID,
+                "email": "operator@example.com",
+                "display_name": "운영자",
+                "created_at": "2026-08-10T00:00:00Z",
+                "last_login_at": "2026-08-11T00:00:00Z",
+                "album_count": 1,
+                "participation_count": 0,
+                "share_count": 0,
+            }],
+            "query": "",
+            "limit": 40,
+            "offset": 0,
+        }
+        with patch("app.api.admin.get_settings", return_value=SimpleNamespace()), patch(
+            "app.api.admin.get_supabase_client", return_value=MagicMock()
+        ), patch("app.api.admin.search_users", return_value=payload):
+            response = self.client.get("/api/admin/users")
+        self.assertEqual(response.status_code, 500)
+
+        payload["users"][0]["status"] = "만들어 봄"
+        with patch("app.api.admin.get_settings", return_value=SimpleNamespace()), patch(
+            "app.api.admin.get_supabase_client", return_value=MagicMock()
+        ), patch("app.api.admin.search_users", return_value=payload):
+            response = self.client.get("/api/admin/users")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["users"][0]["status"], "만들어 봄")
+
     def test_missing_display_photo_count_compares_paths(self) -> None:
         # KPI: display_path = storage_path means the screen serves the ~1MB original.
         from app.services.admin_kpi_service import count_missing_display_photos

@@ -422,8 +422,23 @@ function AlbumDetailView({ albumId }: { albumId: string }) {
   );
 }
 
+type AdminMemberDetail = {
+  account: { display_name?: string | null; email?: string | null; created_at?: string | null; last_login_at?: string | null; primary_provider?: string | null; status?: string };
+  albums: AdminAlbumListItem[];
+  participated_albums: AdminAlbumListItem[];
+  blocked: { kind: string; label: string; count: number; detail?: string }[];
+};
+
+function AlbumTable({ albums }: { albums: AdminAlbumListItem[] }) {
+  if (!albums.length) return <p className="admin__label">없음</p>;
+  return <table className="admin__table"><thead><tr><th>앨범</th><th>사진</th><th>참여자</th><th>공유</th></tr></thead><tbody>
+    {albums.map((album) => <tr key={album.album_id}><td><a className="admin__row-link" href={`/admin/albums/${album.album_id}`}>{album.title}</a></td><td>{album.photo_count}</td><td>{album.participant_count}</td><td>{album.share_count > 0 ? "있음" : "없음"}</td></tr>)}
+  </tbody></table>;
+}
+
 function UserExplorer() {
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"created_at" | "last_login_at" | "album_count">("created_at");
   const [users, setUsers] = useState<AdminUserListItem[] | null>(null);
 
   useEffect(() => {
@@ -443,32 +458,42 @@ function UserExplorer() {
       </header>
       <div className="admin__search">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이메일 또는 이름" aria-label="사용자 검색" />
+        <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} aria-label="회원 정렬">
+          <option value="created_at">최근 가입</option><option value="last_login_at">마지막 로그인</option><option value="album_count">앨범 수</option>
+        </select>
+        <span>최근 가입 40명 안에서 정렬</span>
       </div>
       {!users ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
         <table className="admin__table">
           <thead>
             <tr>
-              <th>이메일</th>
+              <th>표시 이름</th><th>이메일</th>
               <th>가입</th>
-              <th>최근</th>
+              <th>마지막 로그인</th>
               <th>앨범</th>
               <th>참여</th>
               <th>공유</th>
+              <th>상태</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {[...users].sort((a, b) => {
+              if (sort === "album_count") return b.album_count - a.album_count;
+              return String(b[sort] || "").localeCompare(String(a[sort] || ""));
+            }).map((user) => (
               <tr key={user.user_id}>
                 <td>
                   <a className="admin__row-link" href={`/admin/users/${user.user_id}`}>
-                    {user.email || user.display_name || user.user_id}
+                    {user.display_name || "이름 없음"}
                   </a>
                 </td>
+                <td>{user.email || `(이메일 없음) · ${user.user_id.slice(0, 8)}`}</td>
                 <td>{formatDate(user.created_at)}</td>
-                <td>{formatDate(user.last_seen_at)}</td>
+                <td>{formatDate(user.last_login_at)}</td>
                 <td>{user.album_count}</td>
                 <td>{user.participation_count}</td>
                 <td>{user.share_count}</td>
+                <td>{user.status}</td>
               </tr>
             ))}
           </tbody>
@@ -479,29 +504,26 @@ function UserExplorer() {
 }
 
 function UserDetailView({ userId }: { userId: string }) {
-  const [albums, setAlbums] = useState<AdminAlbumListItem[] | null>(null);
+  const [payload, setPayload] = useState<AdminMemberDetail | null>(null);
   useEffect(() => {
-    void fetchAdminUserAlbums(userId).then((result) => setAlbums(result.albums));
+    void fetchAdminUserAlbums(userId).then((result) => setPayload(result as AdminMemberDetail));
   }, [userId]);
 
   return (
     <>
       <header className="admin__header">
-        <h1>사용자 앨범</h1>
-        <p>{userId}</p>
+        <h1>회원</h1>
       </header>
-      {!albums ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : (
-        <div className="admin__grid">
-          {albums.map((album) => (
-            <a key={album.album_id} className="admin__card admin__row-link" href={`/admin/albums/${album.album_id}`}>
-              <p className="admin__card-label">{formatDate(album.created_at)}</p>
-              <p className="admin__card-value" style={{ fontSize: "1rem" }}>
-                {album.title}
-              </p>
-            </a>
-          ))}
-        </div>
-      )}
+      {!payload ? <p className="notice notice--progress admin__notice" role="status">불러오는 중…</p> : <>
+        <section className="admin__section"><h3>계정</h3><MetricGrid items={[
+          { label: "표시 이름", value: payload.account.display_name || "-" }, { label: "이메일", value: payload.account.email || "-" },
+          { label: "가입일", value: formatDate(payload.account.created_at) }, { label: "마지막 로그인", value: formatDate(payload.account.last_login_at) },
+          { label: "로그인 방법", value: payload.account.primary_provider || "-" }, { label: "상태", value: payload.account.status || "-" },
+        ]} /></section>
+        <section className="admin__section"><h3>만든 앨범</h3><AlbumTable albums={payload.albums} /></section>
+        <section className="admin__section"><h3>참여한 앨범</h3><AlbumTable albums={payload.participated_albums} /></section>
+        <section className="admin__section"><h3>막힌 것</h3>{payload.blocked.length ? payload.blocked.map((item) => <p key={item.kind}>{item.label} · {item.count}건 {item.detail ? `(${item.detail})` : ""}</p>) : <p className="admin__label">지금 막힌 것이 없어요</p>}</section>
+      </>}
     </>
   );
 }

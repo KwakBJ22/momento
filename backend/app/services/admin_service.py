@@ -97,7 +97,7 @@ def _build_blocked_items(client: Client) -> tuple[list[dict[str, Any]], dict[str
     week_ago = _days_ago(7)
     failed_jobs = (
         client.table("album_generation_jobs")
-        .select("id")
+        .select("album_id")
         .eq("status", "failed")
         .gte("updated_at", week_ago.isoformat())
         .limit(5000)
@@ -151,11 +151,11 @@ def _build_blocked_items(client: Client) -> tuple[list[dict[str, Any]], dict[str
     errors = list_error_dashboard(client).get("errors", [])
     items: list[dict[str, Any]] = []
     if failed_jobs:
-        items.append({"kind": "generation_failed", "label": "앨범 생성 실패", "count": len(failed_jobs), "detail": "최근 7일"})
+        items.append({"kind": "generation_failed", "label": "앨범 생성 실패", "count": len(failed_jobs), "detail": "최근 7일", "album_ids": [str(row.get("album_id")) for row in failed_jobs]})
     if unclaimed:
-        items.append({"kind": "unclaimed_guest", "label": "저장되지 않은 게스트 앨범", "count": len(unclaimed), "detail": "만료까지 남은 날을 확인하세요", "albums": unclaimed})
+        items.append({"kind": "unclaimed_guest", "label": "저장되지 않은 게스트 앨범", "count": len(unclaimed), "detail": "만료까지 남은 날을 확인하세요", "albums": unclaimed, "album_ids": [item["album_id"] for item in unclaimed]})
     if no_participant_album_ids:
-        items.append({"kind": "invite_no_participant", "label": "활성 초대는 있지만 참여자가 없는 앨범", "count": len(no_participant_album_ids), "detail": "초대 토큰별 대상자 미참여 여부는 알 수 없습니다"})
+        items.append({"kind": "invite_no_participant", "label": "활성 초대는 있지만 참여자가 없는 앨범", "count": len(no_participant_album_ids), "detail": "초대 토큰별 대상자 미참여 여부는 알 수 없습니다", "album_ids": sorted(no_participant_album_ids)})
     if errors:
         items.append({"kind": "recent_errors", "label": "최근 오류", "count": sum(int(row.get("count") or 0) for row in errors), "detail": ", ".join(f"{row.get('event_name')} {row.get('count')}건" for row in errors[:3])})
     return items, {"unowned_albums": len(unclaimed), "unclaimed_sessions": len(unclaimed), "expiring_sessions_3d": expires_within_three_days}
@@ -391,6 +391,43 @@ def _safe_email(client: Client, profile_id: str | None) -> str | None:
         return get_user_email(client, profile_id)
     except Exception:
         return None
+
+
+def _auth_user_fields(client: Client, profile_id: str) -> dict[str, Any]:
+    """Read only the Auth fields approved for the admin member console."""
+    try:
+        response = client.auth.admin.get_user_by_id(profile_id)
+        user = response.user if response else None
+    except Exception:
+        return {"email": None, "last_login_at": None}
+    if user is None:
+        return {"email": None, "last_login_at": None}
+    return {
+        "email": getattr(user, "email", None),
+        "last_login_at": getattr(user, "last_sign_in_at", None),
+    }
+
+
+def _member_status(
+    *,
+    created_at: Any,
+    last_login_at: Any,
+    album_count: int,
+    participation_count: int,
+    share_count: int,
+    owns_collaborative_album: bool,
+) -> str:
+    created = _parse_ts(created_at)
+    last_login = _parse_ts(last_login_at)
+    if created and last_login and last_login >= created + timedelta(days=1):
+        return "돌아옴"
+    if participation_count > 0 or owns_collaborative_album:
+        return "함께 만듦"
+    if share_count > 0:
+        return "나눠 봄"
+    if album_count > 0:
+        return "만들어 봄"
+    return "가입만 함"
 
 
 def _batch_profile_names(client: Client, profile_ids: list[str]) -> dict[str, str]:
@@ -668,7 +705,7 @@ def search_users(client: Client, *, query: str = "", limit: int = 40, offset: in
     q = query.strip().lower()
     profiles = (
         client.table("profiles")
-        .select("id,display_name,created_at,updated_at")
+        .select("id,display_name,created_at")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
@@ -678,14 +715,15 @@ def search_users(client: Client, *, query: str = "", limit: int = 40, offset: in
     items: list[dict[str, Any]] = []
     for profile in profiles:
         profile_id = str(profile.get("id"))
-        email = _safe_email(client, profile_id)
+        auth_fields = _auth_user_fields(client, profile_id)
+        email = auth_fields["email"]
         if q and q not in (email or "") and q not in (profile.get("display_name") or "").lower():
             continue
         owned_albums = int(
             client.table("albums")
             .select("id", count="exact")
             .is_("deleted_at", "null")
-            .or_(f"created_by.eq.{profile_id},owner_id.eq.{profile_id}")
+            .eq("owner_id", profile_id)
             .limit(1)
             .execute()
             .count
@@ -710,16 +748,36 @@ def search_users(client: Client, *, query: str = "", limit: int = 40, offset: in
             .count
             or 0
         )
+        owned_rows = (
+            client.table("albums").select("id").is_("deleted_at", "null").eq("owner_id", profile_id).limit(5000).execute().data
+            or []
+        )
+        owned_ids = [str(row.get("id")) for row in owned_rows]
+        owns_collaborative_album = False
+        if owned_ids:
+            contributor_rows = (
+                client.table("album_contributors").select("album_id,role").in_("album_id", owned_ids).eq("status", "active").limit(5000).execute().data
+                or []
+            )
+            owns_collaborative_album = any(row.get("role") != "owner" for row in contributor_rows)
         items.append(
             {
                 "user_id": profile_id,
                 "email": email,
                 "display_name": profile.get("display_name"),
                 "created_at": profile.get("created_at"),
-                "last_seen_at": profile.get("updated_at"),
+                "last_login_at": auth_fields["last_login_at"],
                 "album_count": owned_albums,
                 "participation_count": participations,
                 "share_count": share_events,
+                "status": _member_status(
+                    created_at=profile.get("created_at"),
+                    last_login_at=auth_fields["last_login_at"],
+                    album_count=owned_albums,
+                    participation_count=participations,
+                    share_count=share_events,
+                    owns_collaborative_album=owns_collaborative_album,
+                ),
             }
         )
     return {"users": items, "query": query, "limit": limit, "offset": offset}
@@ -730,7 +788,7 @@ def list_user_albums(client: Client, settings: Settings, user_id: str) -> dict[s
         client.table("albums")
         .select("id,title,created_at,updated_at,cover_photo_id,created_by,owner_id,living_append_pages,album_version")
         .is_("deleted_at", "null")
-        .or_(f"created_by.eq.{user_id},owner_id.eq.{user_id}")
+        .eq("owner_id", user_id)
         .order("created_at", desc=True)
         .execute()
         .data
@@ -748,16 +806,11 @@ def list_user_albums(client: Client, settings: Settings, user_id: str) -> dict[s
     items: list[dict[str, Any]] = []
     for row in rows:
         album_id = str(row["id"])
-        photos = get_album_photo_records(client, album_id)
-        cover_url = None
-        if photos and photos[0].get("storage_path"):
-            cover_url = get_public_url(client, str(photos[0]["storage_path"]), settings)
         items.append(
             {
                 "album_id": album_id,
                 "title": row.get("title") or "앨범",
                 "owner_id": user_id,
-                "cover_image_url": cover_url,
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
                 "photo_count": photo_counts.get(album_id, 0),
@@ -769,7 +822,39 @@ def list_user_albums(client: Client, settings: Settings, user_id: str) -> dict[s
                 "is_living": album_is_living(row, contributor_count=contributors.get(album_id, 0)),
             }
         )
-    return {"user_id": user_id, "albums": items}
+    profile_rows = client.table("profiles").select("display_name,created_at,primary_provider").eq("id", user_id).limit(1).execute().data or []
+    profile = profile_rows[0] if profile_rows else {}
+    auth_fields = _auth_user_fields(client, user_id)
+    participant_rows = client.table("album_contributors").select("album_id").eq("user_id", user_id).eq("status", "active").limit(5000).execute().data or []
+    participant_ids = [str(row.get("album_id")) for row in participant_rows if str(row.get("album_id")) not in set(album_ids)]
+    participated_albums: list[dict[str, Any]] = []
+    if participant_ids:
+        participation_album_rows = client.table("albums").select("id,title,created_at,updated_at").is_("deleted_at", "null").in_("id", participant_ids).execute().data or []
+        photo_counts = count_by_album(client, "album_photos", participant_ids)
+        participant_counts = contributor_counts(client, participant_ids)
+        share_rows = client.table("share_links").select("album_id").in_("album_id", participant_ids).limit(5000).execute().data or []
+        shared_ids = {str(row.get("album_id")) for row in share_rows}
+        participated_albums = [
+            {
+                  "album_id": str(row["id"]), "title": row.get("title") or "앨범", "created_at": row.get("created_at"),
+                  "updated_at": row.get("updated_at"), "photo_count": photo_counts.get(str(row["id"]), 0),
+                  "participant_count": participant_counts.get(str(row["id"]), 0), "share_count": 1 if str(row["id"]) in shared_ids else 0,
+            }
+            for row in participation_album_rows
+        ]
+    blocked_items, _ = _build_blocked_items(client)
+    owned_ids = set(album_ids)
+    blocked = [
+        {**item, "count": len(owned_ids.intersection(item.get("album_ids", [])))}
+        for item in blocked_items
+        if owned_ids.intersection(item.get("album_ids", []))
+    ]
+    account = {
+        "display_name": profile.get("display_name"), "email": auth_fields["email"], "created_at": profile.get("created_at"),
+        "last_login_at": auth_fields["last_login_at"], "primary_provider": profile.get("primary_provider"),
+        "status": _member_status(created_at=profile.get("created_at"), last_login_at=auth_fields["last_login_at"], album_count=len(items), participation_count=len(participant_rows), share_count=share_counts.total(), owns_collaborative_album=any(item.get("participant_count", 0) > 1 for item in items)),
+    }
+    return {"user_id": user_id, "account": account, "albums": items, "participated_albums": participated_albums, "blocked": blocked}
 
 
 def list_recent_events(client: Client, *, limit: int = 80) -> dict[str, Any]:

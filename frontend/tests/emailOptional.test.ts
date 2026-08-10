@@ -21,7 +21,10 @@ test("the account menu only renders the email row when an email exists", () => {
   assert.match(row, /\{user\.email \? <p className="account-row__email">\{user\.email\}<\/p> : null\}/);
 });
 
-test("the admin user table falls back to display_name then user_id when email is absent", () => {
+test("the admin user table always shows the name and email, with an id suffix only when email is absent", () => {
+  // PO 판단: 관리자 한 사람이 회원을 식별하는 자리이므로 이름과 이메일을 함께 보인다.
+  // 이메일은 카카오 동의에 따라 없을 수 있어, 그때만 UUID 앞 8자로 같은 이름을 구분한다.
   const admin = read("components/admin/AdminConsole.tsx");
-  assert.match(admin, /user\.email \|\| user\.display_name \|\| user\.user_id/);
+  assert.match(admin, /user\.display_name \|\| "이름 없음"/);
+  assert.match(admin, /user\.email \|\| `\(이메일 없음\) · \$\{user\.user_id\.slice\(0, 8\)\}`/);
 });
