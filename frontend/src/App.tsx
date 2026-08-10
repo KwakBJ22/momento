@@ -25,7 +25,9 @@ import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
-import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
+import { acceptLegalConsent, bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
+import LegalConsent from "./components/LegalConsent";
+import { legalConsentTroubleMessage, rememberDeviceConsent } from "./lib/legalConsent";
 import type { WithdrawalSummary } from "./types";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
@@ -64,6 +66,11 @@ function App() {
   //   두 번째가 성공하며 화면을 옮겨 그 문구가 저절로 사라졌다.
   const [guestClaimError, setGuestClaimError] = useState<string | null>(null);
   const [guestClaimBusy, setGuestClaimBusy] = useState(false);
+  // 약관 동의 — **서버가 받아야 한다고 하면** 그 자리에서 시트로 받는다(K-14).
+  const [legalConsentOpen, setLegalConsentOpen] = useState(false);
+  const [legalAgreed, setLegalAgreed] = useState(false);
+  const [legalBusy, setLegalBusy] = useState(false);
+  const [legalError, setLegalError] = useState<string | null>(null);
   const guestClaimRunningRef = useRef(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -210,6 +217,10 @@ function App() {
         }
         // Flag attributed contributor sessions so the next bootstrap doesn't resend them.
         if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
+        // ★ 판정은 서버 것을 그대로 따른다(K-14). 기기에 남은 값은 근거가 아니다 —
+        //   기록이 없거나 문서가 바뀌었으면 여기서 한 번 받는다.
+        if (data.legal_consent_required) { setLegalAgreed(false); setLegalError(null); setLegalConsentOpen(true); }
+        else if (user?.id) rememberDeviceConsent(user.id, data.legal_document_version);
       })
       .catch((error) => active && setBootstrapError(error instanceof Error ? error.message : "인증을 확인하지 못했어요."));
     return () => { active = false; };
@@ -417,6 +428,39 @@ function App() {
       ) : null}
       {accountContactGuard}
       {loginModal}
+      {/* 약관 동의 — 로그인 뒤 **서버가 받아야 한다고 할 때만** 뜬다 (K-14 · §11).
+          ★ 새 페이지를 만들지 않는다. 이미 쓰는 시트를 그대로 쓴다.
+          ★ 동의하지 않으면 서비스를 쓸 수 없다 — 닫는 길은 로그아웃 하나다.
+            그래서 딤을 눌러 닫히지 않게 잠근다(locked). */}
+      <SheetDialog open={legalConsentOpen} labelledBy="legal-consent-title" onClose={() => undefined} locked>
+        <h2 id="legal-consent-title">시작하기 전에 한 가지만</h2>
+        <p>아래 두 문서에 동의해 주시면 바로 이어서 쓸 수 있어요.</p>
+        {/* ★ 같은 컴포넌트를 쓴다. 두 벌로 만들지 않는다(K-14). 미리 켜 두지 않는다. */}
+        <LegalConsent checked={legalAgreed} onChange={setLegalAgreed} />
+        {legalError ? <p className="notice notice--error app__withdraw-error" role="alert">{legalError}</p> : null}
+        <div className="app__withdraw-actions">
+          <button type="button" disabled={legalBusy} onClick={() => { setLegalConsentOpen(false); void logout(); }}>로그아웃</button>
+          <button
+            type="button"
+            className="app__withdraw-confirm"
+            disabled={legalBusy || !legalAgreed}
+            onClick={() => {
+              setLegalBusy(true);
+              setLegalError(null);
+              void acceptLegalConsent()
+                .then(() => {
+                  // 서버에 남은 뒤에야 이 기기에도 남긴다 — 힌트가 기록보다 앞서지 않는다.
+                  if (user?.id) rememberDeviceConsent(user.id);
+                  setLegalConsentOpen(false);
+                })
+                .catch((cause) => { console.error("Legal consent save failed", { cause }); setLegalError(legalConsentTroubleMessage()); })
+                .finally(() => setLegalBusy(false));
+            }}
+          >
+            {legalBusy ? "저장하는 중..." : "동의하고 시작하기"}
+          </button>
+        </div>
+      </SheetDialog>
       <SheetDialog open={withdrawOpen} labelledBy="withdraw-title" onClose={() => setWithdrawOpen(false)} locked={withdrawing} returnFocusRef={withdrawReturnFocusRef} className="app__withdraw">
         <h2 id="withdraw-title">정말 탈퇴하시겠어요?</h2>
         {/* ★ 무엇이 사라지는지 **숫자로** 말한다(§5 27차). 숫자는 서버가 센 것이고,

@@ -397,6 +397,10 @@ class AuthBootstrapResponse(BaseModel):
     # Guest ids that were successfully attributed — the frontend flags these so they are
     # not re-sent on the next bootstrap.
     claimed_guest_ids: list[str] = Field(default_factory=list)
+    # ★ 약관 동의를 아직 못 받았거나 문서가 바뀌었는가 (K-14). 판정은 서버가 한다 —
+    #   화면은 이 값만 보고 시트를 연다. 기기에 남는 값은 근거가 아니다(§10).
+    legal_consent_required: bool = False
+    legal_document_version: str = ""
 
 
 class ProfileContactRequest(BaseModel):

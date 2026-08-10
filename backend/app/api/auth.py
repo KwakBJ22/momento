@@ -15,6 +15,7 @@ from app.services.account_service import count_withdrawal_impact, delete_account
 from app.services.profile_contact_service import get_contact, save_contact
 from app.services.auth import require_authenticated_user
 from app.services.collaboration_service import attribute_contributions
+from app.services.legal_consent import LEGAL_DOCUMENT_VERSION, needs_legal_consent, record_legal_consent
 from app.services.event_logger import EventLogger
 from app.services.plan_limits import count_owned_albums, get_user_limits
 from app.services.supabase import ensure_default_family, get_supabase_client
@@ -55,7 +56,23 @@ async def bootstrap_auth_user(
         album_count=count_owned_albums(client, authenticated_user_id),
         max_albums=limits["max_albums"],
         claimed_guest_ids=claimed_guest_ids,
+        # ★ 로그인 뒤 여기서 판정한다(K-14). 기록이 없거나 버전이 낮으면 화면이 시트로 받는다.
+        legal_consent_required=needs_legal_consent(client, authenticated_user_id),
+        legal_document_version=LEGAL_DOCUMENT_VERSION,
     )
+
+
+@router.post("/legal-consent", status_code=status.HTTP_204_NO_CONTENT)
+async def accept_legal_consent(
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """동의를 남긴다 (K-14).
+
+    ★ **몸통을 받지 않는다.** 화면은 "동의했다" 는 사실만 전하고, 언제·어떤 버전인지는
+      서버가 정한다(§10). 화면이 보낸 버전을 그대로 적으면 그것은 기록이 아니다.
+    """
+    record_legal_consent(get_supabase_client(get_settings()), authenticated_user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/contact", response_model=ProfileContactResponse)
