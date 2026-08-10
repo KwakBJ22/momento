@@ -90,6 +90,11 @@
   border-radius: 14px;
 }
 
+/* ★ 아무도 채우지 않으면 자리 자체가 보이지 않는다 (J-11 · K-18 과 같은 규칙).
+   부르는 쪽이 null 을 넘기는 것이 먼저이고, 이것은 그래도 새어 나올 때의 마지막 그물이다
+   — 빈 테두리는 사용자에게 `뭔가 잘못됐다`로 읽힌다. (`.app-header__right:empty` 와 같은 장치) */
+.album-page__manage:empty { display: none; }
+
 .album-page__manage-slot {
   display: grid;
   gap: 1rem;

@@ -676,7 +676,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     // 목업 2a: 앨범 하단에 버튼 열을 두지 않는다 — 공유·PDF·삭제는 공유하기/더보기
     // 시트가 담당(중복 제거). CollaborationPanel 은 시트에 없는 고유 기능
     // (새로운 추억 반영·참여 중단·참여 현황)과 대표사진 픽커 모달만 남긴다.
-    <>{requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest} hideDuplicatedActions albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null}</>
+    // ★ J-11: 넘길 것이 없으면 **null 을 넘긴다.** 빈 조각(<></>)은 값이 있는 것으로
+    //   쳐서, 참여자 화면에서 속이 빈 테두리 상자만 그려졌다(실측 44.8px · 자식 0).
+    //   이 패널은 주최자 기능이라 참여자에게는 보여줄 것 자체가 없다 — 자리도 만들지 않는다.
+    requestedEdition === null && displayAlbum?.can_edit ? <CollaborationPanel key={`collab-${collabRefreshKey}`} coverPickerRequest={coverPickerRequest} hideDuplicatedActions albumId={albumId} imageUrl={resolveShareImageUrl(displayAlbum)} title={displayTitle} photos={photos} coverPhotoId={displayAlbum?.cover_photo_id} onOpenParticipants={() => { window.location.assign(`/album/${albumId}/participants`); }} onAlbumUpdated={() => setRetryKey((value) => value + 1)} onCoverUpdated={(coverPhotoId, coverImageUrl) => { setAlbum((current) => current ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current); }} /> : null
   );
   // ★ 더할 수 없게 됐으면 **왜 그런지 한 줄** 알려준다 (J-8 · §11).
   // 아무 설명 없이 버튼만 사라지면 고장으로 보인다. 이유는 백엔드가 판정해 내려준다 —
