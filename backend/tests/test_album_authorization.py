@@ -442,11 +442,7 @@ class AlbumAuthorizationTests(TestCase):
             "app.api.auth.ensure_default_family", return_value=ALBUM_ID
         ) as ensure_family, patch(
             "app.api.auth.count_owned_albums", return_value=2
-        ), patch("app.api.auth.get_user_limits", return_value={"max_albums": 3, "max_photos": 30}), patch(
-            # ★ K-14: 로그인 뒤 약관 동의 여부를 여기서 판정한다. 이 테스트의 client 는
-            #   빈 object() 라 실제 조회를 하지 못하므로 판정만 대신한다.
-            "app.api.auth.needs_legal_consent", return_value=True
-        ) as needs_consent:
+        ), patch("app.api.auth.get_user_limits", return_value={"max_albums": 3, "max_photos": 30}):
             response = self.client.post("/api/auth/bootstrap")
 
         self.assertEqual(response.status_code, 200)
@@ -456,10 +452,6 @@ class AlbumAuthorizationTests(TestCase):
         # Additive limit fields for the frontend pre-check; existing fields kept.
         self.assertEqual(body["album_count"], 2)
         self.assertEqual(body["max_albums"], 3)
-        # ★ 판정은 서버가 하고 화면은 받아서 쓴다(K-14 · §10).
-        needs_consent.assert_called_once_with(get_client.return_value, OWNER_ID)
-        self.assertTrue(body["legal_consent_required"])
-        self.assertEqual(body["legal_document_version"], "2026-08-09")
 
     def test_edition_history_can_navigate_back_one_snapshot_at_a_time(self) -> None:
         record = {

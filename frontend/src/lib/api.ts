@@ -734,7 +734,7 @@ export async function saveProfileContact(input: ProfileContact): Promise<Profile
 
 export async function bootstrapAccount(
   contributorGuestIds: string[],
-): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[]; legal_consent_required: boolean; legal_document_version: string }> {
+): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[] }> {
   const response = await authenticatedFetch("/api/auth/bootstrap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -742,26 +742,13 @@ export async function bootstrapAccount(
   });
   if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
   const data = (await response.json().catch(() => null)) as
-    | { album_count?: number; max_albums?: number; claimed_guest_ids?: string[]; legal_consent_required?: boolean; legal_document_version?: string }
+    | { album_count?: number; max_albums?: number; claimed_guest_ids?: string[] }
     | null;
   return {
     album_count: data?.album_count,
     max_albums: data?.max_albums,
     claimed_guest_ids: data?.claimed_guest_ids ?? [],
-    // ★ 약관 동의 판정은 **서버가** 한다(K-14 · §10). 화면은 받아서 시트를 열 뿐이다.
-    legal_consent_required: Boolean(data?.legal_consent_required),
-    legal_document_version: String(data?.legal_document_version || ""),
   };
-}
-
-/**
- * 동의를 남긴다 (K-14).
- * ★ 몸통을 보내지 않는다 — 언제·어떤 버전인지는 서버가 정한다. 화면이 보낸 버전을
- *   그대로 적으면 그것은 기록이 아니다.
- */
-export async function acceptLegalConsent(): Promise<void> {
-  const response = await authenticatedFetch("/api/auth/legal-consent", { method: "POST" });
-  if (!response.ok) throw new Error(await parseError(response));
 }
 
 function collabHeaders(session: CollabSession | null): HeadersInit {

@@ -111,10 +111,8 @@ test("⑤ 닫으면 열었던 버튼으로 포커스가 돌아온다", async () 
 test("로그인·회원 탈퇴가 같은 대화상자를 쓴다 (비대칭 없음)", async () => {
   const { readFileSync } = await import("node:fs");
   const app = readFileSync(new URL(`../src/App.tsx`, import.meta.url), "utf8");
-  // 어느 파일에 동작이 있는지는 잠그지 않는다 — 모두 같은 것을 쓴다는 사실만 본다.
-  // ★ K-14 에서 약관 동의 시트가 하나 늘어 셋이다. 규칙은 그대로다: 새 대화상자를
-  //   따로 만들지 않고 전부 이 공용 컴포넌트를 쓴다(§11 — 새 페이지를 만들지 않는다).
-  assert.equal((app.match(/<SheetDialog /g) || []).length, 3, `albumId=${albumId}: 세 대화상자 모두 공용 컴포넌트`);
+  // 어느 파일에 동작이 있는지는 잠그지 않는다 — 둘이 같은 것을 쓴다는 사실만 본다.
+  assert.equal((app.match(/<SheetDialog /g) || []).length, 2, `albumId=${albumId}: 두 대화상자 모두 공용 컴포넌트`);
   assert.doesNotMatch(app, /document\.body\.style\.overflow/);
   assert.doesNotMatch(app, /event\.key === "Escape"[\s\S]{0,200}closeLogin/);
 });
