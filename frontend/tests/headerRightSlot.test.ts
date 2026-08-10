@@ -91,7 +91,9 @@ test("계정 행은 한 벌뿐 — 세 시트가 같은 컴포넌트를 쓴다",
   // 전역 ⋯ 시트 / 앨범 상세 / 공유 앨범 모두 같은 노드를 넘겨받는다.
   assert.match(app, /album-more-sheet__list">\{accountSheetRow\}/);
   assert.match(app, /accountSheet=\{accountSheetRow\}/);
-  assert.match(app, /<ShareEntryRouter[^>]*accountSheet=\{accountSheetRow\}/);
+  // ★ K-21 에서 onLogin 이 화살표 함수가 되어 `>` 가 그 안에 들어간다 — 태그 안을
+  //   `[^>]*` 로 훑을 수 없다. 규칙은 그대로다: 세 시트가 같은 계정 행을 쓴다.
+  assert.match(app, /<ShareEntryRouter[\s\S]{0,400}accountSheet=\{accountSheetRow\}/);
   assert.match(read("components/AlbumMoreSheet.tsx"), /\{accountSheet\}/);
 });
 

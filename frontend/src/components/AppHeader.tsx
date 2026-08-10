@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BRAND_NAME_KO, BRAND_NAME_KO_PARTS } from "../lib/brand";
 import "./AppChrome.css";
@@ -21,10 +21,21 @@ export const HEADER_RIGHT_ID = "app-header-right";
  * 처음 보는 화면인데 우측에 계정·로그인이 있으면 "먼저 가입하라"로 읽혀 그 자리에서
  * 이탈한다. 참여는 로그인 없이 되는 것이 이 제품의 핵심이다.
  */
-export default function AppHeader() {
+interface AppHeaderProps {
+  /**
+   * 브랜드를 눌렀을 때 가로챈다 (K-20).
+   *
+   * ★ 브랜드는 **언제나 링크**다(`href="/"`). 새 탭으로 열기·주소 복사가 그대로 된다.
+   *   다만 잃을 것이 있는 화면(사진 고르는 중)에서는 부르는 쪽이 한 번 묻는다 —
+   *   막는 것이 아니라 **묻고 나서 간다.** 넘기지 않으면 그냥 링크다.
+   */
+  onNavigateHome?: (event: MouseEvent<HTMLAnchorElement>) => void;
+}
+
+export default function AppHeader({ onNavigateHome }: AppHeaderProps = {}) {
   return (
     <header className="app-header">
-      <a className="app-header__brand" href="/" aria-label={BRAND_NAME_KO}>
+      <a className="app-header__brand" href="/" aria-label={BRAND_NAME_KO} onClick={onNavigateHome}>
         {/* ★ 헤더 브랜드는 한 줄이다. 국문+영문 두 줄이 헤더 높이를 키우는 구조적
             원인이었다. 영문 표기는 랜딩 본문·푸터에서 계속 쓴다(lib/brand.ts 불변). */}
         <span className="app-header__brand-ko"><b>{BRAND_NAME_KO_PARTS.lead}</b><i>{BRAND_NAME_KO_PARTS.tail}</i></span>

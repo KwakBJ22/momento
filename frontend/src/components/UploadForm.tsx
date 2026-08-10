@@ -27,6 +27,9 @@ interface UploadFormProps {
   /** Set when the create step was restored after a tab restart: chosen files are
    *  gone, so prompt a re-pick through the existing error slot. */
   photosNeedReselect?: boolean;
+  /** 고른 장수를 부모에게 알린다 — 홈으로 나갈 때 물을지 정하는 데 쓴다(K-20).
+   *  세는 곳은 여기 하나다. 부모가 따로 세지 않는다. */
+  onPhotoCountChange?: (count: number) => void;
   onSuccess: (result: { albumId: string; generationJobId: string | null; previewUrls: string[]; submittedAt: number; responseAt: number; photoCount: number }) => void;
   onCancel?: () => void;
 }
@@ -42,7 +45,7 @@ function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: strin
   return { id: createId(), file, previewUrl: URL.createObjectURL(previewSource), previewSource, story: "", capturedAt };
 }
 
-export default function UploadForm({ category, photosNeedReselect = false, onSuccess }: UploadFormProps) {
+export default function UploadForm({ category, photosNeedReselect = false, onPhotoCountChange, onSuccess }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +71,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onSuc
   const wasHiddenRef = useRef(false);
 
   useEffect(() => { photosRef.current = photos; }, [photos]);
+  // 장수가 바뀔 때만 알린다. 부모는 이 값으로 "나가면 사라진다"를 물을지 정한다(K-20).
+  useEffect(() => { onPhotoCountChange?.(photos.length); }, [photos.length, onPhotoCountChange]);
   useEffect(() => {
     const onVisibility = () => { if (document.visibilityState === "hidden") wasHiddenRef.current = true; };
     document.addEventListener("visibilitychange", onVisibility);

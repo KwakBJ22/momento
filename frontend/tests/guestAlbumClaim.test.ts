@@ -125,7 +125,7 @@ test("★ 돌아오는 자리는 /album/{id} 다 — claim 을 건너뛰고 문�
 });
 
 test("★ `저장하기` 는 로그인 전에 의도부터 남긴다", () => {
-  assert.match(app, /const startGuestClaim = \([\s\S]{0,80}setPendingGuestClaim\(albumId\);\s*openLogin\(\);/);
+  assert.match(app, /const startGuestClaim = \([\s\S]{0,80}setPendingGuestClaim\(albumId\); openLogin\("guest-save"\);/);
 });
 
 test("옛 이름(take·session)이 남아 있지 않다", () => {

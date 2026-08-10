@@ -20,6 +20,8 @@ interface ConfirmSheetProps {
   cancelLabel?: string;
   /** 되돌릴 수 없는 일이면 실행 버튼을 빨간 글자로(배경은 채우지 않는다 — §5). */
   danger?: boolean;
+  /** 안전한 쪽(그만두기)을 **먼저** 놓는다 — 실수로 눌리면 안 되는 물음에 쓴다(K-20). */
+  cancelFirst?: boolean;
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -27,7 +29,7 @@ interface ConfirmSheetProps {
 
 export default function ConfirmSheet({
   title, description, confirmLabel, cancelLabel = "그만두기",
-  danger = false, busy = false, onConfirm, onCancel,
+  danger = false, cancelFirst = false, busy = false, onConfirm, onCancel,
 }: ConfirmSheetProps) {
   return (
     <>
@@ -37,6 +39,11 @@ export default function ConfirmSheet({
         <div className="album-inline-action__body album-confirm-sheet__body">
           {description ? <p className="album-confirm-sheet__text">{description}</p> : null}
           <div className="album-confirm-sheet__actions">
+            {/* ★ 순서는 부르는 쪽이 정한다(K-20). 잃을 것이 있는 물음에서는 안전한 쪽을
+                먼저 놓아 손가락이 먼저 닿게 한다. 컴포넌트는 하나 그대로다. */}
+            {cancelFirst ? (
+              <button type="button" className="album-confirm-sheet__cancel" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+            ) : null}
             <button
               type="button"
               className={`album-confirm-sheet__confirm${danger ? " album-confirm-sheet__confirm--danger" : ""}`}
@@ -45,7 +52,9 @@ export default function ConfirmSheet({
             >
               {busy ? "처리 중..." : confirmLabel}
             </button>
-            <button type="button" className="album-confirm-sheet__cancel" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+            {cancelFirst ? null : (
+              <button type="button" className="album-confirm-sheet__cancel" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+            )}
           </div>
         </div>
       </section>

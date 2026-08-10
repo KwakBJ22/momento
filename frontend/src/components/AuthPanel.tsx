@@ -1,10 +1,17 @@
 import { useState } from "react";
 import LegalConsent from "./LegalConsent";
 import { isAuthenticationConfigured, signIn, type AuthProvider } from "../services/authService";
+import { authPanelCopy, type AuthPanelReason } from "../lib/authPanelCopy";
 
-interface AuthPanelProps { returnTo?: string; titleId?: string; }
+interface AuthPanelProps {
+  returnTo?: string;
+  titleId?: string;
+  /** 어디서 눌러 열렸는가 — 제목·설명이 여기서 갈린다(K-21). 문구는 lib 한 곳에 있다. */
+  reason?: AuthPanelReason | null;
+}
 
-export default function AuthPanel({ returnTo, titleId }: AuthPanelProps) {
+export default function AuthPanel({ returnTo, titleId, reason }: AuthPanelProps) {
+  const copy = authPanelCopy(reason);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // ★ 매번 새로 받는다 — 저장하지 않는다(패널이 닫히면 이 상태도 함께 사라진다).
@@ -25,8 +32,10 @@ export default function AuthPanel({ returnTo, titleId }: AuthPanelProps) {
 
   return (
     <section className="auth-panel">
-      <h2 id={titleId}>내 앨범 보관하기</h2>
-      <p>로그인하면 언제든 내 앨범에서 다시 볼 수 있어요.</p>
+      {/* ★ 창은 하나다. 제목·설명만 부르는 쪽이 정한다(K-21). 아래 동의·카카오 버튼은
+          어느 경우에도 그대로다 — 로그인 절차 자체는 갈리지 않는다. */}
+      <h2 id={titleId}>{copy.title}</h2>
+      {copy.description ? <p>{copy.description}</p> : null}
       {message && <p className="notice notice--error auth-panel__notice" role="alert">{message}</p>}
       {/* 동의를 먼저 받고 그다음에 시작한다 — 순서가 화면에서도 그대로 보이게 위에 둔다. */}
       <LegalConsent checked={agreed} onChange={setAgreed} />

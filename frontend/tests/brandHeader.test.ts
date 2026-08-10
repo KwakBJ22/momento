@@ -53,7 +53,8 @@ test("소스에 'Momento' 리터럴이 남아 있지 않다 (보이지 않는 �
 test("앨범 상세도 같은 헤더를 쓴다 — 감추는 분기가 없다", () => {
   const app = read("App.tsx");
   // 헤더 element 는 관리자 외 모든 화면에서 App 이 한 번 그린다.
-  assert.match(app, /\{!adminRoute \? <AppHeader \/> : null\}/);
+  // ★ K-20 에서 헤더가 `onNavigateHome` 을 받는다. 감추는 분기가 없다는 규칙은 그대로다.
+  assert.match(app, /\{!adminRoute \? <AppHeader onNavigateHome=/);
   assert.doesNotMatch(app, /hidesGlobalHeader/);
   // 앨범 화면은 우측 slot 만 자기 것으로 채운다(헤더를 다시 그리지 않는다).
   assert.match(app, /const albumOwnsHeaderSlot = Boolean\(sharedAlbumId \|\| shareToken\)/);
@@ -75,7 +76,8 @@ test("계정 진입점은 모든 화면에서 ⋯ 시트 안이다 (SCREEN_SPEC 
   assert.doesNotMatch(app, /className="app__account-trigger"/);
   assert.doesNotMatch(app, /className="app__account"/);
   // 비로그인은 `로그인` 하나(§3 랜딩 비로그인).
-  assert.match(app, /className="app__account-login" onClick=\{openLogin\}>로그인/);
+  // ★ K-21: 로그인 창이 **왜** 열렸는지를 함께 넘긴다(제목이 갈린다). 자리는 그대로다.
+  assert.match(app, /className="app__account-login" onClick=\{\(\) => openLogin\("signin"\)\}>로그인/);
   // 앨범 상세는 시트 행을 넘긴다.
   assert.match(app, /const accountSheetRow = \(\s*<AccountSheetRow/);
   assert.match(app, /accountSheet=\{accountSheetRow\}/);

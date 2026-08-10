@@ -12,12 +12,14 @@ test("상단은 화면당 하나 — AppHeader 만이 브랜드를 그린다", (
   const screen = read("components/AlbumScreen.tsx");
   // ★ 헤더 element 를 그리는 곳은 App 하나뿐이다. 앨범 화면은 우측 slot 만 채운다
   //   — 예전에는 앨범이 자기 헤더를 그리고 전역 헤더를 감춰서 구현이 두 벌이었다.
-  assert.equal((app.match(/<AppHeader ?\/?>/g) || []).length, 1);
+  // ★ K-20 에서 헤더가 `onNavigateHome` 을 받는다(잃을 것이 있으면 한 번 묻는다).
+  //   규칙은 그대로다 — 헤더를 그리는 곳은 여전히 한 곳뿐이다.
+  assert.equal((app.match(/<AppHeader[ />]/g) || []).length, 1);
   assert.doesNotMatch(screen, /<AppHeader/);
   assert.match(screen, /<HeaderRight>/);
   // "이 화면에서는 전역 헤더를 감춘다" 분기가 없다.
   assert.doesNotMatch(app, /hidesGlobalHeader/);
-  assert.match(app, /\{!adminRoute \? <AppHeader \/> : null\}/);
+  assert.match(app, /\{!adminRoute \? <AppHeader onNavigateHome=/);
   // 인라인 헤더 마크업도 없다.
   assert.doesNotMatch(app, /<header className="app__header">/);
   // 브랜드 문자열은 상수에서만 읽는다.

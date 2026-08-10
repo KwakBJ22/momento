@@ -63,7 +63,8 @@ test("헤더 높이는 한 규칙이 정한다 — 모든 화면 52px", () => {
 test("헤더는 페이지 컨테이너 밖에 있다 — 컨테이너 여백이 헤더에 걸리지 않는다", () => {
   const app = read("App.tsx");
   // 헤더가 .app 컨테이너보다 **먼저**, 그 바깥에 온다.
-  const headerAt = app.indexOf("{!adminRoute ? <AppHeader /> : null}");
+  // ★ K-20 에서 헤더가 `onNavigateHome` 을 받는다 — 자리 규칙은 그대로다.
+  const headerAt = app.indexOf("{!adminRoute ? <AppHeader onNavigateHome=");
   const containerAt = app.indexOf('<div className={adminRoute ? "app app--album admin-app"');
   assert.ok(headerAt > -1 && containerAt > -1, "둘 다 있어야 한다");
   assert.ok(headerAt < containerAt, "헤더가 컨테이너 밖(앞)에 있어야 한다");

@@ -77,7 +77,8 @@ test("login dialog uses one visual container (동작은 sheetDialogBehavior 가 
   const css = readFileSync(new URL("../src/App.css", import.meta.url), "utf8");
   // 로그인·회원 탈퇴가 같은 대화상자를 쓴다. 상자 하나에 담긴다는 사실만 잠근다.
   assert.match(app, /<SheetDialog open=\{showLogin\} labelledBy="auth-dialog-title"/);
-  assert.match(app, /<AuthPanel titleId="auth-dialog-title" \/>/);
+  // ★ K-21: 창은 하나 그대로이고 **제목·설명만** 부르는 쪽이 넘긴다. 상자는 안 갈린다.
+  assert.match(app, /<AuthPanel titleId="auth-dialog-title" reason=\{loginReason\} \/>/);
   // 상자 안에서는 인증 패널이 자기 테두리를 걷어낸다(상자가 이미 테두리를 갖는다).
   assert.match(css, /\.sheet-dialog \.auth-panel \{[\s\S]*padding: 0;[\s\S]*border: 0;/);
   assert.match(css, /\.auth-modal__later \{[\s\S]*width: auto;[\s\S]*border: 0;/);

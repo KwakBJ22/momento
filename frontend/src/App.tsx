@@ -23,6 +23,8 @@ import SheetDialog from "./components/SheetDialog";
 import AccountSheetRow from "./components/AccountSheetRow";
 import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
+import ConfirmSheet from "./components/ConfirmSheet";
+import type { AuthPanelReason } from "./lib/authPanelCopy";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
@@ -71,12 +73,18 @@ function App() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  // 로그인 창이 어디서 열렸는지 — 제목·설명이 여기서 갈린다(K-21).
+  const [loginReason, setLoginReason] = useState<AuthPanelReason | null>(null);
   const [, setRouteVersion] = useState(0);
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const withdrawReturnFocusRef = useRef<HTMLElement | null>(null);
   const initialCreateStep = useRef(readCreateStep()).current;
   const [category, setCategory] = useState<AlbumCategory | null>(initialCreateStep.category);
   const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(initialCreateStep.photoStep);
+  // 사진 고르는 중에 홈으로 나가려 할 때 한 번 묻기 위한 값 (K-20).
+  // 고른 장수는 UploadForm 이 알려준다 — 화면이 두 번 세지 않는다.
+  const [pickedPhotoCount, setPickedPhotoCount] = useState(0);
+  const [leaveHomeAsk, setLeaveHomeAsk] = useState(false);
   // True only when this mount restored a photo-selection step from storage: the
   // chosen File objects cannot be restored, so UploadForm asks for a re-pick.
   const photosNeedReselectRef = useRef(initialCreateStep.photoStep && Boolean(initialCreateStep.category));
@@ -215,6 +223,27 @@ function App() {
     return () => { active = false; };
   }, [user?.id]);
 
+  /**
+   * 홈으로 나간다 — **고른 사진이 있으면 한 번 묻는다** (K-20).
+   *
+   * ★ 로고는 원래도 `<a href="/">` 였다. 막고 있던 것은 없다. 그런데 사진 고르기 화면은
+   *   주소가 `/` 그대로이고(라우트가 아니라 상태다), 만들던 단계가 sessionStorage 에
+   *   저장돼 있어서(2-1) `/` 로 가면 **그 단계가 곧바로 되살아났다.** 그래서 눌러도
+   *   제자리처럼 보였다.
+   * ★ 그러므로 나갈 때는 **저장된 단계를 먼저 지운다.** 그러지 않으면 무엇을 눌러도 돌아온다.
+   * ★ 로고와 하단 네비 `처음으로` 가 **같은 길**을 쓴다 — 두 길이 다르게 굴면 안 된다.
+   */
+  const leaveToHome = () => {
+    setLeaveHomeAsk(false);
+    saveCreateStep(null, false);
+    resetToStart();
+    if (window.location.pathname === "/") window.location.reload();
+    else window.location.assign("/");
+  };
+  const requestLeaveHome = () => {
+    if (isPhotoSelectionStep && pickedPhotoCount > 0) { setLeaveHomeAsk(true); return; }
+    leaveToHome();
+  };
   const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(null); setIsPhotoSelectionStep(false); };
   const logout = async () => {
     await signOut();
@@ -259,8 +288,13 @@ function App() {
       setWithdrawing(false);
     }
   };
-  const openLogin = () => {
+  /**
+   * 로그인 창을 연다 — **왜 열렸는지**를 함께 받는다 (K-21).
+   * 창은 하나이고, 제목·설명만 그 이유로 갈린다(문구는 lib/authPanelCopy 한 곳).
+   */
+  const openLogin = (reason?: AuthPanelReason) => {
     loginReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setLoginReason(reason ?? null);
     setShowLogin(true);
   };
   const closeLogin = () => setShowLogin(false);
@@ -317,18 +351,18 @@ function App() {
       <MoreHorizontal size={20} />
     </button>
   ) : (
-    <button type="button" className="app__account-login" onClick={openLogin}>로그인</button>
+    <button type="button" className="app__account-login" onClick={() => openLogin("signin")}>로그인</button>
   );
   // ⋯ 시트 최상단 계정 행 — 앨범 상세 시트와 전역 시트가 같은 컴포넌트를 쓴다(§5).
   const accountSheetRow = (
     <AccountSheetRow
       user={user ? { displayName: user.displayName, email: user.email, avatarUrl: user.avatarUrl } : null}
-      onLogin={openLogin}
+      onLogin={() => openLogin("signin")}
     />
   );
   const albumSurface = (albumId: string, content: ReactNode) =>
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
-  const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin(); };
+  const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin("guest-save"); };
 
   if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
 
@@ -340,7 +374,7 @@ function App() {
   const loginModal = (
     <SheetDialog open={showLogin} labelledBy="auth-dialog-title" onClose={closeLogin} returnFocusRef={loginReturnFocusRef} className="auth-modal">
       <button type="button" className="auth-modal__close" aria-label="닫기" onClick={closeLogin}><X size={20} aria-hidden="true" /></button>
-      <AuthPanel titleId="auth-dialog-title" />
+      <AuthPanel titleId="auth-dialog-title" reason={loginReason} />
       <button type="button" className="auth-modal__later" onClick={closeLogin}>나중에 하기</button>
     </SheetDialog>
   );
@@ -353,7 +387,7 @@ function App() {
         최대 너비·배경을 갖고 있어서, 안에 두면 같은 컴포넌트인데도 화면마다 위 여백과
         좌우 들여쓰기가 달라 보인다(실기기에서 그렇게 보였다). 밖에 두면 어느 화면에서든
         화면 좌우 끝까지 닿고 위 여백이 없다. */}
-    {!adminRoute ? <AppHeader /> : null}
+    {!adminRoute ? <AppHeader onNavigateHome={(event) => { event.preventDefault(); requestLeaveHome(); }} /> : null}
     <div className={adminRoute ? "app app--album admin-app" : `${isAlbumSurface ? `app app--album${isJoinSurface ? " app--join" : ""}` : "app"}${showGlobalBottomNavigation ? " app--with-bottom-navigation" : ""}`}>
       {/* 우측 slot: §3 표. 참여 화면은 비우고, 앨범 화면은 자기 것을 채운다. */}
       {!adminRoute && !albumOwnsHeaderSlot && !isJoinSurface ? <HeaderRight>{accountEntry}</HeaderRight> : null}
@@ -374,7 +408,7 @@ function App() {
           </p>
         ) : null}
         {adminRoute ? requiresLogin(<Suspense fallback={<p className="app__loading">불러오는 중…</p>}><AdminConsole route={adminRoute} /></Suspense>)
-          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={openLogin} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
+          : shareToken ? <ShareEntryRouter token={shareToken} user={user} onLogin={() => openLogin("bookmark")} accountSheet={accountSheetRow} onLogout={user ? () => void logout() : undefined} onWithdraw={user ? openWithdraw : undefined} authReady={authReady} authError={authError} onRetryAuth={() => { setAuthReady(false); void initializeAuth().then((state) => { setUser(state.user); setAuthError(state.error); setAuthReady(true); }); }} />
           : joinToken ? <JoinPage token={joinToken} user={user ?? null} authReady={authReady && user !== undefined} />
           : contributeAlbumId ? <ContributeWorkspace albumId={contributeAlbumId} />
           : participantsAlbumId ? requiresLogin(<ParticipantsPage albumId={participantsAlbumId} />)
@@ -386,7 +420,7 @@ function App() {
           : result && user ? (
             showAlbumResult ? <QuestionFlow albumId={result.album_id} albumTitle={result.title} profileId={user.id} onComplete={(narrative) => { if (narrative) setResult((current) => current ? { ...current, narrative } : current); setShowAlbumResult(false); }} />
               : <AlbumResultView result={result} onReset={resetToStart} manageSlot={<CollaborationPanel albumId={result.album_id} shareUrl={result.share_url} imageUrl={resolveShareImageUrl(result)} title={result.title} photos={result.photos} coverPhotoId={result.cover_photo_id} onOpenParticipants={() => window.location.assign(`/album/${result.album_id}/participants`)} onAlbumUpdated={() => void Promise.all([getAlbum(result.album_id), getAlbumPhotos(result.album_id)]).then(([updated, photos]) => setResult((current) => current?.album_id === result.album_id ? { ...updated, photos } : current)).catch(() => undefined)} onCoverUpdated={(coverPhotoId, coverImageUrl) => setResult((current) => current?.album_id === result.album_id ? { ...current, cover_photo_id: coverPhotoId, cover_image_url: coverImageUrl, image_url: coverImageUrl || current.image_url } : current)} />} />
-          ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onSuccess={({ albumId, previewUrls, submittedAt, responseAt, photoCount }) => {
+          ) : category && isPhotoSelectionStep ? <UploadForm category={category} photosNeedReselect={photosNeedReselectRef.current} onPhotoCountChange={setPickedPhotoCount} onSuccess={({ albumId, previewUrls, submittedAt, responseAt, photoCount }) => {
             saveAlbumCreationPreview(albumId, previewUrls, { submittedAt, responseAt, photoCount });
             // Creation succeeded — the persisted step is no longer needed.
             setCategory(null);
@@ -394,7 +428,7 @@ function App() {
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={openLogin} hideLogin={Boolean(user)} />}
+          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={() => openLogin("signin")} hideLogin={Boolean(user)} />}
       </main>
       {/* 하단도 화면당 하나. 고정 네비가 있는 화면에서만 그 높이만큼 여백을 준다 —
           네비가 없는 화면에 여백을 주면 빈 공간이 된다. */}
@@ -403,7 +437,7 @@ function App() {
           사진을 더하라고 권하는 꼴이었다. */}
       {showGlobalBottomNavigation && !albumUnavailable ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
-          : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={() => window.location.assign("/")} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} />
+          : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={requestLeaveHome} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} />
       ) : null}
       {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}
       {accountMenuOpen && !adminRoute ? (
@@ -417,6 +451,19 @@ function App() {
       ) : null}
       {accountContactGuard}
       {loginModal}
+      {/* ★ 고른 사진이 있을 때만 묻는다(K-20). 없으면 묻지 않고 바로 간다.
+          window.confirm 을 쓰지 않는다(§5) — 이미 쓰는 시트 그대로다.
+          `계속 고르기` 가 왼쪽이자 기본이다. 잃을 것이 있는 쪽이 먼저 눌리면 안 된다. */}
+      {leaveHomeAsk ? (
+        <ConfirmSheet
+          title="고른 사진이 사라져요. 그래도 나갈까요?"
+          confirmLabel="나가기"
+          cancelLabel="계속 고르기"
+          cancelFirst
+          onConfirm={leaveToHome}
+          onCancel={() => setLeaveHomeAsk(false)}
+        />
+      ) : null}
       <SheetDialog open={withdrawOpen} labelledBy="withdraw-title" onClose={() => setWithdrawOpen(false)} locked={withdrawing} returnFocusRef={withdrawReturnFocusRef} className="app__withdraw">
         <h2 id="withdraw-title">정말 탈퇴하시겠어요?</h2>
         {/* ★ 무엇이 사라지는지 **숫자로** 말한다(§5 27차). 숫자는 서버가 센 것이고,

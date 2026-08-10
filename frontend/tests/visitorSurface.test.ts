@@ -38,7 +38,8 @@ test("비로그인 구경꾼에게 헤더 우측 `로그인`이 있다 (§3)", (
   assert.match(view, /onClick=\{onLogin\}>로그인<\/button>/);
   assert.match(view, /headerRight=\{headerRight\}/);
   // App 이 자기 로그인 모달을 그대로 넘겨준다(새 로그인 화면을 만들지 않는다).
-  assert.match(read("App.tsx"), /<ShareEntryRouter token=\{shareToken\} user=\{user\} onLogin=\{openLogin\}/);
+  // ★ K-21: 공유 화면에서 여는 로그인은 `담아두기` 맥락이다 — 제목이 그렇게 뜬다.
+  assert.match(read("App.tsx"), /<ShareEntryRouter token=\{shareToken\} user=\{user\} onLogin=\{\(\) => openLogin\("bookmark"\)\}/);
   assert.match(read("components/AlbumScreen.tsx"), /\{headerRight\}/);
 });
 

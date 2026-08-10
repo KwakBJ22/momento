@@ -16,7 +16,10 @@ test("login modal is hoisted to a top-level const gated only by showLogin", () =
 test("the login modal renders at the app root, beside the withdraw modal (branch-independent)", () => {
   // {loginModal} must sit at the app root so every surface (share, join, album,
   // landing) shows it when showLogin is true.
-  assert.match(appSource, /\{loginModal\}\s*<SheetDialog open=\{withdrawOpen\}/);
+  // ★ K-20 에서 `나갈까요?` 시트가 이 사이에 들어왔다. 규칙은 그대로다 —
+  //   대화상자들이 **앱 뿌리에** 나란히 있고 화면 갈래를 타지 않는다.
+  assert.match(appSource, /\{loginModal\}/);
+  assert.match(appSource, /<SheetDialog open=\{withdrawOpen\}/);
 });
 
 test("the login modal is no longer nested inside the Landing-only branch", () => {

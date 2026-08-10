@@ -71,7 +71,9 @@ test("★ 한 번만 묻는다 — 두 번 묻거나 다시 입력받지 않는�
     assert.equal(sheet.includes(banned), false, `한 번 더 묻는다: ${banned}`);
   }
   // window.confirm 을 쓰지 않는다(§5 — 카카오 웹뷰에서 막힌다).
-  assert.equal(app.includes("window.confirm"), false);
+  // 주석은 사람에게 하는 설명이다("쓰지 않는다"고 적어 두었다) — 빼고 본다.
+  const code = app.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.equal(code.includes("window.confirm"), false);
 });
 
 test("★ 새 페이지를 만들지 않는다 — 이미 있는 시트를 쓴다 (§11)", () => {
