@@ -26,6 +26,35 @@ export function showsEmptyState(photoCount: number, isPreparing = false): boolea
   return photoCount === 0 && !isPreparing;
 }
 
+/**
+ * 사진 목록을 그릴 것인가 — **준비가 끝난 사진이 있을 때만** (K-18).
+ *
+ * > 준비가 끝나지 않은 사진은 **자리도 만들지 않는다.**
+ *
+ * 실기기에서 진행 표시 아래에 빈 가로줄이 여러 개 서 보였다(2026-08-10, 카카오톡 웹뷰).
+ * 측정해 보니 이 화면에서 **비어 있는 채로 폭을 다 쓰는 것은 캡션 칸뿐**이고, 그 칸은
+ * 사진 한 장이 준비될 때마다 하나씩 는다. 즉 아직 아무것도 안 끝났으면 화면에는
+ * 진행 표시 한 줄만 있어야 한다.
+ *
+ * ★ **빈 카드·뼈대(skeleton)·구분선을 그리지 않는다.** 이 화면의 뼈대는 사진 크기라
+ *   화면 절반을 먹는다. 그게 비어 있으면 "뭔가 잘못됐다"로 읽힌다 — 로딩 뼈대는
+ *   작은 목록에서나 도움이 된다.
+ * ★ 준비 중인지와 무관하다. 기준은 **끝난 장수 하나**다. 한 장 끝나면 한 줄 는다.
+ */
+export function showsPhotoList(preparedCount: number): boolean {
+  return preparedCount > 0;
+}
+
+/**
+ * 목록에 설 항목 수 = **준비가 끝난 장수**다 (K-18).
+ *
+ * 고른 장수(`selectedCount`)로 세지 않는다. 그렇게 세면 아직 준비 중인 사진의 자리가
+ * 먼저 생기고, 그 자리가 빈 줄로 보인다.
+ */
+export function photoListItemCount(preparedCount: number, _selectedCount?: number): number {
+  return Math.max(0, preparedCount);
+}
+
 /** The "N장 · size" selection line is hidden at zero to avoid "0장" noise. */
 export function showsSelectionCount(photoCount: number): boolean {
   return photoCount > 0;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { showsPhotoList } from "../lib/uploadFormView";
 import type { PhotoItem } from "../types";
 import "./PhotoCommentList.css";
 
@@ -19,7 +20,9 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, on
   // 다시 만들어도 안 뜬 사진들. 여기 담기면 회색 자리를 둔다(K-10).
   const [brokenIds, setBrokenIds] = useState<string[]>([]);
 
-  if (!photos.length) return null;
+  // ★ 준비가 끝난 사진이 없으면 **아무 자리도 만들지 않는다**(K-18). 판정은
+  //   uploadFormView 한 곳에 있다 — `photos` 에는 준비가 끝난 것만 들어온다.
+  if (!showsPhotoList(photos.length)) return null;
 
   return (
     <section className="photo-comments" aria-label="선택한 사진">
