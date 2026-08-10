@@ -17,6 +17,7 @@ from app.services.auth import require_authenticated_user
 from app.services.collaboration_service import attribute_contributions
 from app.services.event_logger import EventLogger
 from app.services.plan_limits import count_owned_albums, get_user_limits
+from app.services.legal_consent import record_legal_consent
 from app.services.supabase import ensure_default_family, get_supabase_client
 
 
@@ -34,6 +35,12 @@ async def bootstrap_auth_user(
     client = get_supabase_client()
     family_id = ensure_default_family(client, authenticated_user_id)
     limits = get_user_limits(authenticated_user_id)
+
+    # 로그인 창에서 체크한 동의를 **기록만** 한다 (K-14). 새 엔드포인트를 만들지 않는다.
+    # 처음 한 번만 채우고 덮어쓰지 않는다. 실패해도 로그인을 막지 않는다 —
+    # 기록이 없다는 이유로 아무것도 못 하게 되는 일은 없어야 한다.
+    if body and body.legal_agreed:
+        record_legal_consent(client, authenticated_user_id)
 
     claimed_guest_ids: list[str] = []
     guest_ids = list(body.contributor_guest_ids) if body else []

@@ -386,6 +386,9 @@ class AuthBootstrapRequest(BaseModel):
     # Guest contributor ids from the browser to attribute to this account on login.
     # Capped so a login never sends an unbounded payload.
     contributor_guest_ids: list[str] = Field(default_factory=list, max_length=50)
+    # 로그인 창에서 받은 동의. **기록용이다** — 이 값으로 무엇도 막지 않는다(K-14).
+    # 없이 와도(옛 화면) 그냥 통과한다. 무엇에 동의한 것인지는 서버가 붙인다.
+    legal_agreed: bool = False
 
 
 class AuthBootstrapResponse(BaseModel):
@@ -838,10 +841,11 @@ class AdminUserListItem(BaseModel):
     email: str | None = None
     display_name: str | None = None
     created_at: datetime | None = None
-    last_seen_at: datetime | None = None
+    last_login_at: datetime | None = None
     album_count: int = 0
     participation_count: int = 0
     share_count: int = 0
+    status: str
 
 
 class AdminUserSearchResponse(BaseModel):
@@ -853,7 +857,10 @@ class AdminUserSearchResponse(BaseModel):
 
 class AdminUserAlbumsResponse(BaseModel):
     user_id: str
-    albums: list[AdminAlbumListItem]
+    account: dict[str, Any] = Field(default_factory=dict)
+    albums: list[dict[str, Any]] = Field(default_factory=list)
+    participated_albums: list[dict[str, Any]] = Field(default_factory=list)
+    blocked: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AdminEventItem(BaseModel):

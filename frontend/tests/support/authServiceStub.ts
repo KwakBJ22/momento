@@ -23,6 +23,12 @@ export async function signIn(provider: AuthProvider): Promise<void> {
   signInCalls.push(provider);
 }
 
+/** 동의 기록 대역 (K-14) — 진짜와 같은 규칙으로, 저장소 대신 여기에 남긴다. */
+let legalConsentRemembered = false;
+export function rememberLegalConsent(): void { legalConsentRemembered = true; }
+export function readLegalConsent(): boolean { return legalConsentRemembered; }
+export function forgetLegalConsent(): void { legalConsentRemembered = false; }
+
 export function oauthProviderFor(provider: AuthProvider): string {
   return provider === "naver" ? "custom:naver" : "kakao";
 }

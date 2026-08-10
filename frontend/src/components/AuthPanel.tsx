@@ -1,6 +1,6 @@
 import { useState } from "react";
 import LegalConsent from "./LegalConsent";
-import { isAuthenticationConfigured, signIn, type AuthProvider } from "../services/authService";
+import { isAuthenticationConfigured, rememberLegalConsent, signIn, type AuthProvider } from "../services/authService";
 import { authPanelCopy, type AuthPanelReason } from "../lib/authPanelCopy";
 
 interface AuthPanelProps {
@@ -21,6 +21,9 @@ export default function AuthPanel({ returnTo, titleId, reason }: AuthPanelProps)
     setMessage(null);
     setIsSubmitting(true);
     try {
+      // 체크한 사실을 왕복 너머로 남긴다 — 돌아온 뒤 bootstrap 이 실어 보낸다(K-14).
+      // 버튼은 체크해야 눌리지만, 여기서 한 번 더 본다(누르는 길이 하나뿐이도록).
+      if (agreed) rememberLegalConsent();
       await signIn(provider, returnTo);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "로그인을 시작하지 못했어요.");

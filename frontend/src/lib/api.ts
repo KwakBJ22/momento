@@ -734,11 +734,18 @@ export async function saveProfileContact(input: ProfileContact): Promise<Profile
 
 export async function bootstrapAccount(
   contributorGuestIds: string[],
+  legalAgreed = false,
 ): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[] }> {
   const response = await authenticatedFetch("/api/auth/bootstrap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contributor_guest_ids: contributorGuestIds }),
+    // 동의는 **받았을 때만** 싣는다. 안 실어도 서버는 그냥 통과한다(K-14).
+    // 무엇에 동의한 것인지(버전)는 서버가 붙인다 — 문자열을 두 곳에 두지 않는다.
+    body: JSON.stringify(
+      legalAgreed
+        ? { contributor_guest_ids: contributorGuestIds, legal_agreed: true }
+        : { contributor_guest_ids: contributorGuestIds },
+    ),
   });
   if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
   const data = (await response.json().catch(() => null)) as

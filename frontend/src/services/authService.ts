@@ -40,6 +40,32 @@ const RETURN_TO_KEY = "woorialbum-auth-return-to";
  *   새로 만들지 않는다 — 규칙이 갈라지면 한쪽만 고쳐진다.
  */
 const RETURN_TO_DEVICE_KEY = "woorialbum-auth-return-to-device";
+
+/**
+ * 로그인 창에서 받은 동의를 **왕복 너머로** 나른다 (K-14 재작업).
+ *
+ * 카카오 로그인은 앱 밖으로 나갔다 돌아오는 길이라, 체크박스의 상태(React state)는
+ * 그때 통째로 사라진다. 돌아온 뒤에 부르는 `bootstrap` 에 실어 보내려면 어딘가 남겨야
+ * 한다. ★ 위 `returnTo` 와 **같은 장치**를 쓴다 — 두 벌로 만들지 않는다.
+ *
+ * ★ 이 값은 **기록용이다.** 없다고 무엇을 막지 않는다. 서버가 받으면 처음 한 번만
+ *   채우고, 이미 채워져 있으면 아무 일도 하지 않는다.
+ */
+const LEGAL_CONSENT_KEY = "woorialbum-legal-consent";
+
+export function rememberLegalConsent(): void {
+  rememberIntent(LEGAL_CONSENT_KEY, "1");
+}
+
+export function readLegalConsent(): boolean {
+  return readIntent(LEGAL_CONSENT_KEY) === "1";
+}
+
+/** 서버에 **닿은 뒤에만** 지운다 — 끊기면 다음 번에 다시 실어 보낸다. */
+export function forgetLegalConsent(): void {
+  forgetIntent(LEGAL_CONSENT_KEY);
+}
+
 function text(value: unknown): string | null {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;

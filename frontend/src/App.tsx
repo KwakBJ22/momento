@@ -36,7 +36,7 @@ import { guestClaimTroubleMessage, runAfterLogin } from "./lib/albumTrouble";
 import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, clearPendingGuestClaim, readPendingGuestClaim, setPendingGuestClaim } from "./lib/guestAlbum";
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
-import { initializeAuth, isAuthenticationConfigured, onAuthStateChange, signOut, type AppUser } from "./services/authService";
+import { forgetLegalConsent, initializeAuth, isAuthenticationConfigured, onAuthStateChange, readLegalConsent, signOut, type AppUser } from "./services/authService";
 import type { AlbumCategory, AlbumResult } from "./types";
 import "./App.css";
 
@@ -209,9 +209,11 @@ function App() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    void bootstrapAccount(collectContributorGuestIds())
+    void bootstrapAccount(collectContributorGuestIds(), readLegalConsent())
       .then((data) => {
         if (!active) return;
+        // 서버에 닿았을 때에만 지운다 — 끊기면 다음에 다시 실어 보낸다(K-14).
+        forgetLegalConsent();
         setBootstrapError(null);
         if (typeof data.max_albums === "number") {
           setAlbumLimit({ count: Number(data.album_count) || 0, max: data.max_albums });
