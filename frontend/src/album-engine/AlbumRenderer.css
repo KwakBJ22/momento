@@ -53,10 +53,7 @@
   }
 }
 
-/* 폴라로이드 한 장(§9 12차) — **사진 + 캡션을 함께 담는 프레임**이다.
-   화면에서는 이 프레임이 통째로 기운다(회전은 PhotoWithMemories 가 인라인으로 준다).
-   캡션을 프레임 밖으로 빼지 않는다 — 빼면 어느 사진에 붙은 말인지 눈으로 안 보인다.
-   ±3° 는 읽기에 지장이 없으므로 캡션도 함께 기운다. */
+/* 격자 한 칸 — 여기에는 아무 모양도 없다. 폴라로이드는 안쪽 `__frame` 이다(K-23). */
 .album-renderer--screen .album-screen-photo-grid > .photo-block {
   display: flex;
   flex-direction: column;
@@ -64,8 +61,17 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0.75rem;
+  padding: 0;
   box-sizing: border-box;
+}
+
+/* 폴라로이드 한 장(§9 12차) — **사진 + 캡션만 담는 프레임**이다.
+   화면에서는 이 프레임이 통째로 기운다(회전은 PhotoWithMemories 가 인라인으로 준다).
+   캡션을 프레임 밖으로 빼지 않는다 — 빼면 어느 사진에 붙은 말인지 눈으로 안 보인다.
+   ±3° 는 읽기에 지장이 없으므로 캡션도 함께 기운다.
+   ★ 한마디는 이 안에 없다 — 프레임 밖 형제다(§7). 테두리가 그 글을 감싸면 캡션과 구분이 안 된다. */
+.album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 0.75rem;
   /* Card boundary on white: --c-border (1.56:1) reads as a render error, so use
      --c-border-strong (2.16:1). Thickness/radius/layout unchanged. See DESIGN_SYSTEM §1. */
   border: 1px solid var(--c-border-strong);
@@ -130,7 +136,9 @@
   bottom: 0.2rem;
 }
 
+/* 캡션 연필 버튼은 프레임 안에서 자리를 잡는다 — 블록 기준이면 한마디 위에 겹친다(K-23). */
 .album-renderer--screen .album-screen-photo-grid > .photo-block { position: relative; }
+.album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame { position: relative; }
 
 .album-renderer--print {
   background: var(--c-surface);
@@ -340,7 +348,7 @@
     gap: 0.85rem;
   }
 
-  .album-renderer--screen .album-screen-photo-grid > .photo-block {
+  .album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame {
     padding: 0.6rem;
   }
 }

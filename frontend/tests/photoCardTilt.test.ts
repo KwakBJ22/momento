@@ -34,7 +34,12 @@ function screenRule(selector: string): string {
   return css.slice(start + head.length, css.indexOf("}", start));
 }
 
-const FRAME = ".album-screen-photo-grid > .photo-block";
+// ★ K-23 2차에서 프레임이 한 겹 안으로 들어갔다. `.photo-block` 은 격자 한 칸일 뿐이고,
+//   폴라로이드(흰 여백·테두리·그림자·회전)는 `.photo-block__frame` 이다.
+//   한마디를 프레임 **밖**에 두려면 프레임이 블록보다 작아야 했기 때문이다(§7).
+//   아래 규칙은 그대로다 — 무엇이 프레임인지만 바뀌었다.
+const FRAME = ".album-screen-photo-grid > .photo-block > .photo-block__frame";
+const CELL = ".album-screen-photo-grid > .photo-block";
 const PHOTO = ".album-screen-photo-card__frame";
 
 async function renderAlbum(mode: "screen" | "print") {
@@ -68,9 +73,13 @@ test("★ 흰 카드와 회전이 같은 요소다 — 프레임이 통째로 �
   assert.match(frame, /box-shadow: var\(--sh-md\)/);
   // 도는 것도 이 요소다.
   assert.match(frame, /transform-origin: center center/);
-  assert.match(block, /transform: `rotate\(\$\{tilt\}deg\)`/);
-  assert.match(block, /const blockStyle: CSSProperties \| undefined = tilt !== 0 \|\| overlap > 0/);
-  assert.match(block, /<div className="photo-block album-photo-card"[\s\S]{0,200}style=\{blockStyle\}>/);
+  assert.match(block, /const frameStyle: CSSProperties \| undefined = tilt !== 0 \? \{ transform: `rotate\(\$\{tilt\}deg\)` \}/);
+  assert.match(block, /<div className="photo-block__frame" style=\{frameStyle\}>/);
+  // 격자 한 칸에는 모양이 없다 — 겹침(자리)만 갖는다.
+  const cell = screenRule(CELL);
+  assert.match(cell, /padding: 0;/);
+  assert.equal(/border:|box-shadow:|background:/.test(cell), false, "칸이 다시 카드가 됐다");
+  assert.match(block, /const blockStyle: CSSProperties \| undefined = overlap > 0/);
 });
 
 test("★ 안쪽 사진 요소는 회전을 갖지 않는다 (사진만 따로 돌지 않는다)", () => {
@@ -79,14 +88,17 @@ test("★ 안쪽 사진 요소는 회전을 갖지 않는다 (사진만 따로 �
   assert.match(photo, /border: 0/);
   assert.match(photo, /box-shadow: none/);
   assert.match(photo, /background: transparent/);
-  // 회전을 figure 에 걸던 예전 코드가 돌아오면 다시 따로 논다.
-  assert.equal(block.includes("frameStyle"), false, "frameStyle 이 되살아났다");
+  // 회전을 figure 에 걸던 예전 코드가 돌아오면 다시 따로 논다 —
+  // AlbumPhotoFrame 에는 style 을 넘기지 않는다(회전은 바깥 `.photo-block__frame` 하나뿐이다).
+  const call = block.slice(block.indexOf("<AlbumPhotoFrame"), block.indexOf("/>", block.indexOf("<AlbumPhotoFrame")));
+  assert.equal(call.includes("style="), false, "사진 요소에 style 이 붙었다");
+  assert.equal(call.includes("tilt"), false, "사진 요소가 기울기를 받는다");
   assert.match(block, /<AlbumPhotoFrame\s+src=\{photo\.src\}/);
 });
 
 test("★ 캡션이 프레임 안이다 — 함께 기운다 (I-1b 로 뒤집힌 항목)", async () => {
   const view = await renderAlbum("screen");
-  const frame = view.container.querySelector(".album-screen-photo-grid > .photo-block") as HTMLElement;
+  const frame = view.container.querySelector(".album-screen-photo-grid > .photo-block > .photo-block__frame") as HTMLElement;
   const caption = frame.querySelector(".photo-memory-lines--caption");
   // 캡션이 프레임의 **자손**이다(형제가 아니다).
   assert.ok(caption, "캡션이 프레임 안에 있어야 한다");
@@ -107,17 +119,17 @@ test("캡션에 프레임을 하나 더 씌우지 않는다 (§6 — 그 규칙�
 });
 
 test("겹침·좁은 화면 여백이 그대로다", () => {
-  // 음수 여백은 프레임(=블록)에 걸린다. 회전은 배치에 영향을 주지 않으므로 당기는 양도 그대로다.
+  // 음수 여백은 **칸**에 걸린다 — 자리를 옮기는 일은 격자가 하는 일이다.
   const start = css.indexOf("@media (min-width: 641px)");
   const rule = css.slice(start, css.indexOf("}", css.indexOf("margin-inline-start: calc(var(--photo-overlap")));
   assert.match(rule, /\.photo-block\[data-overlap\]/);
   assert.match(rule, /margin-inline-start: calc\(var\(--photo-overlap, 0\) \* -100%\)/);
-  assert.match(screenRule(FRAME), /width: 100%/);
+  assert.match(screenRule(CELL), /width: 100%/);
   // 좁은 화면 여백은 프레임이 갖는다(I-1 에서 사진 쪽으로 옮겼던 것을 되돌렸다).
   const narrow = css.slice(css.indexOf("@media (max-width: 640px)"));
-  assert.match(narrow, /\.photo-block \{\s*padding: 0\.6rem;/);
+  assert.match(narrow, /\.photo-block > \.photo-block__frame \{\s*padding: 0\.6rem;/);
   assert.equal(narrow.includes(`${PHOTO} {\n    padding`), false);
-  // 겹침 값과 회전이 같은 style 객체에 실린다 — 한쪽이 다른 쪽을 지우지 않는다.
+  // 겹침은 칸의 style, 회전은 프레임의 style — 서로 다른 요소라 한쪽이 다른 쪽을 지우지 않는다.
   assert.match(block, /"--photo-overlap": overlap, zIndex: photoStackOrder\(overlap\)/);
 });
 

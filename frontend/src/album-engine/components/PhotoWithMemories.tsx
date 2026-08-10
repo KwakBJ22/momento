@@ -49,16 +49,17 @@ export default function PhotoWithMemories({
   // ★ 기우는 것은 **프레임 하나**다 — 사진과 캡션이 함께 기운다(§9 12차).
   // 폴라로이드 한 장이 비스듬히 놓인 모양이다. 사진만 돌고 프레임이 서 있으면 따로 놀고(I-1),
   // 캡션을 프레임 밖으로 빼면 어느 사진의 말인지 눈으로 안 보인다(I-1b).
-  // 흰 여백·테두리·그림자를 가진 요소가 이 블록이므로, 회전도 여기 붙는다.
+  // ★ K-23 재수정: 흰 여백·테두리·그림자를 가진 요소는 이제 안쪽 `.photo-block__frame` 이다.
+  //   바깥 블록은 격자 한 칸일 뿐이라, 한마디를 프레임 형제로 두면 테두리가 그 글을 감싸지 않고
+  //   회전도 따라가지 않는다. 그래서 회전은 **프레임에** 붙인다(블록이 아니라).
   // 겹침은 앞 사진 위로 끌어당기는 음수 여백이다. 위로 오는 순서는 고정값이다.
   // ★ 겹침 값만 넘기고 **적용 여부는 CSS 가 정한다** — 격자가 한 칸으로 접히는 좁은 화면에서는
   // 옆 사진이 없어, 그대로 당기면 사진이 화면 밖으로 밀려난다(실측 -37px).
-  const blockStyle: CSSProperties | undefined = tilt !== 0 || overlap > 0
-    ? ({
-      ...(tilt !== 0 ? { transform: `rotate(${tilt}deg)` } : null),
-      ...(overlap > 0 ? { "--photo-overlap": overlap, zIndex: photoStackOrder(overlap) } : null),
-    } as CSSProperties)
+  // 겹침은 칸(블록)이 하는 일이므로 블록에 남는다.
+  const blockStyle: CSSProperties | undefined = overlap > 0
+    ? ({ "--photo-overlap": overlap, zIndex: photoStackOrder(overlap) } as CSSProperties)
     : undefined;
+  const frameStyle: CSSProperties | undefined = tilt !== 0 ? { transform: `rotate(${tilt}deg)` } : undefined;
 
   // 캡션 자리는 이 사진을 내가 쓸 수 있을 때만 비워 둔다(사진마다 다르다 — §7).
   const canEditThisCaption = Boolean(edit?.canEditPhoto(photo.id));
@@ -66,24 +67,27 @@ export default function PhotoWithMemories({
 
   return (
     <div className="photo-block album-photo-card" data-photo-id={photo.id} data-tilt={tilt || undefined} data-overlap={overlap || undefined} style={blockStyle}>
-      <AlbumPhotoFrame
-        src={photo.src}
-        alt={photo.alt || ""}
-        className={frameClassName}
-        width={photo.width ?? undefined}
-        height={photo.height ?? undefined}
-        loading={priority ? "eager" : "lazy"}
-        fetchPriority={priority ? "high" : "auto"}
-      />
-      {showCaption ? (
-        <PhotoMemoryLines
-          segments={captionSegments}
-          variant="caption"
-          photoId={photo.id}
-          editableText={photo.comment}
-          showEditWhenEmpty={canEditThisCaption && !captionSegments?.length}
+      {/* 폴라로이드 한 장 — **사진과 캡션만** 담는다(§9). 테두리·그림자·기울기가 여기 있다. */}
+      <div className="photo-block__frame" style={frameStyle}>
+        <AlbumPhotoFrame
+          src={photo.src}
+          alt={photo.alt || ""}
+          className={frameClassName}
+          width={photo.width ?? undefined}
+          height={photo.height ?? undefined}
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
         />
-      ) : null}
+        {showCaption ? (
+          <PhotoMemoryLines
+            segments={captionSegments}
+            variant="caption"
+            photoId={photo.id}
+            editableText={photo.comment}
+            showEditWhenEmpty={canEditThisCaption && !captionSegments?.length}
+          />
+        ) : null}
+      </div>
       {/* ★ 한마디는 프레임 **밖**이고 **인쇄되지 않는다**(§7). 그래서 화면일 때만 그린다.
           기울기와 같은 자리에서 화면/인쇄를 가른다 — 판단 근거를 둘로 만들지 않는다. */}
       {isScreen ? <PhotoMemoryList entries={memoryEntries} /> : null}

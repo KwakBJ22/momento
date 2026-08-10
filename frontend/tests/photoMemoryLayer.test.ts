@@ -88,11 +88,26 @@ test("이름 없는 한마디도 버리지 않는다 (빈 글만 버린다)", ()
 
 // --- 자리 ---
 
-test("★ 한마디는 사진 프레임 **밖**이다 — 캡션 뒤에 온다", () => {
-  const captionAt = block.indexOf('variant="caption"');
-  const memoryAt = block.indexOf("<PhotoMemoryList");
-  assert.ok(captionAt > 0 && memoryAt > captionAt, "한마디가 캡션 자리 안/앞에 있다");
+test("★ 한마디는 사진 프레임 **밖**이다", () => {
+  // ★ 예전에는 "캡션보다 뒤에 온다"만 봤다. 그 검사는 통과했는데도 결함은 남아 있었다 —
+  //   테두리를 가진 요소가 `.photo-block` 자신이라, 뒤에 와도 여전히 그 안이었기 때문이다.
+  //   그래서 이제 **프레임 안에 무엇이 있는지**를 본다(자리는 photoMemoryLayerDom.test.ts 가 재 본다).
+  const frame = block.slice(block.indexOf('<div className="photo-block__frame"'), block.indexOf("</div>"));
+  assert.ok(frame.includes("<AlbumPhotoFrame"), "사진이 프레임 안에 없다");
+  assert.ok(frame.includes('variant="caption"'), "캡션이 프레임 안에 없다");
+  assert.equal(frame.includes("<PhotoMemoryList"), false, "한마디가 프레임 안에 있다");
   assert.match(block, /const memoryEntries = buildPhotoMemoryEntries\(photo\);/);
+});
+
+test("★ 프레임과 한마디 사이에 눈에 보이는 간격이 있다 — 캡션이 없어도 붙지 않는다", () => {
+  const css = readFileSync(path.join(SRC, "album-engine/components/PhotoMemoryList.css"), "utf8");
+  const rule = css.slice(css.indexOf(".photo-memory-list {"), css.indexOf("}", css.indexOf(".photo-memory-list {")));
+  const margin = /margin: ([\d.]+)rem 0 0;/.exec(rule);
+  assert.ok(margin, "위쪽 간격이 없다");
+  // 기운 프레임의 겉넓이가 위아래로 10px 남짓 늘어난다(실측). 그보다 넉넉해야 틈이 보인다.
+  assert.ok(Number(margin[1]) >= 1.2, `간격이 좁다: ${margin[1]}rem`);
+  // 캡션은 프레임 안에서 가운데, 한마디는 프레임 밖에서 왼쪽 — 정렬로도 갈린다.
+  assert.match(rule, /text-align: start;/);
 });
 
 test("★ 인쇄에는 넣지 않는다 (§7)", () => {
