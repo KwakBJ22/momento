@@ -30,7 +30,9 @@ function rule(selector: string): string {
 
 test("★ 문자열은 lib/brand.ts 한 곳에서 나온다", () => {
   assert.match(brand, /export const BRAND_NAME_EN = "woorialbum";/);
-  assert.match(brand, /export const BRAND_SITE_URL = "www\.woorialbum\.com";/);
+  // ★ J-13(2026-08-10): 도메인 이전이 끝나 **정본을 `www` 없는 쪽으로** 정했다.
+  //   `www` 는 Vercel 이 apex 로 넘긴다. 종이에 찍히는 주소는 하나여야 한다.
+  assert.match(brand, /export const BRAND_SITE_URL = "woorialbum\.com";/);
   // 화면 코드에 문자열을 직접 적지 않는다 — 주소가 바뀔 때 고칠 자리가 하나여야 한다(§3).
   assert.match(renderer, /\{BRAND_NAME_EN\}/);
   assert.match(renderer, /\{BRAND_SITE_URL\}/);
@@ -58,7 +60,7 @@ test("★ 순서는 로고 → 영문 → 주소다", async () => {
     .map((node) => node.className.split(" ")[0]);
   assert.deepEqual(order, ["album-brand-mark", "album-renderer__brand-en", "album-renderer__brand-url"]);
   assert.equal(page.querySelector(".album-renderer__brand-en")?.textContent, "woorialbum");
-  assert.equal(page.querySelector(".album-renderer__brand-url")?.textContent, "www.woorialbum.com");
+  assert.equal(page.querySelector(".album-renderer__brand-url")?.textContent, "woorialbum.com");
   // ★ 주소는 글자로만 쓴다 — 인쇄물이라 링크로 만들지 않는다.
   assert.equal(page.querySelector("a"), null);
   await React.act(async () => { root.unmount(); });

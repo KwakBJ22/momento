@@ -17,8 +17,11 @@ export const BRAND_NAME_KO_PARTS = { lead: "우리", tail: "앨범" } as const;
 export const BRAND_NAME_EN = "woorialbum";
 
 /** 웹 주소 — 인쇄물에는 **글자로만** 쓴다(링크로 만들지 않는다).
- *  ★ 화면·PDF 가 같은 값을 본다. 주소가 바뀌면 고칠 자리는 여기 하나다(§3 · I-4f-2). */
-export const BRAND_SITE_URL = "www.woorialbum.com";
+ *  ★ 화면·PDF 가 같은 값을 본다. 주소가 바뀌면 고칠 자리는 여기 하나다(§3 · I-4f-2).
+ *  ★ **정본은 `www` 없는 쪽이다** (J-13 — 도메인 이전 완료 2026-08-10).
+ *    `www` 로 들어와도 Vercel 이 apex 로 넘긴다. 둘 다 열리지만 **찍히는 것은 하나**여야
+ *    한다 — 종이는 고칠 수 없다. 결정과 이전 기록은 `docs/DOMAIN_SWITCH.md`. */
+export const BRAND_SITE_URL = "woorialbum.com";
 
 /** 앨범 본문·PDF 마지막의 브랜드 푸터 문구.
  *  무료 PDF 전용이라는 결정은 그대로 유지한다(docs/PRINT_LAYOUT.md §8). */
