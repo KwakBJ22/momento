@@ -19,6 +19,14 @@ interface LandingProps {
   hideLogin?: boolean;
 }
 
+/**
+ * 제목 바로 아래 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
+ *
+ * ★ 나타났다 사라지지 않는다. 닫히는 배너로 만들지 않는다 — 닫았는지 기억해야 하고,
+ *   그 저장소가 K-9·K-15·K-22 를 낳은 자리다. 툴팁·투어도 만들지 않는다.
+ */
+const SCREEN_LEAD = "사진을 올려 앨범을 만들고, 함께한 사람들을 불러 채워요.";
+
 const CATEGORY_ICONS: Record<AlbumCategory, LucideIcon> = {
   family: Home,
   friend: Users,
@@ -61,6 +69,7 @@ export default function Landing({
           <br />
           우리의 이야기가 시작돼요.
         </h1>
+        <p className="landing__copy">{SCREEN_LEAD}</p>
         <p className="landing__copy">누구와 함께한 앨범인가요?</p>
 
         <div className="landing__categories" role="group" aria-label="앨범 종류">

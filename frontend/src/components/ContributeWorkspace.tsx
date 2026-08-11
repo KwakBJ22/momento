@@ -20,6 +20,13 @@ import ConfirmSheet from "./ConfirmSheet";
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
 /** label htmlFor 가 가리킬 파일 input. 화면에 하나만 존재한다. */
 const PHOTO_INPUT_ID = "contribute-photo-input";
+/**
+ * 제목 바로 아래 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
+ *
+ * ★ 앨범 주인 이름을 쓰지 않는다. workspace 에 그 값이 있는지 확인하지 않았고,
+ *   없는 값을 지어내면 화면이 거짓말을 한다.
+ */
+const SCREEN_LEAD = "사진에 한마디를 남기거나, 사진을 더할 수 있어요.";
 
 
 interface ContributeWorkspaceProps {
@@ -488,6 +495,7 @@ export default function ContributeWorkspace({
           <p className="contribute__badge">함께 만드는 중</p>
           <h2 className="contribute__title">{workspace.title}</h2>
           <p className="contribute__meta">{session.displayName} · 사진 {confirmedPhotoCount}/{workspace.photo_limit}</p>
+          <p className="contribute__meta">{SCREEN_LEAD}</p>
         </div>
       </header> : null}
 

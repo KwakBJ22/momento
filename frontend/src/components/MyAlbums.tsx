@@ -6,6 +6,14 @@ import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 import ConfirmSheet from "./ConfirmSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 
+/**
+ * 제목 바로 아래 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
+ *
+ * ★ 불러오는 중·앨범 없음 갈래에는 넣지 않는다. 그 화면들은 이미 제 말을 한다.
+ * ★ 아래 `함께 만드는 앨범`·`담아둔 앨범` 제목에도 넣지 않는다. 한 화면에 한 줄이다.
+ */
+const SCREEN_LEAD = "내가 만든 앨범과 함께 만드는 앨범이 모여 있어요.";
+
 function formatDate(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(date);
@@ -190,7 +198,10 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   return (
     <section className="my-albums" aria-labelledby="my-albums-title">
       <header className="my-albums__header">
-        <div><h2 id="my-albums-title">내 앨범</h2></div>
+        <div>
+          <h2 id="my-albums-title">내 앨범</h2>
+          {albums.length > 0 ? <p className="my-albums__lead">{SCREEN_LEAD}</p> : null}
+        </div>
         <a className="my-albums__create" href="/">앨범 만들기</a>
       </header>
       {albums.length === 0 ? (

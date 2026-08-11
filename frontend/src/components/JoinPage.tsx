@@ -5,6 +5,16 @@ import { BRAND_NAME_KO_PARTS } from "../lib/brand";
 import LinkUnavailable from "./LinkUnavailable";
 import "./JoinPage.css";
 
+/**
+ * 초대장의 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
+ *
+ * 예전 문구("각자의 사진을 모아 하나의 앨범으로 남겨요")는 서비스가 무엇인지에 대한
+ * 말이었고, 사진을 올려야 참여하는 것처럼 읽혔다. 실제 참여는 한마디 11건 : 사진 2건이다.
+ * 대부분이 하는 쉬운 쪽을 먼저 말하고, 사진은 그 다음에 둔다.
+ * 첫 줄(초대한 사람 이름)은 그대로다.
+ */
+const JOIN_LEAD = "사진을 보고 한마디를 남겨 주세요. 사진도 더할 수 있어요.";
+
 interface JoinPageProps {
   token: string;
   /** 지금 로그인한 사람. 아직 확인 중이면 `undefined` 다(§1 — 판정은 App 한 곳). */
@@ -141,7 +151,7 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
           <h2 className="join-page__album">{preview.title}</h2>
           <p className="join-page__meta">사진 {preview.photo_count}장 · 함께한 사람 {preview.contributor_count}명</p>
           <div className="join-page__rule" aria-hidden="true" />
-          <p className="join-page__motto">각자의 사진을 모아<br />하나의 앨범으로 남겨요.</p>
+          <p className="join-page__motto">{JOIN_LEAD}</p>
         </div>
       </div>
 

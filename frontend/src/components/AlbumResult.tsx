@@ -33,6 +33,14 @@ interface AlbumResultProps {
 }
 
 const EDIT_HINT = "우리의 이야기를 직접 적어보세요.";
+/**
+ * 공유 버튼 밑 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
+ *
+ * 예전 문구("무엇을 보낼지 고를 수 있어요")는 **버튼이 무엇을 하는지**를 설명했다.
+ * 그건 버튼 이름이 할 일이다. 이 자리는 다음 행동을 말한다 — 앨범은 혼자 보는 것이
+ * 아니라 불러서 함께 채우는 것이라는 것.
+ */
+const SHARE_HINT = "함께한 사람들을 불러 보세요. 각자 사진과 한마디를 더할 수 있어요.";
 const SAVED_ALBUM_MESSAGE = "앨범이 완성되었습니다. 함께 보고 간직해 보세요.";
 
 export default function AlbumResultView({
@@ -252,7 +260,7 @@ export default function AlbumResultView({
       <button type="button" className="btn btn--kakao" onClick={() => void handleSaveAlbum()} disabled={isSavingAlbum}>{isSavingAlbum ? "확인 중..." : "앨범 저장"}</button>
       <div className="album-result__hinted-action">
         <button type="button" className="btn btn--secondary" onClick={() => setShareOpen(true)}>공유하기</button>
-        <p className="album-result__action-hint">무엇을 보낼지 고를 수 있어요</p>
+        <p className="album-result__action-hint">{SHARE_HINT}</p>
       </div>
       <div className="album-result__hinted-action">
         <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || stagePhotos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
