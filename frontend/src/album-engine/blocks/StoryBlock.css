@@ -99,7 +99,9 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--c-text-subtle);
+  /* ★ 누르길 바라는 자리다("이야기를 적어보세요"). --c-text-subtle 은 너무 조용해서
+     읽히지도 눌리지도 않았다. hover 는 모바일에서 영원히 안 뜨므로 **기본 상태**를 올린다. */
+  color: var(--c-accent);
   font: inherit;
   font-size: clamp(0.92rem, 1.7vw, 1rem);
   cursor: pointer;
@@ -107,7 +109,7 @@
 }
 
 .story-block__empty-hint:hover {
-  color: var(--c-accent);
+  color: var(--c-accent-strong);
 }
 
 .story-block__error {

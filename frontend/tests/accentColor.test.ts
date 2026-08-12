@@ -165,3 +165,34 @@ test("이야기 구역 구분선은 --c-border-strong 그대로다", () => {
   const block = story.slice(0, story.indexOf(".story-block__head"));
   assert.match(block, /border-top: 1px solid var\(--c-border-strong\)/);
 });
+
+test("★ `이야기를 적어보세요` 는 기본 상태부터 보조색이다", () => {
+  // 누르길 바라는 자리인데 --c-text-subtle 이라 조용했다. hover 는 모바일에서 영원히
+  // 안 뜨므로 기본 상태를 올린다(hover 는 한 단계 더 진하게).
+  const story = read("album-engine/blocks/StoryBlock.css");
+  const hint = story.slice(story.indexOf(".story-block__empty-hint {"), story.indexOf("}", story.indexOf(".story-block__empty-hint {")));
+  assert.match(hint, /color: var\(--c-accent\)/);
+  // 주석은 사람에게 하는 설명이다(옛 값을 왜 올렸는지 적어 두었다) — 빼고 본다.
+  assert.equal(hint.replace(/\/\*[\s\S]*?\*\//g, "").includes("--c-text-subtle"), false);
+  assert.match(story, /\.story-block__empty-hint:hover \{\s*\n\s*color: var\(--c-accent-strong\);/);
+});
+
+test("★ 내 앨범의 `삭제` 는 빨간 글씨가 아니다 — 막는 것은 확인 시트다", () => {
+  const css = readFileSync(path.join(SRC, "App.css"), "utf8");
+  const del = css.slice(css.indexOf(".my-albums__delete {"), css.indexOf("}", css.indexOf(".my-albums__delete {")));
+  assert.match(del, /color: var\(--c-text-muted\)/);
+  assert.equal(del.includes("--c-danger"), false, "되돌릴 수 없는 동작이 다시 상시 빨강이 됐다");
+  // 확인 단계는 그대로다 — 색을 낮춘 대신 시트를 없애면 안 된다.
+  const list = readFileSync(path.join(SRC, "components/MyAlbums.tsx"), "utf8");
+  assert.match(list, /\{pendingDelete \? \(/);
+  assert.match(list, /<ConfirmSheet/);
+});
+
+test("죽은 값 onTop 이 코드에 남아 있지 않다", () => {
+  for (const file of ["components/AlbumBottomNavigation.tsx", "App.tsx", "components/AlbumView.tsx",
+                      "components/AlbumResult.tsx", "components/PublicShareView.tsx",
+                      "components/ContributeWorkspace.tsx", "components/AlbumScreen.tsx"]) {
+    const source = readFileSync(path.join(SRC, file), "utf8").replace(/^\s*\/\/.*$/gm, "");
+    assert.equal(source.includes("onTop"), false, `${file} 에 onTop 이 남았다`);
+  }
+});

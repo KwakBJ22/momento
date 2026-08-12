@@ -45,8 +45,8 @@ export default function AlbumScreen({
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-  // Always scroll the page to the top — the button's meaning is "맨 위로". (onTop from the
-  // nav is not reused: for some callers it navigates rather than scrolls.)
+  // Always scroll the page to the top — the button's meaning is "맨 위로".
+  // (하단 네비에 있던 onTop 은 없앴다 — 그 칸 자체가 사라졌다.)
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return (
     <div className={`album-page album-screen ${className}`.trim()}>

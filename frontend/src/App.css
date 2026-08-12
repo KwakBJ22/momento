@@ -308,7 +308,10 @@ body {
 .my-albums__list { display: grid; gap: 0.75rem; }
 .my-albums__card { gap: 0.85rem; padding: 0.65rem; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-surface); color: inherit; }
 .my-albums__card-link { display: flex; flex: 1; gap: 0.85rem; min-width: 0; color: inherit; text-decoration: none; }
-.my-albums__delete { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-danger); font-size: var(--t-xs); font-weight: 700; cursor: pointer; }
+/* 지우기는 되돌릴 수 없지만, 그렇다고 빨간 글씨로 늘 떠 있으면 목록이 불안해진다.
+   바로 아래 `내 목록에서 빼기` 와 무게도 안 맞았다. 색은 낮추고 확인 시트는 그대로 둔다 —
+   막는 것은 색이 아니라 그 시트다. */
+.my-albums__delete { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-text-muted); font-size: var(--t-xs); font-weight: 700; cursor: pointer; }
 .my-albums__delete:disabled { opacity: 0.6; cursor: wait; }
 /* 담아둔 앨범을 내 목록에서 빼기 (K-16). 앨범을 지우는 것이 아니므로 위험한 빨강이
    아니라 **중립색**이다 — 색으로도 "지우기가 아니다" 라고 말한다. */

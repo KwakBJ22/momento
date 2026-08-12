@@ -65,9 +65,15 @@ test("★ 뺀 뒤에는 목록에서 사라진다. 못 뺐으면 말한다 (§11
   assert.equal(/[A-Za-z]{3,}/.test(bookmarkRemoveTroubleMessage()), false);
 });
 
-test("목록 하나만 손댔다 — 색으로도 지우기가 아니라고 말한다", () => {
+test("★ 두 글자 모두 중립색이다 — 막는 것은 색이 아니라 확인 시트다", () => {
+  // ★ 뒤집힌 항목(2026-08-12). 예전에는 `삭제` 만 --c-danger 였다. 그런데 되돌릴 수 없는
+  //   동작이 목록에 **빨간 글씨로 늘 떠 있으면** 불안하고, 바로 아래 `내 목록에서 빼기` 와
+  //   무게도 안 맞았다. 지우기를 막는 것은 색이 아니라 확인 시트다(그 시트는 그대로다).
   const css = readFileSync(path.join(SRC, "App.css"), "utf8");
-  // 앨범 지우기는 위험한 빨강, 목록에서 빼기는 중립색이다.
-  assert.match(css, /\.my-albums__delete \{[^}]*color: var\(--c-danger\)/);
+  assert.match(css, /\.my-albums__delete \{[^}]*color: var\(--c-text-muted\)/);
   assert.match(css, /\.my-albums__unbookmark \{[^}]*color: var\(--c-text-muted\)/);
+  // 위치·문구·동작은 그대로다 — 색만 낮췄다.
+  const list = readFileSync(path.join(SRC, "components/MyAlbums.tsx"), "utf8");
+  assert.match(list, /className="my-albums__delete"/);
+  assert.match(list, /<ConfirmSheet/);
 });
