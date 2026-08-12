@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우리앨범 — 초대받은 사람이 처음 보는 화면 (참여하기, 4C)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+/* 시안(4C)의 마크업을 그대로 옮긴 파일입니다. 값은 인라인에 그대로 두었고,
+   아래 :root 는 대응하는 tokens.css 변수 이름을 적어 둔 참고표입니다.
+   실제 구현에서는 hex 대신 이 변수들을 쓰세요.
+
+   #fffdfb --c-bg        #ffffff --c-surface    #fdf7f5 --c-bg-soft
+   #e0caca --c-border    #c9a9a9 --c-border-strong
+   #2d2d2d --c-text      #5a5150 --c-text-soft  #7d716f --c-text-muted
+   #ff6b6b --c-brand     #b34a46 --c-brand-action (hover #993d3a)
+   #8a2c2c --c-brand-text                       #fee500 --c-kakao / #191600 --c-kakao-text
+   #1a1f2b 로고 잉크(로고 락업 전용)
+   radius 8/12/16/999 · 간격 4·8·12·16·24·32·48 · 터치 최소 44px */
+*{box-sizing:border-box}
+body{margin:0;background:#f2ece9;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+a{color:#8a2c2c}a:hover{color:#993d3a}
+.wrap{display:flex;flex-wrap:wrap;gap:24px;padding:32px;align-items:flex-start}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div style="display:flex;flex-direction:column;gap:8px">
+  <div style="position:relative;width:390px;height:844px;background:#fdf7f5;border:1px solid #c9a9a9;border-radius:20px;overflow:hidden" data-screen-label="참여하기 (초대받은 사람 첫 화면)">
+    <div style="height:53px;display:flex;align-items:center;padding:0 20px;border-bottom:1px dashed #c9a9a9;background:#fdf7f5"><span style="font:600 12px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#7d716f">기존 헤더 53px — 설계 대상 아님</span></div>
+    <div style="padding:22px 20px 0">
+      <p style="margin:0 0 14px;font:800 24px/1.4 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d;word-break:keep-all">곽병준님이 함께 만들자고<br>초대했어요</p>
+      <div style="border:1px solid #c9a9a9;border-radius:16px;background:#fff;overflow:hidden">
+        <div style="padding:12px 16px 0;display:grid;place-items:center;background:#fff"><div style="width:196px;height:140px;border-radius:8px;background:radial-gradient(120% 80% at 32% 18%,rgba(255,244,225,.8),rgba(255,244,225,0) 55%),linear-gradient(158deg,#3b2f2b,#8a6247 48%,#d9b686)"></div></div>
+        <div style="padding:14px 16px 16px;text-align:center">
+          <p style="margin:0;font:800 24px/1.3 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">우리의 추억</p>
+          <p style="margin:8px 0 0;font:400 16px/1.6 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#7d716f">사진 8장 · 함께한 사람 4명</p>
+          <div style="height:1px;background:#e0caca;margin:14px 0"></div>
+          <p style="margin:0;font:600 16px/1.6 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#8a2c2c">각자의 사진을 모아<br>하나의 앨범으로 남겨요.</p>
+        </div>
+      </div>
+      <p style="margin:22px 0 8px;font:600 16px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">참여자명</p>
+      <div style="height:56px;display:flex;align-items:center;padding:0 16px;border:1px solid #c9a9a9;border-radius:12px;background:#fff;font:400 16px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#7d716f">앨범에서 이 이름으로 불려요</div>
+      <div style="margin-top:16px;height:56px;display:grid;place-items:center;border-radius:12px;background:#b34a46;color:#fff;font:800 18px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif">앨범에 참여하기</div>
+      <div style="height:1px;background:#e0caca;margin:38px 0 14px"></div>
+      <p style="margin:0;font:400 16px/1.6 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150"><span style="font-weight:800;letter-spacing:-.02em"><span style="color:#1a1f2b">우리</span><span style="color:#ff6b6b">앨범</span></span> 계정으로 함께하면<br>내가 올린 사진과 글을 언제든 다시 찾을 수 있어요.</p>
+      <div style="margin-top:12px;height:52px;display:grid;place-items:center;border-radius:12px;background:#fee500;color:#191600;font:600 17px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif">카카오로 시작하기</div>
+    </div>
+  </div>
+  <p style="margin:0;width:390px;font:400 13px/1.6 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#7d716f"><b>첫 화면(스크롤 없이):</b> 초대 한 줄 → <b>표지 카드</b>(사진+제목+참여 수+모토를 한 덩어리로) → 참여자명 입력 → 참여 버튼. 카카오 버튼은 그 아래. 배경 <code>#fdf7f5</code> 위 흰 카드라 그림자 없이 색차만으로 책처럼 떠 보인다.</p>
+</div>
+
+<div style="width:420px;padding:24px;background:#fff;border:1px solid #c9a9a9;border-radius:16px">
+  <h2 style="margin:0 0 8px;font:800 17px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">참여하기 화면 — 구현 메모</h2>
+  <p style="margin:0 0 8px;font:400 14px/1.7 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150">이 화면을 보는 사람은 서비스를 모르고, 찾아온 게 아니라 <b>불려 온 사람</b>이다. 그래서 서비스 소개가 아니라 <b>초대한 사람의 이름</b>이 첫 줄이다. 목표 한 문장: “이건 광고가 아니라 나한테 온 초대구나”.</p>
+
+  <h3 style="margin:18px 0 6px;font:800 15px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">확정 문구</h3>
+  <ul style="margin:0;padding-left:18px;font:400 14px/1.7 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150">
+    <li>초대: <code>{초대한 사람}님이 함께 만들자고 초대했어요</code> — 24px/800/1.4, 두 줄. <b>이름은 본문과 같은 검정</b> (빨간 이름을 쓰지 않는다)</li>
+    <li>모토: <b>각자의 사진을 모아 하나의 앨범으로 남겨요.</b></li>
+    <li>참여 수: <code>사진 N장 · 함께한 사람 N명</code></li>
+    <li>입력 라벨 <b>참여자명</b> / placeholder “앨범에서 이 이름으로 불려요”</li>
+    <li>계정 안내의 <b>‘우리앨범’은 로고 락업</b>으로 렌더 (우리 <code>#1a1f2b</code> + 앨범 <code>#ff6b6b</code>, 800)</li>
+  </ul>
+
+  <h3 style="margin:18px 0 6px;font:800 15px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">버튼 위계 (색으로 주지 않는다)</h3>
+  <p style="margin:0;font:400 14px/1.7 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150">카카오 노랑은 <code>#b34a46</code>보다 밝아 색만으로는 오히려 더 튄다. 네 가지로 위계를 준다 — ① 참여 버튼은 입력창에 바로 붙고 카카오는 구분선 뒤로 떨어진다 ② 높이 56 vs 52 ③ 18px/800 vs 17px/600 ④ 카카오 앞에는 설명 두 줄이 먼저 온다(읽고 나서 누르는 버튼). 첫 화면에 카카오를 넣지 않은 것도 위계다 — 숨긴 게 아니라 순서를 준 것.</p>
+
+  <h3 style="margin:18px 0 6px;font:800 15px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">없애는 것</h3>
+  <ul style="margin:0;padding-left:18px;font:400 14px/1.7 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150">
+    <li><b>관계 (선택) 칩 5개</b> — 초대한 사람이 이미 아는 것을 다시 묻는 셈</li>
+    <li><b>‘기억’</b>이라는 말 — 이 서비스의 말은 <b>한마디</b> 하나</li>
+    <li><b>검은색 버튼</b> — 참여 버튼은 <code>#b34a46</code></li>
+    <li>상단 <b>‘함께 만드는 앨범’</b> 소제목 — 헤더에 브랜드가 이미 있다</li>
+    <li>‘어떻게 불러드릴까요?’ → <b>참여자명</b></li>
+  </ul>
+
+  <h3 style="margin:18px 0 6px;font:800 15px Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#2d2d2d">지키는 것</h3>
+  <ul style="margin:0;padding-left:18px;font:400 14px/1.7 Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#5a5150">
+    <li>14px 미만 없음. 누르는 영역 44px 이상 (입력·참여 56, 카카오 52)</li>
+    <li>애니메이션·그림자·장식 없음. 카드는 배경 색차로만 띄운다</li>
+    <li>표지 사진은 전폭이 아닌 <b>196×140 상자</b>에 가운데 정렬하고 모서리 8px. 전폭이면 세로·정사각 사진의 양옆이 크게 재단된다. 구현 시 <code>object-fit:cover</code></li>
+    <li>가입 없이 참여 버튼 → 바로 앨범으로</li>
+    <li><code>AI</code>·<code>곧</code>·<code>준비 중</code>·기능 목록 없음</li>
+    <li>맨 위 점선 줄(<b>기존 헤더 53px</b>)은 자리 표시 — 구현하지 않는다</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

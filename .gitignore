@@ -56,7 +56,7 @@ yarn-error.log*
 *.db
 *.tmp
 *.bak
-*.md
+
 !docs/MVP_TEST_CHECKLIST.md
 !docs/BUG_LOG.md
 !docs/RELEASE_CHECKLIST.md
@@ -82,3 +82,7 @@ htmlcov/
 .cache/
 /backend/app/brand/data/pool_cache.txt
 /backend/app/brand/data/pool_cache.v2.txt
+.claude/
+frontend/.claude/
+*.bak.*
+인쇄업체선정.txt

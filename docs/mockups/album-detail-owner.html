@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우리앨범 — 앨범 화면 확정안 (2a)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+/* ── 이 파일은 참고용 시안입니다. 실제 구현은 tokens.css 변수를 쓰세요. ──
+   아래 :root 값은 Momento/frontend/src/styles/tokens.css 와 동일합니다. */
+:root{
+  --c-bg:#fffdfb; --c-surface:#ffffff; --c-bg-soft:#fdf7f5;
+  --c-border:#e0caca; --c-border-strong:#c9a9a9;
+  --c-text:#2d2d2d; --c-text-soft:#5a5150; --c-text-muted:#7d716f; --c-text-subtle:#7e726f;
+  --c-brand:#ff6b6b; --c-brand-action:#b34a46; --c-brand-action-hover:#993d3a;
+  --c-brand-text:#8a2c2c; --c-brand-soft:#fff0f0;
+  --c-danger:#a3231f; --c-warning:#8a6212;
+  --c-kakao:#fee500; --c-kakao-text:#191600;
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-6:24px; --s-8:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
+  --sh-sm:0 1px 3px rgba(45,45,45,.06); --sh-md:0 4px 14px rgba(45,45,45,.09); --sh-lg:0 18px 44px rgba(45,45,45,.16);
+  --font:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --t-xs:.875rem; --t-sm:1rem; --t-base:1rem; --t-lg:1.15rem; --t-xl:1.5rem; --t-2xl:2rem;
+  --w-normal:400; --w-medium:600; --w-bold:800;
+  --lh-tight:1.3; --lh-base:1.6; --tap-min:44px;
+  /* 이 시안에서 새로 쓴 값 (토큰 아님 — 구현 시 판단 필요) */
+  --nav-h:76px;                /* 하단 3칸 높이 */
+  --hairline:#f0e4e1;          /* 시트 내부 옅은 구분선 = --c-border 보다 약함 */
+}
+*{box-sizing:border-box}
+body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
+.sheetwrap{display:flex;flex-wrap:wrap;gap:24px;padding:32px;align-items:flex-start}
+.cap{width:390px;margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--c-text-muted)}
+.col{display:flex;flex-direction:column}
+
+/* 390px 모바일 프레임 (시안용 껍데기 — 구현에는 필요 없음) */
+.frame{position:relative;width:390px;height:844px;background:var(--c-bg);border:1px solid var(--c-border-strong);border-radius:20px;overflow:hidden;box-shadow:var(--sh-md);display:flex;flex-direction:column}
+
+/* ── 헤더 ── */
+.hdr{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;border-bottom:1px solid var(--hairline);background:var(--c-bg)}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand__ko{font-size:19px;font-weight:var(--w-bold);line-height:1;letter-spacing:-.02em}
+.brand__ko b{color:#1a1f2b;font-weight:inherit}
+.brand__ko i{color:var(--c-brand);font-style:normal}
+.brand__en{font-size:11px;font-weight:var(--w-medium);line-height:1;letter-spacing:.08em;color:#8a8f98}
+.hdr__right{display:flex;align-items:center;gap:10px}
+.hdr__link{min-height:var(--tap-min);display:grid;place-items:center;font-size:var(--t-xs);font-weight:var(--w-medium);color:var(--c-brand-text);background:none;border:0;font-family:inherit;cursor:pointer}
+.hdr__more{min-width:var(--tap-min);min-height:var(--tap-min);display:grid;place-items:center;padding:0 12px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);font-family:inherit;font-size:var(--t-xs);font-weight:var(--w-medium);color:var(--c-text);cursor:pointer}
+
+/* ── 본문 ── */
+.body{flex:1 1 auto;overflow-y:auto;padding:0 20px}
+.albumhead{padding:var(--s-6) 0 var(--s-2);display:flex;flex-direction:column;gap:var(--s-2);align-items:center;text-align:center}
+.albumhead__row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;min-width:0}
+.albumhead h1{margin:0;min-width:0;word-break:keep-all;font-size:var(--t-2xl);font-weight:var(--w-bold);line-height:var(--lh-tight);letter-spacing:-.03em;color:var(--c-text)}
+.albumhead__edit{width:var(--tap-min);height:var(--tap-min);display:grid;place-items:center;border:1px solid var(--c-border);border-radius:var(--r-full);background:var(--c-surface);font-family:inherit;font-size:var(--t-xs);font-weight:var(--w-medium);color:var(--c-brand-text);cursor:pointer}
+.albumhead__meta{margin:0;font-size:var(--t-base);line-height:var(--lh-base);color:var(--c-text-muted)}
+
+/* 미완성 안내 (한마디 없는 사진) */
+.notice{margin-top:var(--s-3);display:flex;align-items:center;gap:10px;padding:var(--s-3) 14px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-bg-soft)}
+.notice__dot{width:22px;height:22px;flex:none;border-radius:var(--r-full);border:2px solid var(--c-warning)}
+.notice p{margin:0;font-size:15px;line-height:1.5;font-weight:var(--w-medium);color:var(--c-text-soft)}
+.notice a{color:var(--c-brand-text);font-weight:700;text-decoration:none}
+
+.rule{height:1px;background:var(--c-border-strong);margin:20px 0 0}
+.datehead{padding:22px 0 var(--s-3);text-align:center}
+.datehead__month{margin:0 0 6px;font-size:19px;font-weight:var(--w-bold);line-height:var(--lh-tight);color:var(--c-text)}
+.datehead__day{margin:0;font-size:var(--t-xs);font-weight:var(--w-medium);line-height:1.4;color:var(--c-text-muted)}
+
+/* 사진 + 캡션 (캡션엔 카드·테두리·배경 없음) */
+.photo{border-radius:var(--r-sm);overflow:hidden;width:100%}
+.photo + .caption{margin:var(--s-3) 0 0}
+.caption{font-size:var(--t-base);line-height:var(--lh-base);font-weight:var(--w-medium);color:var(--c-text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.caption .who{color:var(--c-text-subtle);font-weight:var(--w-medium)}
+.photoblock + .photoblock{margin-top:26px}
+
+/* ── 하단 고정 메뉴: 3칸 ── */
+.nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--c-border);background:rgba(255,253,251,.98)}
+.nav button{min-height:var(--nav-h);display:grid;place-content:center;justify-items:center;gap:5px;border:0;background:transparent;font-family:inherit;font-size:15px;font-weight:var(--w-medium);color:var(--c-text-soft);cursor:pointer}
+.nav button.is-primary{background:var(--c-brand-soft);color:var(--c-brand-text);font-weight:var(--w-bold)}
+.ic{width:24px;height:24px;border:2px solid currentColor;border-radius:4px}   /* 실제 구현: lucide ImagePlus 24 */
+.ic--pen{width:24px;height:2px;border:0;background:currentColor;transform:rotate(-45deg);margin:11px 0} /* lucide PencilLine 24 */
+.ic--share{border-radius:var(--r-full)}                                        /* lucide Share2 24 */
+
+/* ── 바텀시트 ── */
+.dim{position:absolute;inset:0;background:rgba(61,53,48,.5)}
+.sheet{position:absolute;right:0;bottom:0;left:0;background:var(--c-surface);border-radius:18px 18px 0 0;box-shadow:var(--sh-lg)}
+.sheet__hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--c-border-strong)}
+.sheet__hdr h2{margin:0;font-size:19px;font-weight:var(--w-bold);color:var(--c-text)}
+.sheet__close{min-height:var(--tap-min);display:grid;place-items:center;border:0;background:none;font-family:inherit;font-size:var(--t-sm);font-weight:var(--w-medium);color:var(--c-brand-text);cursor:pointer}
+.sheet__body{padding:var(--s-4) 20px var(--s-6);display:flex;flex-direction:column;gap:var(--s-3)}
+.btn{min-height:56px;display:grid;place-items:center;border:0;border-radius:var(--r-md);font-family:inherit;font-size:17px;font-weight:var(--w-bold);cursor:pointer}
+.btn--kakao{background:var(--c-kakao);color:var(--c-kakao-text)}
+.btn--primary{background:var(--c-brand-action);color:var(--c-surface)}
+.btn--primary:hover{background:var(--c-brand-action-hover)}
+.btn--secondary{min-height:52px;border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);font-size:var(--t-sm);font-weight:var(--w-medium)}
+.hint{margin:-4px 0 4px;font-size:var(--t-xs);line-height:1.5;color:var(--c-text-muted);text-align:center}
+.hair{height:1px;background:var(--hairline);margin:4px 0}
+.card{padding:var(--s-4);border:1px solid var(--c-border);border-radius:var(--r-lg);display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:17px;font-weight:var(--w-bold);color:var(--c-text)}
+.card p{margin:0;font-size:15px;line-height:var(--lh-base);color:var(--c-text-soft)}
+.card .who{font-size:var(--t-xs);color:var(--c-text-muted)}
+
+/* 더보기 목록 */
+.list{padding:var(--s-2) 20px var(--s-6);display:flex;flex-direction:column}
+.list__row{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);border-bottom:1px solid var(--hairline);background:none;border-left:0;border-right:0;border-top:0;font-family:inherit;text-align:left;cursor:pointer}
+.list__row:last-of-type{border-bottom:0}
+.list__row span{font-size:17px;font-weight:var(--w-medium);color:var(--c-text)}
+.list__row em{font-style:normal;font-size:var(--t-xs);font-weight:var(--w-normal);color:var(--c-text-muted)}
+.list__row--danger span{color:var(--c-danger)}
+.safe{margin:10px 0 0;font-size:var(--t-xs);line-height:var(--lh-base);color:var(--c-text-soft)}
+
+/* 사진 플레이스홀더 (구현 시 실제 사진으로 교체) */
+.ph-a{background:radial-gradient(120% 80% at 30% 15%,rgba(255,244,225,.85),rgba(255,244,225,0) 55%),linear-gradient(158deg,#3b2f2b,#8a6247 48%,#d9b686)}
+.ph-b{background:radial-gradient(110% 90% at 75% 10%,rgba(255,255,255,.7),rgba(255,255,255,0) 60%),linear-gradient(172deg,#93b7cd,#cfd8d1 58%,#8d9a7c)}
+.behind{position:absolute;inset:0;padding:0 20px;overflow:hidden}
+</style>
+</head>
+<body>
+<div class="sheetwrap">
+
+<!-- ══════════ 화면 1: 앨범 화면 (소유자) ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="앨범 화면 (소유자)">
+  <header class="hdr">
+    <div class="brand"><div class="brand__ko"><b>우리</b><i>앨범</i></div><div class="brand__en">woorialbum</div></div>
+    <div class="hdr__right">
+      <button type="button" class="hdr__link">내 앨범</button>
+      <button type="button" class="hdr__more">더보기</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="albumhead">
+      <div class="albumhead__row">
+        <h1>우리의 추억</h1>
+        <button type="button" class="albumhead__edit" aria-label="앨범 제목 수정">수정</button>
+      </div>
+      <p class="albumhead__meta">사진 12장 · 함께 만든 사람 3명</p>
+    </div>
+
+    <div class="notice">
+      <div class="notice__dot" aria-hidden="true"></div>
+      <p>사진 4장에 아직 한마디가 없어요. <a href="#">채우러 가기</a></p>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="datehead">
+      <p class="datehead__month">2018년 7월</p>
+      <p class="datehead__day">2018.07.08 · 사진 2장</p>
+    </div>
+
+    <div class="photoblock">
+      <div class="photo ph-a" style="height:362px"></div>
+      <p class="caption"><span class="who">엄마 </span>이 집 국수가 그렇게 맛있다더니, 진짜였네</p>
+    </div>
+    <div class="photoblock">
+      <div class="photo ph-b" style="height:160px"></div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="앨범 메뉴">
+    <button type="button"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+    <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+    <button type="button" class="is-primary"><span class="ic ic--share" aria-hidden="true"></span>공유하기</button>
+  </nav>
+</div>
+<p class="cap">하단 3칸 = 칸당 130px. 라벨 15px 한 줄. 공유하기만 <code>--c-brand-soft</code> 배경으로 이 화면의 목적을 표시.</p>
+</div>
+
+<!-- ══════════ 화면 2: 공유하기 시트 ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="공유하기 시트">
+  <div class="behind">
+    <div class="datehead"><p class="datehead__month">2018년 7월</p><p class="datehead__day">2018.07.08 · 사진 2장</p></div>
+    <div class="photo ph-a" style="height:360px"></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet" role="dialog" aria-label="공유하기">
+    <div class="sheet__hdr"><h2>공유하기</h2><button type="button" class="sheet__close">닫기</button></div>
+    <div class="sheet__body">
+      <button type="button" class="btn btn--kakao">카카오톡으로 보내기</button>
+      <p class="hint">받은 사람은 보기만 할 수 있어요</p>
+      <div class="hair"></div>
+      <div class="card">
+        <h3>함께 만들기</h3>
+        <p>가족과 친구가 자기 사진과 한마디를 더할 수 있어요.</p>
+        <button type="button" class="btn btn--primary">사진·한마디 받기</button>
+        <p class="who">지금 3명이 함께 만들고 있어요</p>
+      </div>
+      <button type="button" class="btn btn--secondary">링크 복사</button>
+    </div>
+  </div>
+</div>
+<p class="cap">주 동작은 카카오톡 보내기 1개. “함께 만들기”는 카드로 묶어 다른 성질임을 표시. 종이 앨범 주문 없음, PDF는 더보기로.</p>
+</div>
+
+<!-- ══════════ 화면 3: 더보기 시트 ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="더보기 시트">
+  <div class="behind" style="padding:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="brand__ko"><b>우리</b><i>앨범</i></div>
+      <span class="hdr__more">더보기</span>
+    </div>
+    <h1 style="margin:22px 0 0;text-align:center;font-size:var(--t-2xl);font-weight:var(--w-bold)">우리의 추억</h1>
+    <div class="photo ph-a" style="height:280px;margin-top:22px"></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet" role="dialog" aria-label="더보기">
+    <div class="sheet__hdr"><h2>더보기</h2><button type="button" class="sheet__close">닫기</button></div>
+    <div class="list">
+      <button type="button" class="list__row"><span>표지 사진 바꾸기</span><em>지금 국숫집 사진</em></button>
+      <button type="button" class="list__row"><span>함께 만든 사람</span><em>3명</em></button>
+      <button type="button" class="list__row"><span>파일로 저장하기 (PDF)</span></button>
+      <button type="button" class="list__row"><span>새 앨범 만들기</span><em>이 앨범은 그대로 있어요</em></button>
+      <button type="button" class="list__row list__row--danger"><span>이 앨범 지우기</span></button>
+      <p class="safe">지우기 전에 한 번 더 물어봐요. 실수로 지워지지 않아요.</p>
+    </div>
+  </div>
+</div>
+<p class="cap">제목 고치기는 없음 — 제목 옆 “수정” 버튼으로만. 지우기는 배경을 채우지 않고 글자색만(<code>--c-danger</code>).</p>
+</div>
+
+</div>
+</body>
+</html>

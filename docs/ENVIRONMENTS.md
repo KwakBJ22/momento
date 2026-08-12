@@ -1,0 +1,330 @@
+# 개발 / 운영 나누기 (ENVIRONMENTS)
+
+작성 2026-08-10 · **개정 2026-08-10 (2차 — 1·2단계 모두 완료)**
+**PO 판단** — 주변에 앱을 알리기 시작하면서 정한다.
+
+지금까지는 운영 서버 하나로 만들고 고쳤다. 사용자가 BJ 혼자일 때는 그게 빨랐다.
+**오늘부터 남이 쓴다.** 그러면 운영에서 실험하면 안 된다.
+
+★ 2026-08-10 에 실제로 겪은 것 — K-14(약관 동의)를 운영에 바로 올렸더니
+**모든 앨범이 동의 체크로 막혔다.** 동의를 눌러도 서버에 안 남아서 빠져나올 수도 없었다.
+되돌리기까지 그 사이에 들어온 사람은 아무것도 못 했다.
+**이 문서는 그 일이 다시 없게 하려고 쓴다.**
+
+---
+
+## 1. 갈래는 둘뿐이다
+
+MVP 다. 층을 늘리지 않는다. `staging` · `qa` 같은 것을 더 만들지 않는다.
+
+| | **운영 (main)** | **개발 (dev)** |
+| --- | --- | --- |
+| 화면 | `woorialbum.com` | `dev.woorialbum.com` |
+| 서버 | Railway `production` | Railway `dev` 환경 |
+| DB · 파일 | Supabase `momento` | Supabase 새 프로젝트 (개발용) |
+| 카카오 | `Momento` 비즈앱 | **같은 앱** — 도메인만 추가 |
+| 누가 보나 | 사용자 | BJ 와 코드만 |
+
+★ **개발용 주소를 고정한다.** Vercel 의 미리보기 주소는 커밋마다 바뀌어서
+카카오·Supabase 에 등록할 수가 없다. `dev.woorialbum.com` 하나로 못 박고,
+그 주소를 `dev` 브랜치에 붙인다.
+
+★ **카카오 앱을 새로 만들지 않는다.** 회원번호가 앱마다 달라진다(2026-08-06 사고).
+같은 앱에 개발 도메인과 개발 Supabase 의 콜백 주소를 **더한다.**
+
+---
+
+## 2. 한 번만 하는 준비
+
+### 2-1. 가비아 DNS
+
+| 호스트 | 타입 | 값 |
+| --- | --- | --- |
+| `dev` | **CNAME** | Vercel 이 알려주는 값 |
+
+### 2-2. Vercel
+
+★ **새 프로젝트를 만들지 않는다.** 지금 프로젝트에 도메인을 하나 더 붙인다.
+프로젝트가 둘이면 환경변수·설정이 두 벌이 되고, 어긋나면 그게 결함이 된다.
+
+- Settings → Domains → `dev.woorialbum.com` 추가
+- **Connect to an environment = `Preview`** · **Branch = `dev`**
+  ★ `Production` 으로 저장하면 dev 주소가 **운영 화면을 보여준다.**
+  ★ `dev` 브랜치가 없으면 선택지에 안 나온다. **브랜치를 먼저 만든다.**
+- 환경변수는 **Preview 환경에만** 개발용 값을 넣는다
+
+```
+WOORIALBUM_API_URL       Railway dev 주소
+VITE_API_BASE_URL        Railway dev 주소   ← 업로드는 프록시를 안 탄다
+VITE_SUPABASE_URL        개발 Supabase
+VITE_SUPABASE_ANON_KEY   개발 Supabase
+VITE_KAKAO_JS_KEY        운영과 같은 값 (같은 카카오 앱)
+```
+
+★ 한 변수가 `Production and Preview` 를 **공유**하고 있으면 먼저 갈라야 한다.
+`Sensitive` 로 표시된 변수는 값을 다시 보여주지 않으므로, 환경만 바꾸려 해도
+**값을 다시 입력**해야 한다. 빈 칸으로 저장하면 값이 지워진다.
+
+★ **`VITE_` 값은 빌드할 때 코드에 박힌다.** 바꾼 뒤 반드시 **`dev` 배포를 Redeploy**한다.
+`main` 배포를 Redeploy 하지 않는다 — 운영이다.
+
+★★ **Settings → Deployment Protection → Vercel Authentication 을 끈다.**
+안 끄면 Preview 배포가 Vercel 로그인을 요구해서 **폰·카카오톡에서 안 열린다.**
+dev 주소를 만드는 이유가 폰 확인인데 그게 막힌다(2026-08-10 에 실제로 걸렸다).
+끄면 dev 주소가 누구나 열 수 있게 되므로 **주소를 남에게 알리지 않는다.**
+
+### 2-3. Supabase (개발용 프로젝트 새로 만들기) — **끝남 (2026-08-10)**
+
+```
+운영  hbywquveagumdxtjdzoh   woorialbum
+개발  rledlhgycwzmtldcuram   woorialbum-dev   (ap-northeast-2)
+```
+
+- `supabase/schema.sql` → `migrations` 53개를 **파일명 순서로 전부** 적용했다.
+- Storage 버킷 **`woorialbum-private`**(비공개) — **운영과 이름이 같아야 한다.**
+  `album_photos.storage_bucket` 에 이름이 그대로 들어간다.
+- Authentication → URL Configuration
+  - Site URL `https://dev.woorialbum.com`
+    ★ 여기가 `localhost:5173` 이면 **로그인 뒤 localhost 로 튕긴다.**
+      Supabase 는 돌아갈 주소가 허용 목록에 없으면 Site URL 로 떨어뜨린다.
+  - Redirect URLs `https://dev.woorialbum.com/**` · `http://localhost:5173/**`
+    ★ `localhost` 줄을 지우지 않는다. 로컬 개발이 그걸 쓴다.
+- Providers → Kakao 를 켜고 **운영과 같은 REST API 키**를 Client ID 에 넣는다.
+  ★ JavaScript 키를 넣으면 **KOE101**(잘못된 앱 키)이 난다. **REST API 키**다.
+  ★ Client Secret 도 넣는다. Supabase 가 값을 가려서 보여주므로 틀려도 눈에 안 보인다 —
+    의심되면 그냥 다시 넣는다.
+
+### 스키마가 같은지 확인한 근거 (2026-08-10)
+
+| 보는 것 | 개발 | 운영 |
+| --- | --- | --- |
+| public 테이블 수 | 23 | 23 |
+| public 함수 수 | 16 | 16 |
+| albums 자식 FK — CASCADE | 15 | 15 |
+| albums 자식 FK — SET NULL | 2 | 2 |
+| albums 자식 FK — RESTRICT | 0 | 0 |
+| 컬럼 수 | 295 | 296 |
+
+★ **딱 한 칸 다르다 — 운영에만 `albums.stories` (ARRAY).**
+어느 migration 에도 없는, 손으로 더해진 옛 칸이다. 값은 전부 `[]` 이고
+**백엔드가 읽지도 쓰지도 않는다**(insert/update 어디에도 없다). 코드의 `stories` 는
+전부 파이썬 변수와 요청 필드다.
+★ **지우지 않는다.** 비어 있고 아무도 안 쓰니 개발/운영이 다르게 동작할 수 없다.
+칸을 지우는 것은 되돌릴 수 없고, 지금 얻는 것이 없다.
+
+★ **운영 데이터를 개발로 복사하지 않는다.** 남의 사진과 이름이다.
+개발은 BJ 가 직접 만든 것만 있으면 된다.
+
+### 2-4. 카카오 개발자 콘솔 (`Momento` 비즈앱 하나에)
+
+- 플랫폼 → Web → 사이트 도메인에 `https://dev.woorialbum.com` **추가**
+- 카카오 로그인 → Redirect URI 에 **개발 Supabase 의 콜백 주소** 추가
+  (`https://<개발프로젝트>.supabase.co/auth/v1/callback`)
+  ★ Supabase 프로젝트가 다르면 콜백 주소도 다르다. 이걸 빼먹으면 개발에서 로그인이 안 된다.
+- **기존 등록은 하나도 지우지 않는다.**
+
+### 2-5. Railway — **끝남 (2026-08-10)**
+
+- `momento` 프로젝트 → **New Environment** → 이름 `dev`
+  → **`Duplicate Environment` · `production`** 을 고른다.
+  `Empty` 를 고르면 서비스부터 새로 만들어야 하고, 그러면 운영과 설정이 어긋난다.
+- ★ 복사 직후에는 **운영 DB 를 가리킨다.** 변수를 먼저 바꾼다.
+- 순서: **변수 → 브랜치 → Deploy**
+  - 브랜치: `dev` 환경 → `momento-api` → Settings →
+    `Branch connected to dev` 의 드롭다운을 `main` → `dev` 로.
+    `Disconnect` 를 누르지 않는다.
+- dev 환경 주소: `https://momento-api-dev.up.railway.app`
+
+- 변수는 운영에서 복사하되 **넷을 개발용으로 바꾼다.**
+
+```
+SUPABASE_URL               개발 프로젝트 주소
+SUPABASE_SERVICE_ROLE_KEY  개발 프로젝트 키
+FRONTEND_BASE_URL          https://dev.woorialbum.com
+CORS_ORIGINS               https://dev.woorialbum.com,http://localhost:5173
+```
+
+★ **Railway 는 변수를 저장해도 `Deploy` 를 눌러야 반영된다**(2026-08-10 에 겪었다).
+Deployments 목록에 새 줄이 생겼는지로 확인한다.
+
+★ 요금은 BJ 가 Railway·Supabase 화면에서 확인한다. 사용량 기반이라 개발 서버는
+켜 두는 것만으로는 크지 않을 것으로 보이지만, **숫자는 직접 보고 판단한다.**
+
+---
+
+## 3. 규칙 — 이것만 지킨다
+
+### ① `main` 에 직접 커밋하지 않는다
+
+모든 작업은 `dev` 에서 한다. 운영에 나가는 길은 **`dev` → `main` 머지 하나**다.
+
+### ② 운영 DB 에 migration 을 직접 적용하지 않는다
+
+```
+개발 DB 에 적용  →  dev.woorialbum.com 에서 확인  →  main 머지  →  운영 DB 에 적용
+```
+
+★ 지금까지는 개발 DB 가 없어서 운영에 바로 적용했다. **그 길을 닫는다.**
+
+### ③ 스키마와 코드는 **두 번 나눠** 나간다
+
+```
+1차 배포 :  비어 있어도 되는 칸을 더한다        (코드는 아직 안 쓴다)
+2차 배포 :  그 칸을 쓰는 코드를 올린다
+```
+
+되돌릴 때는 **반대 순서**다. 코드를 먼저 되돌리고, 칸은 그대로 둔다.
+칸은 비어 있어도 아무것도 안 깨지지만, **코드가 없는 칸을 찾으면 깨진다.**
+
+### ④ 되돌리기 파일이 없는 migration 은 안 나간다
+
+이미 지키고 있다. 계속 지킨다.
+
+### ⑤ 운영 환경변수를 손으로 바꾸지 않는다
+
+바꿔야 하면 **개발에서 먼저** 바꿔 보고, 무엇이 깨지는지 본 다음에 운영에 옮긴다.
+
+### ⑥ 사람을 가둘 수 있는 변경은 개발에서 실기기로 끝까지 해본다
+
+**로그인 · 동의 · 탈퇴 · 권한** 처럼 *못 빠져나오는 화면*을 만들 수 있는 것들이다.
+
+★ 판정 기준 하나 — **"이 화면에서 나가는 길이 있는가?"**
+닫는 길이 로그아웃뿐인 화면은, **저장이 실제로 되는 것을 개발에서 본 뒤에만** 만든다.
+
+### ⑦ 긴급 프로덕션 버그만 예외
+
+`main` 에서 바로 고친다. 단 **고치는 것보다 되돌리는 것을 먼저** 본다.
+되돌릴 수 있으면 되돌리고, 원인은 그 다음에 `dev` 에서 찾는다.
+
+---
+
+## 4. 내보내는 순서
+
+```
+1  dev 브랜치에 커밋 · 푸시
+2  Railway dev · Vercel dev 배포가 끝난다
+3  개발 DB 에 migration 적용 (있으면)
+4  dev.woorialbum.com 에서 실기기로 확인
+     ★ 카카오톡 웹뷰로 본다. PC 브라우저만 보고 넘기지 않는다
+5  RELEASE_CHECKLIST.md 의 스모크 테스트
+6  dev → main 머지 · 푸시
+7  운영 DB 에 migration 적용 (있으면)
+8  운영 확인 네 가지 (CLAUDE.md §11)
+     origin/main 해시 · Vercel 배포 해시 · production alias · 실제 화면
+```
+
+★ **4번을 건너뛰지 않는다.** 오늘 막힌 것은 전부 4번에서 잡혔을 것들이다.
+
+---
+
+## 5. 이 문서가 안 하는 것
+
+- 자동 테스트를 배포 파이프라인에 걸지 않는다. 지금은 사람이 명령으로 돌린다.
+- 브랜치를 더 만들지 않는다. `dev` 와 `main` 둘뿐이다.
+- 개발 서버를 사용자에게 알리지 않는다. **BJ 와 코드만 쓴다.**
+- 운영 데이터를 개발로 옮기지 않는다.
+
+---
+
+## 6. 로컬은 어디까지 되나 (2026-08-10 판단)
+
+### 로컬로 되는 것 — 대부분이다
+
+```
+프런트  localhost:5173      vite dev
+백엔드  localhost:8000      uvicorn
+DB      개발 Supabase 를 .env 로 가리킨다
+로그인  localhost:5173 이 카카오 Redirect URI · Supabase Redirect URLs 에
+        이미 등록돼 있다
+테스트  frontend / backend / build 전부
+```
+
+### 로컬로 안 되는 것 — 하필 여기서 제일 많이 터진다
+
+**폰에서 `localhost` 를 못 연다.** 그런데 최근 잡은 결함은 거의 전부 카카오톡 웹뷰에서만
+재현됐다. PC 브라우저에서는 다 멀쩡했다.
+
+```
+K-9   sessionStorage 가 카카오 왕복에서 사라진다
+K-10  미리보기 주소가 죽는다
+K-13  claim 이 끊겼다 다시 붙는다
+K-6   카카오톡이 파일 저장을 막는다
+K-22  로그인 뒤 첫 화면으로 떨어진다
+4019  카카오 공유
+```
+
+LAN 주소(`192.168.x.x`)도 안 된다 — 카카오는 **등록된 도메인**에서만 로그인·공유를
+허용하고, `https` 가 아니면 웹뷰가 막는다. 터널은 주소가 매번 바뀌어 등록할 수 없다.
+
+★ **로컬이 dev 주소를 대신하지는 못한다. 대신 dev 주소에 올라가는 횟수를 줄인다.**
+
+### 그래서 두 단계로 간다
+
+```
+1단계 (지금 · 돈 안 듦)
+  Supabase 개발 프로젝트 + 로컬
+  → 운영 DB 에 migration 을 직접 적용하는 길이 닫힌다
+  → 2026-08-10 K-14 사고의 절반이 이것이었다
+
+2단계 (요금 보고)
+  Railway dev 환경 + dev.woorialbum.com
+  → 폰 확인까지 개발에서 끝난다
+```
+
+### 1단계에서만 남는 위험 (알고 간다)
+
+- 폰 확인은 여전히 운영에서 한다. **사람을 가둘 수 있는 변경**(로그인·동의·탈퇴·권한)은
+  1단계만으로는 안전하지 않다 — **2단계가 생길 때까지 그런 변경을 내보내지 않는다.**
+- 무료 Supabase 프로젝트는 한동안 안 쓰면 멈출 수 있다. 멈추면 화면에서 다시 켠다.
+
+---
+
+## 7. ★ 끝난 상태 (2026-08-10) — 실제로 걸렸던 것 다섯
+
+1단계(개발 DB)와 2단계(dev 주소)를 같은 날 다 만들었다. **막힌 자리는 아래 다섯이다.**
+
+### ① `.env.local` 이 운영을 가리키고 있었다
+
+로컬 설정을 개발로 바꾸는데 `.env` 만 고쳤더니, **Vite 가 `.env.local` 을 먼저 읽어서
+계속 운영 DB 로 로그인**하고 있었다. 개발 환경을 만들어 놓고도 운영을 쓰는 상태였다.
+
+★ **어느 파일이 실제로 쓰이는지 먼저 확인한다.** 근거가 둘이면 반드시 어긋난다.
+
+### ② 윈도우에서 `localhost` 가 IPv6 로 풀린다
+
+`VITE_API_BASE_URL=http://localhost:8000` 이면 `ERR_CONNECTION_REFUSED` 가 난다.
+uvicorn 은 IPv4 로 떠 있다. **`http://127.0.0.1:8000`** 을 쓴다.
+
+### ③ Supabase `Site URL` 이 로그인 뒤 목적지를 정한다
+
+개발 프로젝트의 Site URL 이 `localhost:5173` 이면, `dev.woorialbum.com` 에서
+로그인해도 **localhost 로 튕긴다.** Site URL 을 dev 주소로 바꾼다.
+
+### ④ Vercel Preview 는 기본으로 Vercel 로그인을 요구한다
+
+PC 브라우저에서는 열리는데(이미 로그인돼 있어서) **폰·카카오톡에서는 막힌다.**
+`Deployment Protection → Vercel Authentication` 을 끈다.
+
+### ⑤ 카카오 공유가 보는 곳은 `JavaScript SDK 도메인` 이다
+
+`제품 링크 관리 → 웹 도메인` 에 넣어도 **4019 가 계속 난다.**
+공유(JS SDK)가 검사하는 것은 **[플랫폼 키] → [JavaScript 키] → [JavaScript SDK 도메인]** 이다.
+로그인용 Redirect URI 와도 다른 자리다. 셋을 헷갈리지 않는다.
+
+```
+카카오에서 만지는 자리 셋
+  플랫폼 키 → JavaScript 키 → JavaScript SDK 도메인   ← 공유(4019)
+  카카오 로그인 → Redirect URI                        ← 로그인 (Supabase 콜백)
+  제품 링크 관리 → 웹 도메인                           ← 메시지 링크
+```
+
+### 확인한 결과
+
+```
+dev.woorialbum.com 에서 로그인 · 앨범 만들기 · 공유링크 발급
+  → 개발 DB 에만 들어감 (앨범 3 · 사진 6 · 공유링크 5)
+  → 운영 DB 그대로 (앨범 4 · 사진 18 · 사용자 4 · 최근 앨범 00:14)
+```
+
+**이제 운영을 건드리지 않고 폰으로 끝까지 확인할 수 있다.**
+§3 의 규칙 일곱과 §4 의 순서 여덟이 오늘부터 적용된다.

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우리앨범 — 앨범 화면 참여자 (3a)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+/* ── 이 파일은 참고용 시안입니다. 실제 구현은 tokens.css 변수를 쓰세요. ──
+   :root 값은 Momento/frontend/src/styles/tokens.css 와 동일합니다.
+   소유자 시안(album-detail-owner.html)과 같은 클래스 체계를 씁니다. */
+:root{
+  --c-bg:#fffdfb; --c-surface:#ffffff; --c-bg-soft:#fdf7f5;
+  --c-border:#e0caca; --c-border-strong:#c9a9a9;
+  --c-text:#2d2d2d; --c-text-soft:#5a5150; --c-text-muted:#7d716f; --c-text-subtle:#7e726f;
+  --c-brand:#ff6b6b; --c-brand-action:#b34a46; --c-brand-action-hover:#993d3a;
+  --c-brand-text:#8a2c2c; --c-brand-soft:#fff0f0;
+  --c-danger:#a3231f; --c-warning:#8a6212;
+  --c-kakao:#fee500; --c-kakao-text:#191600;
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-6:24px; --s-8:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
+  --sh-sm:0 1px 3px rgba(45,45,45,.06); --sh-md:0 4px 14px rgba(45,45,45,.09); --sh-lg:0 18px 44px rgba(45,45,45,.16);
+  --font:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --t-xs:.875rem; --t-sm:1rem; --t-base:1rem; --t-lg:1.15rem; --t-xl:1.5rem; --t-2xl:2rem;
+  --w-normal:400; --w-medium:600; --w-bold:800;
+  --lh-tight:1.3; --lh-base:1.6; --tap-min:44px;
+  --nav-h:76px;                /* 하단 3칸 높이 (토큰 아님) */
+  --hairline:#f0e4e1;          /* 옅은 구분선 = --c-border 보다 약함 (토큰 아님) */
+}
+*{box-sizing:border-box}
+body{margin:0;background:#f2ece9;font-family:var(--font);color:var(--c-text)}
+.sheetwrap{display:flex;flex-wrap:wrap;gap:24px;padding:32px;align-items:flex-start}
+.cap{width:390px;margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--c-text-muted)}
+.col{display:flex;flex-direction:column}
+.frame{position:relative;width:390px;height:844px;background:var(--c-bg);border:1px solid var(--c-border-strong);border-radius:20px;overflow:hidden;box-shadow:var(--sh-md);display:flex;flex-direction:column}
+
+/* ── 헤더 ── */
+.hdr{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;border-bottom:1px solid var(--hairline);background:var(--c-bg)}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand__ko{font-size:19px;font-weight:var(--w-bold);line-height:1;letter-spacing:-.02em}
+.brand__ko b{color:#1a1f2b;font-weight:inherit}
+.brand__ko i{color:var(--c-brand);font-style:normal}
+.brand__en{font-size:11px;font-weight:var(--w-medium);line-height:1;letter-spacing:.08em;color:#8a8f98}
+.hdr__more{min-width:var(--tap-min);min-height:var(--tap-min);display:grid;place-items:center;padding:0 12px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);font-family:inherit;font-size:var(--t-xs);font-weight:var(--w-medium);color:var(--c-text);cursor:pointer}
+
+/* ── 본문 ── */
+.body{flex:1 1 auto;overflow-y:auto;padding:0 20px}
+
+/* 참여 정체성 띠 — 참여자 화면에만 있다. 소유자에게는 렌더하지 않는다. */
+.whoami{margin-top:var(--s-4);display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) 14px;border:1px solid var(--c-brand);border-radius:var(--r-md);background:var(--c-brand-soft)}
+.whoami__face{width:36px;height:36px;flex:none;border-radius:var(--r-full);border:1px solid var(--c-border);background:linear-gradient(150deg,#e8c9b0,#b98a6f 60%,#5c4436)}
+.whoami p{margin:0;min-width:0;font-size:15px;line-height:1.5;font-weight:var(--w-medium);color:var(--c-text)}
+.whoami b{font-weight:var(--w-bold)}
+/* 앞칸: 앨범 제목이 길어도 한 줄로 자른다 */
+.whoami__lead{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.albumhead{padding:20px 0 var(--s-2);display:flex;flex-direction:column;gap:var(--s-2);align-items:center;text-align:center}
+.albumhead h1{margin:0;min-width:0;word-break:keep-all;font-size:var(--t-2xl);font-weight:var(--w-bold);line-height:var(--lh-tight);letter-spacing:-.03em;color:var(--c-text)}
+.albumhead__meta{margin:0;font-size:var(--t-base);line-height:var(--lh-base);color:var(--c-text-muted)}
+
+/* 내가 더한 것 — 숫자만. 모아보기 화면이 없어 버튼을 두지 않는다. */
+.mine{margin-top:var(--s-2);display:flex;align-items:center;gap:var(--s-3);padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md)}
+.mine__title{margin:0;font-size:var(--t-base);font-weight:var(--w-bold);line-height:1.4;color:var(--c-text)}
+.mine__count{margin:var(--s-1) 0 0;font-size:15px;line-height:1.5;color:var(--c-text-soft)}
+
+.rule{height:1px;background:var(--c-border-strong);margin:20px 0 0}
+.datehead{padding:20px 0 var(--s-3);text-align:center}
+.datehead__month{margin:0 0 6px;font-size:19px;font-weight:var(--w-bold);line-height:var(--lh-tight);color:var(--c-text)}
+.datehead__day{margin:0;font-size:var(--t-xs);font-weight:var(--w-medium);line-height:1.4;color:var(--c-text-muted)}
+
+.photo{border-radius:var(--r-sm);overflow:hidden;width:100%}
+.photo + .caption{margin:var(--s-3) 0 0}
+.caption{font-size:var(--t-base);line-height:var(--lh-base);font-weight:var(--w-medium);color:var(--c-text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.caption .who{color:var(--c-text-subtle);font-weight:var(--w-medium)}
+/* 참여자 유도: 사진마다 내 한마디를 남길 수 있음을 알린다 */
+.addmine{margin:var(--s-2) 0 0;padding:0;border:0;background:none;font-family:inherit;font-size:15px;font-weight:var(--w-medium);line-height:1.5;color:var(--c-brand-text);cursor:pointer}
+.photoblock + .photoblock{margin-top:26px}
+
+/* ── 하단 고정 메뉴: 3칸. 칸 수·위치는 소유자와 동일. 3번째만 다르다 ── */
+.nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--c-border);background:rgba(255,253,251,.98)}
+.nav button{min-height:var(--nav-h);display:grid;place-content:center;justify-items:center;gap:5px;border:0;background:transparent;font-family:inherit;font-size:15px;font-weight:var(--w-medium);color:var(--c-text-soft);cursor:pointer}
+.nav button.is-primary{background:var(--c-brand-soft);color:var(--c-brand-text);font-weight:var(--w-bold)}
+.ic{width:24px;height:24px;border:2px solid currentColor;border-radius:4px}   /* lucide ImagePlus 24 */
+.ic--pen{width:24px;height:2px;border:0;background:currentColor;transform:rotate(-45deg);margin:11px 0} /* lucide PencilLine 24 */
+.ic--top{border-radius:var(--r-full)}                                          /* lucide ArrowUp 24 */
+
+/* ── 바텀시트 ── */
+.dim{position:absolute;inset:0;background:rgba(61,53,48,.5)}
+.sheet{position:absolute;right:0;bottom:0;left:0;background:var(--c-surface);border-radius:18px 18px 0 0;box-shadow:var(--sh-lg)}
+.sheet__hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--c-border-strong)}
+.sheet__hdr h2{margin:0;font-size:19px;font-weight:var(--w-bold);color:var(--c-text)}
+.sheet__close{min-height:var(--tap-min);display:grid;place-items:center;border:0;background:none;font-family:inherit;font-size:var(--t-sm);font-weight:var(--w-medium);color:var(--c-brand-text);cursor:pointer}
+
+.list{padding:var(--s-2) 20px var(--s-6);display:flex;flex-direction:column}
+.list__row{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);border:0;border-bottom:1px solid var(--hairline);background:none;font-family:inherit;text-align:left;cursor:pointer}
+.list__row span{font-size:17px;font-weight:var(--w-medium);color:var(--c-text)}
+.list__row em{font-style:normal;font-size:var(--t-xs);font-weight:var(--w-normal);color:var(--c-text-muted)}
+/* 비활성 행: opacity 로 흐리게 하지 않는다(대비 2.1:1 로 떨어짐).
+   라벨만 --c-text-subtle, 이유 문구는 --c-warning 로 또렷하게. */
+.list__row--off{min-height:60px;padding:10px 0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;cursor:default}
+.list__row--off span{color:var(--c-text-subtle)}
+.list__row--off em{font-size:var(--t-xs);line-height:1.5;color:var(--c-warning)}
+
+/* 참여자에게 없는 기능을 감추지 않고 이유와 함께 적는다 */
+.absent{margin-top:var(--s-4);padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-bg-soft)}
+.absent h3{margin:0 0 6px;font-size:15px;font-weight:var(--w-bold);color:var(--c-text)}
+.absent p{margin:0;font-size:15px;line-height:var(--lh-base);color:var(--c-text-soft)}
+.absent b{font-weight:700}
+
+/* 문안 규칙 카드 (시안 문서용 — 구현에는 없다) */
+.spec{width:420px;padding:var(--s-6);background:var(--c-surface);border:1px solid var(--c-border-strong);border-radius:var(--r-lg);box-shadow:var(--sh-sm)}
+.spec h2{margin:0 0 6px;font-size:17px;font-weight:var(--w-bold)}
+.spec > p{margin:0 0 18px;font-size:var(--t-xs);line-height:var(--lh-base);color:var(--c-text-soft)}
+.spec code{font:13px ui-monospace,Menlo,monospace}
+.branch{padding:14px;border:1px solid var(--c-border);border-radius:var(--r-md);margin-bottom:14px}
+.branch--default{border-color:var(--c-brand);background:var(--c-brand-soft)}
+.branch h3{margin:0 0 var(--s-2);font-size:var(--t-xs);font-weight:var(--w-bold);color:var(--c-brand-text)}
+.branch__copy{margin:0 0 var(--s-2);font-size:15px;line-height:1.5;font-weight:var(--w-medium);color:var(--c-text)}
+.branch__rule{margin:0;font-size:var(--t-xs);line-height:1.5;color:var(--c-text-muted)}
+.spec__foot{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--c-border);font-size:var(--t-xs);line-height:var(--lh-base);color:var(--c-text-soft)}
+
+.ph-a{background:radial-gradient(120% 80% at 30% 15%,rgba(255,244,225,.85),rgba(255,244,225,0) 55%),linear-gradient(158deg,#3b2f2b,#8a6247 48%,#d9b686)}
+.behind{position:absolute;inset:0;padding:20px;overflow:hidden}
+</style>
+</head>
+<body>
+<div class="sheetwrap">
+
+<!-- ══════════ 화면 1: 앨범 화면 (참여자) ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="앨범 화면 (참여자)">
+  <header class="hdr">
+    <div class="brand"><div class="brand__ko"><b>우리</b><i>앨범</i></div><div class="brand__en">woorialbum</div></div>
+    <button type="button" class="hdr__more">더보기</button>
+  </header>
+
+  <div class="body">
+    <!-- 초대 문구: 기본값 ②(관계 없음). 3갈래는 오른쪽 규칙 카드 참조 -->
+    <div class="whoami">
+      <div class="whoami__face" aria-hidden="true"></div>
+      <p><span class="whoami__lead">‘<b>우리의 추억</b>’에</span><b>영희</b>로 함께하고 있어요</p>
+    </div>
+
+    <div class="albumhead">
+      <h1>우리의 추억</h1>
+      <p class="albumhead__meta">사진 34장 · 함께한 사람 4명</p>
+    </div>
+
+    <div class="mine">
+      <div>
+        <p class="mine__title">내가 더한 것</p>
+        <p class="mine__count">사진 4장 · 한마디 3개</p>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="datehead">
+      <p class="datehead__month">2018년 7월</p>
+      <p class="datehead__day">2018.07.08 · 사진 5장</p>
+    </div>
+
+    <div class="photoblock">
+      <div class="photo ph-a" style="height:250px"></div>
+      <p class="caption"><span class="who">엄마 </span>이 집 국수가 그렇게 맛있다더니, 진짜였네</p>
+      <button type="button" class="addmine">나도 한마디 남기기</button>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="앨범 메뉴">
+    <button type="button" class="is-primary"><span class="ic" aria-hidden="true"></span>사진 추가</button>
+    <button type="button"><span class="ic ic--pen" aria-hidden="true"></span>한마디 쓰기</button>
+    <button type="button"><span class="ic ic--top" aria-hidden="true"></span>앨범 처음으로</button>
+  </nav>
+</div>
+<p class="cap">칸 수·위치는 소유자와 동일(학습 비용 0). 3번째 칸만 공유하기 → 앨범 처음으로. 참여자의 주 동작인 <b>사진 추가</b>를 <code>--c-brand-soft</code>로 강조.</p>
+</div>
+
+<!-- ══════════ 화면 2: 더보기 시트 (참여자) ══════════ -->
+<div class="col">
+<div class="frame" data-screen-label="더보기 시트 (참여자)">
+  <div class="behind">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="brand__ko"><b>우리</b><i>앨범</i></div>
+      <span class="hdr__more">더보기</span>
+    </div>
+    <h1 style="margin:20px 0 0;text-align:center;font-size:var(--t-2xl);font-weight:var(--w-bold)">우리의 추억</h1>
+    <div class="photo ph-a" style="height:240px;margin-top:20px"></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet" role="dialog" aria-label="더보기">
+    <div class="sheet__hdr"><h2>더보기</h2><button type="button" class="sheet__close">닫기</button></div>
+    <div class="list">
+      <button type="button" class="list__row"><span>함께한 사람</span><em>4명</em></button>
+      <div class="list__row list__row--off" aria-disabled="true">
+        <span>파일로 저장하기 (PDF)</span>
+        <em>사진이 많은 앨범은 지금 PDF로 저장할 수 없어요. (34장 / 30장까지)</em>
+      </div>
+      <button type="button" class="list__row"><span>내 앨범 만들기</span><em>이 앨범은 그대로 있어요</em></button>
+      <div class="absent">
+        <h3>여기에 없는 것</h3>
+        <p>제목·표지 바꾸기, 공유하기, 앨범 지우기는 <b>앨범을 만든 사람</b>만 할 수 있어요. 내가 더한 사진과 한마디는 내가 지울 수 있어요.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="cap">PDF 비활성 상태(34장 &gt; <code>PDF_PHOTO_SAFE_LIMIT</code> 30). 라벨만 흐리고 이유는 <code>--c-warning</code>으로 또렷하게 — 대비 5.47:1.</p>
+</div>
+
+<!-- ══════════ 참고: 초대 문구 3갈래 ══════════ -->
+<div class="spec">
+  <h2>초대 문구 — 앞칸 × 뒤칸</h2>
+  <p>앞칸(누가 만든 앨범인가)과 뒤칸(나는 누구로 있나)은 <b>서로 독립</b>으로 판정한다. 하나로 묶으면 “관계는 있는데 소유자 이름만 아이디”인 경우에 이미 갖고 있는 관계 정보(“가족”)가 버려진다. 두 칸을 따로 보면 화면 종류는 그대로인데 모든 조합이 맞는다. 위 시안은 실측 최빈(앞칸 없음 × 뒤칸 이름만)이다.</p>
+
+  <div class="branch">
+    <h3>앞칸 — 소유자 이름을 쓸 수 있나</h3>
+    <p class="branch__copy">있음 · <b>{소유자}님이 만든 앨범에</b><br>없음 · <b>‘{앨범 제목}’에</b></p>
+    <p class="branch__rule">제목은 <b>한 줄로 자르고 …</b> 처리(<code>text-overflow:ellipsis</code>). 두 줄로 번지지 않게</p>
+  </div>
+  <div class="branch">
+    <h3>뒤칸 — 관계 · 내 이름</h3>
+    <p class="branch__copy">관계 있음 · <b>{관계} {내 이름}로 함께하고 있어요</b><br>관계 없음 · <b>{내 이름}로 함께하고 있어요</b><br>이름도 없음 · <b>함께하고 있어요</b></p>
+    <p class="branch__rule">관계를 “가족”으로 임의 추정하지 않는다. 실측 4명 중 3명이 관계 없음</p>
+  </div>
+  <div class="branch branch--default">
+    <h3>위 시안 = 앞칸 없음 × 뒤칸 이름만</h3>
+    <p class="branch__copy">‘우리의 추억’에<br>영희로 함께하고 있어요</p>
+    <p class="branch__rule">표기: “함께하고” 붙여 쓴다 (참여의 뜻)</p>
+  </div>
+
+  <p class="spec__foot"><b>“아이디” 판정 — 주 조건:</b> <code>display_name</code>이 계정 이메일의 <code>@</code> 앞부분과 같으면 아이디로 본다. 실측 <code>kbjkwak</code> = <code>kbjkwak@gmail.com</code>의 앞부분 — 진짜 원인이 이것이다. <b>보조 조건:</b> 값에 <code>@</code>가 있거나 숫자만으로 되어 있으면 아이디. <b>“한글이 없으면 아이디”로 보지 않는다</b> — Jenny·Minji 같은 실제 이름이 걸린다.</p>
+</div>
+
+</div>
+</body>
+</html>
