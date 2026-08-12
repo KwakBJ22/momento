@@ -158,7 +158,7 @@
   padding: 0.35rem 0.5rem;
   border: 0;
   background: transparent;
-  color: var(--c-brand-text);
+  color: var(--c-accent);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 600;
@@ -189,7 +189,7 @@
 
 .photo-memory-lines__input:focus {
   outline: none;
-  border-color: var(--c-brand);
+  border-color: var(--c-accent);
 }
 
 .photo-memory-lines__edit-actions {

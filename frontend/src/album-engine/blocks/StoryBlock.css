@@ -35,8 +35,8 @@
 }
 
 .story-block__edit-btn:hover {
-  background: var(--c-bg-soft);
-  color: var(--c-brand-text);
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
 }
 
 .story-block__input {
@@ -105,7 +105,7 @@
 }
 
 .story-block__empty-hint:hover {
-  color: var(--c-brand-text);
+  color: var(--c-accent);
 }
 
 .story-block__error {

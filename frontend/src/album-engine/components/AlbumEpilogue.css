@@ -8,7 +8,7 @@
 .album-epilogue__title {
   margin: 0 0 0.85rem;
   font-size: clamp(1.15rem, 2.4vw, 1.4rem);
-  color: var(--c-brand-text);
+  color: var(--c-accent);
   font-weight: 780;
   letter-spacing: -0.02em;
 }
@@ -26,7 +26,7 @@
   padding: 0.3rem 0.45rem;
   border: 0;
   background: transparent;
-  color: var(--c-brand-text);
+  color: var(--c-accent);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
@@ -52,7 +52,7 @@
 .album-epilogue__pullquote {
   margin: 0 0 0.9rem !important;
   padding-left: 0.9rem;
-  border-left: 3px solid var(--c-brand);
+  border-left: 3px solid var(--c-accent);
   font-size: clamp(1.15rem, 2.4vw, 1.35rem) !important;
   font-weight: 700;
   line-height: 1.6;

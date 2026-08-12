@@ -10,7 +10,7 @@
 
 .ending-block__eyebrow {
   margin: 0;
-  color: var(--c-brand-text);
+  color: var(--c-accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;

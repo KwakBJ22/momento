@@ -148,6 +148,16 @@
   color: var(--c-text-muted);
 }
 
+/* 본문 안 링크(`이전 앨범 보기`·`최신 앨범 보기`) — 브라우저 기본 파랑을 쓰지 않는다. */
+.album-result__subtitle a {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+.album-result__subtitle a:hover {
+  color: var(--c-accent-strong);
+}
+
 .album-result__stage {
   width: 100%;
 }

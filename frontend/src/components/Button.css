@@ -43,12 +43,19 @@ a.btn {
   background: var(--c-brand-action);
   color: var(--c-surface);
 }
+/* 보조 버튼 — 주 버튼(brand-action) 옆에 서는 자리라 보조색을 쓴다.
+   회색 테두리 + 회색 글자는 비활성처럼 읽혔다. */
 .btn--ghost {
   background: transparent;
-  color: var(--c-text-muted);
-  border: 1px solid var(--c-border);
+  color: var(--c-accent);
+  border: 1px solid var(--c-accent);
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  color: var(--c-accent-strong);
+  border-color: var(--c-accent-strong);
 }
 .btn--danger { color: var(--c-danger); }
 

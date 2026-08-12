@@ -46,7 +46,7 @@
 
 .chapter-header__eyebrow {
   margin: 0;
-  color: var(--c-brand-text);
+  color: var(--c-accent);
   font-size: clamp(0.75rem, 1.5vw, 0.82rem);
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -91,8 +91,8 @@
   align-items: center;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
-  background: var(--c-bg-soft);
-  color: var(--c-brand-text);
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.02em;
