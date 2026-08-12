@@ -86,6 +86,7 @@ const CATEGORY_ICONS: Record<AlbumCategory, LucideIcon> = {
   colleague: Briefcase,
   pet: PawPrint,
   travel: Plane,
+  gathering: Users,
   other: Star,
 };
 
@@ -96,6 +97,7 @@ const CATEGORY_HINTS: Record<AlbumCategory, string> = {
   colleague: "함께 만들어낸 시간",
   pet: "곁에 있어 준 소중한 친구",
   travel: "다시 떠올리고 싶은 장면",
+  gathering: "오랜만에 모인 그날",
   other: "나만의 특별한 추억",
 };
 

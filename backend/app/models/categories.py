@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-AlbumCategory = Literal["family", "friend", "couple", "colleague", "pet", "travel", "other"]
+AlbumCategory = Literal["family", "friend", "couple", "colleague", "pet", "travel", "gathering", "other"]
 
 ALBUM_CATEGORIES: tuple[AlbumCategory, ...] = (
     "family",
@@ -11,6 +11,7 @@ ALBUM_CATEGORIES: tuple[AlbumCategory, ...] = (
     "colleague",
     "pet",
     "travel",
+    "gathering",
     "other",
 )
 
@@ -21,6 +22,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "colleague": "동료",
     "pet": "반려동물",
     "travel": "여행",
+    "gathering": "모임",
     "other": "기타",
 }
 
@@ -36,6 +38,7 @@ CATEGORY_CONTEXT: dict[str, str] = {
     "university": "친구들과의 추억",
     "pet": "반려동물과의 추억",
     "travel": "여행의 추억",
+    "gathering": "함께 모인 날의 추억",
     "other": "소중한 추억",
 }
 
@@ -48,6 +51,7 @@ CATEGORY_TO_MEETING_TYPE: dict[str, str] = {
     "colleagues": "work",
     "pet": "friend",
     "travel": "friend",
+    "gathering": "friend",
     "other": "friend",
 }
 

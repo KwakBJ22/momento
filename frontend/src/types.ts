@@ -1,27 +1,32 @@
-export type AlbumCategory = "family" | "friend" | "couple" | "colleague" | "pet" | "travel" | "other";
+export type AlbumCategory = "family" | "friend" | "couple" | "colleague" | "pet" | "travel" | "gathering" | "other";
 export type MeetingType = "family" | "friend" | "work" | "university";
 export type TemplateType = "A" | "B" | "C";
 export type AlbumTemplateType = "warm" | "joyful" | "special";
 
 /**
- * 앨범을 만들 때 고르는 분류 — **다섯 개**다 (I-7).
+ * 앨범을 만들 때 고르는 분류 — **여섯 개**다 (2026-08-12 · PO 결정).
  *
- * `반려동물`을 뺐다. 사람들은 반려동물을 가족으로 여긴다. 따로 두면 "우리 강아지는
- * 가족이 아닌가" 하고 한 번 멈춘다.
- * `여행`을 뺐다. 나머지는 **누구와** 만든 앨범인지인데 여행만 **무엇을** 했는지다.
- * 기준이 섞여 있어 가족과 간 여행은 어디에 넣을지 알 수 없다.
+ *   가족 · 친구 · 연인 · 동료 · 여행 · 모임
  *
- * ★ **고르는 목록에서만 뺀다.** 이미 `pet` · `travel` 로 저장된 앨범은 그 사람의
- *   앨범이다. 값도, 문체·표지 규칙도 그대로 남는다 — `AlbumCategory` 타입과
- *   `CATEGORY_DEFAULT_TEMPLATE`, 백엔드의 `album_styles` · `story_service` 를
- *   건드리지 않는다. 빼면 기존 앨범을 읽다 막힌다.
+ * `여행`을 다시 넣었다. I-7 에서는 "나머지는 누구와인데 여행만 무엇을 했는지라 기준이
+ * 섞인다"고 보고 뺐는데, 실제로 사람들이 앨범을 만드는 계기가 여행이다. 기준이 하나로
+ * 안 떨어지는 것보다 **찾는 말이 목록에 있는 것**이 낫다.
+ * `모임`을 새로 넣었다(gathering). 동창회·동호회처럼 `친구`도 `동료`도 아닌 자리다.
+ *
+ * ★ **고르는 목록에서만 빼는 것들이 있다.** 이미 그 값으로 저장된 앨범은 그 사람의
+ *   앨범이다 — 값도, 문체·표지 규칙도 그대로 남는다.
+ *     `pet`   반려동물을 가족으로 여기는 사람이 많아 목록에는 두지 않는다.
+ *     `other` 여섯을 넘기지 않으려고 뺐다. 값은 유지 — 지우면 그 값으로 만든 앨범이 깨진다.
+ *   `AlbumCategory` 타입과 `CATEGORY_DEFAULT_TEMPLATE`, 백엔드의 `categories.py` ·
+ *   `story_service` 에서 빼지 않는다.
  */
 export const ALBUM_CATEGORY_OPTIONS: Array<{ value: AlbumCategory; label: string }> = [
   { value: "family", label: "가족" },
   { value: "friend", label: "친구" },
   { value: "couple", label: "연인" },
   { value: "colleague", label: "동료" },
-  { value: "other", label: "기타" },
+  { value: "travel", label: "여행" },
+  { value: "gathering", label: "모임" },
 ];
 
 /**
@@ -51,6 +56,7 @@ export const CATEGORY_DEFAULT_TEMPLATE: Record<AlbumCategory, AlbumTemplateType>
   colleague: "joyful",
   pet: "warm",
   travel: "joyful",
+  gathering: "joyful",
   other: "warm",
 };
 
@@ -67,6 +73,7 @@ export const CATEGORY_COVER_LINES: Record<AlbumCategory, string> = {
   colleague: "함께 만든 소중한 시간",
   pet: "곁에 있어 준 친구와의 시간",
   travel: "다시 떠올리고 싶은 여행",
+  gathering: "오랜만에 모인 그날",
   other: "나만의 특별한 추억",
 };
 
