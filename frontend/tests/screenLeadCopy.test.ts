@@ -67,7 +67,8 @@ test("★ 옛 문구가 화면에서 사라졌다", () => {
 
 test("Landing — 새 줄이 `누구와 함께한 앨범인가요?` 앞에 온다", () => {
   const at = landing.indexOf('<p className="landing__copy">{SCREEN_LEAD}</p>');
-  const question = landing.indexOf('<p className="landing__copy">누구와 함께한 앨범인가요?</p>');
+  // ★ 질문 줄은 3단계 B 에서 자기 클래스를 갖게 됐다 — 설명 줄과 무게가 다르다.
+  const question = landing.indexOf('<p className="landing__question">누구와 함께한 앨범인가요?</p>');
   assert.ok(at > 0 && question > at, "차례가 뒤바뀌었다");
   // 제목은 그대로다.
   assert.match(landing, /사진을 올리면\s*<br \/>\s*우리의 이야기가 시작돼요\./);

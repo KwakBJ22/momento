@@ -70,7 +70,9 @@ export default function Landing({
           우리의 이야기가 시작돼요.
         </h1>
         <p className="landing__copy">{SCREEN_LEAD}</p>
-        <p className="landing__copy">누구와 함께한 앨범인가요?</p>
+        {/* 질문은 설명이 아니라 **아래 칩에 대한 물음**이다. 그래서 무게도 자리도 다르다
+            — 설명과 떨어뜨리고 칩에 붙인다(UI 정리 3단계 B). */}
+        <p className="landing__question">누구와 함께한 앨범인가요?</p>
 
         <div className="landing__categories" role="group" aria-label="앨범 종류">
           {ALBUM_CATEGORY_OPTIONS.map((option) => {
