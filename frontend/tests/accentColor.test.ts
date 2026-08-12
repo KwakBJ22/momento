@@ -121,3 +121,47 @@ test("★ 손대지 않기로 한 것들이 그대로다", () => {
   const frame = read("album-engine/AlbumRenderer.css");
   assert.match(frame, /border: 1px solid var\(--c-border-strong\)/);
 });
+
+// --- 5-2단계: **화면에 실제로 그려지는** 글머리에 넣는다 ---
+
+test("★ 앨범 화면의 글머리에 보조색이 실제로 걸린다", () => {
+  // ★ 5단계는 --c-brand-text 를 --c-accent 로 바꾸기만 했는데, 화면에 그려지는
+  //   글머리들은 원래 코랄이 아니라 검정·회색이라 **바뀐 것이 없었다.**
+  //   보조색은 바꾸는 것이 아니라 없던 자리에 넣는 것이다.
+  const chapter = read("album-engine/blocks/ChapterHeader.css");
+  const month = chapter.slice(chapter.indexOf(".chapter-header__month {"), chapter.indexOf("}", chapter.indexOf(".chapter-header__month {")));
+  assert.match(month, /color: var\(--c-accent\)/);
+
+  const story = read("album-engine/blocks/StoryBlock.css");
+  const title = story.slice(story.indexOf(".story-block__title {"), story.indexOf("}", story.indexOf(".story-block__title {")));
+  assert.match(title, /color: var\(--c-accent\)/);
+
+  // 우리의 이야기 제목은 이미 보조색이다.
+  const epilogue = read("album-engine/components/AlbumEpilogue.css");
+  const epiTitle = epilogue.slice(epilogue.indexOf(".album-epilogue__title {"), epilogue.indexOf("}", epilogue.indexOf(".album-epilogue__title {")));
+  assert.match(epiTitle, /color: var\(--c-accent\)/);
+});
+
+test("★ 날짜 줄은 보조 정보다 — 월 표시와 같은 색이 되면 위계가 없어진다", () => {
+  const chapter = read("album-engine/blocks/ChapterHeader.css");
+  const dayline = chapter.slice(chapter.indexOf(".chapter-header__dayline {"), chapter.indexOf("}", chapter.indexOf(".chapter-header__dayline {")));
+  assert.match(dayline, /color: var\(--c-text-muted\)/);
+  assert.equal(dayline.includes("--c-accent"), false, "날짜 줄까지 보조색이 됐다");
+});
+
+test("★ 글은 주인공이라 검정 그대로다 — 캡션·한마디·본문은 안 건드린다", () => {
+  const caption = read("album-engine/components/PhotoMemoryLines.css");
+  const line = caption.slice(caption.indexOf(".photo-memory-lines__line {"), caption.indexOf("}", caption.indexOf(".photo-memory-lines__line {")));
+  assert.equal(line.includes("--c-accent"), false, "캡션 글에 보조색이 들어갔다");
+  const story = read("album-engine/blocks/StoryBlock.css");
+  const body = story.slice(story.indexOf(".story-block__body {"), story.indexOf("}", story.indexOf(".story-block__body {")));
+  assert.equal(body.includes("--c-accent"), false, "이야기 본문에 보조색이 들어갔다");
+});
+
+test("이야기 구역 구분선은 --c-border-strong 그대로다", () => {
+  // --c-accent-soft 로 바꿔 봤다가 되돌렸다: 실측 대비가 2.15:1 → 1.11:1 로 절반 이하가
+  // 되어 구역을 나누는 선이 사실상 사라졌다. 제목만 보조색으로 올린다.
+  const story = read("album-engine/blocks/StoryBlock.css");
+  const block = story.slice(0, story.indexOf(".story-block__head"));
+  assert.match(block, /border-top: 1px solid var\(--c-border-strong\)/);
+});

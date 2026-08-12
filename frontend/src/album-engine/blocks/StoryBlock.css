@@ -4,7 +4,9 @@
   margin: clamp(1.75rem, 5vw, 3rem) 0 clamp(2.5rem, 7vw, 4rem);
   padding: clamp(1.1rem, 3vw, 1.55rem) 0 0;
   border: 0;
-  /* Section divider on white: use --c-border-strong so it doesn't read as a render error. */
+  /* Section divider on white: use --c-border-strong so it doesn't read as a render error.
+     ★ 5-2단계에서 --c-accent-soft 로 바꿔 봤다가 되돌렸다 — 실측 대비가 2.15:1 → 1.11:1 로
+     절반 이하가 되어 구역을 나누는 선이 사실상 사라졌다. 제목만 보조색으로 올린다. */
   border-top: 1px solid var(--c-border-strong);
 }
 
@@ -17,7 +19,7 @@
 
 .story-block__title {
   margin: 0;
-  color: var(--c-text-soft);
+  color: var(--c-accent);
   font-size: clamp(1rem, 2vw, 1.16rem);
   font-weight: 700;
 }
