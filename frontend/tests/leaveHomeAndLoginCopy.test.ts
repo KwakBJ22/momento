@@ -37,11 +37,20 @@ test("★ 고른 사진이 있으면 묻고, 없으면 바로 간다", () => {
   assert.match(fn, /leaveToHome\(\);/);
 });
 
-test("★ 로고와 하단 네비 `처음으로` 가 같은 길을 쓴다", () => {
+test("★ 로고와 하단 네비 `앨범 만들기` 가 같은 길을 쓴다", () => {
+  // ★ K-20 의 규칙은 그대로다 — 홈으로 가는 길이 둘 이상이면 **모두 같게 굴어야 한다.**
+  //   바뀐 것은 그 두 번째 길의 이름뿐이다: 하단 네비의 `처음으로` 칸이 없어지고
+  //   (`앨범 만들기` 와 같은 곳이었다 — UI 정리 3단계 C), 그 칸이 같은 길을 물려받았다.
+  //   ★ 이게 K-20 누수였다. 예전 `앨범 만들기` 는 assign("/") 을 바로 불러서,
+  //     사진을 고르는 중에 누르면 고른 사진이 말없이 사라졌다.
   assert.match(app, /<AppHeader onNavigateHome=\{\(event\) => \{ event\.preventDefault\(\); requestLeaveHome\(\); \}\} \/>/);
-  assert.match(app, /onTop=\{requestLeaveHome\}/);
-  // 예전처럼 곧장 주소를 갈아 끼우는 자리가 남아 있지 않다.
-  assert.equal(app.includes('onTop={() => window.location.assign("/")}'), false);
+  const globalNav = app.slice(app.indexOf('<AlbumBottomNavigation variant="app"'));
+  const call = globalNav.slice(0, globalNav.indexOf("/>"));
+  assert.match(call, /onCreateAlbum=\{requestLeaveHome\}/);
+  // 그 칸이 곧장 주소를 갈아 끼우지 않는다.
+  assert.equal(call.includes('window.location.assign("/")'), false);
+  // 없어진 칸의 흔적이 남아 있지 않다.
+  assert.equal(call.includes("onTop="), false);
 });
 
 test("로고는 여전히 링크다 — 새 탭으로 열기가 살아 있다", () => {
@@ -109,4 +118,26 @@ test("★ 창을 두 벌로 만들지 않았다 — 값만 넣는다", () => {
   // 제목 문자열이 화면에 흩어져 있지 않다.
   assert.equal(panel.includes("내 앨범 보관하기"), false);
   assert.equal(app.includes("이 앨범을 담아둘까요?"), false);
+});
+
+// --- UI 정리 3단계 C — K-20 누수를 막은 자리 ---
+
+test("★ 사진 고르는 중 `앨범 만들기` 를 누르면 확인 시트가 뜬다 (없으면 바로 간다)", () => {
+  // ★ 이게 이번 C 의 진짜 이유다. 예전 `앨범 만들기` 는 assign("/") 을 바로 불러서,
+  //   사진을 고르는 중에 누르면 고른 사진이 **말없이** 사라졌다. `처음으로` 만 물어봤다.
+  //   K-20 에서 정한 "두 길이 다르게 동작하면 안 된다" 가 세 번째 길에서 깨져 있었다.
+  const fn = app.slice(app.indexOf("const requestLeaveHome"), app.indexOf("const resetToStart"));
+  assert.match(fn, /if \(isPhotoSelectionStep && pickedPhotoCount > 0\) \{ setLeaveHomeAsk\(true\); return; \}/);
+  assert.match(fn, /leaveToHome\(\);/);
+  // 그 판단을 하는 함수를 네비의 `앨범 만들기` 가 그대로 쓴다.
+  const globalNav = app.slice(app.indexOf('<AlbumBottomNavigation variant="app"'));
+  assert.match(globalNav.slice(0, globalNav.indexOf("/>")), /onCreateAlbum=\{requestLeaveHome\}/);
+});
+
+test("★ 전역 네비의 두 칸이 서로 다른 곳으로 간다", () => {
+  // `처음으로` 와 `새 앨범` 은 같은 곳이었다 — 그래서 하나를 뺐다.
+  const globalNav = app.slice(app.indexOf('<AlbumBottomNavigation variant="app"'));
+  const call = globalNav.slice(0, globalNav.indexOf("/>"));
+  assert.match(call, /onMyAlbums=\{\(\) => window\.location\.assign\("\/my-albums"\)\}/);
+  assert.match(call, /onCreateAlbum=\{requestLeaveHome\}/);
 });

@@ -439,7 +439,7 @@ function App() {
           사진을 더하라고 권하는 꼴이었다. */}
       {showGlobalBottomNavigation && !albumUnavailable ? (
         appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
-          : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onTop={requestLeaveHome} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={() => window.location.assign("/")} />
+          : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={requestLeaveHome} />
       ) : null}
       {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}
       {accountMenuOpen && !adminRoute ? (

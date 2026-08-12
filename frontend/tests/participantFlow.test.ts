@@ -14,8 +14,10 @@ test("참여자 네비는 §4 표대로 3칸 — 스크롤로 되는 '앨범' �
   assert.match(contributor, /내 앨범<br \/>만들기/);
   // "앨범"(스크롤·이동으로 되는 것)에는 칸을 쓰지 않는다(§4).
   assert.doesNotMatch(contributor, /<span>앨범<\/span>/);
-  // 강조 방식이 서로 다르다: 사진 추가는 면 채움, 3번째 칸은 테두리 칩.
-  assert.match(contributor, /album-bottom-navigation__primary[\s\S]{0,120}사진 추가/);
+  // ★ 강조는 첫 칸(한마디 쓰기)에 있다 — 참여자가 실제로 하는 일이 그것이다
+  //   (한마디 11건 : 사진 추가 2건, UI 정리 3단계 C). 3번째 칸은 여전히 테두리 칩이다.
+  assert.match(contributor, /album-bottom-navigation__primary[\s\S]{0,120}한마디 쓰기/);
+  assert.ok(contributor.indexOf("한마디 쓰기") < contributor.indexOf("사진 추가"), "첫 칸이 한마디가 아니다");
   assert.match(contributor, /album-bottom-navigation__chip/);
   // participant 변형은 사라졌다(같은 구성을 두 벌로 두지 않는다).
   assert.doesNotMatch(nav, /variant === "participant"/);

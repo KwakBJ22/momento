@@ -1,7 +1,9 @@
-import { Home, ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
+import { ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react";
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
+  /** ★ 쓰는 칸이 없다 — `처음으로` 칸을 뺐기 때문이다(UI 정리 3단계 C).
+   *  부르는 쪽들이 아직 넘기고 있어 계약만 남겨 둔다. 넘겨도 아무 일도 하지 않는다. */
   onTop?: () => void;
   onAddPhoto?: () => void;
   onAddMemory?: () => void;
@@ -17,7 +19,7 @@ export interface AlbumBottomNavigationProps {
 
 /** One fixed navigation surface shared by every screen-mode album. */
 export default function AlbumBottomNavigation({
-  onTop = () => undefined, onAddPhoto = () => undefined, onAddMemory = () => undefined, onShare = () => undefined, onCreateAlbum, onMyAlbums, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
+  onAddPhoto = () => undefined, onAddMemory = () => undefined, onShare = () => undefined, onCreateAlbum, onMyAlbums, canAddPhoto = true, canAddMemory = true, newAlbumHref = "/",
   variant = "default", activeItem,
 }: AlbumBottomNavigationProps) {
   const runIfEnabled = (enabled: boolean, action: () => void) => () => {
@@ -30,14 +32,19 @@ export default function AlbumBottomNavigation({
     }
     window.location.assign(newAlbumHref);
   };
-  // 전역 네비는 3칸이다(§4). "내 설정"은 없앴다 — 화면이 없고 계정 시트를 열 뿐인데,
-  // 헤더 ⋯ 가 같은 시트를 열어 한 화면에 같은 진입점이 두 개였다(§3).
+  // 전역 네비는 **2칸**이다(§4). "내 설정"은 예전에 없앴고(헤더 ⋯ 와 같은 시트였다),
+  // ★ `처음으로` 도 없앴다 — 첫 화면이 곧 앨범 만들기 화면이라 `새 앨범`과 **같은 곳**이었다.
+  //   같은 곳으로 가는 칸을 둘 두면 사용자는 둘이 다른 줄 안다. 홈으로 가는 길은
+  //   헤더 로고가 이미 한다(K-20).
+  // ★ 라벨이 `앨범 만들기` 인 것은 첫 화면 버튼과 같은 말이어야 같은 일로 읽히기 때문이다.
   if (variant === "app") {
+    // 없어진 `처음으로` 칸 때문에 아무 칸도 활성이 아닌 상태가 생기면 안 된다 —
+    // 첫 화면(home)과 사진 고르는 중(new-album)은 둘 다 이 칸이 맡는다.
+    const creatingAlbum = activeItem === "new-album" || activeItem === "home";
     return (
       <nav className="album-bottom-navigation album-bottom-navigation--app" aria-label="주요 메뉴">
-        <button type="button" className={activeItem === "home" ? "is-active" : ""} onClick={onTop}><Home size={17} /><span>처음으로</span></button>
         <button type="button" className={activeItem === "my-albums" ? "is-active" : ""} onClick={onMyAlbums}><Images size={17} /><span>내 앨범</span></button>
-        <button type="button" className={activeItem === "new-album" ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>새 앨범</span></button>
+        <button type="button" className={creatingAlbum ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>앨범 만들기</span></button>
       </nav>
     );
   }
@@ -53,11 +60,14 @@ export default function AlbumBottomNavigation({
     );
   }
 
+  // ★ 첫 칸은 `한마디 쓰기` 다. 참여자가 실제로 한 일이 한마디 11건 : 사진 추가 2건이라,
+  //   가장 눈에 띄는 자리에 사람들이 거의 안 하는 일이 놓여 있었다.
+  //   라벨·아이콘·동작은 그대로다 — 순서와 강조 위치만 바꿨다.
   if (variant === "contributor") {
     return (
       <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
-        <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
-        <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
+        <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
+        <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
         <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범<br />만들기</span></span></button>
       </nav>
     );

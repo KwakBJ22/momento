@@ -47,10 +47,12 @@ test("주최자 3칸 — 사진 추가 / 한마디 쓰기 / 공유하기", async
   assert.deepEqual(nav.labels, ["사진 추가", "한마디 쓰기", "공유하기"]);
 });
 
-test("참여자 3칸 — 사진 추가 / 한마디 쓰기 / 내 앨범 만들기", async () => {
+test("참여자 3칸 — 한마디 쓰기 / 사진 추가 / 내 앨범 만들기", async () => {
+  // ★ 순서가 뒤집혔다(UI 정리 3단계 C). 참여자가 실제로 한 일이 한마디 11건 : 사진 2건이라,
+  //   가장 눈에 띄는 첫 칸에 사람들이 거의 안 하는 일이 놓여 있었다. 칸 수·라벨·동작은 그대로다.
   const nav = await renderNav("contributor");
   assert.equal(nav.count, 3);
-  assert.deepEqual(nav.labels.slice(0, 2), ["사진 추가", "한마디 쓰기"]);
+  assert.deepEqual(nav.labels.slice(0, 2), ["한마디 쓰기", "사진 추가"]);
   // 3칸 안의 좁은 칩이라 두 줄로 접힌다("내 앨범 / 만들기") — 전폭인 구경꾼과 다르다.
   assert.match(nav.labels[2].replace(/\s+/g, ""), /내앨범만들기/);
 });
@@ -68,11 +70,27 @@ test("구경꾼 화면에 사진 추가·한마디·공유하기가 없다 (권�
   }
 });
 
-test("전역 네비 3칸 — 처음으로 / 내 앨범 / 새 앨범", async () => {
+test("★ 전역 네비 2칸 — 내 앨범 / 앨범 만들기", async () => {
+  // ★ 뒤집힌 항목(UI 정리 3단계 C). `처음으로`(requestLeaveHome)와 `새 앨범`(assign("/"))이
+  //   **같은 곳**이었다 — 첫 화면이 곧 앨범 만들기 화면이기 때문이다. 같은 곳으로 가는 칸을
+  //   둘 두면 사용자는 둘이 다른 줄 안다. 홈으로 가는 길은 헤더 로고가 이미 한다.
+  //   라벨이 `앨범 만들기` 인 것은 첫 화면 버튼과 같은 말이어야 같은 일로 읽히기 때문이다.
   const nav = await renderNav("app");
-  assert.equal(nav.count, 3);
-  assert.deepEqual(nav.labels, ["처음으로", "내 앨범", "새 앨범"]);
+  assert.equal(nav.count, 2);
+  assert.deepEqual(nav.labels, ["내 앨범", "앨범 만들기"]);
+  assert.equal(nav.text.includes("처음으로"), false);
   assert.equal(nav.text.includes("내 설정"), false);
+});
+
+test("★ 전역 네비에서 아무 칸도 활성이 아닌 상태가 없다", async () => {
+  // 없어진 `처음으로` 칸이 맡던 home 상태를 `앨범 만들기` 가 함께 맡는다.
+  const source = (await import("node:fs")).readFileSync(
+    new URL("../src/components/AlbumBottomNavigation.tsx", import.meta.url), "utf8");
+  assert.match(source, /const creatingAlbum = activeItem === "new-album" \|\| activeItem === "home";/);
+  assert.match(source, /className=\{creatingAlbum \? "is-active" : ""\}/);
+  const css = (await import("node:fs")).readFileSync(
+    new URL("../src/components/AlbumBottomNavigation.css", import.meta.url), "utf8");
+  assert.match(css, /\.album-bottom-navigation--app \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
 });
 
 test("구경꾼 칸은 전폭이다", async () => {

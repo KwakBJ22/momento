@@ -11,9 +11,10 @@ test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목
   // 변형별 블록을 가드 기준으로 자른다(같은 aria-label 을 쓰는 변형이 늘어도 안 깨지게).
   const contributor = nav.slice(nav.indexOf('if (variant === "contributor")'));
   const owner = nav.slice(nav.indexOf("// 소유자(2a) 3칸"));
-  // 참여자(4a·안1): 사진 추가(면 채움) / 한마디 쓰기 / 내 앨범 만들기(테두리 칩, 두 줄).
+  // 참여자(4a·안1): 한마디 쓰기(면 채움) / 사진 추가 / 내 앨범 만들기(테두리 칩, 두 줄).
+  // ★ 강조가 첫 칸으로 옮겨졌다(UI 정리 3단계 C) — 참여자가 실제로 하는 일이 한마디다.
   const contributorNav = contributor.split("</nav>")[0];
-  assert.match(contributorNav, /album-bottom-navigation__primary[\s\S]{0,120}사진 추가/);
+  assert.match(contributorNav, /album-bottom-navigation__primary[\s\S]{0,120}한마디 쓰기/);
   assert.match(contributorNav, /<span>한마디 쓰기<\/span>/);
   assert.match(contributorNav, /album-bottom-navigation__chip[\s\S]{0,200}내 앨범<br \/>만들기/);
   assert.doesNotMatch(contributorNav, /공유하기|앨범 처음으로/);
@@ -148,14 +149,19 @@ test("upload retry button is bound to the error slot, never the notice slot", ()
   assert.match(form, /setNotice\(noPhotosAddedNotice\(/);
 });
 
-// B-2 (§4·§3) — 전역 네비는 3칸이고, 계정 진입점은 화면당 하나(헤더 ⋯)다.
-test("전역 하단 네비는 3칸 — '내 설정'이 없다", () => {
+// B-2 (§4·§3) — 전역 네비는 2칸이고, 계정 진입점은 화면당 하나(헤더 ⋯)다.
+test("★ 전역 하단 네비는 2칸 — '처음으로'도 '내 설정'도 없다", () => {
+  // ★ 뒤집힘(UI 정리 3단계 C): `처음으로`가 `앨범 만들기`와 같은 곳이라 뺐다.
+  //   홈으로 가는 길은 헤더 로고가 이미 한다.
   const nav = read("components/AlbumBottomNavigation.tsx");
-  const app = nav.slice(nav.indexOf('if (variant === "app")'), nav.indexOf('if (variant === "visitor")'));
-  assert.equal((app.match(/<button /g) || []).length, 3);
-  assert.match(app, /처음으로/);
+  // 주석은 사람에게 하는 설명이다(`처음으로`를 왜 뺐는지 적어 두었다) — 빼고 본다.
+  const app = nav
+    .slice(nav.indexOf('if (variant === "app")'), nav.indexOf('if (variant === "visitor")'))
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.equal((app.match(/<button /g) || []).length, 2);
   assert.match(app, /내 앨범/);
-  assert.match(app, /새 앨범/);
+  assert.match(app, /앨범 만들기/);
+  assert.doesNotMatch(app, /처음으로/);
   assert.doesNotMatch(app, /내 설정/);
   // 격자도 3칸(기본값)이다 — 4칸 규칙을 남기지 않는다.
   assert.doesNotMatch(read("components/AlbumBottomNavigation.css"), /--app \{ grid-template-columns: repeat\(4/);

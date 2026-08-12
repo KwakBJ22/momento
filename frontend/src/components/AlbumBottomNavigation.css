@@ -10,7 +10,9 @@
 /* 구경꾼은 1칸 — 전폭이다(§4 8차). 남은 행동이 하나뿐이라 나눌 칸이 없다. */
 .album-bottom-navigation--visitor { grid-template-columns: minmax(0, 1fr); }
 .album-bottom-navigation button.is-active { background: var(--c-brand-soft); color: var(--c-brand-text); }
-/* 전역 네비는 3칸이다(§4) — 기본 격자와 같으므로 따로 정의하지 않는다. */
+/* 전역 네비는 **2칸**이다(§4 · UI 정리 3단계 C) — `처음으로`가 `앨범 만들기`와 같은
+   곳이라 뺐다. 기본 격자(3칸)와 다르므로 여기서 정의한다. */
+.album-bottom-navigation--app { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 769px) {
   .album-bottom-navigation { right: auto; left: 50%; width: min(100%, 900px); transform: translateX(-50%); border: 1px solid var(--c-border); border-bottom: 0; border-radius: 16px 16px 0 0; }
 }
