@@ -26,7 +26,9 @@ test("★ 표지 사진이 곧 카드다 — 폭을 꽉 채우고, 카드에 테
   //   가로세로 비는 그 상자의 값을 그대로 물려받아(196/140) 잘리는 결은 같다.
   const cover = rule(".join-page__cover");
   assert.match(cover, /width: 100%/);
-  assert.match(cover, /aspect-ratio: 196 \/ 140/);
+  // ★ 4:3 으로 바꿨다(4단계 A9) — 196/140 은 가로로 길어서 세로 인물 사진의
+  //   머리나 발이 잘렸다. 폰 사진은 대개 세로다.
+  assert.match(cover, /aspect-ratio: 4 \/ 3/);
   assert.match(cover, /object-fit: cover/); // 원본 비율 유지, 넘치는 부분만 잘린다
   const card = rule(".join-page__card");
   assert.doesNotMatch(card, /border: /); // 사진이 카드다 — 테두리를 두르지 않는다
@@ -42,7 +44,10 @@ test("★ 안내 문구는 본문 무게다 — 경고문처럼 보이지 않는
   assert.doesNotMatch(motto, /--c-brand-text/);
   assert.match(motto, /color: var\(--c-text-muted\)/);
   assert.match(motto, /font-weight: var\(--w-normal\)/);
-  assert.match(motto, /text-align: left/);
+  // ★ 가운데로 되돌렸다(4단계 A8) — 초대장은 카드 한 장처럼 읽히는 화면이고
+  //   제목·부제가 이미 가운데라 이 줄만 왼쪽이면 어긋나 보였다.
+  //   무게를 낮춘 것(색·굵기)은 그대로다 — 정렬만 바뀌었다.
+  assert.match(motto, /text-align: center/);
 });
 
 test("관계 칩이 화면에 없다 — 컬럼·API 는 그대로", () => {

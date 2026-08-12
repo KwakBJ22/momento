@@ -2,9 +2,6 @@ import { ImagePlus, Images, PencilLine, PlusSquare, Share2 } from "lucide-react"
 import "./AlbumBottomNavigation.css";
 
 export interface AlbumBottomNavigationProps {
-  /** ★ 쓰는 칸이 없다 — `처음으로` 칸을 뺐기 때문이다(UI 정리 3단계 C).
-   *  부르는 쪽들이 아직 넘기고 있어 계약만 남겨 둔다. 넘겨도 아무 일도 하지 않는다. */
-  onTop?: () => void;
   onAddPhoto?: () => void;
   onAddMemory?: () => void;
   onShare?: () => void;

@@ -441,7 +441,7 @@ function App() {
       {/* ★ 못 여는 앨범 화면에는 하단 네비를 두지 않는다(K-11) — 열지도 못하는 앨범에
           사진을 더하라고 권하는 꼴이었다. */}
       {showGlobalBottomNavigation && !albumUnavailable ? (
-        appNavigation === "album" ? <AlbumBottomNavigation onTop={() => dispatchAlbumAction("top")} onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
+        appNavigation === "album" ? <AlbumBottomNavigation onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={requestLeaveHome} />
       ) : null}
       {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}

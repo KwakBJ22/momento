@@ -473,9 +473,6 @@ export default function ContributeWorkspace({
     window.requestAnimationFrame(() => draftInputRef.current?.focus());
   };
 
-  const viewParticipantAlbum = () => {
-    participantRootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   if (error && !workspace) {
     return <section className="contribute"><p className="notice notice--error contribute__error" role="alert">{error}</p></section>;
@@ -677,7 +674,6 @@ export default function ContributeWorkspace({
       bottomNavigation={{
         // §4 참여자 3칸. "앨범"(스크롤로 되는 것)에는 칸을 쓰지 않는다.
         variant: "contributor",
-        onTop: viewParticipantAlbum,
         onAddPhoto: openPhotoPicker,
         onAddMemory: openMemoryEditor,
         onShare: () => undefined,

@@ -45,12 +45,13 @@
   background: var(--c-surface);
 }
 
-/* 가로세로 비는 예전 상자(196×140)를 그대로 쓴다 — 폭만 넓어지고 잘리는 결은 같다.
-   세로·정사각 사진은 여전히 위아래가 아니라 넘치는 만큼만 잘린다(object-fit: cover). */
+/* ★ 4:3 이다(UI 정리 4단계 A9). 예전 196/140(≈1.4:1)은 가로로 길어서, 폰으로 찍은
+   **세로 인물 사진의 머리나 발이 잘렸다.** 폰 사진은 대개 세로다.
+   넘치는 만큼만 잘리는 것(object-fit: cover)은 그대로다. */
 .join-page__cover {
   display: block;
   width: 100%;
-  aspect-ratio: 196 / 140;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 0;
   background: var(--c-bg-soft);
@@ -102,7 +103,10 @@
   font-size: 16px;
   font-weight: var(--w-normal);
   line-height: 1.6;
-  text-align: left;
+  /* ★ 가운데다(UI 정리 4단계 A8). 3단계에서 왼쪽으로 뒀는데, 초대장은 카드 한 장처럼
+     읽히는 화면이고 제목·부제가 이미 가운데라 이 줄만 왼쪽이면 어긋나 보였다.
+     무게를 낮춘 것(색·굵기)은 그대로다 — 정렬만 되돌린다. */
+  text-align: center;
 }
 
 /* ③ 참여자명 */

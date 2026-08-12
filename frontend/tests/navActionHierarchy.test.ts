@@ -176,3 +176,30 @@ test("계정 진입점은 화면당 하나 — 헤더 ⋯ 뿐이다", () => {
   // 계정은 헤더 ⋯ 시트에서만 연다(잃는 기능 없음 — 같은 시트다).
   assert.match(read("App.tsx"), /className="app-header__more" aria-label="더보기"/);
 });
+
+// --- UI 정리 4단계 A10 · A11 ---
+
+test("★ 헤더와 하단 네비가 본문과 같은 흰색이다 — 크림색 띠가 없다", () => {
+  // --c-bg(크림)를 쓰면 흰 본문 위에 층이 진다. 경계는 테두리가 낸다.
+  // ★ tokens.css 는 건드리지 않았다 — 두 곳에서 쓰는 값만 바꿨다.
+  const chrome = read("components/AppChrome.css");
+  const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
+  assert.match(header, /background: var\(--c-surface\)/);
+  assert.match(header, /border-bottom: 1px solid var\(--c-border\)/);
+  const nav = read("components/AlbumBottomNavigation.css");
+  const bar = nav.slice(nav.indexOf(".album-bottom-navigation {"), nav.indexOf("}", nav.indexOf(".album-bottom-navigation {")));
+  assert.match(bar, /background: var\(--c-surface\)/);
+  assert.equal(bar.includes("rgba(255,253,249"), false, "반투명 크림색이 되살아났다");
+  // 활성 칸의 브랜드색은 그대로다.
+  assert.match(nav, /button\.is-active \{ background: var\(--c-brand-soft\)/);
+});
+
+test("★ 죽은 값 onTop 이 남아 있지 않다", () => {
+  // 렌더하는 칸이 없어져 아무 일도 하지 않는 값이었다. 남겨 두면 다음 사람이
+  // 동작할 거라 믿고 넘기고, 조용히 실패한다(UI 정리 4단계 A11).
+  assert.equal(read("components/AlbumBottomNavigation.tsx").includes("onTop"), false);
+  for (const caller of ["App.tsx", "components/AlbumView.tsx", "components/AlbumResult.tsx",
+                        "components/PublicShareView.tsx", "components/ContributeWorkspace.tsx"]) {
+    assert.equal(read(caller).includes("onTop"), false, `${caller} 가 아직 넘긴다`);
+  }
+});

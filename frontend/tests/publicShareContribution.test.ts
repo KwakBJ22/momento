@@ -45,7 +45,8 @@ test("★ 이미 참여자인 사람은 다시 묻지 않는다 (행을 만들�
   assert.match(body, /const existing = album\.viewer_contributor;/);
   assert.match(body, /contributorId: existing\.contributor_id/);
   // 여기서 만들지 않는다 — 읽어서 쓰기만 한다.
-  const effect = body.slice(body.indexOf("album?.viewer_contributor"), body.indexOf("const scrollToAlbumStart"));
+  // ★ scrollToAlbumStart 는 죽은 값이라 지웠다(UI 정리 4단계 A11) — 다음 선언으로 자른다.
+  const effect = body.slice(body.indexOf("album?.viewer_contributor"), body.indexOf("const startContribution"));
   assert.doesNotMatch(effect, /startPublicContribution/);
 });
 

@@ -250,9 +250,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "already_contributor", albumId: session.albumId });
   }, [album, contributionSession, loadedToken, token]);
 
-  const scrollToAlbumStart = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
 
   const startContribution = async () => {
     const displayName = (authenticatedUser?.displayName || participantName).trim();
@@ -460,7 +457,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     variant: "contributor" as const,
     activeItem: isParticipantMode && contributionAction === "photo" ? "photo" as const
       : isParticipantMode && contributionAction === "memory" ? "memory" as const : undefined,
-    onTop: scrollToAlbumStart,
     onAddPhoto: () => openContribution("photo"),
     onAddMemory: () => openContribution("memory"),
     onCreateAlbum: () => window.location.assign("/"),

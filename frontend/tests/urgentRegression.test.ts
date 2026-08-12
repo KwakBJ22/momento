@@ -58,7 +58,7 @@ test("mobile collaboration invitation constrains its contents and keeps the cove
   // ★ 뒤집힘(UI 정리 3단계 A): 표지는 이제 카드 폭을 꽉 채운다. 잘리는 결이 달라지지
   //   않도록 가로세로 비는 옛 상자값(196/140)을 그대로 물려받았다.
   //   이 검사가 지키는 것은 그대로다 — 표지 자리가 예약돼 있어 레이아웃이 안 흔들린다.
-  assert.match(css, /\.join-page__cover \{[\s\S]*width: 100%;[\s\S]*aspect-ratio: 196 \/ 140;[\s\S]*object-fit: cover;/);
+  assert.match(css, /\.join-page__cover \{[\s\S]*width: 100%;[\s\S]*aspect-ratio: 4 \/ 3;[\s\S]*object-fit: cover;/);
   assert.match(css, /\.join-page__cta \{[\s\S]*width: 100%;[\s\S]*height: 56px;/);
 });
 

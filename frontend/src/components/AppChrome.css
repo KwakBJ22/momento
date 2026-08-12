@@ -42,7 +42,9 @@
      시작한다. 헤더 안쪽도 같은 자리에서 시작해야 브랜드가 본문 첫 글자와 세로로 맞는다. */
   padding: 4px max(var(--page-padding-x), calc((100% - var(--page-max-width)) / 2 + var(--page-padding-x)));
   border-bottom: 1px solid var(--c-border);
-  background: var(--c-bg);
+  /* ★ 본문과 같은 흰색이다(UI 정리 4단계 A10). --c-bg(크림)이면 흰 본문 위에
+     띠처럼 층이 진다. 경계는 위 테두리가 낸다. */
+  background: var(--c-surface);
 }
 .app-header__brand { display: flex; align-items: center; min-height: 44px; text-decoration: none; }
 /* 로고는 아이덴티티 색을 그대로 쓴다(WCAG 1.4.3 은 로고타입을 대비 요건에서 제외). */
