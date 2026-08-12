@@ -20,7 +20,7 @@
   aspect-ratio: 4 / 3;
   border-radius: 12px;
   object-fit: cover;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .album-photo-comments__item textarea {

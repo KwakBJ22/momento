@@ -35,7 +35,7 @@
 }
 
 .story-block__edit-btn:hover {
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
   color: var(--c-brand-text);
 }
 

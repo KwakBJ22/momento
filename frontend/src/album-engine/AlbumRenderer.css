@@ -271,7 +271,7 @@
 .album-living-page__memories li {
   padding: 0.8rem 0.9rem;
   border-radius: 8px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .album-living-page__memories small {

@@ -63,7 +63,9 @@
   flex-direction: column;
   gap: 3rem;
   padding: 2rem 1.9rem 2.8rem;
-  background: rgba(255, 252, 247, 0.62);
+  /* 반투명 크림색이었다. 사진 뒤에 옅은 색이 깔려 앨범 전체가 분홍기를 띠었다.
+     테두리는 아래처럼 사방 그대로라, 반투명을 없애도 `열린 상자`로 보이지 않는다. */
+  background: var(--c-surface);
   /* Close all four sides with the same color/thickness so the card doesn't read as an
      open box (the translucent background made left/right-only look unclosed). PO-approved. */
   border: 1px solid var(--c-border-strong);
@@ -290,7 +292,7 @@
   align-items: center;
   padding: 0.75rem;
   border-radius: 10px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .media-placeholder small {
@@ -342,7 +344,7 @@
   margin: 0 0 0.7rem;
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
   color: var(--c-brand-text);
   font-size: var(--t-xs);
   font-weight: 700;
@@ -569,7 +571,7 @@
   height: 72px;
   border-radius: 9px;
   object-fit: cover;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .public-share__pending-meta,
@@ -694,7 +696,7 @@
 
 /* 게스트 주최자의 저장 안내(SCREEN_SPEC §1) — 명령이 아니라 물음이다. 앨범이 막
    만들어진 직후 제목 위에 한 번 크게 보여주고, 닫아도 하단 CTA 로 다시 찾을 수 있다. */
-.album-guest-save { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-brand-soft); }
+.album-guest-save { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-bg-soft); }
 .album-guest-save__title { margin: 0; color: var(--c-text); font-size: 1.05rem; font-weight: 800; line-height: 1.4; }
 .album-guest-save__copy { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.6; }
 /* ★ 세로로 쌓는다. 가로로 나란히 두면 폭이 기기마다 달라져 `나중에` 가 두 줄로 쪼개진다

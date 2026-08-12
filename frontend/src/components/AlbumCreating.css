@@ -3,10 +3,10 @@
 .album-creating__eyebrow { margin: 0 0 8px; color: var(--c-brand-text); font-size: var(--t-xs); font-weight: 700; }
 .album-creating h2 { margin: 0; color: var(--c-text); font-size: clamp(1.45rem, 5vw, 1.9rem); }
 .album-creating__previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 14px; }
-.album-creating__previews img, .album-creating__previews span { width: 100%; aspect-ratio: 1; border-radius: 10px; background: var(--c-brand-soft); object-fit: cover; }
+.album-creating__previews img, .album-creating__previews span { width: 100%; aspect-ratio: 1; border-radius: 10px; background: var(--c-bg-soft); object-fit: cover; }
 .album-creating__previews img { animation: album-creating-pulse 2.4s ease-in-out infinite; }
 .album-creating__card > p:not(.album-creating__eyebrow):not(.album-creating__error) { margin: 12px 0 22px; color: var(--c-text-soft); line-height: 1.55; }
-.album-creating__progress { overflow: hidden; height: 8px; border-radius: 999px; background: var(--c-brand-soft); }
+.album-creating__progress { overflow: hidden; height: 8px; border-radius: 999px; background: var(--c-bg-soft); }
 .album-creating__progress span { display: block; height: 100%; border-radius: inherit; background: var(--c-brand-action); transition: width .35s ease; }
 .album-creating__working { display: block; min-height: 1.2rem; margin: 8px 0 2px; color: var(--c-brand-text); font-size: 1.25rem; letter-spacing: .2em; animation: album-creating-dots 1.2s ease-in-out infinite; }
 .album-creating small { color: var(--c-text-muted); line-height: 1.5; }
