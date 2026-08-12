@@ -90,6 +90,11 @@ test("ContributeWorkspace — meta 바로 뒤이고, embedded 조건을 건드�
 
 test("MyAlbums — 앨범이 있을 때만. 불러오는 중·없음 갈래에는 없다", () => {
   assert.match(myAlbums, /\{albums\.length > 0 \? <p className="my-albums__lead">\{SCREEN_LEAD\}<\/p> : null\}/);
+  // ★ 안내 줄은 **헤더 밖**이다. 헤더 안에 두었더니 flex·space-between 에서 왼쪽이
+  //   커져 오른쪽 `앨범 만들기` 가 눌려 두 줄로 깨졌다. 조건·문구·클래스는 그대로다.
+  const header = myAlbums.slice(myAlbums.indexOf('<header className="my-albums__header">'), myAlbums.indexOf("</header>", myAlbums.indexOf('<header className="my-albums__header">')));
+  assert.equal(header.includes("my-albums__lead"), false, "안내 줄이 다시 헤더 안에 있다");
+  assert.ok(myAlbums.indexOf("</header>") < myAlbums.indexOf("my-albums__lead"), "헤더보다 앞에 있다");
   // 불러오는 중 갈래의 헤더에는 없다.
   const loading = myAlbums.slice(myAlbums.indexOf("if (!albums) {"), myAlbums.indexOf("<MyAlbumsSkeleton />"));
   assert.equal(loading.includes("my-albums__lead"), false, "불러오는 중에도 뜬다");

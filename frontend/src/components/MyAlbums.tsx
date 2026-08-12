@@ -197,13 +197,13 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
 
   return (
     <section className="my-albums" aria-labelledby="my-albums-title">
+      {/* ★ 헤더는 제목과 링크 둘뿐이다. 안내 줄을 이 안에 넣었더니 왼쪽이 커져
+          오른쪽 `앨범 만들기` 가 눌려 두 줄로 깨졌다(flex · space-between). */}
       <header className="my-albums__header">
-        <div>
-          <h2 id="my-albums-title">내 앨범</h2>
-          {albums.length > 0 ? <p className="my-albums__lead">{SCREEN_LEAD}</p> : null}
-        </div>
+        <h2 id="my-albums-title">내 앨범</h2>
         <a className="my-albums__create" href="/">앨범 만들기</a>
       </header>
+      {albums.length > 0 ? <p className="my-albums__lead">{SCREEN_LEAD}</p> : null}
       {albums.length === 0 ? (
         <div className="my-albums__empty"><p>아직 만든 앨범이 없어요.</p><a className="landing__cta my-albums__empty-cta" href="/">첫 앨범 만들기</a></div>
       ) : (
