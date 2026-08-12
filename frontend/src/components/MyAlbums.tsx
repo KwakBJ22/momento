@@ -3,6 +3,7 @@ import { Image } from "lucide-react";
 import { deleteAlbum, getMyAlbums, removeAlbumBookmark, type MyAlbum } from "../lib/api";
 import { bookmarkRemoveTroubleMessage } from "../lib/albumTrouble";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
+import { useRefreshOnReturn } from "../lib/useRefreshOnReturn";
 import ConfirmSheet from "./ConfirmSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 
@@ -60,6 +61,8 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   // 담아둔 앨범을 목록에서 빼는 중 · 못 뺐을 때 (K-16).
   const [removingBookmarkId, setRemovingBookmarkId] = useState<string | null>(null);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  // 목록을 다시 읽는 열쇠 — 화면으로 돌아왔을 때 오래됐으면 올린다(아래 useRefreshOnReturn).
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -77,7 +80,14 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
       .catch((reason) => active && setError(reason instanceof Error ? reason.message : "앨범을 불러오지 못했어요."));
 
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
+
+  // 되살린 화면이 낡은 상태로 뜨지 않게 한다. 지우는 중이거나 확인 시트가 떠 있으면
+  // 목록을 갈아 끼우지 않는다 — 누르려던 것이 발밑에서 바뀌면 안 된다.
+  useRefreshOnReturn(
+    () => setReloadKey((key) => key + 1),
+    Boolean(pendingDelete) || Boolean(deletingId) || Boolean(removingBookmarkId),
+  );
 
   const handleDelete = async (album: MyAlbum) => {
     if (deletingIdsRef.current.has(album.album_id)) return;

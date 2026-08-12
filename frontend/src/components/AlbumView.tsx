@@ -12,6 +12,7 @@ import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
 import { useSignedUrlRefresh } from "../lib/useSignedUrlRefresh";
+import { useRefreshOnReturn } from "../lib/useRefreshOnReturn";
 
 
 import CollaborationPanel from "./CollaborationPanel";
@@ -137,6 +138,16 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [storyDraft, setStoryDraft] = useState("");
   const [isSavingStory, setIsSavingStory] = useState(false);
   const [storySaveError, setStorySaveError] = useState<string | null>(null);
+
+  // 되살린 화면이 낡은 상태로 뜨지 않게 한다 — 그 사이 바뀐 사진·대표사진을 모른 채
+  // 예전 화면이 그대로 떠 있었다. 이미 있는 새로고침 경로(retryKey)를 그대로 쓴다.
+  // ★ 쓰던 글이 날아가면 안 된다. 캡션·이야기·한마디를 쓰는 중이거나 참여 시트가
+  //   열려 있으면 다시 읽지 않는다 — 이 작업에서 가장 위험한 자리다.
+  useRefreshOnReturn(
+    () => setRetryKey((value) => value + 1),
+    Boolean(editingPhotoId) || isEditingEpilogue || Boolean(editingStoryKey)
+      || Boolean(activeAction) || deleteConfirmOpen || Boolean(confirmingCaptionPhotoId),
+  );
 
 
   // 앨범을 못 열면 하단 네비를 감춘다(K-11). 매 렌더 새로 만들어지는 콜백이라
