@@ -420,6 +420,13 @@ body {
   margin: var(--s-4) 0 0;
 }
 
+/* 로그인 전 그림 띠 — 진짜 사진이 아니라 그림이라 테두리를 빼고 더 조용히 둔다.
+   ★ 사진처럼 보이게 하지 않는다. 사진은 로그인한 사람의 앨범 표지 자리다. */
+.landing__covers--hero .landing__cover {
+  border-color: transparent;
+  background: transparent;
+}
+
 .landing__cover {
   display: block;
   overflow: hidden;

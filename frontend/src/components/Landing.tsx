@@ -72,6 +72,30 @@ function MyAlbumCoverStrip({ userId }: { userId: string }) {
 }
 
 /**
+ * 로그인 전 첫 화면의 그림 띠 (2026-08-12).
+ *
+ * ★ 사진 서비스인데 첫 화면에 사진이 0장이라 화면이 죽어 보였다.
+ * ★ 그런데 로그인 전 사람에게 보여줄 **진짜 사진이 없다.** 남의 사진을 쓸 수 없고,
+ *   실제 아이·가족 사진은 공개 이미지가 되어 버린다. 그래서 **얼굴 없는 그림**이다.
+ *   폴라로이드 더미 · 초를 켠 케이크 · 노을 진 바다 — 앨범이 담는 순간들이다.
+ * ★ 로그인하면 이 자리는 **내 앨범 표지**로 바뀐다. 그림은 그때 사라진다.
+ * ★ 장식이라 alt 은 비운다. 바로 위 제목이 이미 무엇인지 말한다.
+ */
+const HERO_IMAGES = ["/hero-1.png", "/hero-2.png", "/hero-3.png"];
+
+function HeroStrip() {
+  return (
+    <div className="landing__covers landing__covers--hero" aria-hidden="true">
+      {HERO_IMAGES.map((src) => (
+        <span key={src} className="landing__cover">
+          <img src={src} alt="" loading="lazy" decoding="async" />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
  * 제목 바로 아래 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
  *
  * ★ 나타났다 사라지지 않는다. 닫히는 배너로 만들지 않는다 — 닫았는지 기억해야 하고,
@@ -125,7 +149,7 @@ export default function Landing({
           우리의 이야기가 시작돼요.
         </h1>
         <p className="landing__copy">{SCREEN_LEAD}</p>
-        {userId ? <MyAlbumCoverStrip userId={userId} /> : null}
+        {userId ? <MyAlbumCoverStrip userId={userId} /> : <HeroStrip />}
         {/* 질문은 설명이 아니라 **아래 칩에 대한 물음**이다. 그래서 무게도 자리도 다르다
             — 설명과 떨어뜨리고 칩에 붙인다(UI 정리 3단계 B). */}
         <p className="landing__question">누구와 함께한 앨범인가요?</p>

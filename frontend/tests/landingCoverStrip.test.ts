@@ -42,7 +42,9 @@ async function mountLanding(userId: string | null, albums: unknown[]) {
   await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 40)); });
   return {
     React, root, container,
-    strip: () => container.querySelector(".landing__covers"),
+    // ★ 로그인 전에는 Cowork 가 넣은 그림 띠(`--hero`)가 같은 클래스를 쓴다(2026-08-12).
+    //   여기서 보는 것은 **내 앨범 표지 띠**라, 그 변형은 빼고 찾는다.
+    strip: () => container.querySelector(".landing__covers:not(.landing__covers--hero)"),
     links: () => Array.from(container.querySelectorAll(".landing__cover")) as HTMLAnchorElement[],
     cleanup: () => React.act(async () => { root.unmount(); }),
   };
