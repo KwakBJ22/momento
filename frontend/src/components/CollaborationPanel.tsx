@@ -35,7 +35,6 @@ interface CollaborationPanelProps {
   albumId: string;
   shareUrl?: string | null;
   imageUrl?: string | null;
-  title?: string;
   photos?: AlbumPhoto[];
   coverPhotoId?: string | null;
   onAlbumUpdated?: () => void;
@@ -74,7 +73,7 @@ function shareToken(url: string | null): string | null {
 }
 
 export default function CollaborationPanel({
-  albumId, shareUrl: initialShareUrl, imageUrl, title, photos = [], coverPhotoId,
+  albumId, shareUrl: initialShareUrl, imageUrl, photos = [], coverPhotoId,
   onAlbumUpdated, onCoverUpdated, onOpenParticipants, coverPickerRequest = 0, hideDuplicatedActions = false,
 }: CollaborationPanelProps) {
   const [status, setStatus] = useState<CollaborationStatus | null>(null);
@@ -314,7 +313,7 @@ export default function CollaborationPanel({
       <div className="collab-panel__cover-actions"><button type="button" disabled={savingCover} onClick={() => setCoverPickerOpen(false)}>취소</button><button type="button" className="collab-panel__primary" disabled={savingCover || !selectedCoverId} onClick={() => void saveCover()}>{savingCover ? "저장 중..." : "저장"}</button></div>
     </section></div> : null}
     {/* 다른 자리와 같은 공유 시트 하나(I-2). 구경용 링크는 이 패널이 이미 가진 값으로. */}
-    {shareOpen ? <AlbumShareSheet albumId={albumId} imageUrl={imageUrl || ""} resolveViewUrl={ensurePublicShareUrl} viewDescription={title || ""} onInviteIssued={() => { void refresh(); }} onClose={() => setShareOpen(false)} /> : null}
+    {shareOpen ? <AlbumShareSheet albumId={albumId} imageUrl={imageUrl || ""} resolveViewUrl={ensurePublicShareUrl} onInviteIssued={() => { void refresh(); }} onClose={() => setShareOpen(false)} /> : null}
   </section>;
 }
 

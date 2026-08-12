@@ -50,7 +50,9 @@ test("★ 담아둬도 쓰기 권한이 생기지 않는다", () => {
   //   (빼는 자리는 `내 앨범` 하나다, §1 25차). 규칙은 그대로다: 담기는 권한을 안 건드린다.
   // ★ K-15 에서 부르는 자리가 `runBookmark` 으로 나뉘었다(로그인 뒤 저절로 담는 길과
   //   눌러서 담는 길이 같은 것을 쓰게 하려고다). 규칙은 그대로다.
-  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const bookmarkCard"));
+  // ★ 담아두기 상자가 **앨범 뒤로** 옮겨가면서(4단계 A2) 선언 순서가 바뀌었다 —
+  //   상자는 이제 publicBody 위에 있고, 담는 동작은 그 아래에 있다.
+  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const headerRight"));
   assert.match(save, /runAfterLogin\(\(\) => saveSharedAlbumBookmark\(token\)\);/);
   for (const forbidden of ["startPublicContribution", "canContribute =", "setContributionSession", "can_edit"]) {
     assert.equal(save.includes(forbidden), false, `담기가 권한을 건드린다: ${forbidden}`);
@@ -82,7 +84,10 @@ test("`내 앨범` 세 칸 — 내가 만든 / 함께 만드는 / 담아둔", ()
 test("구경꾼 안내 문구가 §1 그대로다 — 명령이 아니라 물음", () => {
   const view = read("components/PublicShareView.tsx");
   assert.match(view, /이 앨범을 내 앨범에 담아둘까요\?/);
-  assert.match(view, /담아두면 다음에도 이 앨범을 찾을 수 있어요\./);
+  // ★ `담아두면` 을 뺐다(UI 정리 4단계 A3) — 버튼 이름이 이미 `담아두기` 라 같은 말이 두 번이었고,
+  //   한 줄이 넘어가 두 줄이 됐다. 무엇을 얻는지만 남긴다.
+  assert.match(view, /다음에도 이 앨범을 찾을 수 있어요\./);
+  assert.equal(view.includes("담아두면 다음에도"), false);
   assert.match(view, />담아두기</);
   // 참여할 수 있는 사람(참여자)에게는 이 카드가 없다 — 그들은 이미 목록에 있다.
   // 역할 판정은 lib/albumRole 한 곳이다(H-1) — 화면이 플래그를 다시 읽지 않는다.
@@ -132,7 +137,9 @@ test("담아둔 앨범이 아니면 지금 그대로 연다", () => {
 
 test("★ 담아두지 못하면 **말한다** (§11 — 무한 반복의 원인이었다)", () => {
   const view = read("components/PublicShareView.tsx");
-  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const bookmarkCard"));
+  // ★ 담아두기 상자가 **앨범 뒤로** 옮겨가면서(4단계 A2) 선언 순서가 바뀌었다 —
+  //   상자는 이제 publicBody 위에 있고, 담는 동작은 그 아래에 있다.
+  const save = view.slice(view.indexOf("const runBookmark"), view.indexOf("const headerRight"));
   // 예전에는 상태만 되돌리고 아무 말도 안 했다 — 사용자는 또 누르고 또 로그인하러 갔다.
   // ★ K-15 에서 **언제** 말하는지가 갈렸다 — 끝난 뒤에만(pendingBookmarkAfterLogin.test.ts).
   assert.match(save, /setBookmarkError\(bookmarkTroubleMessage\(result\.status\)\);/);

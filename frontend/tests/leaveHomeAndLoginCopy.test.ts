@@ -86,7 +86,8 @@ test("장수를 세는 곳은 하나다 — 화면이 두 번 세지 않는다",
 
 test("★ 어디서 눌렀는지에 따라 제목이 갈린다 (네 갈래)", () => {
   assert.deepEqual(authPanelCopy("signin"), { title: "로그인", description: "쓰던 계정으로 이어서 볼 수 있어요." });
-  assert.deepEqual(authPanelCopy("bookmark"), { title: "이 앨범을 담아둘까요?", description: "담아두면 다음에도 이 앨범을 찾을 수 있어요." });
+  // ★ 설명에서 `담아두면` 을 뺐다(4단계 A3) — 공유 화면의 같은 문구와 한 벌로 맞춘다.
+  assert.deepEqual(authPanelCopy("bookmark"), { title: "이 앨범을 담아둘까요?", description: "다음에도 이 앨범을 찾을 수 있어요." });
   assert.deepEqual(authPanelCopy("guest-save"), { title: "이 앨범을 내 앨범으로 저장할까요?", description: "저장해 두면 다음에도 이 앨범을 찾을 수 있어요." });
   // 그 밖 — 없는 맥락을 지어내지 않는다.
   assert.deepEqual(authPanelCopy(), { title: "로그인", description: null });

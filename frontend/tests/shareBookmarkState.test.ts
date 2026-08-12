@@ -36,7 +36,9 @@ test("★ 담았는지는 앨범 응답 한 곳에서 읽는다 — 따로 베�
 test("★ 담고 나면 앨범 값 자체를 고친다 — 다시 그려도 유지된다", () => {
   // ★ K-15 에서 부르는 자리가 `runBookmark` 으로 나뉘었다 — 눌러서 담는 길과
   //   로그인 뒤 저절로 담기는 길이 **같은 것**을 쓴다.
-  const fn = view.slice(view.indexOf("const runBookmark = async"), view.indexOf("const bookmarkCard"));
+  // ★ 상자가 앨범 뒤로 옮겨가면서(4단계 A2) 선언 순서가 바뀌었다 — 상자는 publicBody 위,
+  //   담는 동작은 그 아래다.
+  const fn = view.slice(view.indexOf("const runBookmark = async"), view.indexOf("const headerRight"));
   assert.match(fn, /runAfterLogin\(\(\) => saveSharedAlbumBookmark\(token\)\);/);
   assert.match(fn, /setAlbum\(\(current\) => \(current \? \{ \.\.\.current, viewer_bookmarked: true \} : current\)\);/);
   // 로그인하지 않았으면 로그인부터다(담을 곳이 계정이기 때문이다 — §1).
@@ -47,10 +49,11 @@ test("★ 담고 나면 앨범 값 자체를 고친다 — 다시 그려도 유�
 });
 
 test("★ 같은 자리가 담긴 상태로 바뀐다 (§1 25차)", () => {
-  const card = view.slice(view.indexOf("const bookmarkCard"), view.indexOf("const publicActions"));
+  const card = view.slice(view.indexOf("const bookmarkCard"), view.indexOf("const publicBody = ("));
   // 안 담김 — 묻는다.
   assert.match(card, /이 앨범을 내 앨범에 담아둘까요\?/);
-  assert.match(card, /담아두면 다음에도 이 앨범을 찾을 수 있어요\./);
+  // ★ `담아두면` 을 뺐다(UI 정리 4단계 A3).
+  assert.match(card, /다음에도 이 앨범을 찾을 수 있어요\./);
   assert.match(card, />담아두기<\/button>/);
   // 담긴 뒤 — 말해 준다. 그리고 갈 곳을 준다.
   assert.match(card, /내 앨범에 담아뒀어요\./);
@@ -95,4 +98,31 @@ test("★ 다시 들어와도 담긴 상태로 보인다 — 기존 공유 응�
     "`/api/public/shares/${encodeURIComponent(shareToken)}/bookmark`",
     "`/api/albums/${albumId}/bookmark`",
   ]);
+});
+
+// --- UI 정리 4단계 A1·A2 ---
+
+test("★ 담아두기 상자는 앨범 **뒤**에 온다 — 저장부터 권하지 않는다", () => {
+  // 예전에는 화면 맨 위(preHeader)라, 아직 이게 뭔지도 모르는 사람에게 저장부터 권했다.
+  // 상자는 그대로고 자리만 옮겼다.
+
+  assert.equal(view.includes("preHeader={bookmarkCard}"), false, "다시 화면 맨 위로 갔다");
+  const body = view.slice(view.indexOf("const publicBody = ("), view.indexOf("const isParticipantMode"));
+  assert.match(body, /\{bookmarkCard\}/);
+  // 앨범 본문(AlbumRenderer)보다 뒤다.
+  assert.ok(body.indexOf("AlbumRenderer") < body.indexOf("{bookmarkCard}"), "앨범보다 앞에 있다");
+  // 하단 `＋ 내 앨범 만들기` 는 그대로다.
+  assert.match(view, /publicNav/);
+});
+
+test("★ 구경용 카톡 카드가 앨범 본문을 싣지 않는다 — 고정 문구다", () => {
+  // 받는 사람이 처음 보는 글인데 본문을 잘라 실어 문장 중간에서 끊겼다.
+  const sheet = readFileSync(path.join(SRC, "components/AlbumShareSheet.tsx"), "utf8");
+  assert.match(sheet, /view: \{ title: "앨범을 함께 봐요", description: "사진과 한마디가 담긴 앨범이에요\.", buttonTitle: "앨범 보기" \}/);
+  assert.match(sheet, /\.\.\.CARD\.view,/);
+  // 본문을 실어 나르던 통로가 사라졌다 — 넘길 수 없으니 되살아나지 않는다.
+  assert.equal(sheet.includes("viewDescription"), false);
+  for (const caller of ["components/AlbumView.tsx", "components/AlbumResult.tsx", "components/CollaborationPanel.tsx"]) {
+    assert.equal(readFileSync(path.join(SRC, caller), "utf8").includes("viewDescription"), false, `${caller} 가 아직 넘긴다`);
+  }
 });

@@ -21,7 +21,7 @@ const COPY: Record<AuthPanelReason, AuthPanelCopy> = {
   // 첫 화면·헤더의 `로그인` — 이미 계정이 있는 사람이 이어서 보려는 것이다.
   signin: { title: "로그인", description: "쓰던 계정으로 이어서 볼 수 있어요." },
   // 구경꾼이 남의 앨범을 담아둘 때. 담을 곳이 계정이라 로그인이 필요하다(§1).
-  bookmark: { title: "이 앨범을 담아둘까요?", description: "담아두면 다음에도 이 앨범을 찾을 수 있어요." },
+  bookmark: { title: "이 앨범을 담아둘까요?", description: "다음에도 이 앨범을 찾을 수 있어요." },
   // 게스트 주최자가 자기 앨범을 계정에 붙일 때.
   "guest-save": { title: "이 앨범을 내 앨범으로 저장할까요?", description: "저장해 두면 다음에도 이 앨범을 찾을 수 있어요." },
 };

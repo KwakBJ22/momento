@@ -355,6 +355,41 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   if (!Array.isArray(album.photos)) return <div className="album-result"><h2 className="album-result__title">앨범 사진을 불러오지 못했습니다.</h2><button type="button" className="btn btn--secondary" onClick={() => setRetryKey((value) => value + 1)}>다시 시도</button></div>;
   const epilogue = (album.epilogue ?? album.narrative ?? "").trim();
 
+  // ★ 아래 publicBody 안에서 쓰므로 **먼저** 선언한다(UI 정리 4단계 A2 — 자리를 옮겼다).
+  /**
+   * 같은 자리가 **묻는 말**과 **담긴 상태** 둘을 겸한다 (K-12 · §1 25차).
+   *
+   * ★ 스스로 사라지는 알림으로 처리하지 않는다(§11). 담겼다는 사실은 화면에 남아 있어야
+   *   한다 — 사라지고 나면 담겼는지 알 길이 다시 없어진다.
+   * ★ `내 앨범에서 보기` 는 헤더의 `내 앨범` 과 같은 곳이다(K-7c 에서 쓴 그 주소).
+   */
+  const bookmarkCard = role !== "visitor" ? null : bookmarked ? (
+    <div className="album-guest-save">
+      <p className="album-guest-save__title">내 앨범에 담아뒀어요.</p>
+      <div className="album-guest-save__actions">
+        <a className="btn btn--primary" href="/my-albums">내 앨범에서 보기</a>
+      </div>
+    </div>
+  ) : (
+    <div className="album-guest-save">
+      <p className="album-guest-save__title">이 앨범을 내 앨범에 담아둘까요?</p>
+      <p className="album-guest-save__copy">다음에도 이 앨범을 찾을 수 있어요.</p>
+      <div className="album-guest-save__actions">
+        <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void saveBookmark()}>담아두기</button>
+      </div>
+      {/* 끝날 때까지는 **하는 중이라고만** 말한다(§11 26차). */}
+      {bookmarkBusy ? <p className="notice notice--progress" role="status">내 앨범에 담아두는 중이에요.</p> : null}
+      {/* ★ 한 번 낸 말은 사용자가 없앨 때까지 남는다 — 저절로 사라지지 않는다. */}
+      {bookmarkError ? (
+        <p className="notice notice--error album-guest-save__error" role="alert">
+          {bookmarkError}
+          <button type="button" className="notice__close" onClick={() => setBookmarkError(null)} aria-label="안내 닫기">
+            <X size={16} aria-hidden="true" />
+          </button>
+        </p>
+      ) : null}
+    </div>
+  );
   const publicBody = (
     <>
       <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
@@ -411,6 +446,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {canContribute ? <section className="public-share__join" aria-label="앨범 참여"><p><strong>사진과 한마디를 더할 수 있어요</strong></p><div className="public-share__join-actions"><button type="button" className="upload-form__submit" disabled={isStartingContribution} onClick={() => openContribution("photo")}>사진 추가</button><button type="button" className="btn btn--secondary" disabled={isStartingContribution} onClick={() => openContribution("memory")}>한마디 쓰기</button></div>{isStartingContribution ? <p className="notice notice--progress public-share__join-status" role="status">참여를 준비하고 있어요...</p> : null}{contributionError ? <p className="notice notice--error public-share__join-error" role="alert">{contributionError}</p> : null}</section> : null}
       {nameAction ? <form ref={(node) => { contributionPanelRef.current = node; }} className="public-share__name" onSubmit={(event) => { event.preventDefault(); void startContribution(); }}><label htmlFor="public-contribution-name">참여자명을 알려주세요</label><input id="public-contribution-name" value={participantName} maxLength={40} autoComplete="name" onChange={(event) => setParticipantName(event.target.value)} /><div className="public-share__name-actions"><button type="submit" className="upload-form__submit" disabled={isStartingContribution}>{isStartingContribution ? "준비 중..." : "계속하기"}</button><button type="button" className="btn btn--ghost" disabled={isStartingContribution} onClick={() => setNameAction(null)}>취소</button></div></form> : null}
       {contributionAction && contributionAlbumId && contributionSession ? <div ref={(node) => { contributionPanelRef.current = node; }} className="public-share__contribute"><ContributeWorkspace albumId={contributionAlbumId} embedded requestedAction={contributionAction} initialWorkspace={initialWorkspace} onContributionAdded={addPendingItems} onContributionUpdated={updatePendingItem} onContributionRemoved={removePendingItem} /></div> : null}
+      {/* ★ 담아두기는 **앨범이 끝난 뒤**다(UI 정리 4단계 A2). 예전에는 화면 맨 위라,
+          아직 이게 뭔지도 모르는 사람에게 저장부터 권했다. 상자는 그대로고 자리만 옮겼다. */}
+      {bookmarkCard}
     </>
   );
   const isParticipantMode = role === "contributor" && Boolean(contributionSession);
@@ -496,40 +534,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     // 앨범과 로그인 상태가 갖춰졌을 때 한 번 돈다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticatedUser?.id, album?.album_id, bookmarked, token]);
-  /**
-   * 같은 자리가 **묻는 말**과 **담긴 상태** 둘을 겸한다 (K-12 · §1 25차).
-   *
-   * ★ 스스로 사라지는 알림으로 처리하지 않는다(§11). 담겼다는 사실은 화면에 남아 있어야
-   *   한다 — 사라지고 나면 담겼는지 알 길이 다시 없어진다.
-   * ★ `내 앨범에서 보기` 는 헤더의 `내 앨범` 과 같은 곳이다(K-7c 에서 쓴 그 주소).
-   */
-  const bookmarkCard = role !== "visitor" ? null : bookmarked ? (
-    <div className="album-guest-save">
-      <p className="album-guest-save__title">내 앨범에 담아뒀어요.</p>
-      <div className="album-guest-save__actions">
-        <a className="btn btn--primary" href="/my-albums">내 앨범에서 보기</a>
-      </div>
-    </div>
-  ) : (
-    <div className="album-guest-save">
-      <p className="album-guest-save__title">이 앨범을 내 앨범에 담아둘까요?</p>
-      <p className="album-guest-save__copy">담아두면 다음에도 이 앨범을 찾을 수 있어요.</p>
-      <div className="album-guest-save__actions">
-        <button type="button" className="btn btn--primary" disabled={bookmarkBusy} onClick={() => void saveBookmark()}>담아두기</button>
-      </div>
-      {/* 끝날 때까지는 **하는 중이라고만** 말한다(§11 26차). */}
-      {bookmarkBusy ? <p className="notice notice--progress" role="status">내 앨범에 담아두는 중이에요.</p> : null}
-      {/* ★ 한 번 낸 말은 사용자가 없앨 때까지 남는다 — 저절로 사라지지 않는다. */}
-      {bookmarkError ? (
-        <p className="notice notice--error album-guest-save__error" role="alert">
-          {bookmarkError}
-          <button type="button" className="notice__close" onClick={() => setBookmarkError(null)} aria-label="안내 닫기">
-            <X size={16} aria-hidden="true" />
-          </button>
-        </p>
-      ) : null}
-    </div>
-  );
   const publicActions = (
     <div className="album-result__actions">
       {/* ★ 여기에 `빼기` 를 두지 않는다(§1 25차). 빼는 자리는 `내 앨범` 의 담아둔 목록 하나다. */}
@@ -580,7 +584,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const headerRight = !signedIn && onLogin
     ? <button type="button" className="app__account-login" onClick={onLogin}>로그인</button>
     : undefined;
-  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} backHref={signedIn ? "/my-albums" : undefined} onMore={signedIn ? () => setMoreOpen(true) : undefined} preHeader={bookmarkCard} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
+  return <AlbumScreen title={album.title} subtitle="함께 만든 추억 앨범" headerSupplement={editionLink} headerRight={headerRight} backHref={signedIn ? "/my-albums" : undefined} onMore={signedIn ? () => setMoreOpen(true) : undefined} body={publicBody} actionPanel={isParticipantMode ? undefined : publicActions} bottomNavigation={publicNav} className="public-share" />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
 }

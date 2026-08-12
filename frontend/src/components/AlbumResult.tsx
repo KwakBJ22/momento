@@ -292,7 +292,6 @@ export default function AlbumResultView({
         albumId={result.album_id}
         imageUrl={resolveShareImageUrl(result)}
         resolveViewUrl={resolveShareUrl}
-        viewDescription={epilogue}
         onClose={() => setShareOpen(false)}
       />
     ) : null}

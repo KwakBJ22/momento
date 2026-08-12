@@ -24,8 +24,6 @@ interface AlbumShareSheetProps {
   imageUrl: string;
   /** 구경용(/s/) 링크를 준비한다. 화면마다 이미 가진 값이 달라 함수로 받는다. */
   resolveViewUrl: () => Promise<string>;
-  /** 구경용 카드에 실을 한 줄(우리의 이야기). */
-  viewDescription?: string;
   /** 초대 링크를 처음 발급하면 서버에서 참여가 켜진다 — 그 화면이 상태를 다시 읽게 한다. */
   onInviteIssued?: () => void;
   onClose: () => void;
@@ -33,8 +31,21 @@ interface AlbumShareSheetProps {
 
 const COPY_RESET_MS = 2500;
 
+/**
+ * 카카오 카드에 실리는 두 벌의 문구 — **둘 다 고정 문구다.**
+ *
+ * ★ 구경용은 예전에 앨범 본문(우리의 이야기)을 잘라 실었다. 받는 사람이 처음 보는 글인데
+ *   문장 중간에서 끊기고 과거형 보고체였다("…담긴 앨범이었습니다. 첫 번째 사진에서는…").
+ *   본문은 앨범 안에서 읽는 글이지 소개 문구가 아니다. 바로 위 `함께 만들기` 카드처럼
+ *   무엇을 받는 것인지 한 줄로 말한다.
+ */
+const CARD = {
+  invite: { title: "함께 앨범을 만들어요", description: "가족과 친구가 자기 사진과 한마디를 더할 수 있어요.", buttonTitle: "함께 만들기" },
+  view: { title: "앨범을 함께 봐요", description: "사진과 한마디가 담긴 앨범이에요.", buttonTitle: "앨범 보기" },
+} as const;
+
 export default function AlbumShareSheet({
-  albumId, imageUrl, resolveViewUrl, viewDescription = "", onInviteIssued, onClose,
+  albumId, imageUrl, resolveViewUrl, onInviteIssued, onClose,
 }: AlbumShareSheetProps) {
   const { shareAlbum } = useKakaoSdk();
   const [copied, setCopied] = useState(false);
@@ -57,9 +68,7 @@ export default function AlbumShareSheet({
       shareAlbum({
         imageUrl,
         linkUrl: await ensureAlbumInviteUrl(albumId),
-        title: "함께 앨범을 만들어요",
-        description: "가족과 친구가 자기 사진과 한마디를 더할 수 있어요.",
-        buttonTitle: "함께 만들기",
+        ...CARD.invite,
       });
       onInviteIssued?.();
       onClose();
@@ -74,9 +83,7 @@ export default function AlbumShareSheet({
       shareAlbum({
         imageUrl,
         linkUrl: await resolveViewUrl(),
-        title: "앨범을 함께 봐요",
-        description: viewDescription,
-        buttonTitle: "앨범 보기",
+        ...CARD.view,
       });
       onClose();
     } catch {
