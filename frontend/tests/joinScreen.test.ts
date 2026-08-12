@@ -20,13 +20,29 @@ test("초대 한 줄이 맨 위, 이름도 본문과 같은 검정", () => {
   assert.ok(page.indexOf("join-page__invite") < page.indexOf("join-page__card"));
 });
 
-test("표지 사진은 196×140 상자에 가운데 정렬, 비율 유지·넘침 잘림", () => {
+test("★ 표지 사진이 곧 카드다 — 폭을 꽉 채우고, 카드에 테두리가 없다", () => {
+  // ★ 뒤집힌 항목(UI 정리 3단계 A). 예전에는 테두리가 있고 그 안쪽 여백에 사진이
+  //   눌려 196×140 로 작게 들어갔다. 초대장에서 가장 먼저 보여야 할 것은 사진이다.
+  //   가로세로 비는 그 상자의 값을 그대로 물려받아(196/140) 잘리는 결은 같다.
   const cover = rule(".join-page__cover");
-  assert.match(cover, /width: 196px/);
-  assert.match(cover, /height: 140px/);
+  assert.match(cover, /width: 100%/);
+  assert.match(cover, /aspect-ratio: 196 \/ 140/);
   assert.match(cover, /object-fit: cover/); // 원본 비율 유지, 넘치는 부분만 잘린다
-  assert.doesNotMatch(cover, /^\s*width: 100%/m); // 전폭 금지(max-width 는 작은 화면 보호)
-  assert.match(rule(".join-page__cover-box"), /place-items: center/);
+  const card = rule(".join-page__card");
+  assert.doesNotMatch(card, /border: /); // 사진이 카드다 — 테두리를 두르지 않는다
+  assert.match(card, /border-radius: var\(--r-lg\)/);
+  assert.match(card, /overflow: hidden/); // 카드가 사진 윗모서리를 함께 깎는다
+  assert.doesNotMatch(rule(".join-page__cover-box"), /padding: /); // 사진을 눌러 넣지 않는다
+});
+
+test("★ 안내 문구는 본문 무게다 — 경고문처럼 보이지 않는다", () => {
+  // 이 자리는 원래 브랜드 강조용이었는데 지금은 안내문이 들어와 있다.
+  // 강조는 첫 줄(초대한 사람 이름)이 이미 한다. 문구 자체는 바뀌지 않았다.
+  const motto = rule(".join-page__motto");
+  assert.doesNotMatch(motto, /--c-brand-text/);
+  assert.match(motto, /color: var\(--c-text-muted\)/);
+  assert.match(motto, /font-weight: var\(--w-normal\)/);
+  assert.match(motto, /text-align: left/);
 });
 
 test("관계 칩이 화면에 없다 — 컬럼·API 는 그대로", () => {

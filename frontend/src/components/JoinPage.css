@@ -30,30 +30,29 @@
   word-break: keep-all;
 }
 
-/* ② 표지 카드 */
+/* ② 표지 카드 — ★ 사진이 곧 카드다.
+   예전에는 테두리가 있고 그 안쪽 여백에 사진이 눌려 작게 들어갔다. 초대장에서 가장
+   먼저 보여야 할 것은 사진이므로, 테두리와 안쪽 여백을 없애고 사진을 폭 끝까지 채운다.
+   둥근 모서리는 카드가 갖고(overflow: hidden 이 사진 윗모서리를 함께 깎는다). */
 .join-page__card {
-  border: 1px solid var(--c-border);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   background: var(--c-surface);
   overflow: hidden;
 }
 
-/* 사진은 전폭이 아니라 196×140 상자에 가운데 정렬한다 — 전폭이면 세로·정사각 사진의
-   양옆이 크게 잘린다. 상자를 넘치는 부분만 잘리고 원본 비율은 유지된다. */
 .join-page__cover-box {
-  display: grid;
-  place-items: center;
-  padding: 12px 16px 0;
+  display: block;
   background: var(--c-surface);
 }
 
+/* 가로세로 비는 예전 상자(196×140)를 그대로 쓴다 — 폭만 넓어지고 잘리는 결은 같다.
+   세로·정사각 사진은 여전히 위아래가 아니라 넘치는 만큼만 잘린다(object-fit: cover). */
 .join-page__cover {
   display: block;
-  width: 196px;
-  height: 140px;
-  max-width: 100%;
+  width: 100%;
+  aspect-ratio: 196 / 140;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--c-bg-soft);
 }
 
@@ -94,12 +93,16 @@
   margin: 38px 0 14px;
 }
 
+/* ★ 이 자리는 원래 브랜드 강조용이었는데 지금은 **안내문**이 들어와 있다.
+   진한 빨강 굵은 글씨 가운데정렬이라 경고문처럼 읽혔다. 안내문은 강조하지 않는다 —
+   강조는 첫 줄(초대한 사람 이름)이 이미 하고 있다. 문구는 그대로, 무게만 본문으로 내린다. */
 .join-page__motto {
   margin: 0;
-  color: var(--c-brand-text);
+  color: var(--c-text-muted);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--w-normal);
   line-height: 1.6;
+  text-align: left;
 }
 
 /* ③ 참여자명 */
