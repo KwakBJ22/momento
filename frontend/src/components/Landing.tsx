@@ -25,7 +25,7 @@ interface LandingProps {
  * ★ 나타났다 사라지지 않는다. 닫히는 배너로 만들지 않는다 — 닫았는지 기억해야 하고,
  *   그 저장소가 K-9·K-15·K-22 를 낳은 자리다. 툴팁·투어도 만들지 않는다.
  */
-const SCREEN_LEAD = "사진을 올려 앨범을 만들고, 함께한 사람들을 불러 채워요.";
+const SCREEN_LEAD = "사진을 올려 앨범을 만들고, 함께한 사람을 불러요.";
 
 const CATEGORY_ICONS: Record<AlbumCategory, LucideIcon> = {
   family: Home,

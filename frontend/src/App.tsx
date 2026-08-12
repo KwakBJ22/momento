@@ -37,7 +37,7 @@ import { clearGuestAlbumToken, getGuestAlbumToken, hasGuestAlbumToken, clearPend
 import { authDebug } from "./lib/authDebug";
 import { resolveShareImageUrl } from "./lib/shareImage";
 import { forgetLegalConsent, initializeAuth, isAuthenticationConfigured, onAuthStateChange, readLegalConsent, signOut, type AppUser } from "./services/authService";
-import type { AlbumCategory, AlbumResult } from "./types";
+import { DEFAULT_ALBUM_CATEGORY, type AlbumCategory, type AlbumResult } from "./types";
 import "./App.css";
 
 const AdminConsole = lazy(() => import("./components/admin/AdminConsole"));
@@ -79,7 +79,9 @@ function App() {
   const loginReturnFocusRef = useRef<HTMLElement | null>(null);
   const withdrawReturnFocusRef = useRef<HTMLElement | null>(null);
   const initialCreateStep = useRef(readCreateStep()).current;
-  const [category, setCategory] = useState<AlbumCategory | null>(initialCreateStep.category);
+  // 저장된 단계가 있으면 그것을, 없으면 기본 종류로 시작한다(A7) — 첫 화면에서
+  // `앨범 만들기` 가 처음부터 눌린다.
+  const [category, setCategory] = useState<AlbumCategory | null>(initialCreateStep.category ?? DEFAULT_ALBUM_CATEGORY);
   const [isPhotoSelectionStep, setIsPhotoSelectionStep] = useState(initialCreateStep.photoStep);
   // 사진 고르는 중에 홈으로 나가려 할 때 한 번 묻기 위한 값 (K-20).
   // 고른 장수는 UploadForm 이 알려준다 — 화면이 두 번 세지 않는다.
@@ -246,7 +248,8 @@ function App() {
     if (isPhotoSelectionStep && pickedPhotoCount > 0) { setLeaveHomeAsk(true); return; }
     leaveToHome();
   };
-  const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(null); setIsPhotoSelectionStep(false); };
+  // 첫 화면으로 돌아가는 것이므로 종류도 **첫 화면의 상태**(기본 선택)로 되돌린다.
+  const resetToStart = () => { setResult(null); setShowAlbumResult(false); setShowLogin(false); setCategory(DEFAULT_ALBUM_CATEGORY); setIsPhotoSelectionStep(false); };
   const logout = async () => {
     await signOut();
     setUser(null);

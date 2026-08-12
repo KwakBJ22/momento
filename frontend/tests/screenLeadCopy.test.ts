@@ -32,7 +32,8 @@ const shown = (source: string) =>
   source.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 const LEADS: [string, string, string][] = [
-  ["Landing", landing, "사진을 올려 앨범을 만들고, 함께한 사람들을 불러 채워요."],
+  // ★ 줄였다(UI 정리 4단계 A4) — 옛 문구는 두 줄로 넘쳐 `요.` 가 혼자 떨어졌다.
+  ["Landing", landing, "사진을 올려 앨범을 만들고, 함께한 사람을 불러요."],
   ["AlbumResult", result, "함께한 사람들을 불러 보세요. 각자 사진과 한마디를 더할 수 있어요."],
   ["ContributeWorkspace", contribute, "사진에 한마디를 남기거나, 사진을 더할 수 있어요."],
   ["MyAlbums", myAlbums, "내가 만든 앨범과 함께 만드는 앨범이 모여 있어요."],

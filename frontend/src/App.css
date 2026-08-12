@@ -483,9 +483,9 @@ body {
   place-items: center;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background: var(--c-brand-action);
-  color: var(--c-surface);
+  /* ★ 진한 원이 칩 모서리에 걸쳐 튀어나와 보였다. 테두리와 배경이 이미 `선택됨`을
+     말하므로 배지는 거들기만 한다 — 체크 표시만 남긴다(UI 정리 4단계 A6). */
+  color: var(--c-brand);
 }
 
 /* 색은 styles/notice.css 의 .notice--info 가 준다(I-5b). */
@@ -526,7 +526,7 @@ body {
 .landing__cta:disabled {
   border: 1px solid var(--c-border);
   background: var(--c-bg-soft);
-  color: var(--c-text-subtle);
+  color: var(--c-text-muted);
   cursor: not-allowed;
   box-shadow: none;
 }

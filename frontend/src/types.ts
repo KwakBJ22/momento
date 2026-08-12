@@ -24,6 +24,15 @@ export const ALBUM_CATEGORY_OPTIONS: Array<{ value: AlbumCategory; label: string
   { value: "other", label: "기타" },
 ];
 
+/**
+ * 첫 화면에 들어왔을 때 이미 골라져 있는 종류 (PO 결정 · UI 정리 4단계 A7).
+ *
+ * 아무것도 안 골라져 있으면 `앨범 만들기` 가 처음부터 막혀 있어, 무엇을 해야 하는지
+ * 모른 채로 멈춘다. 가장 많은 쓰임이 가족이라 그것을 기본으로 둔다.
+ * ★ 사용자가 다른 칩을 고르면 그대로 바뀐다 — 기본값은 시작점일 뿐이다.
+ */
+export const DEFAULT_ALBUM_CATEGORY: AlbumCategory = "family";
+
 /** Internal theme labels — not shown in UI; used when auto-saving template_type. */
 export const ALBUM_TEMPLATE_OPTIONS: Array<{
   value: AlbumTemplateType;
