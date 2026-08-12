@@ -17,6 +17,7 @@ import { updatePublicShareCoverCache } from "../lib/publicShareFlow";
 import { isRequestAborted } from "../lib/requestAbort";
 import type { AlbumPhoto } from "../types";
 import "./CollaborationPanel.css";
+import { userFacingError } from "../lib/userFacingError";
 
 type CollaborationStatus = {
   can_edit_settings: boolean;
@@ -219,7 +220,7 @@ export default function CollaborationPanel({
       setMessage("참여를 마쳤어요. 이제 아무도 사진과 한마디를 더할 수 없어요. 다시 받고 싶으면 `함께 만들자고 보내기`로 새로 초대하면 돼요.");
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "참여 중단에 실패했어요. 다시 시도해 주세요.");
+      setError(userFacingError(cause, "참여 중단에 실패했어요. 다시 시도해 주세요."));
     } finally { setBusy(null); }
   };
 
@@ -236,7 +237,7 @@ export default function CollaborationPanel({
       setSelectedIds(new Set(next.items.map((item) => item.id)));
       setLivingMode(next.recommended_mode);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "새로 더해진 사진과 한마디을 불러오지 못했습니다.");
+      setError(userFacingError(cause, "새로 더해진 사진과 한마디을 불러오지 못했습니다."));
     } finally { setBusy(null); }
   };
 
@@ -259,7 +260,7 @@ export default function CollaborationPanel({
       await refresh();
       onAlbumUpdated?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "앨범에 담지 못했어요. 다시 시도해 주세요.");
+      setError(userFacingError(cause, "앨범에 담지 못했어요. 다시 시도해 주세요."));
     } finally { setBusy(null); }
   };
 
@@ -327,8 +328,10 @@ export default function CollaborationPanel({
           {hasNew ? <button type="button" className="collab-panel__primary" disabled={busy !== null} onClick={() => void openLivingPicker()}>{busy === "apply" ? "사진을 앨범에 담는 중..." : recommendsEdition ? "새로운 에디션 만들기" : "마지막 페이지에 추가하기"}</button> : null}
           <button type="button" className="collab-panel__stop" disabled={busy !== null} onClick={() => void stop()}>{busy === "stop" ? "중단하는 중..." : "참여 중단"}</button>
         </> : null}
-        {canManage && (status.visitor_count ?? 0) > 0 ? <p className="collab-panel__visitors">✨ 지금까지 <strong>{status.visitor_count}</strong>명이 다녀갔어요.</p> : null}
-        <div className="collab-panel__status" aria-label="참여 현황"><strong>참여 현황</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>한마디 {status.memory_count}개</span></div>
+        {canManage && (status.visitor_count ?? 0) > 0 ? <p className="collab-panel__visitors">지금까지 <strong>{status.visitor_count}</strong>명이 다녀갔어요.</p> : null}
+        {/* ★ 이름을 `함께한 것` 으로 둔다(2026-08-12). 위 카드 제목이 이미 `참여 현황`
+            이라 같은 말이 한 화면에 두 번 서 있었다 — 같은 이름이 두 개면 둘 다 안 읽힌다. */}
+        <div className="collab-panel__status" aria-label="함께한 것"><strong>함께한 것</strong><button type="button" className="collab-panel__participant-link" onClick={onOpenParticipants} disabled={!onOpenParticipants}>참여자 {participation?.participants.length ?? status.contributor_count}명</button><span>사진 {status.photo_count}장</span><span>한마디 {status.memory_count}개</span></div>
         {canManage && !hideDuplicatedActions && photos.length ? <button type="button" className="collab-panel__cover-button" disabled={busy !== null} onClick={() => setCoverPickerOpen(true)}>대표사진 변경</button> : null}
       </>
     )}

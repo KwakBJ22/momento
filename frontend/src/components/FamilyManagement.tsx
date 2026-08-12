@@ -11,6 +11,7 @@ import {
 import type { FamilyInvitationItem, FamilyMemberItem, FamilySummary, InvitableFamilyRole } from "../types";
 import "./FamilyManagement.css";
 import ConfirmSheet from "./ConfirmSheet";
+import { userFacingError } from "../lib/userFacingError";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "소유자",
@@ -63,7 +64,7 @@ export default function FamilyManagement() {
       setMembers(memberRows);
       setInvitations(invitationRows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "가족 정보를 불러오지 못했어요.");
+      setError(userFacingError(err, "가족 정보를 불러오지 못했어요."));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export default function FamilyManagement() {
       setEmail("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "초대를 만들지 못했어요.");
+      setError(userFacingError(err, "초대를 만들지 못했어요."));
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +107,7 @@ export default function FamilyManagement() {
       await updateFamilyMemberRole(family.family_id, memberId, role);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "역할을 바꾸지 못했어요.");
+      setError(userFacingError(err, "역할을 바꾸지 못했어요."));
     }
   };
 
@@ -116,7 +117,7 @@ export default function FamilyManagement() {
       await removeFamilyMember(family.family_id, memberId);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "구성원을 제거하지 못했어요.");
+      setError(userFacingError(err, "구성원을 제거하지 못했어요."));
     }
   };
 
@@ -126,7 +127,7 @@ export default function FamilyManagement() {
       await cancelFamilyInvitation(family.family_id, invitationId);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "초대를 취소하지 못했어요.");
+      setError(userFacingError(err, "초대를 취소하지 못했어요."));
     }
   };
 

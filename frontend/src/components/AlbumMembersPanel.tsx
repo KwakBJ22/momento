@@ -10,6 +10,7 @@ import {
 import type { AlbumMemberItem, AlbumMemberRole, FamilyMemberItem } from "../types";
 import "./FamilyManagement.css";
 import ConfirmSheet from "./ConfirmSheet";
+import { userFacingError } from "../lib/userFacingError";
 
 const ALBUM_ROLE_LABELS: Record<AlbumMemberRole, string> = {
   owner: "소유자",
@@ -43,7 +44,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
       setMembers(albumMembers);
       setFamilyMembers(familyMemberRows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참여자 정보를 불러오지 못했어요.");
+      setError(userFacingError(err, "참여자 정보를 불러오지 못했어요."));
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
       setSelectedProfileId("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참여자를 추가하지 못했어요.");
+      setError(userFacingError(err, "참여자를 추가하지 못했어요."));
     }
   };
 
@@ -69,7 +70,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
       await updateAlbumMemberRole(albumId, memberId, role);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "역할을 바꾸지 못했어요.");
+      setError(userFacingError(err, "역할을 바꾸지 못했어요."));
     }
   };
 
@@ -78,7 +79,7 @@ export default function AlbumMembersPanel({ albumId }: AlbumMembersPanelProps) {
       await removeAlbumMember(albumId, memberId);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참여자를 제거하지 못했어요.");
+      setError(userFacingError(err, "참여자를 제거하지 못했어요."));
     }
   };
 

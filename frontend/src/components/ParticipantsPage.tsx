@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getAlbumParticipation } from "../lib/api";
 import "./FamilyManagement.css";
+import { userFacingError } from "../lib/userFacingError";
 
 type Participant = { id: string; name: string; role: "host" | "participant"; photo_count: number; memory_count: number };
 
@@ -15,7 +16,7 @@ export default function ParticipantsPage({ albumId }: { albumId: string }) {
     setError(null);
     void getAlbumParticipation(albumId)
       .then((data) => active && setParticipants(data.participants))
-      .catch((cause) => active && setError(cause instanceof Error ? cause.message : "참여자를 불러오지 못했어요."))
+      .catch((cause) => active && setError(userFacingError(cause, "참여자를 불러오지 못했어요.")))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [albumId]);
