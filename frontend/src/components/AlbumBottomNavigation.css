@@ -1,7 +1,10 @@
 .album-bottom-navigation { position: fixed; z-index: 70; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: calc(82px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--c-border); background: rgba(255,253,249,0.98); box-shadow: var(--sh-md); }
 .album-bottom-navigation button, .album-bottom-navigation a { display: grid; place-items: center; align-content: center; gap: 0.26rem; min-width: 0; min-height: 82px; padding: 0.45rem; border: 0; background: transparent; color: var(--c-text-soft); font: inherit; font-size: var(--t-xs); font-weight: 650; line-height: 1.15; text-align: center; text-decoration: none; cursor: pointer; }
-/* is-primary(목업 2a·3a): 소유자=공유하기, 참여자=사진 추가 — --c-brand-soft 배경 + brand-text. */
-.album-bottom-navigation__share, .album-bottom-navigation__primary { background: var(--c-brand-soft) !important; color: var(--c-brand-text) !important; font-weight: 800 !important; }
+/* is-primary(목업 2a·3a): 소유자=공유하기, 참여자=사진 추가.
+   ★ 강조는 **굵기**가 맡는다. 예전에는 배경·글자까지 브랜드색이었는데, 바로 아래
+   `is-active`(지금 보고 있는 탭)와 **같은 색**이라 "선택된 칸"과 "늘 강조된 칸"이
+   구분되지 않았다. 브랜드색은 is-active 한 곳에 양보한다(디자인 정리 2-2단계). */
+.album-bottom-navigation__share, .album-bottom-navigation__primary { font-weight: 800 !important; }
 .album-bottom-navigation button:disabled { opacity: 0.42; cursor: default; }
 /* 구경꾼은 2칸(§4). 할 수 없는 행동(사진 추가·공유하기)을 아예 두지 않는다. */
 /* 구경꾼은 1칸 — 전폭이다(§4 8차). 남은 행동이 하나뿐이라 나눌 칸이 없다. */

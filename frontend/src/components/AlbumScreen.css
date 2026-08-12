@@ -72,7 +72,9 @@
 
 /* 참여 정체성 띠(목업 3a whoami) — 참여자 화면에만, 제목보다 위. 두 줄 상한. */
 .album-screen__pre-header { padding: 0 0 0.25rem; }
-.album-whoami { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--c-brand); border-radius: 12px; background: var(--c-brand-soft); }
+/* ★ 배경도 테두리도 브랜드색이면 이 규칙에서 가장 강한 강조가 된다. `지금 나`를 알리는
+   띠에 그만한 무게는 필요 없다 — 둘 다 중립으로 내린다(디자인 정리 2-2단계). */
+.album-whoami { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg-soft); }
 .album-whoami__face { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-brand-text); font-size: 1rem; font-weight: 800; }
 .album-whoami p { margin: 0; min-width: 0; font-size: 0.9375rem; line-height: 1.5; font-weight: 600; color: var(--c-text); }
 .album-whoami b { font-weight: 800; }

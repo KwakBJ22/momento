@@ -110,7 +110,7 @@
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid var(--c-bg-soft);
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .template-card__label {
@@ -201,7 +201,7 @@
 .drop-zone--active,
 .drop-zone:hover {
   border-color: var(--c-brand);
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 @media (max-width: 768px) {
@@ -245,7 +245,7 @@
   overflow: hidden;
   height: 6px;
   border-radius: var(--r-full);
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .upload-form__preparing-bar span {

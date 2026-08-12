@@ -21,7 +21,7 @@
   overflow: hidden;
   aspect-ratio: 4 / 3;
   border-radius: 12px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .photo-comments__image {

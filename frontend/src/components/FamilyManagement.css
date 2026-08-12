@@ -44,7 +44,7 @@
   margin-top: 0.75rem;
   padding: 0.75rem;
   border-radius: 12px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

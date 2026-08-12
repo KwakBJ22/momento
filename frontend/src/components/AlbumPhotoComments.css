@@ -69,7 +69,7 @@
   display: inline-flex;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
   color: var(--c-brand-text);
   font-size: var(--t-xs);
   font-weight: 750;

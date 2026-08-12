@@ -54,11 +54,11 @@
   max-width: 100%;
   object-fit: cover;
   border-radius: 8px;
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .join-page__cover--empty {
-  background: var(--c-brand-soft);
+  background: var(--c-bg-soft);
 }
 
 .join-page__card-body {

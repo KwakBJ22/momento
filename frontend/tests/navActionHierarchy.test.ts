@@ -27,8 +27,18 @@ test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목
   assert.equal((ownerNav.match(/<button/g) || []).length, 3);
   const css = read("components/AlbumBottomNavigation.css");
   assert.match(css, /\.album-bottom-navigation \{[^}]*grid-template-columns: repeat\(3/);
-  // 목업 is-primary: --c-brand-soft 배경 + brand-text (채움 코랄 아님).
-  assert.match(css, /\.album-bottom-navigation__share, \.album-bottom-navigation__primary \{[^}]*var\(--c-brand-soft\)/);
+  // ★ 뒤집힌 항목 (디자인 정리 2-2단계). 예전에는 is-primary 가 --c-brand-soft 배경 +
+  //   brand-text 였다. 그런데 바로 아래 `is-active`(지금 보고 있는 탭)와 **같은 색**이라
+  //   "선택된 칸"과 "늘 강조된 칸"이 구분되지 않았다. 브랜드색은 선택 표시 한 곳에
+  //   양보하고, 강조는 굵기가 맡는다.
+  //   실측(로컬 · 실제 CSS): 강조 칸 배경 rgba(0,0,0,0) · 글자 rgb(90,81,80) · 굵기 800,
+  //   is-active 칸 배경 rgb(255,240,240) · 글자 rgb(138,44,44) — 둘이 확실히 갈린다.
+  assert.match(css, /\.album-bottom-navigation__share, \.album-bottom-navigation__primary \{ font-weight: 800 !important; \}/);
+  const primaryRule = css.slice(css.indexOf(".album-bottom-navigation__share,"), css.indexOf("}", css.indexOf(".album-bottom-navigation__share,")));
+  assert.equal(primaryRule.includes("background"), false, "강조 칸이 다시 색을 갖는다");
+  assert.equal(primaryRule.includes("color"), false, "강조 칸이 다시 브랜드 글자색을 갖는다");
+  // 선택 표시는 그대로다 — 이 토큰이 정당한 자리다.
+  assert.match(css, /\.album-bottom-navigation button\.is-active \{ background: var\(--c-brand-soft\); color: var\(--c-brand-text\); \}/);
   // 안1: 나가는 행동은 채움이 아니라 테두리 칩(brand-action 선) — 강조의 종류가 다르다.
   assert.match(css, /\.album-bottom-navigation__chip \{[^}]*border: 1\.5px solid var\(--c-brand-action\)/);
   assert.doesNotMatch(css, /\.album-bottom-navigation__chip \{[^}]*background:/);
