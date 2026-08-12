@@ -12,6 +12,7 @@ import {
 } from "../lib/api";
 import AlbumShareSheet from "./AlbumShareSheet";
 import { forgetInviteUrl, storeInviteUrl } from "../lib/albumInvite";
+import { authDebug } from "../lib/authDebug";
 import { updatePublicShareCoverCache } from "../lib/publicShareFlow";
 import { isRequestAborted } from "../lib/requestAbort";
 import type { AlbumPhoto } from "../types";
@@ -163,7 +164,22 @@ export default function CollaborationPanel({
   useEffect(() => {
     if (isPublicShareUrl(initialShareUrl)) rememberShareUrl(initialShareUrl || null);
   }, [initialShareUrl, rememberShareUrl]);
-  useEffect(() => setSelectedCoverId(coverPhotoId || photos[0]?.id || null), [coverPhotoId, photos]);
+  /**
+   * 픽커를 **열 때** 지금 대표사진으로 맞춘다 (그때 한 번뿐이다).
+   *
+   * ★ 예전에는 `[coverPhotoId, photos]` 를 보고 맞췄다. `photos` 는 배열이라 앨범을 다시
+   *   받을 때마다(사진 새로고침·캡션 저장·서명 URL 갱신) **내용이 같아도 새 배열**이 되고,
+   *   그때마다 이 효과가 다시 돌아 **사용자가 방금 고른 사진을 지금 대표사진으로 되돌렸다.**
+   *   그래서 저장을 눌러도 바뀐 적이 없는 값이 나갔다(개발 DB cover_photo_changed 0건).
+   *   고른 뒤 저장까지 사이에 앨범이 한 번만 다시 그려져도 그렇게 된다.
+   * ★ 여는 순간에 읽으므로 앨범이 늦게 도착해도 그때의 최신 값이 들어온다.
+   *   열려 있는 동안에는 다시 건드리지 않는다 — 고른 것을 지켜야 한다.
+   */
+  useEffect(() => {
+    if (!coverPickerOpen) return;
+    setSelectedCoverId(coverPhotoId || photos[0]?.id || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverPickerOpen]);
   useEffect(() => {
     if (!coverPickerOpen) return;
     coverReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -248,7 +264,12 @@ export default function CollaborationPanel({
   };
 
   const saveCover = async () => {
-    if (!selectedCoverId) return;
+    // ★ 고를 것이 없으면 **말한다.** 예전에는 여기서 조용히 끝나서, 저장을 눌러도
+    //   시트가 그대로 있고 아무 말도 없었다(§11 — 못 끝낸 일을 조용히 두지 않는다).
+    if (!selectedCoverId) {
+      setError("대표사진으로 쓸 사진을 먼저 골라 주세요.");
+      return;
+    }
     setSavingCover(true); setError(null);
     try {
       const updated = await updateAlbumCoverPhoto(albumId, selectedCoverId);
@@ -257,7 +278,16 @@ export default function CollaborationPanel({
       onCoverUpdated?.(updated.cover_photo_id, updated.cover_image_url);
       setCoverPickerOpen(false);
       setMessage("대표사진을 변경했습니다.");
-    } catch {
+    } catch (cause) {
+      // ★ 화면 문구는 우리 말 그대로 두고(26차 — 서버 문구를 그대로 내지 않는다),
+      //   **왜 실패했는지는 버리지 않는다.** 예전에는 catch 가 이유를 통째로 삼켜서
+      //   무엇이 막았는지 나중에 알 길이 없었다.
+      authDebug("COVER_PHOTO_SAVE_FAILED", {
+        albumId,
+        endpoint: `/api/albums/${albumId}/cover-photo`,
+        errorName: cause instanceof Error ? cause.name : typeof cause,
+        reason: cause instanceof Error ? cause.message : String(cause),
+      });
       setError("대표사진을 변경하지 못했습니다. 다시 시도해 주세요.");
     } finally { setSavingCover(false); }
   };

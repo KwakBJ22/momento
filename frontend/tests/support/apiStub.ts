@@ -159,7 +159,13 @@ export async function rotateCollaborationInvite(): Promise<any> { return undefin
 export async function saveMemoryAnswer(): Promise<any> { return undefined as any; }
 export async function startCollaboration(): Promise<any> { return undefined as any; }
 export async function submitShareReaction(): Promise<any> { return undefined as any; }
-export async function updateAlbumCoverPhoto(): Promise<any> { return undefined as any; }
+/** 대표사진 저장 — 무엇이 서버로 나갔는지 보는 검사가 있어 호출을 기록한다.
+ *  진짜 응답과 같은 모양을 돌려준다(부르는 쪽이 응답 필드를 읽는다). */
+export const updateAlbumCoverPhotoCalls: Array<{ albumId: string; photoId: string }> = [];
+export async function updateAlbumCoverPhoto(albumId: string, photoId: string): Promise<any> {
+  updateAlbumCoverPhotoCalls.push({ albumId, photoId });
+  return { cover_photo_id: photoId, cover_image_url: `https://cdn.test/${photoId}.jpg` };
+}
 export async function updateAlbumMemberRole(): Promise<any> { return undefined as any; }
 export async function updateAlbumPhotoLocation(): Promise<any> { return undefined as any; }
 export async function updateFamilyMemberRole(): Promise<any> { return undefined as any; }
