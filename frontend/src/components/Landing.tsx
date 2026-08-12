@@ -9,6 +9,10 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getMyAlbumCoverUrls, getMyAlbums } from "../lib/api";
+import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
+import { mergeMyAlbumCoverUrls, requestMyAlbumCovers, requestMyAlbumList } from "../lib/myAlbumsRequest";
 import { ALBUM_CATEGORY_OPTIONS, type AlbumCategory } from "../types";
 
 interface LandingProps {
@@ -17,6 +21,54 @@ interface LandingProps {
   selectedCategory?: AlbumCategory | null;
   onSelectCategory?: (category: AlbumCategory) => void;
   hideLogin?: boolean;
+  /** 로그인한 사람. 있을 때만 내 앨범 표지 띠를 그린다(없으면 보여줄 사진이 없다). */
+  userId?: string | null;
+}
+
+/** 첫 화면에 거는 표지 수. 늘리면 좁은 화면에서 한 장이 너무 작아진다. */
+const COVER_STRIP_COUNT = 3;
+
+/**
+ * 내 앨범 표지 띠 — **로그인한 사람에게만.**
+ *
+ * ★ 로그인 안 한 사람에게는 아무것도 그리지 않는다. 보여줄 사진이 없다.
+ *   (대표 이미지는 PO 가 정하기로 했다 — 그때 이 자리에 더한다.)
+ * ★ 앨범이 0개면 띠를 아예 그리지 않는다. 빈 자리를 만들지 않는다.
+ * ★ 새 API 를 만들지 않는다. 목록은 내 앨범 화면과 **같은 요청**을 나눠 쓰고
+ *   (requestMyAlbumList), 표지가 비어 있을 때만 이미 있는 covers 를 채운다.
+ */
+function MyAlbumCoverStrip({ userId }: { userId: string }) {
+  const [covers, setCovers] = useState<Array<{ albumId: string; title: string; url: string }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    void requestMyAlbumList(getMyAlbums, userId)
+      .then(async (data) => {
+        const mine = (data.albums ?? []).slice(0, COVER_STRIP_COUNT);
+        if (!mine.length) return [];
+        // 목록이 이미 표지를 실어 주면 그대로 쓰고, 빠진 것만 채운다.
+        const filled = mine.every((album) => myAlbumCardImageUrl(album))
+          ? mine
+          : mergeMyAlbumCoverUrls(mine, await requestMyAlbumCovers(mine, getMyAlbumCoverUrls).catch(() => ({})));
+        return filled
+          .map((album) => ({ albumId: album.album_id, title: album.title, url: myAlbumCardImageUrl(album) }))
+          .filter((item) => Boolean(item.url));
+      })
+      .then((items) => { if (active) setCovers(items ?? []); })
+      .catch(() => { /* 첫 화면을 막지 않는다 — 띠가 없을 뿐이다 */ });
+    return () => { active = false; };
+  }, [userId]);
+
+  if (!covers.length) return null;
+  return (
+    <div className="landing__covers" aria-label="내 앨범">
+      {covers.map((cover) => (
+        <a key={cover.albumId} className="landing__cover" href={`/album/${cover.albumId}`}>
+          <img src={cover.url} alt={cover.title} loading="lazy" decoding="async" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -53,6 +105,7 @@ export default function Landing({
   selectedCategory = null,
   onSelectCategory,
   hideLogin = false,
+  userId = null,
 }: LandingProps) {
   const category = selectedCategory;
   const hint = category ? CATEGORY_HINTS[category] : null;
@@ -70,6 +123,7 @@ export default function Landing({
           우리의 이야기가 시작돼요.
         </h1>
         <p className="landing__copy">{SCREEN_LEAD}</p>
+        {userId ? <MyAlbumCoverStrip userId={userId} /> : null}
         {/* 질문은 설명이 아니라 **아래 칩에 대한 물음**이다. 그래서 무게도 자리도 다르다
             — 설명과 떨어뜨리고 칩에 붙인다(UI 정리 3단계 B). */}
         <p className="landing__question">누구와 함께한 앨범인가요?</p>

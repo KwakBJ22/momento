@@ -433,7 +433,7 @@ function App() {
             window.history.pushState({}, "", `/album/${albumId}/creating`);
             setRouteVersion((version) => version + 1);
           }} />
-          : <Landing selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={() => openLogin("signin")} hideLogin={Boolean(user)} />}
+          : <Landing userId={user?.id ?? null} selectedCategory={category} onSelectCategory={setCategory} onStart={(selected) => { setCategory(selected); setIsPhotoSelectionStep(true); }} onLogin={() => openLogin("signin")} hideLogin={Boolean(user)} />}
       </main>
       {/* 하단도 화면당 하나. 고정 네비가 있는 화면에서만 그 높이만큼 여백을 준다 —
           네비가 없는 화면에 여백을 주면 빈 공간이 된다. */}

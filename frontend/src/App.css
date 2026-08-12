@@ -409,6 +409,32 @@ body {
   line-height: 1.45;
 }
 
+/* 내 앨범 표지 띠 — 로그인한 사람에게만, 앨범이 있을 때만 그려진다.
+   ★ 사진이 늦게 와도 자리가 흔들리지 않게 비율을 미리 잡아 둔다(aspect-ratio).
+   ★ 새 값을 만들지 않는다 — 간격·둥글기·테두리는 쓰던 토큰 그대로다. */
+.landing__covers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-2);
+  width: min(100%, 340px);
+  margin: var(--s-4) 0 0;
+}
+
+.landing__cover {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-bg-soft);
+}
+
+.landing__cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
 /* ★ 질문 줄은 설명 줄과 무게가 달라야 한다(UI 정리 3단계 B). 예전에는 둘 다
    .landing__copy 라 같은 크기·같은 색으로 붙어 보였다.
    자리로도 말한다 — 설명과는 벌리고(--s-6), 칩과는 붙인다(--s-2).

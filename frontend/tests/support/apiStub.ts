@@ -140,7 +140,10 @@ export async function getFamilyMembers(): Promise<any> { return undefined as any
 export async function getJoinPreview(): Promise<any> { return undefined as any; }
 export async function getMemoryQuestions(): Promise<any> { return undefined as any; }
 export async function getMyAlbumCoverUrls(): Promise<any> { return undefined as any; }
-export async function getMyAlbums(): Promise<any> { return undefined as any; }
+/** 내 앨범 목록 — 화면이 목록을 실제로 그리는지 보는 검사가 있어 값을 갈아 끼울 수 있다. */
+let myAlbums: any = { albums: [], participating: [], bookmarked: [] };
+export function setMyAlbums(value: any): void { myAlbums = value; }
+export async function getMyAlbums(): Promise<any> { return myAlbums; }
 export async function getMyFamily(): Promise<any> { return undefined as any; }
 export async function getParticipantStats(): Promise<any> { return undefined as any; }
 export async function getPendingContributions(): Promise<any> { return undefined as any; }
