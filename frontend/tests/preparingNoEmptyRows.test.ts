@@ -111,3 +111,17 @@ test("★ `앨범 만들기` 자리와 다른 화면의 정렬은 그대로다",
   const landing = css.slice(css.indexOf(".landing {"), css.indexOf("}", css.indexOf(".landing {")));
   assert.match(landing, /justify-content: space-between;/);
 });
+
+// ── K-18 2차 (2026-08-12) ──────────────────────────────────────────────
+// ★ 위 1차 진단은 틀렸다. 실기기 사진(08-08 04:50 · 08-10 00:50)을 확대해 보니
+//   "빈 줄 두 개"의 정체는 빈 카드가 아니라 **선 두 개**였다.
+//     줄 1  .upload-form__preparing 의 border-bottom
+//     줄 2  .app-footer 의 border-top
+//     그 사이는 아무것도 없는 여백(.app padding-bottom 2rem + footer margin-top 32px)
+//   그래서 1차 수정(목록 자리를 안 만든다)으로는 증상이 사라지지 않았다.
+//   아래에 목록이 없으면 첫 줄은 아무것도 가르지 않는다 — 그때는 긋지 않는다.
+test("준비 중이고 목록이 없으면 구분선을 긋지 않는다", () => {
+  assert.match(form, /upload-form__preparing\$\{photos\.length \? "" : " upload-form__preparing--alone"\}/);
+  const css = readFileSync(path.join(SRC, "components/UploadForm.css"), "utf8");
+  assert.match(css, /\.upload-form__preparing--alone \{\s*border-bottom: 0;/);
+});

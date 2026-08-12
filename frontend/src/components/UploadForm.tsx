@@ -14,6 +14,7 @@ import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
 import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
 import "./UploadForm.css";
+import { userFacingError } from "../lib/userFacingError";
 
 const MAX_PHOTOS = 30;
 const UPLOAD_TIMEOUT_MS = 600_000;
@@ -301,7 +302,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
         ? "요청 시간이 오래 걸리고 있습니다. 네트워크를 확인한 뒤 다시 시도해주세요."
         : cause instanceof TypeError
           ? "네트워크 연결을 확인해주세요."
-          : cause instanceof Error ? cause.message : "알 수 없는 오류가 발생했습니다.";
+          : userFacingError(cause, "알 수 없는 오류가 발생했습니다.");
       setError(`업로드에 실패했습니다. ${reason}`);
     } finally {
       window.clearTimeout(timeoutTimer);
@@ -345,8 +346,12 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       </section>
       {/* Direct child of .upload-form (not the picker section) so position:sticky stays
           pinned while the user scrolls through the photo list below. */}
+      {/* ★ 아래에 목록이 없으면 구분선을 긋지 않는다(K-18 2차). 그 선은 스티키 바와
+          사진 목록을 가르려고 있는 것인데, 아직 한 장도 안 끝났으면 가를 것이 없어
+          줄만 남는다 — 실기기에서 푸터 위 선과 함께 `빈 줄 두 개`로 보였다
+          (08-08 04:50 · 08-10 00:50 사진). */}
       {isPreparing ? (
-        <div className="upload-form__preparing" aria-live="polite">
+        <div className={`upload-form__preparing${photos.length ? "" : " upload-form__preparing--alone"}`} aria-live="polite">
           <p className="upload-form__count upload-form__preparing-text">{preparingLabel(preparingProgress)}</p>
           <div className="upload-form__preparing-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(prepareDisplay)}>
             <span style={{ width: `${prepareDisplay.toFixed(1)}%` }} />

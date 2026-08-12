@@ -236,6 +236,12 @@
   border-bottom: 1px solid var(--c-border);
 }
 
+/* 아래에 목록이 없을 때는 구분선을 긋지 않는다(K-18 2차).
+   가를 것이 없는 선은 빈 줄로 읽힌다. */
+.upload-form__preparing--alone {
+  border-bottom: 0;
+}
+
 .upload-form__preparing-text {
   margin: 0;
 }
