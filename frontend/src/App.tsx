@@ -39,6 +39,7 @@ import { resolveShareImageUrl } from "./lib/shareImage";
 import { forgetLegalConsent, initializeAuth, isAuthenticationConfigured, onAuthStateChange, readLegalConsent, signOut, type AppUser } from "./services/authService";
 import { DEFAULT_ALBUM_CATEGORY, type AlbumCategory, type AlbumResult } from "./types";
 import "./App.css";
+import { userFacingError } from "./lib/userFacingError";
 
 const AdminConsole = lazy(() => import("./components/admin/AdminConsole"));
 
@@ -223,7 +224,7 @@ function App() {
         // Flag attributed contributor sessions so the next bootstrap doesn't resend them.
         if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
       })
-      .catch((error) => active && setBootstrapError(error instanceof Error ? error.message : "인증을 확인하지 못했어요."));
+      .catch((error) => active && setBootstrapError(userFacingError(error, "인증을 확인하지 못했어요.")));
     return () => { active = false; };
   }, [user?.id]);
 
@@ -288,7 +289,7 @@ function App() {
       resetToStart();
       window.location.replace("/");
     } catch (cause) {
-      setWithdrawError(cause instanceof Error ? cause.message : "탈퇴를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setWithdrawError(userFacingError(cause, "탈퇴를 완료하지 못했어요. 잠시 후 다시 시도해 주세요."));
     } finally {
       setWithdrawing(false);
     }

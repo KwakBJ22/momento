@@ -6,6 +6,7 @@ import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 import { useRefreshOnReturn } from "../lib/useRefreshOnReturn";
 import ConfirmSheet from "./ConfirmSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
+import { userFacingError } from "../lib/userFacingError";
 
 /**
  * 제목 바로 아래 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
@@ -77,7 +78,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
         debugTiming("my albums list response", startedAt);
         window.requestAnimationFrame(() => debugTiming("my albums first card", startedAt));
       })
-      .catch((reason) => active && setError(reason instanceof Error ? reason.message : "앨범을 불러오지 못했어요."));
+      .catch((reason) => active && setError(userFacingError(reason, "앨범을 불러오지 못했어요.")));
 
     return () => { active = false; };
   }, [reloadKey]);
@@ -97,7 +98,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
       await deleteAlbum(album.album_id);
       setAlbums((current) => current?.filter((item) => item.album_id !== album.album_id) ?? []);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "앨범을 삭제하지 못했어요.");
+      setError(userFacingError(reason, "앨범을 삭제하지 못했어요."));
     } finally {
       deletingIdsRef.current.delete(album.album_id);
       setDeletingId(null);

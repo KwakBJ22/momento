@@ -30,6 +30,7 @@ import {
 } from "../lib/publicShareFlow";
 import type { AlbumPhoto, PublicContributionItem, PublicShareAlbum } from "../types";
 import "./AlbumResult.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface PublicShareViewProps {
   token: string;
@@ -190,7 +191,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       const status = (cause as { status?: number } | null)?.status;
       if (status && [401, 403, 404, 410].includes(status)) clearPublicShareCache(token);
       setAlbum(null);
-      setError(cause instanceof Error ? cause.message : "공유 앨범을 불러오지 못했어요.");
+      setError(userFacingError(cause, "공유 앨범을 불러오지 못했어요."));
       setAlbumLoading(false);
     });
     return () => { active = false; };
@@ -269,7 +270,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       if (authenticatedUser) authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
     } catch (cause) {
       console.warn("[우리앨범] Public contribution session start failed.", cause);
-      setContributionError(cause instanceof Error ? cause.message : "참여를 시작하지 못했어요.");
+      setContributionError(userFacingError(cause, "참여를 시작하지 못했어요."));
     } finally {
       setIsStartingContribution(false);
     }

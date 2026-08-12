@@ -102,7 +102,10 @@ test("실패를 숨기지 않는다 (§11)", async () => {
   const { saveAlbumPhotoCaption } = await import("../src/lib/api");
   await assert.rejects(() => saveAlbumPhotoCaption("album-1", "photo-3", "글"), /올린 사람만/);
   // 화면도 그 오류를 그대로 보여준다(조용히 삼키지 않는다).
+  // ★ 2026-08-12: 표현이 userFacingError() 로 바뀌었다. **동작은 같다** — 우리말이
+  //   들어 있는 서버 문구는 그대로 나가고, 영어(Supabase·카카오 SDK)만 우리 말로
+  //   바뀐다. 위 detail 은 우리말이라 지금도 그대로 화면에 뜬다(§11 26차).
   const view = read("components/AlbumView.tsx");
-  assert.match(view, /setPhotoCommentSaveError\(cause instanceof Error \? cause\.message :/);
+  assert.match(view, /setPhotoCommentSaveError\(userFacingError\(cause, /);
   assert.match(view, /error: photoCommentSaveError/);
 });

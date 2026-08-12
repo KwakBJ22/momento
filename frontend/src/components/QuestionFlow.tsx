@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import type { MemoryQuestion } from "../types";
 import "./QuestionFlow.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface QuestionFlowProps {
   albumId: string;
@@ -50,7 +51,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       setCanAnalyzeMedia(payload.can_analyze_media);
       setCurrentIndex(0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "질문을 불러오지 못했어요.");
+      setError(userFacingError(err, "질문을 불러오지 못했어요."));
     } finally {
       setLoading(false);
     }
@@ -82,7 +83,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
         setQuestions(payload.questions);
         setNotice("답변이 저장됐어요.");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "답변을 저장하지 못했어요.");
+        setError(userFacingError(err, "답변을 저장하지 못했어요."));
       } finally {
         setSaving(false);
       }
@@ -113,7 +114,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       setNotice("조금 더 풍부해졌어요. 이야기에 반영했어요.");
       onComplete?.(updated.narrative);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "이야기를 새로 만들지 못했어요.");
+      setError(userFacingError(err, "이야기를 새로 만들지 못했어요."));
       onComplete?.();
     }
   };
@@ -126,7 +127,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       await analyzeAlbumMedia(albumId, current?.media_id);
       setNotice("사진 분석을 완료했어요. 질문을 다시 만들면 더 풍부해져요.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "사진 분석에 실패했어요.");
+      setError(userFacingError(err, "사진 분석에 실패했어요."));
     } finally {
       setAnalyzing(false);
     }
@@ -140,7 +141,7 @@ export default function QuestionFlow({ albumId, albumTitle, profileId, onComplet
       await load();
       setNotice("질문을 다시 만들었어요.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "질문을 다시 만들지 못했어요.");
+      setError(userFacingError(err, "질문을 다시 만들지 못했어요."));
       setLoading(false);
     }
   };

@@ -23,6 +23,7 @@ import {
   type AlbumResult,
 } from "../types";
 import "./AlbumResult.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface AlbumResultProps {
   result: AlbumResult;
@@ -107,7 +108,7 @@ export default function AlbumResultView({
         setStagePhotos(photos);
       })
       .catch((err) => {
-        if (active) setStagePhotosError(err instanceof Error ? err.message : "앨범 사진을 불러오지 못했습니다.");
+        if (active) setStagePhotosError(userFacingError(err, "앨범 사진을 불러오지 못했습니다."));
       })
       .finally(() => {
         if (active) setIsStagePhotosLoading(false);
@@ -145,7 +146,7 @@ export default function AlbumResultView({
       setSaveStatus(SAVED_ALBUM_MESSAGE);
       setNotice({ text: "우리의 이야기를 저장했어요.", kind: "success" });
     } catch (err) {
-      setNotice({ text: err instanceof Error ? err.message : "이야기 저장에 실패했어요.", kind: "error" });
+      setNotice({ text: userFacingError(err, "이야기 저장에 실패했어요."), kind: "error" });
     } finally {
       setIsPersisting(false);
     }
@@ -167,7 +168,7 @@ export default function AlbumResultView({
       setNotice({ text: "앨범 저장을 확인했어요.", kind: "success" });
     } catch (err) {
       setSaveStatus("저장 확인에 실패했어요");
-      setNotice({ text: err instanceof Error ? err.message : "앨범 저장 상태를 확인하지 못했어요.", kind: "error" });
+      setNotice({ text: userFacingError(err, "앨범 저장 상태를 확인하지 못했어요."), kind: "error" });
     } finally {
       setIsSavingAlbum(false);
     }
@@ -199,7 +200,7 @@ export default function AlbumResultView({
       handleCancelPhotoCommentEdit();
       setNotice({ text: "사진에 남긴 한 줄을 저장했어요.", kind: "success" });
     } catch (err) {
-      setPhotoCommentSaveError(err instanceof Error ? err.message : "사진에 남긴 한 줄을 저장하지 못했어요.");
+      setPhotoCommentSaveError(userFacingError(err, "사진에 남긴 한 줄을 저장하지 못했어요."));
     } finally {
       setIsSavingPhotoComment(false);
     }

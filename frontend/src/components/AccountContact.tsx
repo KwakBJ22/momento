@@ -4,6 +4,7 @@ import { getProfileContact, saveProfileContact, type ProfileContact } from "../l
 import { formatPhoneInput, maskPhone, phoneDigits } from "../lib/phoneFormat";
 import { setContactUnsaved } from "../lib/unsavedContact";
 import "./AppChrome.css";
+import { userFacingError } from "../lib/userFacingError";
 
 /**
  * ⋯ 시트 계정 행의 연락처(선택) — SCREEN_SPEC §5.
@@ -87,7 +88,7 @@ export default function AccountContact() {
       setEditing([]);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "저장하지 못했어요.");
+      setError(userFacingError(cause, "저장하지 못했어요."));
     } finally {
       setBusy(false);
     }

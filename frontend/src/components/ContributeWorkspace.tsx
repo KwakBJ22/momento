@@ -15,6 +15,7 @@ import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
 import "./ContributeWorkspace.css";
 import ConfirmSheet from "./ConfirmSheet";
+import { userFacingError } from "../lib/userFacingError";
 
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
@@ -415,7 +416,7 @@ export default function ContributeWorkspace({
         content: updated.comment,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "한마디를 수정하지 못했습니다.");
+      setError(userFacingError(err, "한마디를 수정하지 못했습니다."));
     } finally {
       setSavingPhotoId(null);
     }
@@ -437,7 +438,7 @@ export default function ContributeWorkspace({
       setWorkspaceRevision((revision) => revision + 1);
       onContributionRemoved?.(memory.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "한마디를 지우지 못했어요.");
+      setError(userFacingError(err, "한마디를 지우지 못했어요."));
     }
   };
 

@@ -4,6 +4,7 @@ import { getAlbum, getAlbumGenerationPreview, getAlbumGenerationStatus, retryAlb
 import { albumCreationTiming, getAlbumCreationPreview, releaseAlbumCreationPreview } from "../lib/albumCreation";
 import { CREATION_PROGRESS_TICK_MS, estimateTotalMs, initialCreationProgress, nextCreationProgress } from "../lib/creationProgress";
 import "./AlbumCreating.css";
+import { userFacingError } from "../lib/userFacingError";
 
 const STEP_COPY: Record<string, string> = {
   upload_completed: "사진을 안전하게 보관했어요",
@@ -95,7 +96,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
     } catch (cause) {
       requestFailures.current += 1;
       if (mounted.current && requestFailures.current >= 3) {
-        setError(cause instanceof Error ? cause.message : "연결 상태를 다시 확인하고 있어요.");
+        setError(userFacingError(cause, "연결 상태를 다시 확인하고 있어요."));
       }
     } finally {
       polling.current = false;
@@ -160,7 +161,7 @@ export default function AlbumCreating({ albumId }: { albumId: string }) {
       failedRef.current = false;
       void poll(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "다시 시작하지 못했어요.");
+      setError(userFacingError(cause, "다시 시작하지 못했어요."));
     } finally {
       setRetrying(false);
     }

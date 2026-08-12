@@ -2,6 +2,7 @@ import { useState } from "react";
 import LegalConsent from "./LegalConsent";
 import { isAuthenticationConfigured, rememberLegalConsent, signIn, type AuthProvider } from "../services/authService";
 import { authPanelCopy, type AuthPanelReason } from "../lib/authPanelCopy";
+import { userFacingError } from "../lib/userFacingError";
 
 interface AuthPanelProps {
   returnTo?: string;
@@ -26,7 +27,7 @@ export default function AuthPanel({ returnTo, titleId, reason }: AuthPanelProps)
       if (agreed) rememberLegalConsent();
       await signIn(provider, returnTo);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "로그인을 시작하지 못했어요.");
+      setMessage(userFacingError(error, "로그인을 시작하지 못했어요."));
       setIsSubmitting(false);
     }
   };

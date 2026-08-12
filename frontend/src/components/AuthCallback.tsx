@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { completeOAuthCallback, consumeReturnTo } from "../services/authService";
 import { authDebug } from "../lib/authDebug";
+import { userFacingError } from "../lib/userFacingError";
 
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +15,7 @@ export default function AuthCallback() {
       if (active) window.location.replace(returnPath);
     }).catch((cause) => {
       authDebug("CALLBACK_FAILED", { source: "callback", errorName: cause instanceof Error ? cause.name : "Error" });
-      if (active) setError(cause instanceof Error ? cause.message : "로그인을 완료하지 못했어요.");
+      if (active) setError(userFacingError(cause, "로그인을 완료하지 못했어요."));
     });
     return () => { active = false; };
   }, []);

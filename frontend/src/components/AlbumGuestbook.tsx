@@ -9,6 +9,7 @@ import {
   removeMyGuestbookId,
 } from "../lib/shareGuestbook";
 import type { GuestbookItem } from "../types";
+import { userFacingError } from "../lib/userFacingError";
 
 /**
  * ③ 방명록 — 앨범 전체에 남기는 인사. 주최자·참여자·구경꾼 전원이 쓸 수 있다.
@@ -64,7 +65,7 @@ export default function AlbumGuestbook({ token, albumId, initialEntries = [], de
       addMyGuestbookId(albumId, entry.id);
       setMessage("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "한마디를 남기지 못했어요. 다시 시도해 주세요.");
+      setError(userFacingError(cause, "한마디를 남기지 못했어요. 다시 시도해 주세요."));
     } finally {
       setSubmitting(false);
     }

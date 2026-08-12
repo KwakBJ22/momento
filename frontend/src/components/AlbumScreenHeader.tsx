@@ -1,6 +1,7 @@
 import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import "./AlbumScreenHeader.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface AlbumScreenHeaderProps {
   title: string;
@@ -32,7 +33,7 @@ export default function AlbumScreenHeader({ title, subtitle, canEdit = false, on
       await onSaveTitle(next);
       setEditing(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "제목을 저장하지 못했어요.");
+      setError(userFacingError(cause, "제목을 저장하지 못했어요."));
     } finally {
       setSaving(false);
     }

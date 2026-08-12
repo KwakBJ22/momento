@@ -26,6 +26,7 @@ import {
 import type { AdminRoute } from "./adminRoute";
 import "./AdminConsole.css";
 import ConfirmSheet from "../ConfirmSheet";
+import { userFacingError } from "../../lib/userFacingError";
 
 export type { AdminRoute } from "./adminRoute";
 export { parseAdminRoute } from "./adminRoute";
@@ -284,7 +285,7 @@ function AlbumExplorer() {
     let active = true;
     void searchAdminAlbums(query)
       .then((result) => active && setAlbums(result.albums))
-      .catch((reason) => active && setError(reason instanceof Error ? reason.message : "불러오기 실패"));
+      .catch((reason) => active && setError(userFacingError(reason, "불러오기 실패")));
     return () => {
       active = false;
     };
@@ -347,7 +348,7 @@ function AlbumDetailView({ albumId }: { albumId: string }) {
   const load = () => {
     void fetchAdminAlbum(albumId)
       .then(setAlbum)
-      .catch((reason) => setError(reason instanceof Error ? reason.message : "불러오기 실패"));
+      .catch((reason) => setError(userFacingError(reason, "불러오기 실패")));
   };
 
   useEffect(load, [albumId]);
@@ -661,7 +662,7 @@ export default function AdminConsole({ route }: AdminConsoleProps) {
         setDataEnvironment(access.environment || "production");
         setReady(true);
       })
-      .catch((reason) => active && setAccessError(reason instanceof Error ? reason.message : "접근할 수 없습니다."));
+      .catch((reason) => active && setAccessError(userFacingError(reason, "접근할 수 없습니다.")));
     return () => {
       active = false;
     };

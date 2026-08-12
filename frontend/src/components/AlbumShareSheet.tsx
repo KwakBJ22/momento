@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { ensureAlbumInviteUrl } from "../lib/albumInvite";
 import "./AlbumScreen.css";
+import { userFacingError } from "../lib/userFacingError";
 
 /**
  * 공유하기 시트 — **진입점이 몇 개든 열리는 것은 이것 하나다** (I-2 · SCREEN_SPEC §5).
@@ -58,7 +59,11 @@ export default function AlbumShareSheet({
       await navigator.clipboard.writeText(await url());
       setNotice({ text: "링크를 복사했어요.", kind: "success" });
     } catch (cause) {
-      setNotice({ text: cause instanceof Error ? cause.message : "앨범을 공유하지 못했어요.", kind: "error" });
+      // ★ 서버·SDK 가 준 말을 화면에 그대로 내지 않는다(SCREEN_SPEC §11 26차).
+      //   여기서 오는 것은 `Kakao SDK is not ready.` 같은 영어라 사용자가 읽을 말이 아니다.
+      //   화면에는 우리 말을 내고, 진짜 이유는 콘솔에 남긴다.
+      console.warn("[우리앨범] share failed.", cause);
+      setNotice({ text: "앨범을 공유하지 못했어요. 잠시 후 다시 시도해 주세요.", kind: "error" });
     }
   };
 
@@ -99,7 +104,7 @@ export default function AlbumShareSheet({
       setCopied(true);
       window.setTimeout(() => setCopied(false), COPY_RESET_MS);
     } catch (cause) {
-      setNotice({ text: cause instanceof Error ? cause.message : "링크를 복사하지 못했어요.", kind: "error" });
+      setNotice({ text: userFacingError(cause, "링크를 복사하지 못했어요."), kind: "error" });
     }
   };
 

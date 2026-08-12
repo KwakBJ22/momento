@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { acceptFamilyInvitation } from "../lib/api";
 import "./FamilyManagement.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface InviteAcceptProps {
   token: string;
@@ -21,7 +22,7 @@ export default function InviteAccept({ token, isLoggedIn }: InviteAcceptProps) {
         if (!active) return;
         setMessage("가족 초대를 수락했어요. 이제 함께 앨범을 만들 수 있어요.");
       })
-      .catch((err) => active && setError(err instanceof Error ? err.message : "초대를 수락하지 못했어요."))
+      .catch((err) => active && setError(userFacingError(err, "초대를 수락하지 못했어요.")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;

@@ -7,6 +7,7 @@ import AlbumView from "./AlbumView";
 import LinkUnavailable from "./LinkUnavailable";
 import type { ReactNode } from "react";
 import PublicShareView from "./PublicShareView";
+import { userFacingError } from "../lib/userFacingError";
 
 interface ShareEntryRouterProps {
   token: string;
@@ -85,7 +86,7 @@ export default function ShareEntryRouter({ token, user, authReady, authError = n
       })
       .catch((cause) => {
         logOnce("ENTRY_ERROR", { source: "router", errorName: cause instanceof Error ? cause.name : "Error" });
-        if (active) setState({ kind: "error", message: cause instanceof Error ? cause.message : "앨범을 열지 못했어요." });
+        if (active) setState({ kind: "error", message: userFacingError(cause, "앨범을 열지 못했어요.") });
       });
     return () => { active = false; };
   }, [token, user, authReady, authError]);

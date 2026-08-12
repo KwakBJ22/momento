@@ -16,8 +16,8 @@ export interface ShareAlbumOptions {
   imageUrl: string;
   linkUrl: string;
   description: string;
-  title?: string;
-  buttonTitle?: string;
+  title: string;
+  buttonTitle: string;
 }
 
 interface UseKakaoSdkResult {
@@ -64,7 +64,10 @@ export function useKakaoSdk(): UseKakaoSdkResult {
     };
   }, []);
 
-  const shareAlbum = useCallback(({ imageUrl, linkUrl, description, title = "우리 모임 앨범이 완성됐어요", buttonTitle = "앨범 전체 보기" }: ShareAlbumOptions) => {
+// ★ 기본 문구를 두지 않는다(2026-08-12). `우리 모임 앨범이 완성됐어요` 라는 옛 문구가
+  //   기본값으로 남아 있었다 — 부르는 쪽이 문구를 빠뜨리면 조용히 그 옛말이 나간다.
+  //   카드 문구는 AlbumShareSheet 의 CARD 한 곳에서만 정한다.
+  const shareAlbum = useCallback(({ imageUrl, linkUrl, description, title, buttonTitle }: ShareAlbumOptions) => {
     if (!window.Kakao?.isInitialized() || !window.Kakao.Share?.sendDefault) {
       throw new Error("Kakao SDK is not ready.");
     }

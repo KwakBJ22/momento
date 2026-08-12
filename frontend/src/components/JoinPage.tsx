@@ -4,6 +4,7 @@ import { signIn, type AppUser } from "../services/authService";
 import { BRAND_NAME_KO_PARTS } from "../lib/brand";
 import LinkUnavailable from "./LinkUnavailable";
 import "./JoinPage.css";
+import { userFacingError } from "../lib/userFacingError";
 
 /**
  * 초대장의 한 줄 — **지금 여기서 할 수 있는 일** (SCREEN_SPEC §7).
@@ -102,7 +103,7 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
       });
       window.location.href = `/album/${result.album_id}/contribute`;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참여하지 못했어요.");
+      setError(userFacingError(err, "참여하지 못했어요."));
     } finally {
       setBusy(false);
     }
@@ -115,7 +116,7 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
     try {
       await signIn("kakao", `${window.location.pathname}${window.location.search}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "로그인을 시작하지 못했어요.");
+      setError(userFacingError(err, "로그인을 시작하지 못했어요."));
     }
   };
 

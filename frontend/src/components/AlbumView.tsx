@@ -32,6 +32,7 @@ import { resolveShareImageUrl } from "../lib/shareImage";
 import { roParticle } from "../lib/participantBanner";
 
 import "./AlbumResult.css";
+import { userFacingError } from "../lib/userFacingError";
 
 
 
@@ -281,7 +282,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       setAlbum((current) => current ? withAlbumVersion(current, saved) : current);
       handleCancelPhotoCommentEdit();
     } catch (cause) {
-      setPhotoCommentSaveError(cause instanceof Error ? cause.message : "사진에 남긴 한 줄을 고치지 못했어요.");
+      setPhotoCommentSaveError(userFacingError(cause, "사진에 남긴 한 줄을 고치지 못했어요."));
     } finally {
       setIsSavingPhotoComment(false);
     }
@@ -313,7 +314,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       setEditingStoryKey(null);
       setStoryDraft("");
     } catch (cause) {
-      setStorySaveError(cause instanceof Error ? cause.message : "이야기를 저장하지 못했어요.");
+      setStorySaveError(userFacingError(cause, "이야기를 저장하지 못했어요."));
     } finally {
       setIsSavingStory(false);
     }
@@ -449,7 +450,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       setContributionSession(session);
       activateContribution(action);
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "참여 화면을 열지 못했습니다.");
+      setActionError(userFacingError(cause, "참여 화면을 열지 못했습니다."));
     } finally {
       setActionLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AlbumPhoto } from "../types";
 import "./AlbumPhotoComments.css";
+import { userFacingError } from "../lib/userFacingError";
 
 interface AlbumPhotoCommentsProps {
   photos: AlbumPhoto[];
@@ -31,7 +32,7 @@ export default function AlbumPhotoComments({
     try {
       await onSave(photoId, drafts[photoId] ?? "");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "한 줄을 저장하지 못했어요.");
+      setError(userFacingError(cause, "한 줄을 저장하지 못했어요."));
     } finally {
       setSavingId(null);
     }
@@ -44,7 +45,7 @@ export default function AlbumPhotoComments({
     try {
       await onSaveLocation(photoId, places[photoId] ?? "");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "장소를 저장하지 못했어요.");
+      setError(userFacingError(cause, "장소를 저장하지 못했어요."));
     } finally {
       setSavingId(null);
     }
