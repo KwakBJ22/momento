@@ -1,5 +1,7 @@
 .album-screen__book { gap: 2rem; }
-.album-screen__body { display: grid; gap: 1.5rem; min-width: 0; }
+/* 앨범 머리와 본문 사이 — 시안은 머리 다음에 선(.rule)을 20px 띄워 긋는다.
+   24px 이던 것을 20px 로 맞춘다. 첫 날짜 머리의 위 여백은 그쪽이 따로 갖는다. */
+.album-screen__body { display: grid; gap: 20px; min-width: 0; }
 .album-screen__header-supplement { display: grid; gap: 0.35rem; justify-items: center; text-align: center; }
 .album-screen__header-supplement .album-result__subtitle { margin: 0; }
 .album-screen__actions { align-content: start; }
@@ -44,7 +46,7 @@
 
 /* 더보기 시트(화면 3): 60px 목록 행 + 옅은 구분선 + 보조 라벨(em). */
 .album-more-sheet__list { display: flex; flex-direction: column; gap: 0; }
-.album-more-sheet__row { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; border: 0; border-bottom: 1px solid #f0e4e1; background: none; font: inherit; text-align: left; cursor: pointer; }
+.album-more-sheet__row { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--c-hairline); background: none; font: inherit; text-align: left; cursor: pointer; }
 .album-more-sheet__row:last-of-type { border-bottom: 0; }
 .album-more-sheet__row:disabled { opacity: 0.45; cursor: default; }
 .album-more-sheet__row span { font-size: 1.0625rem; font-weight: 600; color: var(--c-text); }

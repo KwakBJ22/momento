@@ -19,8 +19,9 @@
   box-sizing: border-box;
 }
 
+/* 사진 사이 — 시안(.photoblock + .photoblock)의 26px. 1.75rem(28px)이었다. */
 .photo-block + .photo-block {
-  margin-top: 1.75rem;
+  margin-top: 26px;
 }
 
 .album-renderer--print .photo-block + .photo-block {

@@ -59,15 +59,22 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
   // 소유자 "함께 만든 사람" / 참여자 "함께한 사람" — 라벨만 다르고 행은 하나다.
   assert.match(sheet, /canEdit \? "함께 만든 사람" : "함께한 사람"/);
   assert.match(sheet, /<em>\{contributorCount\}명<\/em>/);
-  // 참여자의 "내 앨범 만들기"는 하단 칸으로 나갔으므로 시트에는 소유자 행만.
-  assert.match(sheet, /canEdit \? <button[\s\S]{0,200}<span>새 앨범 만들기<\/span><em>이 앨범은 그대로 있어요<\/em>/);
+  // ★ 뒤집힌 항목 (2026-08-13 · PO 지시). `새 앨범 만들기` 행을 시트에서 뺐다 —
+  //   하단 네비의 `앨범 만들기` 와 **같은 곳으로 가는 같은 행동**이었다.
+  //   이 검사가 지키는 것은 "시트가 목업의 60px 목록 행 모양이다" 이고 그대로다.
+  //   (설명 주석은 걷어내고 코드만 본다 — 규칙을 적어 둔 주석이 스스로 걸리지 않게.)
+  const sheetCode = sheet.split(/\r?\n/)
+    .filter((line) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)).join("\n");
+  assert.equal(sheetCode.includes("새 앨범 만들기"), false, "같은 행동이 두 자리에 다시 생겼다");
   // 호출자가 서버 플래그를 그대로 넘긴다.
   assert.match(read("components/AlbumView.tsx"), /canEdit=\{role === "owner"\}/);
   // PDF 초과: 이유를 사람 말로 + 예약 슬롯(숫자 사실만).
   assert.match(sheet, /album-more-sheet__row--off[\s\S]{0,200}\{PDF_BLOCKED_REASON\}/);
   assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photoCount\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);
   assert.match(sheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
-  assert.match(sheet, /지우기 전에 한 번 더 물어봐요\. 실수로 지워지지 않아요\./);
+  // ★ 뒤집힌 항목 (2026-08-13). 안심 문구를 한 줄로 줄였다 — 뒤 문장(`실수로 지워지지
+  //   않아요.`)은 앞 문장과 같은 말이라 두 번 읽히기만 했다. 안심을 주는 규칙은 그대로다.
+  assert.match(sheet, /지우기 전에 한 번 더 물어봐요\./);
   // 참여자: 없는 기능을 감추지 않고 이유와 함께 적는다(absent 카드).
   assert.match(sheet, /여기에 없는 것/);
   assert.match(sheet, /앨범을 만든 사람<\/b>만 할 수 있어요/);

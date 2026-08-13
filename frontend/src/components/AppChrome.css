@@ -113,20 +113,24 @@
 .account-row--guest { padding: 0; border-bottom: 1px solid var(--c-border); }
 
 /* 연락처(선택) — 계정 행 안. 누르는 영역 44px, 글자 14px 하한(§5). */
-.account-contact { display: grid; gap: 8px; }
+/* ★ 연락처 줄이 서로 멀어 보이던 이유 (PO 가 다섯 번 말한 그것, 2026-08-13).
+   `수정` 버튼이 44px 누름 영역을 가지는데 그것이 **줄 높이를 그대로 밀어 올렸다** —
+   글자는 14px 인데 줄은 44px 이 됐다. 누름 영역은 지키면서(접근성) 보이는 높이만
+   줄인다: 위아래로 -10px 씩 겹치게 둔다. 44px 은 그대로고 줄만 24px 로 붙는다. */
+.account-contact { display: grid; gap: 4px; }
 .account-contact__title { margin: 0; color: var(--c-text); font-size: 14px; font-weight: 700; }
-.account-contact__help { margin: -4px 0 2px; color: var(--c-text-muted); font-size: 14px; line-height: 1.45; }
+.account-contact__help { margin: -2px 0 2px; color: var(--c-text-muted); font-size: 14px; line-height: 1.45; }
 /* 칸은 전폭이다 — 옆에 버튼을 두면 좁은 기기에서 버튼이 밖으로 넘친다(실기기 결함). */
 .account-contact__field { display: grid; gap: 4px; }
 /* ★ 전화번호와 이메일은 **한 묶음**이다 — 따로 있는 것처럼 보이면 안 된다(J-5-1).
    두 항목 사이만 12px 로 둔다(부모 격자 8px + 4px). 각 항목 안(라벨↔값 4px)은 그대로다. */
-.account-contact__field + .account-contact__field { margin-top: 4px; }
+.account-contact__field + .account-contact__field { margin-top: 0; }
 .account-contact__label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .account-contact__label label { color: var(--c-text-muted); font-size: 14px; }
 /* 값이 있는 줄 — 가려진 값과 `수정` 만 보인다(§5). 입력칸·저장·지우기 없음. */
 .account-contact__value { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--c-text); font-size: 14px; overflow-wrap: anywhere; }
-.account-contact__edit { flex: none; min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--c-brand-text); font: inherit; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; }
-.account-contact__cancel { min-height: 44px; padding: 0 16px; border: 0; background: none; color: var(--c-text-muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.account-contact__edit { flex: none; min-height: 44px; margin-block: -10px; padding: 0 8px; border: 0; background: none; color: var(--c-brand-text); font: inherit; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.account-contact__cancel { min-height: 44px; margin-block: -10px; padding: 0 16px; border: 0; background: none; color: var(--c-text-muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .account-contact__input { display: block; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-text); font: inherit; font-size: 14px; }
 /* 저장은 구역에 하나. 칸 옆이 아니라 아래다. */
 .account-contact__actions { display: flex; justify-content: center; align-items: center; gap: 8px; }

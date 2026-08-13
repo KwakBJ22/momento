@@ -63,22 +63,22 @@ export default function AlbumMoreSheet({
           ? <button type="button" className="album-more-sheet__row" onClick={openParticipants}><span>{canEdit ? "함께 만든 사람" : "함께한 사람"}</span><em>{contributorCount}명</em></button>
           : null}
         {/* 새로 더해진 것은 이미 붙어 있다. 여기는 앨범을 **다시 짜는** 자리다. */}
-        {canEdit && onRebuildEdition ? <button type="button" className="album-more-sheet__row" disabled={isRebuilding} onClick={() => { onClose(); onRebuildEdition(); }}><span>{isRebuilding ? "다시 구성하는 중..." : "앨범 다시 구성하기"}</span><em>새로 더해진 것까지 넣어 새로 짜요</em></button> : null}
+        {canEdit && onRebuildEdition ? <button type="button" className="album-more-sheet__row" disabled={isRebuilding} onClick={() => { onClose(); onRebuildEdition(); }}><span>{isRebuilding ? "다시 구성하는 중..." : "앨범 다시 구성"}</span><em>새로 더해진 것까지 넣어요</em></button> : null}
         {/* PDF 초과 시: opacity 로 흐리지 않고(대비 2.1:1) 라벨은 subtle, 이유는 warning. */}
         {onExportPdf ? (photoCount > PDF_PHOTO_SAFE_LIMIT
           ? <><div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_REASON}</em></div>
             {/* 예약 슬롯(4a·③): 지금은 숫자 사실만 — 어떤 것도 예고하지 않는다. */}
             <p className="album-more-sheet__slot">이 앨범 사진 {photoCount}장 · 한 파일 {PDF_PHOTO_SAFE_LIMIT}장</p></>
           : <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { onClose(); onExportPdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button>) : null}
-        {/* 참여자의 내 앨범 만들기는 하단 네비 3번째 칸에 있다(4a) — 시트에서는 소유자만. */}
-        {canEdit ? <button type="button" className="album-more-sheet__row" onClick={() => window.location.assign("/")}><span>새 앨범 만들기</span><em>이 앨범은 그대로 있어요</em></button> : null}
+        {/* ★ `새 앨범 만들기` 는 여기 없다 (PO 2026-08-13). 하단 네비의 `앨범 만들기` 와
+            **같은 곳으로 가는 칸**이었다 — 같은 일이 두 자리에 있으면 둘이 다른 줄 안다(§4). */}
         {showAbsentNotice ? <div className="album-more-sheet__absent"><h3>여기에 없는 것</h3><p>제목·표지 바꾸기, 공유하기, 앨범 지우기는 <b>앨범을 만든 사람</b>만 할 수 있어요. 내가 더한 사진과 한마디는 내가 지울 수 있어요.</p></div> : null}
         {/* ★ §5 순서: 로그아웃 → 이 앨범 지우기 → 회원 탈퇴. 되돌릴 수 없는 것이 맨 아래다.
             회원 탈퇴를 로그아웃 옆에 두지 않는다 — 성격이 완전히 다르다. */}
         {onLogout ? <button type="button" className="album-more-sheet__row" onClick={onLogout}><span>로그아웃</span></button> : null}
         {canDelete && onDeleteAlbum ? <>
           <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" disabled={isDeleting} onClick={() => { onClose(); onDeleteAlbum(); }}><span>{isDeleting ? "지우는 중..." : "이 앨범 지우기"}</span></button>
-          <p className="album-more-sheet__safe">지우기 전에 한 번 더 물어봐요. 실수로 지워지지 않아요.</p>
+          <p className="album-more-sheet__safe">지우기 전에 한 번 더 물어봐요.</p>
         </> : null}
         {onWithdraw ? <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" onClick={onWithdraw}><span>회원 탈퇴</span></button> : null}
       </div>

@@ -31,10 +31,16 @@ function rule(selector: string): string {
 
 // --- 5-1 ---
 
-test("★ 전화번호와 이메일 사이는 12px 다", () => {
-  // 부모 격자 8px + 형제 사이 4px = 12px.
-  assert.match(rule(".account-contact"), /gap: 8px/);
-  assert.match(rule(".account-contact__field + .account-contact__field"), /margin-top: 4px/);
+test("★ 전화번호와 이메일 사이는 4px 다 — 한 묶음으로 붙인다", () => {
+  // ★ 12px → 4px (2026-08-13). `수정` 버튼의 44px 누름 영역이 줄 높이를 밀어
+  //   올리고 있었다. 누름 영역은 그대로 두고(margin-block: -10px) 보이는 높이만
+  //   줄이면서 항목 사이도 함께 좁혔다. 이 검사가 지키는 규칙(J-5-1 — 둘이 따로
+  //   있는 것처럼 보이면 안 된다)은 더 잘 지켜진다.
+  assert.match(rule(".account-contact"), /gap: 4px/);
+  assert.match(rule(".account-contact__field + .account-contact__field"), /margin-top: 0/);
+  // 누름 영역 44px 은 지킨다 — 보이는 높이만 줄인 것이다(접근성).
+  assert.match(rule(".account-contact__edit"), /min-height: 44px/);
+  assert.match(rule(".account-contact__edit"), /margin-block: -10px/);
 });
 
 test("각 항목 안(라벨↔값)은 지금 그대로다", () => {

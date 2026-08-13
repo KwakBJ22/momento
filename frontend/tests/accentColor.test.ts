@@ -117,9 +117,12 @@ test("★ 손대지 않기로 한 것들이 그대로다", () => {
     .map((file) => (readFileSync(file, "utf8").match(/background: var\(--c-brand-soft\)/g) || []).length)
     .reduce((sum, n) => sum + n, 0);
   assert.equal(selected, 6, "선택/눌림 자리가 늘거나 줄었다");
-  // 사진 액자는 중립 그대로다.
+  // ★ 뒤집힌 항목 (2026-08-13 · PO: "디자인에는 없어"). 사진의 흰 상자
+  //   (padding + 테두리 + 배경 + 그림자)를 통째로 없앴다 — 시안의 `.photo` 는
+  //   border-radius·overflow·width 뿐이다. 그래서 잴 테두리 자체가 없다.
+  //   이 검사가 지키는 것은 "액자에 보조색이 들어오지 않는다" 이므로 그것을 본다.
   const frame = read("album-engine/AlbumRenderer.css");
-  assert.match(frame, /border: 1px solid var\(--c-border-strong\)/);
+  assert.equal(frame.includes("--c-accent"), false, "사진 자리에 보조색이 들어갔다");
 });
 
 // --- 5-2단계: **화면에 실제로 그려지는** 글머리에 넣는다 ---
