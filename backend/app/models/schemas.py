@@ -400,6 +400,9 @@ class AuthBootstrapResponse(BaseModel):
     # Guest ids that were successfully attributed — the frontend flags these so they are
     # not re-sent on the next bootstrap.
     claimed_guest_ids: list[str] = Field(default_factory=list)
+    # 이 계정에 동의 기록이 있는가. **막는 값이 아니라 묻는 값이다** — 화면이
+    # `한 번 더 받아야 하는지` 만 정한다. 옛 화면이 이 필드를 몰라도 그대로 돈다.
+    legal_agreed: bool = True
 
 
 class ProfileContactRequest(BaseModel):

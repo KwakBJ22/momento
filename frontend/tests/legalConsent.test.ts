@@ -28,51 +28,68 @@ function sourceFiles(dir = SRC): string[] {
   });
 }
 
-async function mountAuthPanel() {
+/**
+ * ★ 뒤집힌 자리 (2026-08-13 · PO 결정). 동의를 **로그인 화면(AuthPanel)** 에서 받던
+ *   것을 **로그인한 뒤, 기록이 없는 계정에게만 한 번** 받는 시트(App.tsx)로 옮겼다.
+ *   로그인만 하려는 사람에게도 매번 가입 절차가 보였고, 체크 전에는 카카오 버튼이
+ *   disabled 라 회색이었다(카카오 노란색이 안 나왔다).
+ *   ★ 묵시적 동의로 되돌린 것이 아니다 — 명시적 체크가 가입 시점 한 번으로 옮겼다.
+ *   그래서 아래는 AuthPanel 이 아니라 **LegalConsent 자체**를 마운트해서 본다.
+ */
+async function mountConsent(initialChecked = false) {
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const { default: AuthPanel } = await import("../src/components/AuthPanel");
+  const { default: LegalConsent } = await import("../src/components/LegalConsent");
 
   const container = document.getElementById("root")!;
   container.innerHTML = "";
   const root = createRoot(container);
-  await React.act(async () => { root.render(React.createElement(AuthPanel, {})); });
-  await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  let checked = initialChecked;
+  const render = () => React.act(async () => {
+    root.render(React.createElement(LegalConsent, {
+      checked,
+      onChange: (next: boolean) => { checked = next; void render(); },
+    }));
+  });
+  await render();
 
   const box = () => container.querySelector("input[type=checkbox]") as HTMLInputElement | null;
-  const kakao = () => Array.from(container.querySelectorAll("button"))
-    .find((button) => button.textContent?.includes("카카오")) as HTMLButtonElement | undefined;
   const toggle = async () => {
     await React.act(async () => { box()!.click(); });
     await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
   };
-  return { React, root, container, box, kakao, toggle };
+  return { React, root, container, box, toggle, isChecked: () => checked };
 }
 
-test("체크 전에는 카카오 버튼이 비활성, 체크하면 활성이다", async () => {
-  const view = await mountAuthPanel();
+test("체크 전에는 시작 버튼이 비활성, 체크하면 활성이다", async () => {
+  const view = await mountConsent();
   assert.ok(view.box(), "동의 체크박스가 있어야 한다");
-  assert.equal(view.kakao()?.disabled, true, "체크 전에는 눌리지 않는다");
-
+  assert.equal(view.isChecked(), false);
   await view.toggle();
-  assert.equal(view.kakao()?.disabled, false, "체크하면 눌린다");
-
+  assert.equal(view.isChecked(), true, "체크하면 켜진다");
   await view.toggle();
-  assert.equal(view.kakao()?.disabled, true, "체크를 풀면 다시 잠긴다");
+  assert.equal(view.isChecked(), false, "체크를 풀면 다시 꺼진다");
   await view.React.act(async () => { view.root.unmount(); });
+
+  // 그 값으로 시트의 버튼이 잠긴다 — 체크 전에는 지나갈 수 없다.
+  assert.match(read("App.tsx"), /disabled=\{!consentChecked \|\| consentBusy\}/);
 });
 
-test("비활성 상태가 눈에 보인다 (눌러도 아무 일 없는 버튼을 만들지 않는다)", () => {
+test("★ 로그인 화면의 카카오 버튼은 늘 노란색이다 — 회색이 되지 않는다", () => {
+  // ★ 뒤집힌 항목. 예전에는 체크 전 disabled 라 배경을 --c-bg-soft(회색)로 바꿨다.
+  //   이제 동의를 여기서 받지 않으므로 버튼은 늘 누를 수 있고, 잠깐 잠기는
+  //   동안에도 **카카오 노란색을 지킨다**(진하기만 0.72) — PO 지시.
   const css = read("App.css");
   const rule = css.slice(css.indexOf(".auth-panel__kakao:disabled {"), css.indexOf("}", css.indexOf(".auth-panel__kakao:disabled {")));
-  // 노란 배경을 그대로 둔 채 흐리게만 하면 여전히 눌릴 것처럼 보인다 — 배경을 바꾼다.
-  assert.match(rule, /background: var\(--c-bg-soft\)/);
+  assert.match(rule, /background: var\(--c-kakao\)/);
+  assert.match(rule, /opacity: 0\.72/);
   assert.match(rule, /cursor: not-allowed/);
-  assert.doesNotMatch(rule, /opacity/);
+  // 로그인 화면은 동의로 버튼을 잠그지 않는다.
+  assert.match(read("components/AuthPanel.tsx"), /disabled=\{isSubmitting\}/);
 });
 
 test("두 문서를 각각 링크한다 (하나로 묶지 않는다)", async () => {
-  const view = await mountAuthPanel();
+  const view = await mountConsent();
   const links = Array.from(view.container.querySelectorAll("a")) as HTMLAnchorElement[];
   assert.deepEqual(links.map((link) => link.textContent), ["이용약관", "개인정보처리방침"]);
   assert.deepEqual(links.map((link) => new URL(link.href).pathname), ["/terms.html", "/privacy.html"]);
@@ -102,14 +119,14 @@ test("체크 상태를 기억하지 않는다 (매번 새로 받는다)", async 
     assert.doesNotMatch(source, /localStorage|sessionStorage/);
   }
   // 다시 열면 체크가 풀려 있다.
-  const first = await mountAuthPanel();
+  const first = await mountConsent();
   await first.toggle();
-  assert.equal(first.kakao()?.disabled, false);
+  assert.equal(first.isChecked(), true);
   await first.React.act(async () => { first.root.unmount(); });
 
-  const second = await mountAuthPanel();
+  const second = await mountConsent();
   assert.equal(second.box()?.checked, false, "다시 열면 체크가 풀려 있어야 한다");
-  assert.equal(second.kakao()?.disabled, true);
+  assert.equal(second.isChecked(), false);
   await second.React.act(async () => { second.root.unmount(); });
 });
 

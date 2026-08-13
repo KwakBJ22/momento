@@ -127,10 +127,14 @@ body {
 /* ★ 동의 전에는 눌리지 않는다. 그 사실이 **눈에 보여야** 한다 — 눌러도 아무 일이
    없으면 사용자가 헤맨다. opacity 로 흐리게만 하면 노란 배경이 그대로 남아 눌릴 것처럼
    보이므로, 배경 자체를 비활성 색으로 바꾼다. */
+/* ★ 비활성이어도 **노란색을 지킨다** (PO 2026-08-13). 예전에는 회색으로 바뀌어
+   카카오 버튼처럼 보이지 않았다 — 사용자는 그것이 카카오 버튼인 줄 몰랐다.
+   지금 비활성은 "누르는 중"뿐이라 잠깐이고, 색까지 바뀔 이유가 없다.
+   눌리지 않는다는 표시는 커서와 살짝 낮춘 진하기로 충분하다. */
 .auth-panel__kakao:disabled {
-  background: var(--c-bg-soft);
-  color: var(--c-text-subtle);
-  box-shadow: inset 0 0 0 1px var(--c-border);
+  background: var(--c-kakao);
+  color: var(--c-kakao-text);
+  opacity: 0.72;
   cursor: not-allowed;
 }
 

@@ -74,10 +74,17 @@ test("★ 서버에 닿은 뒤에만 지운다 — 끊기면 다음에 다시 �
   assert.ok(catchAt === -1 || forgetAt < catchAt, "실패 갈래에서도 지운다");
 });
 
-test("★ 체크한 그 순간에 남긴다 — 로그인으로 나가기 직전이다", () => {
-  assert.match(panel, /if \(agreed\) rememberLegalConsent\(\);\s*\n\s*await signIn\(provider, returnTo\);/);
-  // 버튼은 여전히 체크해야 눌린다(있던 규칙 그대로).
-  assert.match(panel, /disabled=\{isSubmitting \|\| !agreed\}/);
+test("★ 체크한 그 순간에 남긴다 — 이제 로그인한 뒤 그 시트에서다", () => {
+  // ★ 뒤집힌 항목 (2026-08-13 · PO 결정). 동의를 **로그인 화면**에서 받던 것을
+  //   **로그인한 뒤, 기록이 없는 계정에게만 한 번** 받는 자리로 옮겼다.
+  //   로그인만 하려는 사람에게도 매번 가입 절차가 보였고, 체크 전에는 카카오
+  //   버튼이 disabled 라 회색이었다(카카오 노란색이 안 나왔다).
+  //   ★ 묵시적 동의로 되돌린 것이 아니다 — 명시적 체크가 가입 시점 한 번으로 옮겼다.
+  assert.equal(panel.includes("rememberLegalConsent"), false, "로그인 화면이 아직 동의를 남긴다");
+  assert.match(panel, /disabled=\{isSubmitting\}/);
+  // 체크한 그 자리에서 서버로 보낸다(저장해 두고 나중에 보내지 않는다).
+  assert.match(app, /disabled=\{!consentChecked \|\| consentBusy\}/);
+  assert.match(app, /void bootstrapAccount\(collectContributorGuestIds\(\), true\)/);
 });
 
 // --- ★ 무엇도 막지 않는다 (지난번 사고 자리) ---
@@ -97,10 +104,17 @@ test("★ 기록이 없다는 이유로 무엇도 막지 않는다", () => {
   }
 });
 
-test("★ 동의 화면·시트·모달을 새로 만들지 않았다", () => {
-  // LegalConsent 를 쓰는 곳은 로그인 창 하나뿐이다(게스트 저장도 그 창으로 이어진다).
-  assert.match(panel, /<LegalConsent checked=\{agreed\} onChange=\{setAgreed\} \/>/);
-  assert.equal(app.includes("<LegalConsent"), false, "다른 화면에도 동의 UI 가 생겼다");
+test("★ 동의 UI 는 여전히 한 곳뿐이다 — 자리만 옮겼다", () => {
+  // ★ 뒤집힌 항목 (2026-08-13). 쓰는 곳이 로그인 창에서 **로그인 뒤 시트**로 갔다.
+  //   컴포넌트를 새로 만들지 않았고 두 벌도 아니다 — 이 검사의 규칙은 그대로다.
+  assert.equal((app.match(/<LegalConsent/g) || []).length, 1, "동의 UI 가 여러 곳에 생겼다");
+  assert.equal(panel.includes("<LegalConsent"), false, "로그인 화면에 동의 UI 가 남았다");
+  // 지나칠 수 없는 자리다 — 동의를 받는 시트라 닫히지 않는다.
+  assert.match(app, /open=\{needsLegalConsent\}[\s\S]{0,160}locked/);
+});
+
+test("★ AuthPanel 에 LegalConsent 가 없다 — 다시 들어오면 매번 묻게 된다", () => {
+  assert.equal(/LegalConsent/.test(panel), false, "로그인 화면이 다시 동의를 묻는다");
 });
 
 test("★ LegalConsent.tsx 를 고치지 않았다 — 두 벌로 만들지 않는다", () => {

@@ -112,7 +112,10 @@ test("로그인·회원 탈퇴가 같은 대화상자를 쓴다 (비대칭 없�
   const { readFileSync } = await import("node:fs");
   const app = readFileSync(new URL(`../src/App.tsx`, import.meta.url), "utf8");
   // 어느 파일에 동작이 있는지는 잠그지 않는다 — 둘이 같은 것을 쓴다는 사실만 본다.
-  assert.equal((app.match(/<SheetDialog /g) || []).length, 2, `albumId=${albumId}: 두 대화상자 모두 공용 컴포넌트`);
+  // ★ 2 → 3 (2026-08-13). 약관 동의를 로그인 뒤 시트로 옮기면서 대화상자가 하나 늘었다.
+  //   이 검사가 지키는 것은 **모두 같은 공용 컴포넌트를 쓴다**는 것이지 개수가 아니다 —
+  //   늘어난 것도 SheetDialog 라 규칙은 지켜졌다. 직접 만든 대화상자가 생기면 깨진다.
+  assert.equal((app.match(/<SheetDialog /g) || []).length, 3, `albumId=${albumId}: 대화상자는 모두 공용 컴포넌트`);
   assert.doesNotMatch(app, /document\.body\.style\.overflow/);
   assert.doesNotMatch(app, /event\.key === "Escape"[\s\S]{0,200}closeLogin/);
 });

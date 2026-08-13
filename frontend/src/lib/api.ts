@@ -735,7 +735,7 @@ export async function saveProfileContact(input: ProfileContact): Promise<Profile
 export async function bootstrapAccount(
   contributorGuestIds: string[],
   legalAgreed = false,
-): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[] }> {
+): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[]; legal_agreed: boolean }> {
   const response = await authenticatedFetch("/api/auth/bootstrap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -749,12 +749,14 @@ export async function bootstrapAccount(
   });
   if (!response.ok) throw new Error("계정을 준비하지 못했어요.");
   const data = (await response.json().catch(() => null)) as
-    | { album_count?: number; max_albums?: number; claimed_guest_ids?: string[] }
+    | { album_count?: number; max_albums?: number; claimed_guest_ids?: string[]; legal_agreed?: boolean }
     | null;
   return {
     album_count: data?.album_count,
     max_albums: data?.max_albums,
     claimed_guest_ids: data?.claimed_guest_ids ?? [],
+    // 옛 서버(이 필드를 모르는)에서는 true 로 본다 — 없다고 다시 묻지 않는다.
+    legal_agreed: data?.legal_agreed !== false,
   };
 }
 

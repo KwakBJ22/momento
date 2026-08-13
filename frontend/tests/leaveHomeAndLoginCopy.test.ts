@@ -113,9 +113,11 @@ test("★ 창을 두 벌로 만들지 않았다 — 값만 넣는다", () => {
   const panel = readFileSync(path.join(SRC, "components/AuthPanel.tsx"), "utf8");
   assert.match(panel, /<h2 id=\{titleId\}>\{copy\.title\}<\/h2>/);
   assert.match(panel, /\{copy\.description \? <p>\{copy\.description\}<\/p> : null\}/);
-  // 약관 체크와 카카오 버튼은 모든 경우에 그대로다.
-  assert.match(panel, /<LegalConsent checked=\{agreed\} onChange=\{setAgreed\} \/>/);
-  assert.match(panel, />카카오로 계속하기<\/button>/);
+  // ★ 뒤집힌 항목 (2026-08-13). 약관 체크는 로그인 뒤 시트로 옮겼고, 문구도
+  //   `카카오로 계속하기` → `카카오로 시작하기` 로 바뀌었다. 이 검사가 지키는 것은
+  //   "창을 두 벌로 만들지 않는다" 이고 그것은 그대로다.
+  assert.equal(panel.includes("<LegalConsent"), false, "로그인 화면에 동의 UI 가 남았다");
+  assert.match(panel, />카카오로 시작하기<\/button>/);
   // 제목 문자열이 화면에 흩어져 있지 않다.
   assert.equal(panel.includes("내 앨범 보관하기"), false);
   assert.equal(app.includes("이 앨범을 담아둘까요?"), false);

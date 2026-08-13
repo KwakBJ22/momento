@@ -45,3 +45,29 @@ def record_legal_consent(client: Any, profile_id: str) -> bool:
     except Exception as exc:  # noqa: BLE001 - 로그인을 막지 않는다
         logger.warning("legal_consent_record_failed error_type=%s", type(exc).__name__)
         return False
+
+
+def has_legal_consent(client: Any, profile_id: str) -> bool:
+    """이 계정에 **동의 기록이 있는가.**
+
+    ★ 이것도 무엇을 막는 값이 아니다 — 화면이 `한 번 더 물어야 하는가` 를 정하는 데만
+      쓴다. 예전에는 로그인 화면이 **매번** 체크를 요구했다. 이미 동의한 사람에게
+      로그인할 때마다 가입 절차를 보이는 꼴이었다(PO 지적 2026-08-13).
+    ★ 읽지 못하면 True 로 본다. 못 읽었다는 이유로 **이미 동의한 사람에게 또 묻지
+      않는다** — 기록은 위 record_legal_consent 가 어차피 덮어쓰지 않는다.
+    """
+    try:
+        result = (
+            client.table("profiles")
+            .select("legal_agreed_at")
+            .eq("id", profile_id)
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return True
+        return bool(rows[0].get("legal_agreed_at"))
+    except Exception as exc:  # noqa: BLE001 - 로그인을 막지 않는다
+        logger.warning("legal_consent_read_failed error_type=%s", type(exc).__name__)
+        return True

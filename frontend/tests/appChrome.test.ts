@@ -67,7 +67,10 @@ test("약관·개인정보 링크는 살아 있고, 랜딩에 두 번 나오지 
   assert.doesNotMatch(read("components/Landing.tsx"), /terms\.html|privacy\.html/);
   // 동의 시점 고지는 유지된다 — 이제 명시적 체크박스 컴포넌트가 담당한다.
   // (어느 파일인지·클래스가 무엇인지는 tests/legalConsent.test.ts 가 렌더로 확인한다.)
-  assert.match(read("components/AuthPanel.tsx"), /<LegalConsent /);
+  // ★ 뒤집힌 항목 (2026-08-13). 동의 고지는 그대로 있고 **자리만** 옮겼다 —
+  //   로그인 화면이 아니라 로그인한 뒤의 시트(App.tsx)다.
+  assert.match(read("App.tsx"), /<LegalConsent /);
+  assert.equal(read("components/AuthPanel.tsx").includes("<LegalConsent"), false);
   assert.match(read("components/LegalConsent.tsx"), /LEGAL_LINKS/);
   assert.match(read("components/AppFooter.tsx"), /LEGAL_LINKS/);
 });

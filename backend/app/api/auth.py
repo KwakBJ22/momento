@@ -17,7 +17,7 @@ from app.services.auth import require_authenticated_user
 from app.services.collaboration_service import attribute_contributions
 from app.services.event_logger import EventLogger
 from app.services.plan_limits import count_owned_albums, get_user_limits
-from app.services.legal_consent import record_legal_consent
+from app.services.legal_consent import has_legal_consent, record_legal_consent
 from app.services.supabase import ensure_default_family, get_supabase_client
 
 
@@ -62,6 +62,8 @@ def bootstrap_auth_user(
         album_count=count_owned_albums(client, authenticated_user_id),
         max_albums=limits["max_albums"],
         claimed_guest_ids=claimed_guest_ids,
+        # 이번에 동의를 실어 보냈으면 위에서 기록했으므로 다시 읽지 않는다.
+        legal_agreed=True if (body and body.legal_agreed) else has_legal_consent(client, authenticated_user_id),
     )
 
 

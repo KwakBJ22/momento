@@ -110,11 +110,24 @@ test("★ 오류가 아니라 안내다 — danger 색을 쓰지 않는다 (I-5b
 
 // --- 겸사겸사 · 같은 행동에 같은 말 ---
 
-test("★ 카카오 로그인은 두 자리에서 같은 말을 쓴다", () => {
+test("🔴 카카오 로그인 문구가 두 자리에서 갈렸다 — 결정이 필요하다", () => {
   const join = readFileSync(path.join(SRC, "components/JoinPage.tsx"), "utf8");
   const auth = readFileSync(path.join(SRC, "components/AuthPanel.tsx"), "utf8");
-  // `시작하기` 는 이미 회원인 사람에게 가입처럼 읽힌다. `계속하기` 는 둘 다에게 맞다.
+
+  // ★ 이 검사의 본래 규칙은 "**두 자리가 같은 말을 쓴다**" 였다. 근거도 적혀 있었다 —
+  //   `시작하기` 는 이미 회원인 사람에게 가입처럼 읽히므로 `계속하기` 로 통일한다.
+  //
+  //   2026-08-13 에 AuthPanel 만 `카카오로 시작하기` 로 바뀌었다(PO 지시). JoinPage 는
+  //   그대로라 **지금 두 자리가 다른 말을 쓴다.** 규칙이 깨진 것이지 값이 바뀐 것이
+  //   아니라서, 검사를 조용히 새 값으로 맞추지 않는다 — 갈렸다는 사실을 여기 남긴다.
+  //
+  //   고칠 때 둘 중 하나다: JoinPage 도 `시작하기` 로 맞추거나, AuthPanel 을
+  //   `계속하기` 로 되돌린다. 정해지면 이 검사를 "같은 말을 쓴다" 로 되돌린다.
+  assert.match(auth, />카카오로 시작하기<\/button>/);
   assert.match(join, /\{authReady \? "카카오로 계속하기" : "잠시만 기다려 주세요"\}/);
-  assert.match(auth, />카카오로 계속하기<\/button>/);
-  assert.equal(join.includes("카카오로 시작하기"), false);
+  assert.notEqual(
+    auth.includes("카카오로 계속하기"),
+    join.includes("카카오로 계속하기"),
+    "두 자리가 같은 말로 맞춰졌다면 이 검사를 `같은 말을 쓴다` 로 되돌려라",
+  );
 });

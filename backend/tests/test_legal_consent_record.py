@@ -128,11 +128,53 @@ class BootstrapRecordsConsentTests(TestCase):
         # 그 계약을 위 RecordLegalConsentTests.test_a_broken_database_does_not_raise 가 지킨다.
 
     def test_consent_is_not_used_to_gate_anything(self) -> None:
-        """★ 이 값으로 무엇도 막지 않는다. 응답은 동의 여부와 무관하게 같다."""
+        """★ 이 값으로 무엇도 막지 않는다. 응답은 동의 여부와 무관하게 같다.
+
+        ★ 뒤집힌 항목 (2026-08-13 · PO 결정). 예전에는 응답에 `legal_agreed` 가
+          **없어야 한다**고 고정했다. 그런데 로그인 화면이 매번 체크를 요구하는
+          바람에, 로그인만 하려는 사람에게도 가입 절차가 보였다. 동의를 **기록이
+          없는 계정에게만, 로그인한 뒤 한 번** 받도록 옮기면서 화면이 그 사실을
+          알아야 해서 필드를 붙였다.
+
+          붙었어도 **막는 값이 아니라 묻는 값이다** — 화면이 `한 번 더 받아야
+          하는가` 만 정한다. 무엇도 막지 않는다는 규칙 자체는 그대로이므로,
+          아래에서 그것을 계속 본다.
+        """
         with patch("app.api.auth.record_legal_consent", return_value=False):
             agreed = self.client.post("/api/auth/bootstrap", json={"legal_agreed": True}).json()
             plain = self.client.post("/api/auth/bootstrap", json={"legal_agreed": False}).json()
-        self.assertEqual(agreed, plain)
         for payload in (agreed, plain):
             self.assertEqual(payload["profile_id"], USER_ID)
-            self.assertNotIn("legal_agreed", payload)
+            # 막는 값이 아니다 — 어느 쪽이든 200 이고 같은 자원을 돌려준다.
+            self.assertEqual(payload["family_id"], plain["family_id"])
+            self.assertEqual(payload["max_albums"], plain["max_albums"])
+        # 동의를 실어 보낸 쪽은 그 자리에서 True 로 답한다(다시 읽지 않는다).
+        self.assertIs(agreed["legal_agreed"], True)
+
+    def test_has_legal_consent_is_a_question_not_a_gate(self) -> None:
+        """★ 읽지 못하면 True(=묻지 않음)로 떨어진다.
+
+        못 읽었다는 이유로 **이미 동의한 사람에게 또 묻지 않는다.** 반대로 떨어지면
+        DB 가 잠깐 흔들릴 때마다 모두에게 동의 창이 뜬다.
+        """
+        from app.services.legal_consent import has_legal_consent
+
+        broken = MagicMock()
+        broken.table.side_effect = RuntimeError("db down")
+        self.assertIs(has_legal_consent(broken, USER_ID), True, "못 읽었다고 다시 물었다")
+
+        missing = MagicMock()
+        missing.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+        self.assertIs(has_legal_consent(missing, USER_ID), True, "행이 없다고 다시 물었다")
+
+        never = MagicMock()
+        never.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+            {"legal_agreed_at": None}
+        ]
+        self.assertIs(has_legal_consent(never, USER_ID), False, "기록이 없는데 안 물었다")
+
+        done = MagicMock()
+        done.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+            {"legal_agreed_at": "2026-08-13T00:00:00+00:00"}
+        ]
+        self.assertIs(has_legal_consent(done, USER_ID), True)

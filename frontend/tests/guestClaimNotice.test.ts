@@ -70,7 +70,11 @@ test("문구를 고르는 자리는 한 곳이다 — 새 파일을 만들지 �
   assert.match(trouble, /export function guestClaimTroubleMessage/);
   assert.match(trouble, /export function isRetryableFailure/);
   // 화면은 문구를 직접 쓰지 않는다.
-  assert.equal(app.includes("저장하지 못했어요."), false, "화면이 문구를 직접 들고 있다");
+  // ★ 2026-08-13: 약관 동의 시트가 자기 실패 문구를 갖게 되면서(`동의를 저장하지
+  //   못했어요.`) 이 검사가 그 글자에 걸렸다. 이 검사가 지키는 것은 **게스트 담기**
+  //   문구를 화면이 직접 쓰지 않는다는 것이므로, 그쪽만 본다.
+  assert.equal(app.includes("이 앨범을 계정에 저장하지 못했어요"), false, "화면이 문구를 직접 들고 있다");
+  assert.equal(app.includes("아직 저장하지 못했어요"), false, "화면이 문구를 직접 들고 있다");
 });
 
 // --- 화면이 언제 무엇을 말하는가 ---

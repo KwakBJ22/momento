@@ -1,6 +1,5 @@
 import { useState } from "react";
-import LegalConsent from "./LegalConsent";
-import { isAuthenticationConfigured, rememberLegalConsent, signIn, type AuthProvider } from "../services/authService";
+import { isAuthenticationConfigured, signIn, type AuthProvider } from "../services/authService";
 import { authPanelCopy, type AuthPanelReason } from "../lib/authPanelCopy";
 import { userFacingError } from "../lib/userFacingError";
 
@@ -15,16 +14,11 @@ export default function AuthPanel({ returnTo, titleId, reason }: AuthPanelProps)
   const copy = authPanelCopy(reason);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // ★ 매번 새로 받는다 — 저장하지 않는다(패널이 닫히면 이 상태도 함께 사라진다).
-  const [agreed, setAgreed] = useState(false);
 
   const continueWith = async (provider: AuthProvider) => {
     setMessage(null);
     setIsSubmitting(true);
     try {
-      // 체크한 사실을 왕복 너머로 남긴다 — 돌아온 뒤 bootstrap 이 실어 보낸다(K-14).
-      // 버튼은 체크해야 눌리지만, 여기서 한 번 더 본다(누르는 길이 하나뿐이도록).
-      if (agreed) rememberLegalConsent();
       await signIn(provider, returnTo);
     } catch (error) {
       setMessage(userFacingError(error, "로그인을 시작하지 못했어요."));
@@ -41,9 +35,13 @@ export default function AuthPanel({ returnTo, titleId, reason }: AuthPanelProps)
       <h2 id={titleId}>{copy.title}</h2>
       {copy.description ? <p>{copy.description}</p> : null}
       {message && <p className="notice notice--error auth-panel__notice" role="alert">{message}</p>}
-      {/* 동의를 먼저 받고 그다음에 시작한다 — 순서가 화면에서도 그대로 보이게 위에 둔다. */}
-      <LegalConsent checked={agreed} onChange={setAgreed} />
-      <button className="auth-panel__kakao" type="button" disabled={isSubmitting || !agreed} onClick={() => void continueWith("kakao")}>카카오로 계속하기</button>
+      {/* ★ 여기서 동의를 받지 않는다 (PO 판단 2026-08-13).
+          동의는 **처음 가입할 때 한 번**이면 되고, 서버가 그 사실을 계정에 남긴다
+          (profiles.legal_agreed_at). 그런데 이 화면이 매번 체크를 요구해서,
+          **로그인만 하려는 사람에게도 가입 절차가 보였다.** 게다가 체크 전에는
+          카카오 버튼이 disabled 라 회색이었다 — 카카오 노란색이 나오지 않았다.
+          동의가 필요한 사람(기록이 없는 사람)에게는 **로그인한 뒤 한 번** 받는다. */}
+      <button className="auth-panel__kakao" type="button" disabled={isSubmitting} onClick={() => void continueWith("kakao")}>카카오로 시작하기</button>
       {/* 네이버 로그인은 MVP 에서 노출하지 않는다. 주 채널이 카카오톡 웹뷰이고,
           로그인 선택지가 둘이면 사용자가 고민한다. 백엔드의 custom:naver 처리는
           그대로 살아 있으므로 이 한 줄을 되살리면 즉시 다시 쓸 수 있다.
