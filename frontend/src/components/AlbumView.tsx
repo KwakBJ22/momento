@@ -204,12 +204,22 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     // development remount. Aborting it would make the second subscriber reuse
     // the same rejected request and falsely show an album loading error.
     let active = true;
-    setPhotosReady(false);
-    setLivingAppendPages([]);
+    // ★ **이미 보여준 앨범은 지우지 않는다** (PO 2026-08-13).
+    //   화면으로 돌아오면 60초 규칙에 따라 다시 읽는데(useRefreshOnReturn), 예전에는
+    //   읽기를 시작하면서 보고 있던 것을 먼저 비웠다. 돌아오는 순간은 하필 토큰이
+    //   갱신되는 중이거나 웹뷰가 네트워크를 막 되살린 참이라 그 한 번이 실패하기
+    //   쉽고, 그러면 멀쩡히 보던 앨범이 `이 앨범을 열 수 없어요` 로 바뀌었다.
+    //   `다시 시도` 를 누르면 그때는 성공한다 — 즉 **실패가 아니라 잠깐 어긋난 것**이다.
+    //   그래서 다시 읽기는 뒤에서 조용히 하고, 화면은 그대로 둔다.
+    const refreshingSameAlbum = loadedAlbumId === loadedKey;
+    if (!refreshingSameAlbum) {
+      setPhotosReady(false);
+      setLivingAppendPages([]);
+      setLoadedAlbumId(null);
+      setPublicShareUrl("");
+    }
     setError(null);
     setErrorStatus(null);
-    setLoadedAlbumId(null);
-    setPublicShareUrl("");
 
     void Promise.all([
       getAlbum(albumId, requestedEdition),
@@ -240,6 +250,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         //   **실패가 아니라 아직 안 끝난 것이다. 그러니 실패라고 말하지 않는다.**
         //   기다림의 끝은 `대기 중인 claim` 이 사라지는 것이고, 그것이 성공의 표시다.
         //   ★ 무한히 기다리지 않는다 — 진짜 권한 없음이 영영 안 보이면 안 된다.
+        // ★ 이미 보여주고 있던 앨범이면 **오류 화면으로 바꾸지 않는다.** 사용자는
+        //   보던 것을 계속 본다. 다음에 돌아올 때 다시 읽는다.
+        if (refreshingSameAlbum) return;
+
         const claiming = readPendingGuestClaim() === albumId;
         if (claiming && (status === 403 || status === 404) && claimWaitRef.current < CLAIM_WAIT_LIMIT) {
           claimWaitRef.current += 1;
