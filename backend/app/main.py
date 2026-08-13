@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -44,11 +45,53 @@ def _validation_error_response(request: Request, error_count: int) -> JSONRespon
     )
     return JSONResponse(status_code=422, content={"detail": "입력 내용을 확인해주세요."})
 
+# 연결을 몇 초마다 건드릴 것인가. 프록시·로드밸런서의 유휴 종료는 보통 60초라
+# 그보다 짧게 둔다. 워커 4개 × 분당 1~2회라 부하는 없다.
+SUPABASE_KEEPALIVE_SECONDS = 45
+
+
+# 마지막으로 요청이 지나간 시각(단조 시계). 사용자가 쓰고 있으면 그 요청 자체가
+# 연결을 살려 두므로 따로 깨울 필요가 없다.
+_last_request_at = time.monotonic()
+
+
+async def _keep_supabase_warm() -> None:
+    """**놀 때만** 연결을 깨운다.
+
+    ★ 부팅 때 한 번 깨우는 것으로는 **부족했다.** 운영 로그에서 첫 호출 1259ms,
+      이어지는 호출 180ms 로 7배가 났다. 질의가 무거워서가 아니라 놀던 연결이
+      끊겨 DNS·TLS 를 다시 맺기 때문이다. 잠깐 안 쓰면 다시 처음 상태가 된다.
+    ★ **바쁠 때는 한 번도 보내지 않는다.** 지나간 요청이 이미 연결을 살려 둔다.
+      그래서 이 비용은 아무도 안 쓸 때만 든다 — 그때는 부하랄 것이 없다.
+    ★ 실패해도 조용히 넘어간다 — 이건 대비책이지 기능이 아니다. 다만 계속 실패하면
+      알아야 하므로 **상태가 바뀔 때만** 남긴다(로그를 분당 한 줄로 채우지 않는다).
+    """
+    healthy = True
+    while True:
+        idle_for = time.monotonic() - _last_request_at
+        if idle_for < SUPABASE_KEEPALIVE_SECONDS:
+            # 아직 따뜻하다. 식을 때까지만 더 잔다.
+            await asyncio.sleep(SUPABASE_KEEPALIVE_SECONDS - idle_for)
+            continue
+        ok = await asyncio.to_thread(warm_supabase_client)
+        if ok != healthy:
+            logger.warning("supabase_keepalive ok=%s", ok)
+            healthy = ok
+        await asyncio.sleep(SUPABASE_KEEPALIVE_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Pay the DNS + TLS handshake at boot, not on the first user's request."""
     logger.info("supabase_warmup ok=%s", await asyncio.to_thread(warm_supabase_client))
-    yield
+    keepalive = asyncio.create_task(_keep_supabase_warm())
+    try:
+        yield
+    finally:
+        # 워커가 내려갈 때 붙잡지 않는다 — 배포가 그만큼 늦어진다.
+        keepalive.cancel()
+        with suppress(asyncio.CancelledError):
+            await keepalive
 
 
 fastapi_app = FastAPI(
@@ -72,6 +115,9 @@ async def pydantic_validation_error_handler(request: Request, exc: ValidationErr
 @fastapi_app.middleware("http")
 async def add_operation_id(request: Request, call_next):
     """Correlate every API request, logs, and events without trusting client IDs."""
+    # 지나간 요청이 곧 연결을 살려 두는 신호다 — 이것이 있으면 keepalive 는 쉰다.
+    global _last_request_at
+    _last_request_at = time.monotonic()
     with operation_context(f"{request.method} {request.url.path}") as operation_id:
         try:
             response = await call_next(request)
