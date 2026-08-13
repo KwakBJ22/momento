@@ -1188,6 +1188,7 @@ async def get_album_photo_urls(
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = _actor_album_access(client, record, authenticated_user_id, guest_token)
+    access_ms = _elapsed_ms()
     require_album_read(access)
 
     document, _ = _edition_document_and_pages(record, edition)
@@ -1221,8 +1222,8 @@ async def get_album_photo_urls(
     signed_urls = _batch_signed_urls_for_photos(client, settings, visible_photos)
     sign_ms = _elapsed_ms() - db_ms
     logger.info(
-        "album_photos_timing album_id=%s photos=%s signed=%s db_ms=%s sign_ms=%s",
-        album_id, len(visible_photos), len(signed_urls), db_ms, sign_ms,
+        "album_photos_timing album_id=%s photos=%s signed=%s access_ms=%s db_ms=%s sign_ms=%s",
+        album_id, len(visible_photos), len(signed_urls), access_ms, db_ms, sign_ms,
     )
     # 캡션을 누가 쓸 수 있는지는 백엔드가 정해 사진마다 실어 보낸다(§7·§10).
     viewer_contributor = (
