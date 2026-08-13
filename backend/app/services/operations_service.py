@@ -7,6 +7,9 @@ from typing import Any
 
 from app.config import Settings
 from app.services.storage_service import StorageService
+
+#: 앨범 파일이 사는 최상위 폴더. 버킷 전체 목록에서 이 밑만 골라낼 때도 쓴다.
+ALBUM_PREFIX = "albums"
 from app.services.supabase import (
     cleanup_album_files,
     cleanup_album_orphans,
@@ -38,7 +41,13 @@ def check_storage(client: Any, settings: Settings) -> dict[str, Any]:
     return {"status": "ok", "buckets": checks}
 
 
-def count_orphan_files(client: Any, settings: Settings, *, limit: int = 5000) -> dict[str, Any]:
+def count_orphan_files(
+    client: Any,
+    settings: Settings,
+    *,
+    limit: int = 5000,
+    files: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """저장소에는 있는데 DB 가 모르는 파일이 **몇 개인지 센다** (K-3).
 
     ★ **지우지 않는다. 세기만 한다.** 조건이 틀리면 지우고 나서 안다(§9) — 사진은
@@ -50,13 +59,20 @@ def count_orphan_files(client: Any, settings: Settings, *, limit: int = 5000) ->
 
     ``check_integrity`` 와 방향이 반대다 — 그쪽은 DB 가 가리키는데 파일이 없는 것을
     찾고, 이쪽은 파일이 있는데 가리키는 DB 행이 없는 것을 찾는다.
+
+    ``files`` 를 넘기면 저장소를 다시 훑지 않고 그 목록에서 ``albums/`` 밑만 걸러
+    쓴다. 버킷 전체 목록은 ``albums`` 밑을 포함하므로 걸러낸 집합이 스스로
+    ``list_recursive(bucket, "albums")`` 를 돌렸을 때와 같다. 넘기지 않으면
+    지금까지처럼 스스로 훑는다(운영 CLI 가 그 길로 부른다).
     """
     storage = StorageService.for_supabase(client, settings)
     bucket = settings.supabase_private_storage_bucket
-    stored = {
-        str(item.get("path") or "").strip("/")
-        for item in storage.list_recursive(bucket, "albums")
-    }
+    listed = (
+        [item for item in files if str(item.get("path") or "").strip("/").startswith(f"{ALBUM_PREFIX}/")]
+        if files is not None
+        else storage.list_recursive(bucket, ALBUM_PREFIX)
+    )
+    stored = {str(item.get("path") or "").strip("/") for item in listed}
     stored.discard("")
     known: set[str] = set()
     rows = client.table("album_photos").select("storage_path,thumbnail_path,display_path").limit(limit).execute().data or []
@@ -82,11 +98,20 @@ def count_orphan_files(client: Any, settings: Settings, *, limit: int = 5000) ->
     }
 
 
-def storage_usage(client: Any, settings: Settings) -> dict[str, Any]:
-    """Measure the configured private bucket without changing any object."""
+def storage_usage(
+    client: Any,
+    settings: Settings,
+    *,
+    files: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Measure the configured private bucket without changing any object.
+
+    ``files`` 를 넘기면 저장소를 다시 훑지 않고 그 목록을 그대로 센다.
+    """
     storage = StorageService.for_supabase(client, settings)
     bucket = settings.supabase_private_storage_bucket
-    files = storage.list_recursive(bucket)
+    if files is None:
+        files = storage.list_recursive(bucket)
     total_bytes = 0
     for item in files:
         metadata = item.get("metadata") or {}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from datetime import timedelta
 from typing import Any
@@ -40,6 +41,9 @@ from app.services.membership import get_user_email
 from app.services.supabase import delete_album_record, get_album_photo_records, get_album_record, get_public_url
 from app.config import Settings
 from app.services.operations_service import count_orphan_files, storage_usage
+from app.services.storage_service import StorageService
+
+logger = logging.getLogger(__name__)
 
 
 def _contributor_added_counts(client: Client, album_ids: list[str]) -> tuple[dict[str, int], dict[str, int]]:
@@ -182,11 +186,27 @@ def build_ops_dashboard(client: Client, settings: Settings | None = None) -> dic
     total_pdf = count_analytics(client, "pdf_generated")
     missing_display = count_missing_display_photos(client)
     blocked, guest_health = _build_blocked_items(client)
+    # ★ 저장소는 **한 번만** 훑는다. 예전에는 count_orphan_files 와 storage_usage 가
+    #   각각 list_recursive 를 돌아 버킷을 두 번 훑었다. list_recursive 는 폴더마다
+    #   LIST 를 한 번 보내는데 경로가 albums/<앨범>/photos/<사진>/ 이라 사진 하나가
+    #   폴더 하나다 — 사진 53장에 약 150회 순차 왕복, 잰 값 10.1초였다.
+    #   버킷 전체 목록이 albums 밑을 포함하므로 한 번 받아 두 함수에 나눠 준다.
     orphan_files = 0
     storage_bytes = 0
     if settings is not None:
-        orphan_files = int(count_orphan_files(client, settings).get("orphan_count") or 0)
-        storage_bytes = int(storage_usage(client, settings).get("bytes") or 0)
+        try:
+            bucket_files = StorageService.for_supabase(client, settings).list_recursive(
+                settings.supabase_private_storage_bucket
+            )
+        except Exception as exc:  # noqa: BLE001 - 저장소가 막혀도 대시보드는 떠야 한다
+            logger.warning("admin_dashboard_storage_scan_failed reason=%s", exc)
+        else:
+            orphan_files = int(
+                count_orphan_files(client, settings, files=bucket_files).get("orphan_count") or 0
+            )
+            storage_bytes = int(
+                storage_usage(client, settings, files=bucket_files).get("bytes") or 0
+            )
     database_bytes = _database_size_bytes(client)
 
     return {
