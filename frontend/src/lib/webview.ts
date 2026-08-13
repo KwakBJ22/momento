@@ -20,6 +20,23 @@ export function isKakaoWebView(userAgent: string): boolean {
   return KAKAO_WEBVIEW.test(userAgent || "");
 }
 
+/** 아이폰·아이패드(WebKit) 판정.
+ *
+ * ★ 왜 필요한가: PDF 저장이 blob + a[download] 로 끝나는 길이 하나 남아 있다. iOS 는
+ *   버전·기기에 따라 이 길에서 파일 이름을 잃거나 새 탭에서 미리보기로 열고 끝난다 —
+ *   실패해도 예외가 없어 화면에는 "저장했어요"만 남는다. 서버에 이미 올려 둔 주소가
+ *   있으면 그쪽이 확실하므로, 아이폰에서는 그 주소를 먼저 쓴다(exportPdf.tsx).
+ * ★ iPadOS 13+ 는 UA 를 데스크톱 사파리로 위장한다 — Macintosh + 터치 지원으로 가른다.
+ */
+const IOS_DEVICE = /iPhone|iPad|iPod/i;
+
+export function isIosWebKit(userAgent: string): boolean {
+  const ua = userAgent || "";
+  if (IOS_DEVICE.test(ua)) return true;
+  const touchPoints = typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints || 0;
+  return /Macintosh/i.test(ua) && touchPoints > 1;
+}
+
 /** 브라우저에서 읽은 UA. 서버 렌더·테스트 환경에서도 안전하게 빈 문자열이 된다. */
 export function currentUserAgent(): string {
   return typeof navigator === "undefined" ? "" : navigator.userAgent || "";

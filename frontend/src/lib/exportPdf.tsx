@@ -3,7 +3,7 @@ import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
 import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
-import { currentUserAgent, isInAppWebView } from "./webview";
+import { currentUserAgent, isInAppWebView, isIosWebKit } from "./webview";
 import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
 import { PDF_CANVAS_SCALE, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
@@ -84,6 +84,12 @@ export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDeliver
     }
     logPdf("pdf_download_unsupported", { album: input.albumId, reason: "no_stored_url" });
     throw new Error(webviewSaveMessage(currentUserAgent()));
+  }
+
+  // 아이폰·아이패드: 아래 blob 저장이 조용히 실패할 수 있는 유일한 길이다. 이미 올려 둔
+  // 주소가 있으면 웹뷰와 같은 길(서버 주소 이동)로 보낸다 — 새 경로를 만들지 않는다.
+  if (storedUrl && isIosWebKit(currentUserAgent())) {
+    return deliverStoredPdf(storedUrl, pdfFilename(input));
   }
 
   triggerBlobDownload(blob, pdfFilename(input));

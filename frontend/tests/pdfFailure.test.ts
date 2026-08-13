@@ -120,7 +120,11 @@ test("PDF 전달은 새 창을 만들지 않는다 — 빈 창이 남지 않게"
   assert.doesNotMatch(code, /window\.open\(/);
   assert.doesNotMatch(code, /target = "_blank"|target="_blank"/);
   // 캐시된 PDF 도, 방금 올린 PDF 도 같은 전달 함수를 쓴다(경로가 갈라지지 않는다).
-  assert.equal((code.match(/deliverStoredPdf\(/g) || []).length, 3); // 정의 1 + 호출 2
+  // ★ 3 → 4 (2026-08-13). 아이폰 갈래가 하나 늘었다 — blob + a[download] 가 조용히
+  //   실패할 수 있는 유일한 길이라, 이미 올려 둔 storedUrl 이 있으면 인앱 갈래와
+  //   **같은 전달 함수**로 합류시킨다. 이 검사가 보는 규칙(경로가 갈라지지 않는다)은
+  //   오히려 더 지켜졌다 — 갈래가 늘어도 전달은 여전히 이 함수 하나다.
+  assert.equal((code.match(/deliverStoredPdf\(/g) || []).length, 4); // 정의 1 + 호출 3
   assert.match(code, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
 });
 
