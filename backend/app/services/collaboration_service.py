@@ -15,7 +15,7 @@ from app.models.album_photo_status import is_deleted_album_photo, is_ready_album
 from app.models.schemas import DEFAULT_ALBUM_PHOTO_CAPACITY
 from app.services.link_trouble import classify_invite_trouble, link_trouble_message
 from app.services.share_service import create_token, hash_token
-from app.services.supabase import soft_delete_album_photo_with_references
+from app.services.supabase import get_album_record, soft_delete_album_photo_with_references
 
 logger = logging.getLogger(__name__)
 
@@ -1006,6 +1006,17 @@ def rebuild_album(
         client.table("albums").update({"last_rebuild_started_at": None}).eq("id", album_id).execute()
 
 
+def _merge_ids(existing: Any, incoming: set[str]) -> list[str]:
+    """이미 있던 순서를 지키면서 새 것을 뒤에 붙인다 (중복 없이)."""
+    merged = [str(item) for item in (existing or [])]
+    seen = set(merged)
+    for item in sorted(incoming):
+        if item not in seen:
+            seen.add(item)
+            merged.append(item)
+    return merged
+
+
 def apply_selected_contributions(
     client: Client,
     album: dict[str, Any],
@@ -1099,17 +1110,36 @@ def apply_selected_contributions(
     base_document = current_document or build_album_document_from_records(album, base_photos, base_memories)
 
     if selected_mode == "append_page":
-        page_id = str(uuid.uuid4())
-        next_append_pages = [
-            *append_pages,
-            {
+        # ★ 페이지를 매번 새로 만들지 않는다. **마지막 페이지에 쌓는다.**
+        #   예전에는 부를 때마다 append 해서 한마디 3개면 페이지가 3장이 됐다.
+        #   이제 올라올 때마다 자동으로 부르므로 그대로 두면 앨범이 한 줄짜리
+        #   페이지로 뒤덮인다. 페이지가 하나도 없을 때만 새로 만든다.
+        last_page = append_pages[-1] if append_pages and isinstance(append_pages[-1], dict) else None
+        if last_page is None:
+            page_id = str(uuid.uuid4())
+            next_append_pages = [
+                *append_pages,
+                {
+                    "id": page_id,
+                    "type": "append_page",
+                    "created_at": _iso(),
+                    "photo_ids": sorted(photo_ids),
+                    "memory_ids": sorted(memory_ids),
+                },
+            ]
+        else:
+            page_id = str(last_page.get("id") or uuid.uuid4())
+            merged = {
+                **last_page,
                 "id": page_id,
                 "type": "append_page",
-                "created_at": _iso(),
-                "photo_ids": sorted(photo_ids),
-                "memory_ids": sorted(memory_ids),
-            },
-        ]
+                "created_at": last_page.get("created_at") or _iso(),
+                "updated_at": _iso(),
+                # 순서는 유지하고 중복만 없앤다 — 먼저 올라온 것이 먼저 선다.
+                "photo_ids": _merge_ids(last_page.get("photo_ids"), photo_ids),
+                "memory_ids": _merge_ids(last_page.get("memory_ids"), memory_ids),
+            }
+            next_append_pages = [*append_pages[:-1], merged]
         result = rebuild_album(
             client,
             album,
@@ -1162,6 +1192,52 @@ def apply_selected_contributions(
         "append_page_id": page_id,
         "previous_edition": int(album.get("album_version") or 0) if selected_mode == "edition" else None,
     }
+
+
+def auto_append_contribution(
+    client: Client,
+    album_id: str,
+    *,
+    photo_ids: set[str] | None = None,
+    memory_ids: set[str] | None = None,
+) -> bool:
+    """방금 올라온 것을 **그 건에 대해서만** 마지막 페이지에 붙인다.
+
+    ★ 주최자가 누를 버튼도, 고를 시트도 없다 (PO 결정 2026-08-13). 올라오면 붙는다.
+
+    ★ **이건 서버 내부 실행이다.** 참여자에게 apply-contributions 권한을 준 것이
+      아니다 — 호출하는 쪽이 방금 자기가 넣은 id 만 넘긴다.
+
+    ★ **실패해도 올린 것은 살아 있어야 한다.** 사진·한마디는 이미 저장됐고, 붙이는
+      일은 그 다음이다. 여기서 터져도 되돌리지 않는다 — 로그만 남기고, 다음에
+      누가 올릴 때 아직 안 붙은 것으로 잡혀 같이 붙는다.
+
+    ``edition`` 갈래는 부르지 않는다. 그쪽은 주최자가 명시적으로 고를 때만 돈다.
+
+    Returns: 실제로 붙였는지.
+    """
+    photos = {str(item) for item in (photo_ids or set()) if str(item).strip()}
+    memories = {str(item) for item in (memory_ids or set()) if str(item).strip()}
+    if not photos and not memories:
+        return False
+    try:
+        album = get_album_record(client, album_id)
+        if not album:
+            return False
+        apply_selected_contributions(
+            client,
+            album,
+            photo_ids=photos,
+            memory_ids=memories,
+            mode="append_page",
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 - 올린 것을 되돌리지 않는다
+        logger.warning(
+            "auto_append_failed album_id=%s photos=%s memories=%s reason=%s",
+            album_id, len(photos), len(memories), exc,
+        )
+        return False
 
 
 def pdf_cache_key(album_id: str, version: int) -> str:

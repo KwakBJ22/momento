@@ -23,6 +23,12 @@ export interface AlbumMoreSheetProps {
   albumId: string;
   /** 표지 사진 바꾸기 — 주최자만. 넘기지 않으면 행이 없다. */
   onChangeCover?: () => void;
+  /** 앨범 다시 구성하기 — 주최자만. 새로 더해진 것까지 넣어 앨범을 다시 짠다.
+   *  ★ 새로 더해진 것을 **담는** 버튼이 아니다. 담기는 이미 자동으로 끝나 있다
+   *    (올라오는 즉시 마지막 페이지에 붙는다). 이건 사진 배치와 이야기를 다시
+   *    짜는 것이고, 주최자가 원할 때만 돈다. */
+  onRebuildEdition?: () => void;
+  isRebuilding?: boolean;
   /** 파일로 저장하기(PDF). 넘기지 않으면 행이 없다. */
   onExportPdf?: () => void;
   isExportingPdf?: boolean;
@@ -39,7 +45,7 @@ export interface AlbumMoreSheetProps {
 
 export default function AlbumMoreSheet({
   onClose, accountSheet, canEdit, canDelete, photoCount, contributorCount, albumId,
-  onChangeCover, onExportPdf, isExportingPdf = false, onDeleteAlbum, isDeleting = false,
+  onChangeCover, onRebuildEdition, isRebuilding = false, onExportPdf, isExportingPdf = false, onDeleteAlbum, isDeleting = false,
   showAbsentNotice = false, onLogout, onWithdraw,
 }: AlbumMoreSheetProps) {
   const openParticipants = () => window.location.assign(`/album/${albumId}/participants`);
@@ -56,6 +62,8 @@ export default function AlbumMoreSheet({
         {contributorCount !== null
           ? <button type="button" className="album-more-sheet__row" onClick={openParticipants}><span>{canEdit ? "함께 만든 사람" : "함께한 사람"}</span><em>{contributorCount}명</em></button>
           : null}
+        {/* 새로 더해진 것은 이미 붙어 있다. 여기는 앨범을 **다시 짜는** 자리다. */}
+        {canEdit && onRebuildEdition ? <button type="button" className="album-more-sheet__row" disabled={isRebuilding} onClick={() => { onClose(); onRebuildEdition(); }}><span>{isRebuilding ? "다시 구성하는 중..." : "앨범 다시 구성하기"}</span><em>새로 더해진 것까지 넣어 새로 짜요</em></button> : null}
         {/* PDF 초과 시: opacity 로 흐리지 않고(대비 2.1:1) 라벨은 subtle, 이유는 warning. */}
         {onExportPdf ? (photoCount > PDF_PHOTO_SAFE_LIMIT
           ? <><div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_REASON}</em></div>

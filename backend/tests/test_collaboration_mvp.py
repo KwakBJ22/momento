@@ -339,10 +339,15 @@ class CollaborationServiceTests(unittest.TestCase):
                 memory_ids=set(),
             )
 
+        # ★ 뒤집힌 항목 (2026-08-13 · PO 결정). 예전에는 부를 때마다 페이지를 한 장씩
+        #   더해서 여기서 **2장**을 기대했다. 이제 올라올 때마다 서버가 자동으로 부르므로
+        #   그대로 두면 한마디 3개에 페이지가 3장이 되어 앨범이 한 줄짜리 페이지로 덮인다.
+        #   쌓이는 것은 그대로다 — 다만 **한 장 안에** 쌓인다.
         updates = [update for update in client.albums.updates if "living_append_pages" in update]
-        self.assertEqual(len(updates[-1]["living_append_pages"]), 2)
-        self.assertEqual(updates[-1]["living_append_pages"][0]["id"], first_result["append_page_id"])
-        self.assertEqual(updates[-1]["living_append_pages"][1]["photo_ids"], ["guest-2"])
+        pages = updates[-1]["living_append_pages"]
+        self.assertEqual(len(pages), 1, "두 번째 반영이 새 페이지를 만들었다")
+        self.assertEqual(pages[0]["id"], first_result["append_page_id"], "페이지 id 가 바뀌었다")
+        self.assertEqual(pages[0]["photo_ids"], ["guest-1", "guest-2"], "먼저 올라온 것이 먼저 서야 한다")
 
     def test_many_contributions_default_to_a_new_edition(self) -> None:
         self.assertEqual(LIVING_APPEND_PHOTO_THRESHOLD, 5)

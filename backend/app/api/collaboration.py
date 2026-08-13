@@ -54,6 +54,7 @@ from app.services.collaboration_service import (
     publish_album,
     rebuild_album,
     apply_selected_contributions,
+    auto_append_contribution,
     contribution_baseline_at,
     count_new_contributions,
     remove_contributor,
@@ -840,6 +841,11 @@ def contribute_upload_photos(
     if uploaded:
         # Metric: collaborative-album share = albums with participant photo_added/memory_added.
         log_event(client, "photo_added", album_id=album_id, metadata={"photo_count": len(uploaded)})
+        # 올라오면 바로 마지막 페이지에 붙는다 — 주최자가 고를 것이 없다.
+        # 실패해도 위에서 저장한 사진은 그대로다(되돌리지 않는다).
+        auto_append_contribution(
+            client, album_id, photo_ids={str(item["id"]) for item in uploaded if item.get("id")}
+        )
     return {"photos": uploaded, "uploaded": uploaded, "photo_count": current + len(uploaded), "photo_limit": limit}
 
 
@@ -869,6 +875,8 @@ def create_memory(
     )
     # Metric: collaborative-album share = albums with participant photo_added/memory_added.
     log_event(client, "memory_added", album_id=album_id)
+    # 올라오면 바로 마지막 페이지에 붙는다. 실패해도 위에서 저장한 한마디는 그대로다.
+    auto_append_contribution(client, album_id, memory_ids={str(memory["id"])})
     return PhotoMemoryResponse(
         id=UUID(str(memory["id"])),
         photo_id=UUID(str(memory["photo_id"])),

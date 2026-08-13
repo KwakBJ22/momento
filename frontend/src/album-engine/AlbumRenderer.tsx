@@ -302,6 +302,13 @@ export default function AlbumRenderer({
             ))}
           </ul>
         ) : null}
+        {/* ★ 앨범 끝의 안내 한 줄 (2026-08-13 PO 결정). 새로 더해진 것은 이미 여기
+            붙어 있고, 앨범을 다시 짜는 것은 주최자가 나중에 한 번에 한다.
+            ★ 웹·공유에서만 보인다. 인쇄물에 넣지 않는다 — 종이에는 `나중에` 가 없다.
+            ★ 마지막 페이지에만 붙인다. 페이지마다 반복하면 잔소리가 된다. */}
+        {mode === "screen" && index === livingAppendPages.length - 1
+          ? <p className="album-living-page__note">앨범을 만든 분이 나중에 한 번에 정리해서 앨범을 다시 만들어요.</p>
+          : null}
       </section>
     );
   });

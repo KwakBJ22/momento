@@ -214,6 +214,14 @@
   font-size: clamp(1.35rem, 4vw, 2rem);
 }
 
+/* 앨범 끝 안내 한 줄 — 읽히되 앞에 서지 않는다. 카드·테두리를 만들지 않는다(§6). */
+.album-living-page__note {
+  margin-top: 1rem;
+  color: var(--c-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 .album-living-page__new {
   border-radius: 999px;
   background: var(--c-text-soft);

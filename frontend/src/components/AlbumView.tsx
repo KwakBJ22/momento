@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { applyContributions, createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
@@ -133,6 +133,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   };
   // 앨범 지우기 확인 — window.confirm 을 쓰지 않는다(§11). 시트로 묻는다.
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isRebuilding, setIsRebuilding] = useState(false);
   const [confirmingCaptionPhotoId, setConfirmingCaptionPhotoId] = useState<string | null>(null);
   const [confirmingCaptionText, setConfirmingCaptionText] = useState("");
   const [editingStoryKey, setEditingStoryKey] = useState<string | null>(null);
@@ -325,6 +326,32 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     const updated = await patchAlbumTitle(albumId, next.trim());
     setAlbum((current) => current ? withAlbumVersion({ ...current, title: updated.title }, updated) : current);
     return updated.title;
+  };
+
+  /**
+   * `앨범 다시 구성하기` — 사진 배치와 이야기를 새로 짠다 (주최자만 · 더보기 시트).
+   *
+   * ★ 새 API 를 만들지 않는다. 없어진 시트가 쓰던 apply-contributions 를
+   *   mode="edition" 으로 그대로 부른다. 고르는 화면이 없으므로 **아직 안 붙은 것
+   *   전부**를 넘긴다 — 이미 붙은 것은 서버가 base 로 들고 있다.
+   */
+  const rebuildEdition = async () => {
+    setIsRebuilding(true);
+    setPdfNotice(null);
+    try {
+      const pending = await getPendingContributions(albumId);
+      await applyContributions(
+        albumId,
+        pending.items.filter((item) => item.type === "photo").map((item) => item.id),
+        pending.items.filter((item) => item.type === "memory").map((item) => item.id),
+        "edition",
+      );
+      setRetryKey((value) => value + 1);
+    } catch (cause) {
+      setPdfNotice(userFacingError(cause, "앨범을 다시 구성하지 못했어요. 잠시 후 다시 시도해 주세요."));
+    } finally {
+      setIsRebuilding(false);
+    }
   };
 
   const handlePdf = async () => {
@@ -646,6 +673,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           contributorCount={role === "owner" ? contributorCount : role === "contributor" ? participation?.contributor_count ?? null : null}
           albumId={albumId}
           onChangeCover={() => setCoverPickerRequest((value) => value + 1)}
+          onRebuildEdition={() => { void rebuildEdition(); }}
+          isRebuilding={isRebuilding}
           onExportPdf={() => { void handlePdf(); }}
           isExportingPdf={isExportingPdf}
           onDeleteAlbum={() => setDeleteConfirmOpen(true)}
