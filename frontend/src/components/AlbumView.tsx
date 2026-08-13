@@ -225,7 +225,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   }, [albumId, loadedKey, requestedEdition, retryKey]);
 
   useEffect(() => {
-    if (!photosReady || !album) return;
+    // ★ 사진을 기다리지 않는다. 이 요청에 필요한 것은 `album` 뿐인데 예전에는
+    //   photosReady 까지 기다려서, 사진 요청이 끝난 **뒤에야** 출발했다 —
+    //   두 요청이 줄을 서느라 화면이 그만큼 늦게 찼다. 이제 나란히 나간다.
+    if (!album) return;
     const pageCount =
       album.current_edition?.living_append_page_count ??
       album.living_append_pages?.length ??
@@ -243,7 +246,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         if (active) setLivingAppendPages([]);
       });
     return () => { active = false; };
-  }, [album, albumId, photosReady, requestedEdition]);
+  }, [album, albumId, requestedEdition]);
 
   const chapterStories = useMemo(
     () => visibleChapterStories(album?.chapter_stories, photos),
