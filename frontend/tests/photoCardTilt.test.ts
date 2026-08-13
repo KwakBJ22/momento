@@ -66,16 +66,19 @@ async function renderAlbum(mode: "screen" | "print") {
 
 test("★ 흰 카드와 회전이 같은 요소다 — 프레임이 통째로 기운다", () => {
   const frame = screenRule(FRAME);
-  // ★ 뒤집힌 항목 (2026-08-13 · PO: "디자인에는 없어"). 흰 상자를 없앴다 —
-  //   여백 12px · 테두리 · 흰 배경 · 그림자를 전부 빼고 8px 라운드만 남겼다.
-  //   시안 album-detail-owner.html 의 `.photo` 도 border-radius·overflow·width 뿐이다.
-  //   ★ 이 검사가 지키는 규칙은 "**도는 것과 모양이 같은 요소**"이지 상자가 있느냐가
-  //     아니었다(K-23). 기울기는 그대로 남겼으므로 그 규칙은 아래에서 계속 본다.
-  assert.match(frame, /padding: 0;/);
-  assert.match(frame, /border: 0;/);
+  // ★ 두 번에 걸쳐 뒤집힌 자리다 (2026-08-13).
+  //   ① 먼저 뺀 것: 테두리 1px + 진한 그림자(--sh-md). 이 둘이 사진을 **카드**로
+  //      만들었다 — 화면이 카드 나열처럼 보였다.
+  //   ② 다시 살린 것: 흰 여백(padding + 흰 배경)과 가장 약한 그림자(--sh-sm).
+  //      PO: "사진마다 흰색 빼다가 있어야돼." 이건 상자가 아니라 **인화지의 흰
+  //      가장자리**이고, 기울기와 한 세트로 "붙여 놓은 사진"으로 읽히게 한다.
+  //   여백이 예전 12px 이 아니라 8px 인 것은 사진이 가장 중요하기 때문이다(§6).
+  //   ★ 이 검사가 지키는 규칙은 "**도는 것과 모양이 같은 요소**"다(K-23) — 그건 그대로다.
+  assert.match(frame, /padding: var\(--s-2\)/);
+  assert.match(frame, /border: 0;/, "테두리는 계속 없다 — 그것이 카드로 보이게 했다");
   assert.match(frame, /border-radius: var\(--r-sm\)/);
-  assert.match(frame, /background: transparent/);
-  assert.match(frame, /box-shadow: none/);
+  assert.match(frame, /background: var\(--c-surface\)/);
+  assert.match(frame, /box-shadow: var\(--sh-sm\)/, "진한 그림자(--sh-md)로 돌아가지 않는다");
   // 도는 것도 이 요소다.
   assert.match(frame, /transform-origin: center center/);
   assert.match(block, /const frameStyle: CSSProperties \| undefined = tilt !== 0 \? \{ transform: `rotate\(\$\{tilt\}deg\)` \}/);
@@ -103,7 +106,11 @@ test("★ 안쪽 사진 요소는 회전을 갖지 않는다 (사진만 따로 �
 
 test("★ 캡션이 프레임 안이다 — 함께 기운다 (I-1b 로 뒤집힌 항목)", async () => {
   const view = await renderAlbum("screen");
-  const frame = view.container.querySelector(".album-screen-photo-grid > .photo-block > .photo-block__frame") as HTMLElement;
+  // ★ 첫 사진(index 0)은 이제 **똑바로** 선다(2026-08-13 PO). 기울기를 보는
+  //   검사이므로 첫째가 아닌 프레임을 고른다 — 그 규칙은 아래 별도 검사가 지킨다.
+  const frames = view.container.querySelectorAll(".album-screen-photo-grid > .photo-block > .photo-block__frame");
+  const frame = frames[1] as HTMLElement;
+  assert.ok(frame, "둘째 사진 프레임이 있어야 한다");
   const caption = frame.querySelector(".photo-memory-lines--caption");
   // 캡션이 프레임의 **자손**이다(형제가 아니다).
   assert.ok(caption, "캡션이 프레임 안에 있어야 한다");
@@ -130,10 +137,10 @@ test("겹침·좁은 화면 여백이 그대로다", () => {
   assert.match(rule, /\.photo-block\[data-overlap\]/);
   assert.match(rule, /margin-inline-start: calc\(var\(--photo-overlap, 0\) \* -100%\)/);
   assert.match(screenRule(CELL), /width: 100%/);
-  // ★ 뒤집힌 항목 (2026-08-13). 좁은 화면의 프레임 여백(0.6rem)도 상자와 함께
-  //   없앴다 — 상자가 없으니 그 안쪽 여백도 있을 자리가 없다.
+  // ★ 두 번 뒤집힌 자리다 (2026-08-13). 흰 여백을 되살리면서 좁은 화면 몫도 돌아왔다 —
+  //   다만 0.6rem(9.6px)이 아니라 **6px** 이다. 사진 폭을 한 뼘 더 준다(§6).
   const narrow = css.slice(css.indexOf("@media (max-width: 640px)"));
-  assert.equal(narrow.includes(".photo-block__frame {"), false, "없앤 상자 여백이 되살아났다");
+  assert.match(narrow, /\.photo-block__frame \{\s*padding: 6px;/, "좁은 화면 흰 여백이 사라졌다");
   assert.equal(narrow.includes(`${PHOTO} {\n    padding`), false);
   // 겹침은 칸의 style, 회전은 프레임의 style — 서로 다른 요소라 한쪽이 다른 쪽을 지우지 않는다.
   assert.match(block, /"--photo-overlap": overlap, zIndex: photoStackOrder\(overlap\)/);

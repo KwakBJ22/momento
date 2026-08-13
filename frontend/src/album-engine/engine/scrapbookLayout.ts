@@ -34,6 +34,10 @@ function hash(seed: string): number {
  */
 export function photoTiltDeg(photoId: string, index: number, options: { isHero?: boolean } = {}): number {
   if (options.isHero) return 0;
+  // ★ 앨범의 **첫 사진은 똑바로** 선다 (PO 2026-08-13). index 는 앨범 전체를 통틀어
+  //   흐르는 번호다(블록마다 startIndex + i). 처음 눈에 들어오는 한 장이 기울어
+  //   있으면 앨범이 삐뚤어 보인다 — 기준이 되는 한 장은 반듯해야 나머지가 리듬이 된다.
+  if (index === 0) return 0;
   const span = TILT_MAX_DEG - TILT_MIN_DEG;
   const magnitude = TILT_MIN_DEG + (hash(photoId) % (span * 100 + 1)) / 100;
   const sign = index % 2 === 0 ? 1 : -1;

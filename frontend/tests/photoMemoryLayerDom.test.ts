@@ -46,7 +46,9 @@ async function render(photo: unknown) {
   document.body.appendChild(container);
   const root = createRoot(container);
   await React.act(async () => {
-    root.render(React.createElement(PhotoWithMemories as never, { photo, albumKey: "a", index: 0 } as never));
+    // ★ index 1 이다. 앨범의 **첫 사진(index 0)은 이제 0도**라(2026-08-13 PO) 0 으로
+    //   그리면 기울기를 볼 수 없다. 여기서 보는 것은 "기우는 것이 프레임뿐인가" 다.
+    root.render(React.createElement(PhotoWithMemories as never, { photo, albumKey: "a", index: 1 } as never));
   });
   return {
     container,
