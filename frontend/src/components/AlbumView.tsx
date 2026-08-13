@@ -2,12 +2,17 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
+/** 계정으로 가져오는 중이라 아직 못 여는 것을 얼마나 기다리는가 (아래 catch 참고). */
+const CLAIM_WAIT_MS = 800;
+const CLAIM_WAIT_LIMIT = 5;
+
 import { applyContributions, createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
 import { albumTroubleCopy, type AlbumViewTrouble } from "../lib/albumTrouble";
 import { withAlbumVersion } from "../lib/albumVersion";
+import { readPendingGuestClaim } from "../lib/guestAlbum";
 import { downloadAlbumPdf } from "../lib/exportPdf";
 import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 
@@ -91,6 +96,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const deletingRef = useRef(false);
   const [loadedAlbumId, setLoadedAlbumId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  /** 계정으로 가져오는 중이라 아직 못 여는 것을 **몇 번까지** 기다렸는가. */
+  const claimWaitRef = useRef(0);
   // Bumped when the contribution sheet closes: remounts CollaborationPanel only, so
   // its mount-time status fetch ("새로운 추억 N개") reflects what was just added.
   const [collabRefreshKey, setCollabRefreshKey] = useState(0);
@@ -224,8 +231,23 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         // ★ 서버가 보낸 말은 **기록에만** 남긴다(K-11 · §8). 화면에는 우리 말을 낸다 —
         //   실기기에서 `You do not have permission to view this album.` 이 그대로 보였다.
         console.error("Album load failed", { albumId, cause: err });
+        const status = err instanceof Error ? ((err as Error & { status?: number }).status ?? null) : null;
+
+        // 🔴 게스트가 `저장하기` 로 로그인하고 돌아온 **바로 그 순간**은 아직 앨범이
+        //   내 것이 아니다. 계정으로 가져오는 일(claim, K-9)이 이 화면과 나란히 도는데
+        //   먼저 도착한 앨범 요청이 403 을 받는다 — 사용자에게는 `이 앨범을 열 수 없어요`
+        //   가 뜨고, `다시 시도` 를 누르면 그 사이 claim 이 끝나 있어서 그냥 열린다.
+        //   **실패가 아니라 아직 안 끝난 것이다. 그러니 실패라고 말하지 않는다.**
+        //   기다림의 끝은 `대기 중인 claim` 이 사라지는 것이고, 그것이 성공의 표시다.
+        //   ★ 무한히 기다리지 않는다 — 진짜 권한 없음이 영영 안 보이면 안 된다.
+        const claiming = readPendingGuestClaim() === albumId;
+        if (claiming && (status === 403 || status === 404) && claimWaitRef.current < CLAIM_WAIT_LIMIT) {
+          claimWaitRef.current += 1;
+          window.setTimeout(() => { if (active) setRetryKey((key) => key + 1); }, CLAIM_WAIT_MS);
+          return;
+        }
         setError("load");
-        setErrorStatus(err instanceof Error ? ((err as Error & { status?: number }).status ?? null) : null);
+        setErrorStatus(status);
       });
 
     return () => { active = false; };
