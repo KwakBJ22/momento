@@ -141,3 +141,20 @@
 /* 앱을 벗어나는 링크. 누르는 영역 44px — 시트의 다른 행과 같은 기준이다. */
 .app-footer__company-outlink { display: inline-flex; align-items: center; min-height: 44px; color: var(--c-text); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .app-footer__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* 브랜드 이름을 눌러 `우리앨범이란` 을 연다. 링크처럼 보이되 푸터의 조용한 톤을 지킨다. */
+.app-footer__about-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app-footer__about-more {
+  margin-left: 4px;
+  font-weight: 400;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+}

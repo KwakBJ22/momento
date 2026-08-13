@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import BrandValue from "./BrandValue";
 
 import { BRAND_TITLE_SUFFIX } from "../lib/brand";
 import { AlbumRenderer } from "../album-engine";
@@ -447,6 +448,10 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       {/* ★ 담아두기는 **앨범이 끝난 뒤**다(UI 정리 4단계 A2). 예전에는 화면 맨 위라,
           아직 이게 뭔지도 모르는 사람에게 저장부터 권했다. 상자는 그대로고 자리만 옮겼다. */}
       {bookmarkCard}
+      {/* ★ `우리앨범이란` 의 **진짜 자리다.** 초대 링크로 들어온 사람은 첫 화면도 메뉴도
+          보지 않는다 — `인스타랑 뭐가 다르냐` 고 묻는 사람이 실제로 도착하는 곳이 여기다.
+          앨범을 끝까지 본 뒤라 짧은 판으로 둔다. */}
+      <BrandValue variant="short" />
     </>
   );
   const isParticipantMode = role === "contributor" && Boolean(contributionSession);

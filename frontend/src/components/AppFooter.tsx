@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { BRAND_BUSINESS_INFO, BRAND_COMPANY_HOMEPAGE, BRAND_NAME_KO, LEGAL_LINKS } from "../lib/brand";
+import BrandValue from "./BrandValue";
 import "./AppChrome.css";
 
 /**
@@ -25,9 +26,18 @@ interface AppFooterProps {
 
 export default function AppFooter({ withBottomNavigation = false }: AppFooterProps) {
   const [companyOpen, setCompanyOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const footer = (
     <footer className={`app-footer${withBottomNavigation ? " app-footer--above-nav" : ""}`}>
-      <p className="app-footer__brand">{BRAND_NAME_KO}</p>
+      {/* ★ 브랜드 이름이 곧 `우리앨범이란` 을 여는 자리다 (2026-08-13).
+          메뉴 칸을 쓰지 않고, 이미 있는 시트 껍데기를 그대로 쓴다 — 새 페이지·새 주소가
+          생기지 않는다. 이름 옆의 `소개` 는 눌러도 되는 것임을 알리는 최소한의 표시다. */}
+      <p className="app-footer__brand">
+        <button type="button" className="app-footer__about-link" onClick={() => setAboutOpen(true)}>
+          {BRAND_NAME_KO}
+          <span className="app-footer__about-more"> 소개</span>
+        </button>
+      </p>
       <p className="app-footer__legal">
         {LEGAL_LINKS.map((link, index) => (
           <span key={link.href}>
@@ -44,6 +54,17 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
   return (
     <>
       {footer}
+      {aboutOpen ? (
+        <>
+          <div className="album-sheet-dim" aria-hidden="true" onClick={() => setAboutOpen(false)} />
+          <section className="album-inline-action album-more-sheet" aria-label={`${BRAND_NAME_KO} 소개`}>
+            <div className="album-inline-action__header"><h2>{BRAND_NAME_KO} 소개</h2><button type="button" onClick={() => setAboutOpen(false)}>닫기</button></div>
+            <div className="album-inline-action__body">
+              <BrandValue variant="sheet" />
+            </div>
+          </section>
+        </>
+      ) : null}
       {companyOpen ? (
         <>
           <div className="album-sheet-dim" aria-hidden="true" onClick={() => setCompanyOpen(false)} />

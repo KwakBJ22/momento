@@ -1,0 +1,36 @@
+/* `우리앨범이란` 소개 블록. 읽을거리라 행동(버튼)보다 조용해야 한다.
+   제목에만 보조색(--c-accent, 딥 틸)을 쓴다 — 화면 전체가 한 톤이라 지루하다는
+   지적에 대한 자리이기도 하다. 본문은 캡션 색을 그대로 쓴다. */
+.brand-value {
+  margin: 28px auto 0;
+  max-width: 34rem;
+  padding: 20px 2px 0;
+  border-top: 1px solid var(--c-border);
+  text-align: left;
+}
+
+.brand-value__title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--c-accent);
+}
+
+.brand-value__copy {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--c-text-soft);
+}
+
+.brand-value__copy:last-child {
+  margin-bottom: 0;
+}
+
+/* 시트 안에서는 이미 제목 줄이 있고 경계도 있다 — 선과 위 여백을 뺀다. */
+.brand-value--sheet {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}

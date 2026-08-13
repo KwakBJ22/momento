@@ -10,6 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import BrandValue from "./BrandValue";
 import { getMyAlbumCoverUrls, getMyAlbums } from "../lib/api";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 import { mergeMyAlbumCoverUrls, requestMyAlbumCovers, requestMyAlbumList } from "../lib/myAlbumsRequest";
@@ -205,6 +207,10 @@ export default function Landing({
         </button>
       )}
 
+      {/* `우리앨범이란` — 메뉴가 아니라 여기다 (2026-08-13 PO 판단, brand.ts 주석 참고).
+          ★ 행동(`앨범 만들기`) **아래**에 둔다. 위에 두면 만들러 온 사람의 길이 길어진다.
+          ★ 이미 쓰는 사람에게는 읽을거리가 아니라 방해다 — 로그인 전에만 보인다. */}
+      {!userId && <BrandValue />}
     </section>
   );
 }
