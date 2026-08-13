@@ -20,16 +20,19 @@
   gap: 0.75rem;
 }
 
+/* 날짜 이야기의 연필(.story-block__edit-btn)과 **같은 모양**이다. 두 곳이 달라
+   보이면 같은 일인 줄 모른다. 색만 보조색을 유지한다(이 자리는 앨범의 맺음말이다). */
 .album-epilogue__edit {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 36px;
-  padding: 0.3rem 0.45rem;
+  padding: 0.25rem;
   border: 0;
+  border-radius: var(--r-full);
   background: transparent;
   color: var(--c-accent);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
   cursor: pointer;
 }
 
