@@ -1176,6 +1176,12 @@ async def get_album_photo_urls(
     guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumPhotoUrlsResponse:
     """Issue short-lived private asset URLs only to the album owner (or its guest holder)."""
+    # ★ 이 엔드포인트가 앨범 화면에서 가장 느리다(운영 실측 787~1013ms, 같은 순간
+    #   앨범 상세는 324ms). **어디서 걸리는지 모르는 채로 고치지 않는다** — 단계별
+    #   시간을 남겨 두고, 다음 실측으로 범인을 좁힌다.
+    started = time.perf_counter()
+    def _elapsed_ms() -> int:
+        return round((time.perf_counter() - started) * 1000)
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
@@ -1211,7 +1217,13 @@ async def get_album_photo_urls(
     )
     media_by_id = {str(media["id"]): media for media in media_records}
     visible_photos = [photo for photo in all_photos if not document_photo_ids or str(photo["id"]) in document_photo_ids]
+    db_ms = _elapsed_ms()
     signed_urls = _batch_signed_urls_for_photos(client, settings, visible_photos)
+    sign_ms = _elapsed_ms() - db_ms
+    logger.info(
+        "album_photos_timing album_id=%s photos=%s signed=%s db_ms=%s sign_ms=%s",
+        album_id, len(visible_photos), len(signed_urls), db_ms, sign_ms,
+    )
     # 캡션을 누가 쓸 수 있는지는 백엔드가 정해 사진마다 실어 보낸다(§7·§10).
     viewer_contributor = (
         get_contributor(client, album_id, user_id=authenticated_user_id) if authenticated_user_id else None

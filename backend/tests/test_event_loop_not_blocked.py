@@ -70,19 +70,23 @@ class EventLoopNotBlockedTest(unittest.TestCase):
                     continue
                 checked += 1
                 if "to_thread" not in body:
-                    offenders.append(f"{path.name}:{node.lineno} {node.name}")
+                    # ★ 줄 번호를 적지 않는다. 예전에는 `파일:줄 이름` 으로 고정했는데,
+                    #   같은 파일에 무관한 줄이 늘기만 해도(로그 한 줄) 깨졌다.
+                    #   이 검사가 보는 것은 **어느 핸들러인가**이지 그것이 몇 번째 줄에
+                    #   있는가가 아니다.
+                    offenders.append(f"{path.name} {node.name}")
         self.assertGreater(checked, 0, "검사할 async 핸들러를 하나도 못 찾았다")
         # ★ 남은 것들은 무거운 생성·업로드 흐름이라 이번 범위 밖이다. 목록을 고정해
         #   두고, 늘어나면 알아채게 한다. 줄이는 것은 다음 차례다.
         self.assertEqual(
             sorted(offenders),
             [
-                "album.py:2267 generate_epilogue",
-                "album.py:2426 upload_album_pdf",
-                "album.py:444 upload_album",
-                "memory.py:110 generate_memory_questions",
-                "memory.py:148 regenerate_memory_questions",
-                "memory.py:180 analyze_media",
+                "album.py generate_epilogue",
+                "album.py upload_album",
+                "album.py upload_album_pdf",
+                "memory.py analyze_media",
+                "memory.py generate_memory_questions",
+                "memory.py regenerate_memory_questions",
             ],
             "to_thread 없이 동기 호출을 하는 async 핸들러가 달라졌다",
         )
