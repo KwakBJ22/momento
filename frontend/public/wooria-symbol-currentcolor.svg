@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-label="우리앨범">
+  <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8.4C10.8 6.9 8.9 6 6.7 6H3.7v11h3.6c1.9 0 3.6.7 4.7 1.9"></path>
+    <path d="M12 8.4C13.2 6.9 15.1 6 17.3 6h3v11h-3.6c-1.9 0-3.6.7-4.7 1.9"></path>
+  </g>
+  <path fill="currentColor" d="M12 16.35a1 1 0 0 1-.69-.28l-2.72-2.6c-1.09-1.04-1.07-2.62-.06-3.53.94-.85 2.42-.75 3.47.28 1.05-1.03 2.53-1.13 3.47-.28 1.01.91 1.03 2.49-.06 3.53l-2.72 2.6a1 1 0 0 1-.69.28Z"></path>
+</svg>

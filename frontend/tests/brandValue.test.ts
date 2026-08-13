@@ -65,3 +65,12 @@ test("★ 하단 메뉴에는 넣지 않는다 (전역 네비는 행동만 놓�
     assert.equal(nav.includes(word), false, `네비에 ${word} 칸이 생겼다 — 2칸 규칙(§4)이 깨진다`);
   }
 });
+
+test("글만 두지 않는다 — 브랜드 아이콘 한 장을 함께 낸다", () => {
+  const c = read("components/BrandValue.tsx");
+  assert.match(c, /src="\/about-together\.png"/);
+  // 장식이므로 낭독기에는 읽히지 않는다. alt 에 설명을 넣으면 글이 두 번 읽힌다.
+  assert.match(c, /alt=""/);
+  // 여러 장을 늘어놓지 않는다 — 읽을거리가 광고처럼 보인다.
+  assert.equal((c.match(/<img/g) || []).length, 1);
+});

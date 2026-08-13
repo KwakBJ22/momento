@@ -150,11 +150,14 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
+  /* ★ 밑줄을 **전체**에 긋는다. 예전에는 `소개` 에만 그어서 `우리앨범` 은 눌리는 줄
+     몰랐다 — 실제로는 버튼 전체가 눌렸는데 보이기만 아니었다(2026-08-13). */
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .app-footer__about-more {
   margin-left: 4px;
   font-weight: 400;
   color: var(--c-text-muted);
-  text-decoration: underline;
 }

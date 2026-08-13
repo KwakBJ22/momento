@@ -34,3 +34,30 @@
   padding-top: 0;
   border-top: 0;
 }
+
+/* 브랜드 아이콘. 글 위에 한 장만 둔다 — 여러 장을 늘어놓으면 읽을거리가 아니라
+   광고처럼 보인다. 짧은 판에서는 글 왼쪽에 작게 붙인다. */
+.brand-value__mark {
+  display: block;
+  width: 56px;
+  height: auto;
+  margin: 0 0 10px;
+}
+
+.brand-value--short {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  column-gap: 12px;
+  align-items: start;
+}
+
+.brand-value--short .brand-value__mark {
+  width: 40px;
+  margin: 2px 0 0;
+  grid-row: 1 / span 2;
+}
+
+.brand-value--short .brand-value__title,
+.brand-value--short .brand-value__copy {
+  grid-column: 2;
+}

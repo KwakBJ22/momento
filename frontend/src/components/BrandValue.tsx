@@ -21,6 +21,10 @@ interface BrandValueProps {
 export default function BrandValue({ variant = "full" }: BrandValueProps) {
   return (
     <section className={`brand-value brand-value--${variant}`} aria-label="우리앨범 소개">
+      {/* 글만 있으면 밋밋하다(PO 2026-08-13). 브랜드 아이콘 시트의 `함께하는 우리`(07)를
+          그대로 쓴다 — 새로 그리지 않는다. 뜻(여럿이 모여 하나가 된다)이 이 글과 같다.
+          장식이라 화면 낭독기에는 읽히지 않게 둔다(alt=""). */}
+      <img className="brand-value__mark" src="/about-together.png" alt="" width="56" height="53" loading="lazy" decoding="async" />
       <h2 className="brand-value__title">{BRAND_VALUE_TITLE}</h2>
       {variant === "short" ? (
         <p className="brand-value__copy">{BRAND_VALUE_SHORT}</p>
