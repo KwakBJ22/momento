@@ -200,7 +200,17 @@ function App() {
       if (result.ok) {
         clearPendingGuestClaim();
         clearGuestAlbumToken(albumId);
-        window.location.assign(`/album/${albumId}`);
+        // ★ **이미 그 앨범 화면에 있으면 다시 열지 않는다** (PO 2026-08-13).
+        //   예전에는 성공하면 무조건 `/album/{id}` 로 이동했는데, 로그인에서 돌아온
+        //   자리가 바로 그 주소다 — 같은 주소로 이동해도 브라우저는 페이지를 통째로
+        //   다시 연다. 화면이 한 번 더 하얘지고 앨범을 처음부터 다시 불러왔다.
+        //   `저장하기` 한 번에 화면이 정신없이 지나가던 원인 중 하나다.
+        //   지금은 화면이 스스로 다시 불러온다: 대기 표시가 사라졌으므로 AlbumView 의
+        //   `가져오는 중이면 기다린다` 갈래가 다음 시도에서 앨범을 받는다.
+        //   ★ 주소가 다른 경우(돌아갈 자리를 잃어 `/` 로 떨어진 경우)는 예전처럼 이동한다.
+        if (window.location.pathname !== `/album/${albumId}`) {
+          window.location.assign(`/album/${albumId}`);
+        }
         return;
       }
       // 지웠다가는 다시 가져올 길이 없어진다 — 토큰이 쓸모없는 두 갈래에서만 지운다(K-9).
