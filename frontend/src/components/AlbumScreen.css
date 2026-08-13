@@ -1,4 +1,5 @@
-.album-screen__book { gap: 2rem; }
+/* 앨범 머리와 본문 사이 — 시안의 20px. 상자를 없앴으므로 이 값이 곧 화면 여백이다. */
+.album-screen__book { gap: 20px; }
 /* 앨범 머리와 본문 사이 — 시안은 머리 다음에 선(.rule)을 20px 띄워 긋는다.
    24px 이던 것을 20px 로 맞춘다. 첫 날짜 머리의 위 여백은 그쪽이 따로 갖는다. */
 .album-screen__body { display: grid; gap: 20px; min-width: 0; }
@@ -17,7 +18,7 @@
 .album-inline-action__body { flex: 1 1 auto; overflow-y: auto; padding: var(--s-4) 20px var(--s-6); display: grid; gap: var(--s-3); }
 .album-inline-action__error { justify-content: flex-start; }
 @media (max-width: 768px) { .album-inline-action { right: 0; bottom: 0; left: 0; width: 100%; max-height: calc(100dvh - var(--nav-height) - env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; } }
-@media (max-width: 768px) { .album-screen__book { gap: 1.5rem; } }
+/* 좁은 화면도 같은 20px 이다(시안이 390px 모바일 기준이다). */
 
 /* 플로팅 "맨 위로": 하단 네비 위, 우측에 배치. 네비(z70)보다 위·인라인 패널(z90)보다 아래.
    데스크톱은 중앙 900px 책 컨테이너 우측 바깥에, 모바일은 우측 16px에 고정. */

@@ -12,13 +12,16 @@
   letter-spacing: -0.02em;
 }
 
+/* ★ 52px·60px 이었다 — 이것이 "위아래가 너무 떨어져 있다"의 가장 큰 원인이다.
+   시안은 사진 덩어리 사이가 26px 이고, 날짜가 바뀔 때만 그 위에 선과 22px 이 더해진다.
+   여기서 크게 벌리면 날짜 구분이 오히려 안 보인다 — 모든 사이가 다 넓기 때문이다. */
 .album-stage__blocks {
   display: grid;
-  gap: 3.25rem; /* ~52px section rhythm */
+  gap: 26px;
 }
 
 .album-stage--chapters .album-stage__blocks {
-  gap: 3.75rem; /* ~60px */
+  gap: 26px;
 }
 
 .album-stage__block {
