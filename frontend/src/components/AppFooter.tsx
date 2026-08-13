@@ -33,9 +33,11 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
           메뉴 칸을 쓰지 않고, 이미 있는 시트 껍데기를 그대로 쓴다 — 새 페이지·새 주소가
           생기지 않는다. 이름 옆의 `소개` 는 눌러도 되는 것임을 알리는 최소한의 표시다. */}
       <p className="app-footer__brand">
+        {/* ★ 한 덩어리다 (PO 2026-08-13). 예전에는 `소개` 만 다른 색·굵기의 span 이고
+            앞에 여백이 있어서, 밑줄이 둘로 끊기고 **링크가 두 개처럼** 보였다.
+            누르는 곳은 원래도 하나였다 — 보이기만 둘이었다. */}
         <button type="button" className="app-footer__about-link" onClick={() => setAboutOpen(true)}>
-          {BRAND_NAME_KO}
-          <span className="app-footer__about-more"> 소개</span>
+          {BRAND_NAME_KO} 소개
         </button>
       </p>
       <p className="app-footer__legal">

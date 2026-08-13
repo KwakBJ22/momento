@@ -164,8 +164,4 @@
   text-underline-offset: 3px;
 }
 
-.app-footer__about-more {
-  margin-left: 4px;
-  font-weight: 400;
-  color: var(--c-text-muted);
-}
+
