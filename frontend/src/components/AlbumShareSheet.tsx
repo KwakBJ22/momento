@@ -4,6 +4,7 @@ import { useKakaoSdk } from "../hooks/useKakaoSdk";
 import { ensureAlbumInviteUrl } from "../lib/albumInvite";
 import "./AlbumScreen.css";
 import { userFacingError } from "../lib/userFacingError";
+import { copyTextFromPromise } from "../lib/copyText";
 
 /**
  * 공유하기 시트 — **진입점이 몇 개든 열리는 것은 이것 하나다** (I-2 · SCREEN_SPEC §5).
@@ -56,7 +57,7 @@ export default function AlbumShareSheet({
   /** 카카오가 열리지 않으면 링크를 복사해 준다 — 조용히 끝나지 않는다(§11). */
   const fallbackToCopy = async (url: () => Promise<string>) => {
     try {
-      await navigator.clipboard.writeText(await url());
+      await copyTextFromPromise(url);
       setNotice({ text: "링크를 복사했어요.", kind: "success" });
     } catch (cause) {
       // ★ 서버·SDK 가 준 말을 화면에 그대로 내지 않는다(SCREEN_SPEC §11 26차).
@@ -100,7 +101,7 @@ export default function AlbumShareSheet({
   const copyViewLink = async () => {
     setNotice(null);
     try {
-      await navigator.clipboard.writeText(await resolveViewUrl());
+      await copyTextFromPromise(resolveViewUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), COPY_RESET_MS);
     } catch (cause) {

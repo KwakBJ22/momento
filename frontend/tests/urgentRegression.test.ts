@@ -373,6 +373,13 @@ test("Kakao failures copy the matching viewing link instead of silently failing"
   const sheet = component("AlbumShareSheet");
   assert.match(sheet, /await fallbackToCopy\(\(\) => ensureAlbumInviteUrl\(albumId\)\)/);
   assert.match(sheet, /await fallbackToCopy\(resolveViewUrl\)/);
-  assert.match(sheet, /navigator\.clipboard\.writeText\(await url\(\)\)/);
+  // ★ 뒤집힌 항목 (2026-08-13). 예전에는 `clipboard.writeText(await url())` 이라고
+  //   적힌 것을 그대로 고정했는데, **그 모양 자체가 결함이었다** — iOS 는 writeText 가
+  //   탭의 동기 연장선에 있을 때만 허용해서, 앞에 네트워크 호출이 오면
+  //   NotAllowedError 다(안드로이드·데스크톱은 되고 아이폰만 안 됐다).
+  //   이제 주소를 만드는 Promise 를 그대로 넘긴다. 보는 규칙(카카오가 열리지 않으면
+  //   링크를 복사해 준다)은 그대로다.
+  assert.match(sheet, /await copyTextFromPromise\(url\)/);
+  assert.equal(/clipboard\.writeText\(await/.test(sheet), false, "제스처가 끊기는 모양이 남았다");
   assert.match(sheet, /링크를 복사했어요\./);
 });
