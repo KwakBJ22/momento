@@ -1,60 +1,71 @@
-/* `우리앨범이란` 소개 블록. 읽을거리라 행동(버튼)보다 조용해야 한다.
-   제목에만 보조색(--c-accent, 딥 틸)을 쓴다 — 화면 전체가 한 톤이라 지루하다는
-   지적에 대한 자리이기도 하다. 본문은 캡션 색을 그대로 쓴다. */
+/* `우리앨범이란` 소개. 읽을거리라 행동(버튼)보다 조용해야 한다.
+   제목에만 보조색(--c-accent, 딥 틸)을 쓴다. 본문은 보조 본문 색 그대로다.
+   ★ 카드·테두리·그림자·배경을 두지 않는다 — 칸을 가르는 것은 여백뿐이다. */
 .brand-value {
-  margin: 28px auto 0;
+  margin: var(--s-8) auto 0;
   max-width: 34rem;
-  padding: 20px 2px 0;
+  padding: var(--s-6) 2px 0;
   border-top: 1px solid var(--c-border);
   text-align: left;
 }
 
+.brand-value__item + .brand-value__item {
+  margin-top: var(--s-6);
+}
+
+/* 아이콘은 제목 **옆**이다. 제목이 두 줄이 되어도 아이콘 옆에 그대로 붙는다. */
+.brand-value__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-2);
+}
+
+.brand-value__mark {
+  flex: none;
+  width: 40px;
+  height: auto;
+  margin-top: 1px;
+}
+
 .brand-value__title {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.45;
+  font-size: var(--t-lg);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-tight);
   color: var(--c-accent);
 }
 
 .brand-value__copy {
-  margin: 0 0 8px;
-  font-size: 14px;
-  line-height: 1.7;
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: var(--lh-base);
   color: var(--c-text-soft);
 }
 
-.brand-value__copy:last-child {
-  margin-bottom: 0;
-}
-
-/* 시트 안에서는 이미 제목 줄이 있고 경계도 있다 — 선과 위 여백을 뺀다. */
+/* 시트 안에서는 이미 제목 줄과 경계가 있다 — 위의 선과 여백을 뺀다. */
 .brand-value--sheet {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
 }
 
-/* 브랜드 아이콘. 글 위에 한 장만 둔다 — 여러 장을 늘어놓으면 읽을거리가 아니라
-   광고처럼 보인다. 짧은 판에서는 글 왼쪽에 작게 붙인다. */
-.brand-value__mark {
-  display: block;
-  width: 56px;
-  height: auto;
-  margin: 0 0 10px;
-}
-
+/* 짧은 판: 아이콘이 왼쪽, 글이 오른쪽. 이미 앨범을 다 본 사람이라 두 줄이면 된다. */
 .brand-value--short {
   display: grid;
   grid-template-columns: 40px 1fr;
-  column-gap: 12px;
+  column-gap: var(--s-3);
   align-items: start;
 }
 
 .brand-value--short .brand-value__mark {
-  width: 40px;
-  margin: 2px 0 0;
   grid-row: 1 / span 2;
+  margin-top: 2px;
+}
+
+.brand-value--short .brand-value__title {
+  display: block;
+  margin: 0 0 6px;
+  font-size: var(--t-base);
 }
 
 .brand-value--short .brand-value__title,

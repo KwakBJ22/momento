@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 
-import { BRAND_VALUE_LINES, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE } from "../src/lib/brand";
+import { BRAND_VALUE_SECTIONS, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE } from "../src/lib/brand";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
 const read = (p: string) => readFileSync(path.join(SRC, p), "utf8");
@@ -24,12 +24,12 @@ test("문구는 lib/brand.ts 한 곳에만 있다 (화면이 제 글을 따로 �
     assert.equal(read(file).includes(BRAND_VALUE_TITLE), false, `${file} 이 제목을 직접 들고 있다`);
     assert.equal(read(file).includes(BRAND_VALUE_SHORT), false, `${file} 이 짧은 판을 직접 들고 있다`);
   }
-  assert.match(read("components/BrandValue.tsx"), /BRAND_VALUE_LINES, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE/);
+  assert.match(read("components/BrandValue.tsx"), /BRAND_VALUE_SECTIONS, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE/);
 });
 
 test("제목에 부정어를 쓰지 않는다 · 업계 말을 쓰지 않는다", () => {
   assert.doesNotMatch(BRAND_VALUE_TITLE, /아니에요|아닙니다|아니라/);
-  const all = [BRAND_VALUE_TITLE, BRAND_VALUE_SHORT, ...BRAND_VALUE_LINES].join(" ");
+  const all = [BRAND_VALUE_TITLE, BRAND_VALUE_SHORT, ...BRAND_VALUE_SECTIONS.flatMap((s) => [s.title, s.body])].join(" ");
   // §8 — 사용자에게 기술을 내보이지 않는다. `피드` 는 일반인이 쓰지 않는 말이다.
   for (const word of ["피드", "AI", "GPT", "인공지능", "플랫폼", "아카이브"]) {
     assert.equal(all.includes(word), false, `문구에 ${word} 가 들어 있다`);
@@ -37,8 +37,14 @@ test("제목에 부정어를 쓰지 않는다 · 업계 말을 쓰지 않는다"
 });
 
 test("첫 줄은 겪은 일로 열고, 곧바로 함께로 넘어간다 (저장 서비스와 갈리는 자리)", () => {
-  assert.match(BRAND_VALUE_LINES[0], /못 찾/);
-  assert.match(BRAND_VALUE_LINES[1], /같이 있었던 사람들과/);
+  assert.match(BRAND_VALUE_SECTIONS[0].body, /못 찾/);
+  assert.match(BRAND_VALUE_SECTIONS[1].body, /같이 있었던 사람들과/);
+  // 네 칸이다: 쌓인 사진 → 우리의 앨범 → 부모님 → 아이. 순서가 곧 설득의 순서다.
+  assert.equal(BRAND_VALUE_SECTIONS.length, 4);
+  for (const section of BRAND_VALUE_SECTIONS) {
+    assert.match(section.icon, /^\/about-[a-z]+\.png$/, `${section.title} 의 아이콘 경로`);
+    assert.ok(section.body.length > 40, `${section.title} 의 본문이 너무 짧다`);
+  }
   // 짧은 판도 `함께` 를 잃지 않는다 — 이 줄 하나만 보는 사람이 가장 많다.
   assert.match(BRAND_VALUE_SHORT, /같이 있었던 사람들과/);
 });
@@ -71,6 +77,6 @@ test("글만 두지 않는다 — 브랜드 아이콘 한 장을 함께 낸다",
   assert.match(c, /src="\/about-together\.png"/);
   // 장식이므로 낭독기에는 읽히지 않는다. alt 에 설명을 넣으면 글이 두 번 읽힌다.
   assert.match(c, /alt=""/);
-  // 여러 장을 늘어놓지 않는다 — 읽을거리가 광고처럼 보인다.
-  assert.equal((c.match(/<img/g) || []).length, 1);
+  // 칸마다 한 장씩이다. 그림을 겹쳐 넣지 않는다.
+  assert.equal((c.match(/<img/g) || []).length, 2, "짧은 판 하나 + 네 칸을 그리는 하나");
 });
