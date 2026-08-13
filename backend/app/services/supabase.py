@@ -1,6 +1,7 @@
 import uuid
 import logging
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Any
 
 from fastapi import HTTPException
@@ -31,9 +32,45 @@ def _is_missing_column_error(exc: Exception, column: str) -> bool:
     return column.lower() in message and any(marker in message for marker in ("column", "schema cache", "pgrst204", "42703"))
 
 
+@lru_cache(maxsize=4)
+def _cached_supabase_client(url: str, service_role_key: str) -> Client:
+    """Build one client per (url, key) and keep it.
+
+    ``create_client`` opens a fresh connection pool and re-does DNS + TLS every
+    time. Measured on Railway: the **first** call of a request path cost
+    773~1276ms (bootstrap) and 1579ms (albums/mine) while the ones after it cost
+    137~424ms — that gap is the handshake, not the query.
+
+    Sharing is safe **because nothing puts a user session on the client**: there
+    is a single ``create_client`` call site and it only ever passes the
+    service_role key (no ``set_session`` / ``postgrest.auth`` / ``sign_in``
+    anywhere in ``app/``). Authorization is decided per request in our own code.
+    If a per-user session is ever needed, that call site must build its own
+    client instead of taking this one.
+
+    The cache key is url + key, so dev and production never share an entry.
+    """
+    return create_client(url, service_role_key)
+
+
 def get_supabase_client(settings: Settings | None = None) -> Client:
     settings = settings or get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    return _cached_supabase_client(settings.supabase_url, settings.supabase_service_role_key)
+
+
+def warm_supabase_client(settings: Settings | None = None) -> bool:
+    """Open the connection once at boot so the first user does not pay for it.
+
+    Returns whether the warm-up query succeeded. **Never raises** — a cold
+    client is slow, but a server that refuses to boot is down.
+    """
+    try:
+        client = get_supabase_client(settings)
+        client.table("profiles").select("id").limit(1).execute()
+        return True
+    except Exception as exc:  # noqa: BLE001 - boot must not depend on this
+        logger.warning("supabase_warmup_failed reason=%s", exc)
+        return False
 
 
 def upload_album_photo_assets(

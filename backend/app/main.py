@@ -1,4 +1,7 @@
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,7 +19,7 @@ from app.api.share import router as share_router
 from app.config import get_settings
 from app.services.operations import get_operation_id, get_operation_stage, operation_context
 from app.services.storage_service import StorageService
-from app.services.supabase import get_supabase_client
+from app.services.supabase import get_supabase_client, warm_supabase_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,10 +44,18 @@ def _validation_error_response(request: Request, error_count: int) -> JSONRespon
     )
     return JSONResponse(status_code=422, content={"detail": "입력 내용을 확인해주세요."})
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Pay the DNS + TLS handshake at boot, not on the first user's request."""
+    logger.info("supabase_warmup ok=%s", await asyncio.to_thread(warm_supabase_client))
+    yield
+
+
 fastapi_app = FastAPI(
     title="우리앨범 API",
     description="카카오톡 웹뷰 기반 모임 앨범 생성 서비스",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
