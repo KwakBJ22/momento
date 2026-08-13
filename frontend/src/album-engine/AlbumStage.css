@@ -25,10 +25,14 @@
   width: 100%;
 }
 
+/* ★ 날짜와 날짜를 가르는 선. 예전에는 --c-bg-soft 라 배경과 거의 같아 선이 있는지
+   없는지 몰랐다 — 그래서 앨범이 한 덩어리로 흘러 보였다. 시안(.rule)은 이 자리에
+   --c-border-strong 을 쓴다. 아래 여백은 날짜 머리(.chapter-header--date-only)가
+   22px 을 이미 가지므로 여기서 또 주지 않는다. */
 .album-stage__block:has(.chapter-header) {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--c-bg-soft);
+  margin-top: var(--s-6);
+  padding-top: 0;
+  border-top: 1px solid var(--c-border-strong);
 }
 
 .album-stage__block:first-child:has(.chapter-header) {

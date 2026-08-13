@@ -15,9 +15,10 @@
   text-align: center;
 }
 
+/* 사진 덩어리 사이 — 시안(.photoblock + .photoblock)의 26px. */
 .album-renderer__blocks {
   display: grid;
-  gap: 2rem;
+  gap: 26px;
 }
 
 .album-renderer--screen .album-renderer__screen-chapters {
@@ -108,8 +109,9 @@
   object-fit: contain;
 }
 
+/* 사진과 캡션 사이 — 시안(.photo + .caption)의 12px. 14.4px 은 4의 배수 밖이었다. */
 .album-renderer--screen .album-screen-photo-grid .photo-memory-lines--caption {
-  margin: 0.9rem 0 0;
+  margin: var(--s-3) 0 0;
   text-align: center;
 }
 

@@ -5,7 +5,9 @@
 .album-pdf-status {
   position: fixed;
   z-index: 80;
-  bottom: calc(82px + 12px + env(safe-area-inset-bottom));
+  /* ★ 82px 이라고 적혀 있던 자리다. 네비 높이를 76px 로 맞추면서 여기만 옛 숫자가
+     남아 진행 띠가 네비 위로 6px 떠 있었다. 높이는 --nav-height 한 곳에서 읽는다. */
+  bottom: calc(var(--nav-height) + 12px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, calc(100vw - 32px));
@@ -42,5 +44,6 @@
 }
 
 @media (max-width: 640px) {
-  .album-pdf-status { bottom: calc(68px + 12px + env(safe-area-inset-bottom)); }
+  /* 좁은 화면도 시안과 같은 76px 이다 — 따로 낮추지 않는다. */
+  .album-pdf-status { bottom: calc(var(--nav-height) + 12px + env(safe-area-inset-bottom)); }
 }

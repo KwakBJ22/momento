@@ -52,7 +52,9 @@ test("헤더 높이는 모든 화면에서 같다 — 한 규칙이 정한다", 
   const chrome = read("components/AppChrome.css");
   const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
   assert.match(header, /min-height: 52px/);
-  assert.match(header, /padding: 4px max\(var\(--page-padding-x\)/);
+  // ★ 4px → 14px/12px (2026-08-13 · 시안 .hdr 값). 4px 은 44px 누름 영역이
+  //   테두리에 거의 닿아 헤더가 답답했다. 보는 규칙(여백이 변수에서 온다)은 그대로다.
+  assert.match(header, /padding: 14px max\(var\(--page-padding-x\)/);
   // 화면별로 헤더를 다시 정의하지 않는다(AlbumScreen 은 slot 만 채운다).
   assert.match(read("components/AlbumScreen.tsx"), /<HeaderRight>/);
   assert.doesNotMatch(read("components/AlbumScreen.tsx"), /<AppHeader/);
@@ -135,7 +137,9 @@ test("헤더 높이는 slot 내용과 무관하다 — 44px 컨트롤이 들어�
   const header = css.slice(css.indexOf(".app-header {"), css.indexOf("}", css.indexOf(".app-header {")));
   // 44px + 상하 패딩 4px = 52px. 값이 서로 맞물려 있으므로 함께 확인한다.
   assert.match(header, /min-height: 52px/);
-  assert.match(header, /padding: 4px max\(var\(--page-padding-x\)/);
+  // ★ 4px → 14px/12px (2026-08-13 · 시안 .hdr 값). 4px 은 44px 누름 영역이
+  //   테두리에 거의 닿아 헤더가 답답했다. 보는 규칙(여백이 변수에서 온다)은 그대로다.
+  assert.match(header, /padding: 14px max\(var\(--page-padding-x\)/);
   const more = css.slice(css.indexOf(".app-header__more {"), css.indexOf("}", css.indexOf(".app-header__more {")));
   assert.match(more, /height: 44px/);
   const link = css.slice(css.indexOf(".app-header__link {"), css.indexOf("}", css.indexOf(".app-header__link {")));

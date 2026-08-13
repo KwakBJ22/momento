@@ -75,7 +75,9 @@ test("헤더 막대는 화면 좌우 끝까지 닿는다 — 안쪽 내용만 �
   const header = css.slice(css.indexOf(".app-header {"), css.indexOf("}", css.indexOf(".app-header {")));
   assert.match(header, /width: 100%/);
   // 넓은 화면에서 내용을 모으는 것은 padding 으로 한다(margin auto 로 막대를 줄이지 않는다).
-  assert.match(header, /padding: 4px max\(var\(--page-padding-x\)/); // 값은 변수에서 온다
+  // ★ 4px → 14px/12px (2026-08-13 · 시안 .hdr 값). 4px 은 44px 누름 영역이
+  //   테두리에 거의 닿아 헤더가 답답했다. 보는 규칙(여백이 변수에서 온다)은 그대로다.
+  assert.match(header, /padding: 14px max\(var\(--page-padding-x\)/); // 값은 변수에서 온다
   assert.doesNotMatch(header, /margin: 0 auto/);
   // 막대 자체에 max-width 를 걸지 않는다(--page-max-width 는 안쪽 padding 계산에만 쓴다).
   assert.doesNotMatch(header, /^\s*max-width:/m);
@@ -87,7 +89,9 @@ test("헤더 안쪽 폭은 본문과 같은 변수 하나에서 나온다", () =
   const chrome = read("components/AppChrome.css");
   const appCss = read("App.css");
   // ★ 값은 한 곳(.app-shell)에만 있다.
-  assert.match(chrome, /\.app-shell \{[\s\S]*--page-max-width: 480px;[\s\S]*--page-padding-x: 16px;/);
+  // ★ 16px → 20px (시안 docs/mockups 의 .body 값). 16px 은 내용이 화면 가장자리에
+  //   붙어 보였다. 폭·여백이 변수 한 곳에서 나온다는 규칙은 그대로다.
+  assert.match(chrome, /\.app-shell \{[\s\S]*--page-max-width: 480px;[\s\S]*--page-padding-x: 20px;/);
   // 화면군에 따라 본문이 넓어지면 헤더도 따라간다(같은 변수를 덮어쓴다).
   assert.match(chrome, /\.app-shell--album \{[\s\S]*--page-max-width: 1120px;/);
   // 본문과 헤더가 **둘 다** 그 변수를 읽는다. 숫자를 각자 적지 않는다.

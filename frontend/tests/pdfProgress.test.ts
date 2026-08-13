@@ -118,6 +118,10 @@ test("표시가 하단 네비 위에 뜬다 — 스크롤 위치와 무관하게
   assert.match(rule, /position: fixed/);
   // 네비(z70)보다 위, dim(z85)·시트(z90)보다 아래 — 시트가 열려 있으면 시트가 앞이다.
   assert.match(rule, /z-index: 80/);
-  assert.match(rule, /bottom: calc\(82px \+ 12px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(css, /@media \(max-width: 640px\)[\s\S]{0,120}bottom: calc\(68px \+ 12px/);
+  // ★ 82px·68px 이라고 **숫자로** 적혀 있던 자리다 (2026-08-13). 네비 높이를 76px 로
+  //   맞추면서 여기만 옛 숫자가 남아 진행 띠가 네비 위로 6px 떠 있었다.
+  //   이제 --nav-height 한 곳에서 읽는다 — 숫자를 다시 적으면 또 어긋난다.
+  assert.match(rule, /bottom: calc\(var\(--nav-height\) \+ 12px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]{0,200}bottom: calc\(var\(--nav-height\) \+ 12px/);
+  assert.equal(/calc\(\d+px \+ 12px/.test(css), false, "네비 높이를 숫자로 다시 적었다");
 });

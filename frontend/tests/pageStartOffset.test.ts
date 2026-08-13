@@ -31,7 +31,9 @@ function rule(css: string, selector: string): string {
 
 test("★ 시작 높이의 값이 좌우 여백과 **같은 곳**에 있다", () => {
   const shell = rule(chrome, ".app-shell");
-  assert.match(shell, /--page-padding-x: 16px;/);
+  // ★ 16px → 20px (2026-08-13 · 시안 .body). 16px 은 내용이 화면 가장자리에 붙어
+  //   보였다. 이 검사가 지키는 것은 "좌우와 시작 높이가 같은 곳에 있다" 이고 그대로다.
+  assert.match(shell, /--page-padding-x: 20px;/);
   assert.match(shell, /--page-padding-top: 24px;/);
 });
 

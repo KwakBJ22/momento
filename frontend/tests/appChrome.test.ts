@@ -75,7 +75,10 @@ test("약관·개인정보 링크는 살아 있고, 랜딩에 두 번 나오지 
 test("푸터 여백은 하단 네비가 있는 화면에서만 — 네비 높이는 한 곳에서 읽는다", () => {
   const css = read("components/AppChrome.css");
   // 높이 값은 CSS 변수 한 곳에만 있다(두 곳에 적으면 한쪽만 바뀌어 가려진다).
-  assert.match(css, /--nav-height: 82px/);
+  // ★ 82px → 76px (2026-08-13 · 시안 값). 좁은 화면에서 68px 로 낮추던 것도 없앴다 —
+  //   시안 프레임이 390px 모바일이라 거기서도 76px 이다. 값이 한 곳에만 있다는
+  //   규칙(이 검사가 지키는 것)은 그대로다.
+  assert.match(css, /--nav-height: 76px/);
   assert.match(css, /\.app-footer--above-nav \{[\s\S]*var\(--nav-height\)/);
   // 기본 푸터에는 네비 여백이 없다 — 네비 없는 화면에 빈 공간이 생기지 않는다.
   const base = css.split(".app-footer {")[1].split("}")[0];

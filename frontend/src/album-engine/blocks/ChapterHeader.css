@@ -5,12 +5,15 @@
   page-break-after: avoid;
 }
 
+/* ★ 시안(docs/mockups .datehead)의 값을 그대로 쓴다: 위 22 / 아래 12, 월↔날짜 6.
+   예전 값은 0.35rem(5.6px) · 2rem/1rem 이라 4의 배수 밖이었다 — 날짜마다 조금씩
+   달라 보이던 것이 이런 값들이 쌓인 결과다. 색은 우리 결정을 그대로 둔다. */
 .chapter-header--date-only {
   display: grid;
-  gap: 0.35rem;
+  gap: 6px;
   justify-items: center;
   text-align: center;
-  padding: 2rem 0 1rem;
+  padding: 22px 0 var(--s-3);
   background: none;
   border: 0;
 }
@@ -20,16 +23,18 @@
 .chapter-header__month {
   margin: 0;
   color: var(--c-accent);
-  font-size: clamp(1.05rem, 2.2vw, 1.2rem);
-  font-weight: 780;
+  /* 시안 19px 고정. clamp 로 16.8~19.2 를 오가면 화면 폭에 따라 글자 크기가
+     미세하게 달라져 줄 간격이 흔들린다. */
+  font-size: 19px;
+  font-weight: var(--w-bold);
   letter-spacing: -0.02em;
 }
 
 .chapter-header__dayline {
   margin: 0;
   color: var(--c-text-muted);
-  font-size: clamp(0.82rem, 1.6vw, 0.92rem);
-  font-weight: 600;
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
   letter-spacing: -0.01em;
 }
 
@@ -121,4 +126,3 @@
 .album-renderer--screen .chapter-header__extras { font-size: clamp(0.875rem, 1.4vw, 0.9375rem); }
 .album-renderer--screen .chapter-header__place { font-size: clamp(0.875rem, 1.5vw, 0.9375rem); }
 .album-renderer--screen .chapter-header__date { font-size: clamp(0.875rem, 1.6vw, 0.95rem); }
-.album-renderer--screen .chapter-header__dayline { font-size: clamp(0.875rem, 1.6vw, 0.9375rem); }

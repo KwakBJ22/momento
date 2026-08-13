@@ -40,8 +40,8 @@ export default function AlbumBottomNavigation({
     const creatingAlbum = activeItem === "new-album" || activeItem === "home";
     return (
       <nav className="album-bottom-navigation album-bottom-navigation--app" aria-label="주요 메뉴">
-        <button type="button" className={activeItem === "my-albums" ? "is-active" : ""} onClick={onMyAlbums}><Images size={17} /><span>내 앨범</span></button>
-        <button type="button" className={creatingAlbum ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={17} /><span>앨범 만들기</span></button>
+        <button type="button" className={activeItem === "my-albums" ? "is-active" : ""} onClick={onMyAlbums}><Images size={24} /><span>내 앨범</span></button>
+        <button type="button" className={creatingAlbum ? "is-active" : ""} onClick={createAlbum}><PlusSquare size={24} /><span>앨범 만들기</span></button>
       </nav>
     );
   }
@@ -63,8 +63,8 @@ export default function AlbumBottomNavigation({
   if (variant === "contributor") {
     return (
       <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
-        <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
-        <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
+        <button type="button" className="album-bottom-navigation__primary" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={24} /><span>한마디 쓰기</span></button>
+        <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={24} /><span>사진 추가</span></button>
         <button type="button" className="album-bottom-navigation__chip-cell" onClick={createAlbum}><span className="album-bottom-navigation__chip"><span aria-hidden="true">＋</span><span className="album-bottom-navigation__chip-label">내 앨범<br />만들기</span></span></button>
       </nav>
     );
@@ -74,9 +74,9 @@ export default function AlbumBottomNavigation({
   // 헤더의 더보기 시트로 옮겼다. 공유하기만 브랜드 배경으로 이 화면의 목적을 표시.
   return (
     <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
-      <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={17} /><span>사진 추가</span></button>
-      <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={17} /><span>한마디 쓰기</span></button>
-      <button type="button" className="album-bottom-navigation__share" onClick={onShare}><Share2 size={17} /><span>공유하기</span></button>
+      <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={24} /><span>사진 추가</span></button>
+      <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={24} /><span>한마디 쓰기</span></button>
+      <button type="button" className="album-bottom-navigation__share" onClick={onShare}><Share2 size={24} /><span>공유하기</span></button>
     </nav>
   );
 }

@@ -185,7 +185,10 @@ test("★ 헤더와 하단 네비가 본문과 같은 흰색이다 — 크림색
   const chrome = read("components/AppChrome.css");
   const header = chrome.slice(chrome.indexOf(".app-header {"), chrome.indexOf("}", chrome.indexOf(".app-header {")));
   assert.match(header, /background: var\(--c-surface\)/);
-  assert.match(header, /border-bottom: 1px solid var\(--c-border\)/);
+  // ★ --c-border → --c-hairline (2026-08-13 · 시안). 헤더는 구역을 가르기만 하면
+  //   되는데 --c-border 는 그 선이 먼저 눈에 들어왔다. 이 검사가 지키는 것은
+  //   "헤더가 본문과 같은 흰색이고 경계는 선이 낸다" 이고, 그건 그대로다.
+  assert.match(header, /border-bottom: 1px solid var\(--c-hairline\)/);
   const nav = read("components/AlbumBottomNavigation.css");
   const bar = nav.slice(nav.indexOf(".album-bottom-navigation {"), nav.indexOf("}", nav.indexOf(".album-bottom-navigation {")));
   assert.match(bar, /background: var\(--c-surface\)/);
