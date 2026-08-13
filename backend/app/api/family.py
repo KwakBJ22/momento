@@ -106,7 +106,7 @@ def _album_member_response(row: dict) -> AlbumMemberResponse:
 
 
 @router.get("/me", response_model=FamilySummaryResponse)
-async def get_my_family(
+def get_my_family(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> FamilySummaryResponse:
     client = get_supabase_client()
@@ -122,7 +122,7 @@ async def get_my_family(
 
 
 @router.get("/me/participants")
-async def get_participant_stats(authenticated_user_id: str = Depends(require_authenticated_user)) -> dict:
+def get_participant_stats(authenticated_user_id: str = Depends(require_authenticated_user)) -> dict:
     client = get_supabase_client()
     primary = get_user_primary_family(client, authenticated_user_id)
     if not primary:
@@ -148,7 +148,7 @@ async def get_participant_stats(authenticated_user_id: str = Depends(require_aut
 
 
 @router.get("/{family_id}/members", response_model=FamilyMembersListResponse)
-async def get_family_members(
+def get_family_members(
     family_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> FamilyMembersListResponse:
@@ -161,7 +161,7 @@ async def get_family_members(
 
 
 @router.post("/{family_id}/invitations", response_model=CreateFamilyInvitationResponse, status_code=status.HTTP_201_CREATED)
-async def create_invitation(
+def create_invitation(
     family_id: str,
     body: CreateFamilyInvitationRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -183,7 +183,7 @@ async def create_invitation(
 
 
 @router.get("/{family_id}/invitations", response_model=FamilyInvitationsListResponse)
-async def get_family_invitations(
+def get_family_invitations(
     family_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> FamilyInvitationsListResponse:
@@ -195,7 +195,7 @@ async def get_family_invitations(
 
 
 @router.delete("/{family_id}/invitations/{invitation_id}", response_model=FamilyInvitationResponse)
-async def cancel_invitation(
+def cancel_invitation(
     family_id: str,
     invitation_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -208,7 +208,7 @@ async def cancel_invitation(
 
 
 @router.patch("/{family_id}/members/{member_id}", response_model=FamilyMemberResponse)
-async def patch_family_member_role(
+def patch_family_member_role(
     family_id: str,
     member_id: str,
     body: UpdateFamilyMemberRoleRequest,
@@ -233,7 +233,7 @@ async def patch_family_member_role(
 
 
 @router.delete("/{family_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_family_member(
+def delete_family_member(
     family_id: str,
     member_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -254,7 +254,7 @@ invitations_router = APIRouter(prefix="/api/family-invitations", tags=["families
 
 
 @invitations_router.post("/accept", response_model=AcceptFamilyInvitationResponse)
-async def accept_invitation(
+def accept_invitation(
     body: AcceptFamilyInvitationRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AcceptFamilyInvitationResponse:
@@ -269,7 +269,7 @@ album_members_router = APIRouter(prefix="/api/albums", tags=["album-members"])
 
 @album_members_router.get("/{album_id}/members", response_model=AlbumMembersListResponse)
 @_member_error_details
-async def get_album_members(
+def get_album_members(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumMembersListResponse:
@@ -284,7 +284,7 @@ async def get_album_members(
 
 
 @album_members_router.post("/{album_id}/members", response_model=AlbumMemberResponse, status_code=status.HTTP_201_CREATED)
-async def add_album_member(
+def add_album_member(
     album_id: str,
     body: UpsertAlbumMemberRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -315,7 +315,7 @@ async def add_album_member(
 
 
 @album_members_router.patch("/{album_id}/members/{member_id}", response_model=AlbumMemberResponse)
-async def patch_album_member(
+def patch_album_member(
     album_id: str,
     member_id: str,
     body: UpdateAlbumMemberRoleRequest,
@@ -341,7 +341,7 @@ async def patch_album_member(
 
 
 @album_members_router.delete("/{album_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_album_member(
+def delete_album_member(
     album_id: str,
     member_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),

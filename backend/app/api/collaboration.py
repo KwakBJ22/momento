@@ -148,7 +148,7 @@ def _pending_contributions(client: Any, album: dict[str, Any], settings: Any) ->
 
 
 @router.get("/api/join/{token}", response_model=JoinPreviewResponse)
-async def join_preview(
+def join_preview(
     token: str,
     user_id: str | None = Depends(optional_authenticated_user),
 ) -> JoinPreviewResponse:
@@ -189,7 +189,7 @@ async def join_preview(
 
 
 @router.post("/api/join/{token}", response_model=CollaborationJoinResponse)
-async def join_collaboration(
+def join_collaboration(
     token: str,
     body: CollaborationJoinRequest,
     user_id: str | None = Depends(optional_authenticated_user),
@@ -221,7 +221,7 @@ async def join_collaboration(
 
 
 @router.post("/api/albums/{album_id}/collaboration/start", response_model=CollaborationInviteStartResponse)
-async def start_album_collaboration(
+def start_album_collaboration(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> CollaborationInviteStartResponse:
@@ -242,7 +242,7 @@ async def start_album_collaboration(
 
 
 @router.post("/api/albums/{album_id}/collaboration/rotate-invite", response_model=CollaborationInviteStartResponse)
-async def rotate_album_invite(
+def rotate_album_invite(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> CollaborationInviteStartResponse:
@@ -263,7 +263,7 @@ async def rotate_album_invite(
 
 
 @router.post("/api/albums/{album_id}/collaboration/deactivate-invite")
-async def deactivate_album_invite(
+def deactivate_album_invite(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, str]:
@@ -279,7 +279,7 @@ async def deactivate_album_invite(
 
 
 @router.post("/api/albums/{album_id}/collaboration/close")
-async def close_album_collaboration(
+def close_album_collaboration(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, str]:
@@ -295,7 +295,7 @@ async def close_album_collaboration(
 
 
 @router.post("/api/albums/{album_id}/collaboration/publish")
-async def publish_album_collaboration(
+def publish_album_collaboration(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, str]:
@@ -498,7 +498,7 @@ async def get_album_participation(
 
 
 @router.get("/api/albums/{album_id}/pending-contributions")
-async def get_pending_contributions(
+def get_pending_contributions(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, Any]:
@@ -527,7 +527,7 @@ async def get_pending_contributions(
 
 
 @router.post("/api/albums/{album_id}/apply-contributions")
-async def apply_contributions(
+def apply_contributions(
     album_id: str,
     body: dict[str, Any],
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -609,7 +609,7 @@ async def apply_contributions(
 
 
 @router.get("/api/albums/{album_id}/contribute/workspace")
-async def contribute_workspace(
+def contribute_workspace(
     album_id: str,
     x_woorialbum_guest_id: str | None = Header(default=None),
     x_woorialbum_contributor_id: str | None = Header(default=None),
@@ -709,7 +709,7 @@ async def contribute_workspace(
 
 
 @router.post("/api/albums/{album_id}/contribute/photos")
-async def contribute_upload_photos(
+def contribute_upload_photos(
     album_id: str,
     photos: list[UploadFile] = File(...),
     file_created_ats: list[str] | None = Form(default=None),
@@ -844,7 +844,7 @@ async def contribute_upload_photos(
 
 
 @router.post("/api/albums/{album_id}/photos/{photo_id}/memories", response_model=PhotoMemoryResponse)
-async def create_memory(
+def create_memory(
     album_id: str,
     photo_id: str,
     body: PhotoMemoryCreateRequest,
@@ -883,7 +883,7 @@ async def create_memory(
 
 
 @router.patch("/api/albums/{album_id}/memories/{memory_id}", response_model=PhotoMemoryResponse)
-async def patch_memory(
+def patch_memory(
     album_id: str,
     memory_id: str,
     body: PhotoMemoryUpdateRequest,
@@ -940,7 +940,7 @@ async def patch_memory(
 
 
 @router.delete("/api/albums/{album_id}/memories/{memory_id}")
-async def remove_memory(
+def remove_memory(
     album_id: str,
     memory_id: str,
     guest_id: str | None = None,
@@ -975,7 +975,7 @@ async def remove_memory(
 
 
 @router.post("/api/albums/{album_id}/collaboration/rebuild", response_model=CollaborationRebuildResponse)
-async def rebuild_collaboration_album(
+def rebuild_collaboration_album(
     album_id: str,
     body: CollaborationRebuildRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -1003,7 +1003,7 @@ async def rebuild_collaboration_album(
 
 
 @router.delete("/api/albums/{album_id}/collaboration/contributors/{contributor_id}")
-async def remove_album_contributor(
+def remove_album_contributor(
     album_id: str,
     contributor_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -1020,7 +1020,7 @@ async def remove_album_contributor(
 
 
 @router.delete("/api/albums/{album_id}/collaboration/photos/{photo_id}")
-async def owner_delete_photo(
+def owner_delete_photo(
     album_id: str,
     photo_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),

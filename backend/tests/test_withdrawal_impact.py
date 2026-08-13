@@ -193,7 +193,9 @@ class ServerDoesNotTrustTheScreenTests(TestCase):
         api = (ROOT / "backend/app/api/auth.py").read_text(encoding="utf-8")
         handler = api[api.index('@router.delete("/account"') :]
         handler = handler[: handler.index("return Response")]
-        signature = handler[handler.index("async def delete_auth_account(") : handler.index(") -> Response")]
+        # ★ 앵커에서 `async` 를 뺐다(2026-08-13) — 이 핸들러는 안에 await 가 없어
+        #   `def` 가 됐다(동기 DB 호출이 이벤트 루프를 막지 않게). 보는 규칙은 그대로다.
+        signature = handler[handler.index("def delete_auth_account(") : handler.index(") -> Response")]
         self.assertIn("authenticated_user_id: str = Depends(require_authenticated_user)", signature)
         for leaked in ("body", "owned_albums", "owned_photos", "other_album_photos"):
             self.assertNotIn(leaked, signature, f"화면이 보낸 값을 받는다: {leaked}")

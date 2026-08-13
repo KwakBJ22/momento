@@ -41,7 +41,7 @@ async def admin_me(admin_user_id: str = Depends(require_platform_admin)) -> Admi
 
 
 @router.get("/dashboard", response_model=AdminOpsDashboardResponse)
-async def admin_ops_dashboard(
+def admin_ops_dashboard(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminOpsDashboardResponse:
@@ -52,7 +52,7 @@ async def admin_ops_dashboard(
 
 
 @router.get("/growth", response_model=AdminGrowthDashboardResponse)
-async def admin_growth_dashboard(
+def admin_growth_dashboard(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminGrowthDashboardResponse:
@@ -62,7 +62,7 @@ async def admin_growth_dashboard(
 
 
 @router.get("/investor", response_model=AdminInvestorDashboardResponse)
-async def admin_investor_dashboard(
+def admin_investor_dashboard(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminInvestorDashboardResponse:
@@ -72,7 +72,7 @@ async def admin_investor_dashboard(
 
 
 @router.get("/viral-funnel", response_model=AdminViralFunnelResponse)
-async def admin_viral_funnel(
+def admin_viral_funnel(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminViralFunnelResponse:
@@ -82,7 +82,7 @@ async def admin_viral_funnel(
 
 
 @router.get("/albums", response_model=AdminAlbumSearchResponse)
-async def admin_search_albums(
+def admin_search_albums(
     response: Response,
     q: str = Query("", max_length=120),
     limit: int = Query(40, ge=1, le=100),
@@ -96,7 +96,7 @@ async def admin_search_albums(
 
 
 @router.get("/albums/{album_id}", response_model=AdminAlbumDetailResponse)
-async def admin_album_detail(
+def admin_album_detail(
     album_id: str,
     response: Response,
     _: str = Depends(require_platform_admin),
@@ -111,7 +111,7 @@ async def admin_album_detail(
 
 
 @router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_delete_album_endpoint(album_id: str, _: str = Depends(require_platform_admin)) -> None:
+def admin_delete_album_endpoint(album_id: str, _: str = Depends(require_platform_admin)) -> None:
     client = get_supabase_client(get_settings())
     detail = get_album_admin_detail(client, get_settings(), album_id)
     if not detail:
@@ -120,7 +120,7 @@ async def admin_delete_album_endpoint(album_id: str, _: str = Depends(require_pl
 
 
 @router.get("/users", response_model=AdminUserSearchResponse)
-async def admin_search_users(
+def admin_search_users(
     response: Response,
     q: str = Query("", max_length=120),
     limit: int = Query(40, ge=1, le=100),
@@ -133,7 +133,7 @@ async def admin_search_users(
 
 
 @router.get("/users/{user_id}/albums", response_model=AdminUserAlbumsResponse)
-async def admin_user_albums(
+def admin_user_albums(
     user_id: str,
     response: Response,
     _: str = Depends(require_platform_admin),
@@ -145,7 +145,7 @@ async def admin_user_albums(
 
 
 @router.get("/events", response_model=AdminEventLogResponse)
-async def admin_event_log(
+def admin_event_log(
     response: Response,
     limit: int = Query(80, ge=1, le=200),
     _: str = Depends(require_platform_admin),
@@ -156,7 +156,7 @@ async def admin_event_log(
 
 
 @router.get("/errors", response_model=AdminErrorDashboardResponse)
-async def admin_errors(
+def admin_errors(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminErrorDashboardResponse:
@@ -166,7 +166,7 @@ async def admin_errors(
 
 
 @router.get("/costs", response_model=AdminCostDashboardResponse)
-async def admin_costs(
+def admin_costs(
     response: Response,
     _: str = Depends(require_platform_admin),
 ) -> AdminCostDashboardResponse:

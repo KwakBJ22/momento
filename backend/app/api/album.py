@@ -1067,7 +1067,7 @@ def _generation_status_response(album_id: str, job: dict[str, Any]) -> AlbumGene
 
 
 @router.get("/albums/{album_id}/generation-preview", response_model=AlbumGenerationPreviewResponse)
-async def get_album_generation_preview(
+def get_album_generation_preview(
     album_id: str,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
     guest_token: str | None = _GUEST_TOKEN_HEADER,
@@ -1101,7 +1101,7 @@ async def get_album_generation_preview(
 
 
 @router.get("/albums/{album_id}/generation-status", response_model=AlbumGenerationStatusResponse)
-async def get_album_generation_status(
+def get_album_generation_status(
     album_id: str,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
     guest_token: str | None = _GUEST_TOKEN_HEADER,
@@ -1134,7 +1134,7 @@ async def get_album_generation_status(
 
 
 @router.post("/albums/{album_id}/generation-retry", response_model=AlbumGenerationStatusResponse, status_code=status.HTTP_202_ACCEPTED)
-async def retry_album_generation(
+def retry_album_generation(
     album_id: str,
     background_tasks: BackgroundTasks,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
@@ -1247,7 +1247,7 @@ async def get_album_photo_urls(
 
 
 @router.patch("/albums/{album_id}/photos/{photo_id}/location", response_model=AlbumPhotoUrlResponse)
-async def update_photo_location(
+def update_photo_location(
     album_id: str,
     photo_id: str,
     body: AlbumPhotoLocationUpdate,
@@ -1319,7 +1319,7 @@ async def update_photo_location(
 
 
 @router.patch("/albums/{album_id}/photos/{photo_id}/comment", response_model=PhotoCaptionResponse)
-async def save_photo_comment(
+def save_photo_comment(
     album_id: str,
     photo_id: str,
     body: PhotoCaptionUpdate,
@@ -1357,7 +1357,7 @@ _STORY_INPUT_KEYS = {"memory_hint", "people", "highlight"}
 
 
 @router.put("/albums/{album_id}/story-inputs/{input_key}", response_model=StoryInputResponse)
-async def save_story_input(
+def save_story_input(
     album_id: str,
     input_key: str,
     body: StoryInputUpdate,
@@ -1399,7 +1399,7 @@ def _media_summary(record: dict[str, Any]) -> AlbumMediaSummary:
 
 
 @router.post("/albums/{album_id}/media", response_model=AlbumMediaUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_media(
+def upload_media(
     album_id: str,
     file: UploadFile = File(...),
     sort_order: int = Form(..., ge=0),
@@ -1455,7 +1455,7 @@ async def upload_media(
 
 
 @router.get("/albums/{album_id}/media", response_model=AlbumMediaUrlsResponse)
-async def get_album_media_urls(
+def get_album_media_urls(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumMediaUrlsResponse:
@@ -1488,7 +1488,7 @@ async def get_album_media_urls(
 
 
 @router.delete("/albums/{album_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_media(
+def delete_media(
     album_id: str,
     media_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -1923,7 +1923,7 @@ async def get_my_albums(
 
 
 @router.delete("/albums/{album_id}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_album_bookmark(
+def delete_album_bookmark(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> Response:
@@ -1933,7 +1933,7 @@ async def delete_album_bookmark(
 
 
 @router.get("/albums/mine/covers")
-async def get_my_album_covers(
+def get_my_album_covers(
     album_ids: list[str] = Query(default=[]),
     cover_photo_ids: list[str] = Query(default=[]),
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -2114,7 +2114,7 @@ async def get_album_living_append_pages(
 
 
 @router.patch("/albums/{album_id}/cover-photo", response_model=AlbumCoverPhotoResponse)
-async def update_album_cover_photo(
+def update_album_cover_photo(
     album_id: str,
     body: AlbumCoverPhotoUpdate,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -2147,7 +2147,7 @@ async def update_album_cover_photo(
 
 
 @router.patch("/albums/{album_id}", response_model=AlbumDetailResponse)
-async def patch_album(
+def patch_album(
     album_id: str,
     body: NarrativeUpdate,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -2167,7 +2167,7 @@ async def patch_album(
 
 
 @router.patch("/albums/{album_id}/epilogue", response_model=AlbumDetailResponse)
-async def patch_epilogue(
+def patch_epilogue(
     album_id: str,
     body: EpilogueUpdate,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
@@ -2187,7 +2187,7 @@ async def patch_epilogue(
 
 
 @router.patch("/albums/{album_id}/title", response_model=AlbumDetailResponse)
-async def patch_album_title(
+def patch_album_title(
     album_id: str,
     body: AlbumTitleUpdate,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
@@ -2207,7 +2207,7 @@ async def patch_album_title(
 
 
 @router.patch("/albums/{album_id}/chapter-story", response_model=AlbumDetailResponse)
-async def patch_chapter_story(
+def patch_chapter_story(
     album_id: str,
     body: ChapterStoryUpdate,
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
@@ -2234,7 +2234,7 @@ async def patch_chapter_story(
 
 
 @router.post("/guest-albums/claim")
-async def claim_guest_album(
+def claim_guest_album(
     body: GuestAlbumClaimRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> dict[str, str]:
@@ -2398,7 +2398,7 @@ async def regenerate_story(
 
 
 @router.get("/albums/{album_id}/pdf", response_model=AlbumPdfUrlResponse)
-async def get_album_pdf(
+def get_album_pdf(
     album_id: str,
     version: int | None = Query(default=None),
     renderer_version: int = Query(default=PDF_RENDERER_VERSION),
@@ -2456,7 +2456,7 @@ async def upload_album_pdf(
 
 
 @router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_album(
+def delete_album(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> Response:

@@ -66,7 +66,7 @@ def _thumbnail_for_media(client, settings, media_records: list[dict], media_id: 
 
 
 @router.get("/albums/{album_id}/memory/questions", response_model=MemoryQuestionsListResponse)
-async def get_memory_questions(
+def get_memory_questions(
     album_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> MemoryQuestionsListResponse:
@@ -212,7 +212,7 @@ async def analyze_media(
 
 
 @router.put("/memory/questions/{question_id}/answers", response_model=MemoryAnswerResponse)
-async def upsert_memory_answer(
+def upsert_memory_answer(
     question_id: str,
     body: UpsertMemoryAnswerRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -244,7 +244,7 @@ async def upsert_memory_answer(
 
 
 @router.patch("/memory/answers/{answer_id}", response_model=MemoryAnswerResponse)
-async def patch_memory_answer(
+def patch_memory_answer(
     answer_id: str,
     body: UpdateMemoryAnswerRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
@@ -278,7 +278,7 @@ async def patch_memory_answer(
 
 
 @router.delete("/memory/answers/{answer_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_memory_answer(
+def delete_memory_answer(
     answer_id: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> None:

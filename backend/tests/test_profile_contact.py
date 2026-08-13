@@ -209,5 +209,8 @@ def test_no_send_path_reads_these_columns() -> None:
 def test_signup_does_not_ask_for_contact() -> None:
     """가입 흐름을 건드리지 않는다 — 거기서는 받지 않는다."""
     bootstrap = source("app/api/auth.py")
-    bootstrap = bootstrap[bootstrap.index("async def bootstrap_auth_user") : bootstrap.index("/contact")]
+    # ★ 앵커에서 `async` 를 뺐다(2026-08-13). 엔드포인트가 `def` 가 됐기 때문이다 —
+    #   안에 await 가 없는 핸들러는 async 로 두면 동기 DB 호출이 이벤트 루프를 막는다.
+    #   보는 규칙(가입에서 연락처를 받지 않는다)은 그대로다.
+    bootstrap = bootstrap[bootstrap.index("def bootstrap_auth_user") : bootstrap.index("/contact")]
     assert "contact" not in bootstrap

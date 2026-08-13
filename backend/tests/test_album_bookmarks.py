@@ -161,7 +161,9 @@ class ShareResponseBookmarkStateTests(TestCase):
         """로그인을 못 읽으면 담긴 앨범도 늘 안 담김으로 내려간다."""
         share = code((ROOT / "app/api/share.py").read_text(encoding="utf-8"))
         handler = share[share.index('@router.get("/public/shares/{token}"'):]
-        handler = handler[: handler.index("async def", handler.index("async def") + 1)]
+        # ★ 앵커에서 `async` 를 뺐다(2026-08-13) — 핸들러들이 `def` 가 됐다(동기 DB
+        #   호출이 이벤트 루프를 막지 않게). 다음 핸들러까지 자른다는 뜻은 그대로다.
+        handler = handler[: handler.index("def ", handler.index("def ") + 1)]
         self.assertIn("user_id: str | None = Depends(optional_authenticated_user)", handler)
 
     def test_no_separate_api_asks_whether_it_is_saved(self) -> None:

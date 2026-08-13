@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/bootstrap", response_model=AuthBootstrapResponse)
-async def bootstrap_auth_user(
+def bootstrap_auth_user(
     body: AuthBootstrapRequest | None = None,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AuthBootstrapResponse:
@@ -66,7 +66,7 @@ async def bootstrap_auth_user(
 
 
 @router.get("/contact", response_model=ProfileContactResponse)
-async def read_profile_contact(
+def read_profile_contact(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> ProfileContactResponse:
     """이용자가 직접 넣어 둔 연락처를 **본인에게 원본 그대로** 돌려준다
@@ -82,7 +82,7 @@ async def read_profile_contact(
 
 
 @router.put("/contact", response_model=ProfileContactResponse)
-async def update_profile_contact(
+def update_profile_contact(
     body: ProfileContactRequest,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> ProfileContactResponse:
@@ -102,7 +102,7 @@ async def update_profile_contact(
 
 
 @router.get("/account/summary", response_model=WithdrawalSummaryResponse)
-async def get_withdrawal_summary(
+def get_withdrawal_summary(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> WithdrawalSummaryResponse:
     """탈퇴 확인 화면이 보여줄 숫자 (K-17 · §5 27차).
@@ -118,7 +118,7 @@ async def get_withdrawal_summary(
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_auth_account(
+def delete_auth_account(
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> Response:
     """Withdraw the signed-in account and delete every album it owns."""

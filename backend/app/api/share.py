@@ -105,7 +105,7 @@ def _share_response(row: dict, share_url: str | None = None) -> ShareLinkRespons
 
 
 @router.post("/albums/{album_id}/share-links", response_model=ShareLinkResponse, status_code=status.HTTP_201_CREATED)
-async def create_album_share_link(album_id: str, body: ShareLinkCreateRequest, authenticated_user_id: str = Depends(require_authenticated_user)) -> ShareLinkResponse:
+def create_album_share_link(album_id: str, body: ShareLinkCreateRequest, authenticated_user_id: str = Depends(require_authenticated_user)) -> ShareLinkResponse:
     client = get_supabase_client()
     album = get_album_record(client, album_id)
     if not album:
@@ -120,7 +120,7 @@ async def create_album_share_link(album_id: str, body: ShareLinkCreateRequest, a
 
 
 @router.get("/albums/{album_id}/share-links", response_model=list[ShareLinkResponse])
-async def get_album_share_links(album_id: str, authenticated_user_id: str = Depends(require_authenticated_user)) -> list[ShareLinkResponse]:
+def get_album_share_links(album_id: str, authenticated_user_id: str = Depends(require_authenticated_user)) -> list[ShareLinkResponse]:
     client = get_supabase_client()
     album = get_album_record(client, album_id)
     if not album:
@@ -130,7 +130,7 @@ async def get_album_share_links(album_id: str, authenticated_user_id: str = Depe
 
 
 @router.post("/albums/{album_id}/share-links/{share_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_album_share_link(album_id: str, share_id: str, authenticated_user_id: str = Depends(require_authenticated_user)) -> Response:
+def deactivate_album_share_link(album_id: str, share_id: str, authenticated_user_id: str = Depends(require_authenticated_user)) -> Response:
     client = get_supabase_client()
     album = get_album_record(client, album_id)
     if not album:
@@ -141,7 +141,7 @@ async def deactivate_album_share_link(album_id: str, share_id: str, authenticate
 
 
 @router.get("/public/shares/{token}", response_model=PublicShareAlbumResponse)
-async def get_public_share(
+def get_public_share(
     token: str,
     request: Request,
     edition: int | None = None,
@@ -415,7 +415,7 @@ async def get_public_share(
 
 
 @router.post("/public/shares/{token}/contribute")
-async def start_public_contribution(
+def start_public_contribution(
     token: str,
     # dict[str, Any], not dict[str, str]: the client legitimately sends
     # {"guest_id": null, ...} for signed-in visitors, and a null value must not
@@ -466,7 +466,7 @@ async def start_public_contribution(
 
 
 @router.put("/public/shares/{token}/bookmark", status_code=status.HTTP_204_NO_CONTENT)
-async def bookmark_shared_album(
+def bookmark_shared_album(
     token: str,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> Response:
@@ -493,7 +493,7 @@ async def bookmark_shared_album(
 
 
 @router.post("/public/shares/{token}/reactions", status_code=status.HTTP_204_NO_CONTENT)
-async def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
+def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
     client = get_supabase_client()
     share = get_active_share(client, token)
     # Reactions attach to the album; any active share link (view or contribute) may react.
@@ -502,7 +502,7 @@ async def submit_reaction(token: str, body: ShareReactionRequest) -> Response:
 
 
 @router.post("/public/shares/{token}/guestbook", response_model=GuestbookItem, status_code=status.HTTP_201_CREATED)
-async def submit_guestbook_entry(token: str, body: GuestbookCreateRequest) -> GuestbookItem:
+def submit_guestbook_entry(token: str, body: GuestbookCreateRequest) -> GuestbookItem:
     """Leave an album guestbook message. Any active share link (view or contribute) may write."""
     _rate_limit(f"guestbook:{token}", _GUEST_LIMIT)
     client = get_supabase_client()
@@ -524,7 +524,7 @@ async def submit_guestbook_entry(token: str, body: GuestbookCreateRequest) -> Gu
 
 
 @router.post("/public/shares/{token}/guestbook/{entry_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_guestbook_entry(token: str, entry_id: str, body: GuestbookDeleteRequest) -> Response:
+def delete_guestbook_entry(token: str, entry_id: str, body: GuestbookDeleteRequest) -> Response:
     """Soft-delete one's own guestbook entry (session-hash ownership)."""
     client = get_supabase_client()
     share = get_active_share(client, token)
