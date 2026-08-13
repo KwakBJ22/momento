@@ -61,7 +61,11 @@ test("★ 로그인 왕복을 넘기는 장치는 쓰던 것 하나다 (K-9·K-2
 
 test("★ 서버에 닿은 뒤에만 지운다 — 끊기면 다음에 다시 보낸다", () => {
   const effect = app.slice(app.indexOf("void bootstrapAccount("), app.indexOf("}, [user?.id]);", app.indexOf("void bootstrapAccount(")));
-  assert.match(effect, /void bootstrapAccount\(collectContributorGuestIds\(\), readLegalConsent\(\)\)/);
+  // ★ 인라인 호출이던 것이 이름 있는 지역변수로 바뀌었다(2026-08-13 · bootstrap 캐시).
+  //   `bootstrapAccount(collectContributorGuestIds(), readLegalConsent())` 를 그대로
+  //   고정하고 있었는데, 그건 **호출 모양**이지 이 검사가 지키는 규칙이 아니다.
+  //   규칙은 아래 셋 — 성공한 뒤에만 지운다 / 실패 갈래에서는 안 지운다 / 값을 싣는다.
+  assert.match(effect, /void bootstrapAccount\(guestIds, legalAgreed\)/);
   // 성공(.then) 안에서만 지운다. .catch 나 부르기 전에 지우면 끊겼을 때 잃는다.
   const thenAt = effect.indexOf(".then(");
   const catchAt = effect.indexOf(".catch(");
@@ -83,7 +87,10 @@ test("★ 기록이 없다는 이유로 무엇도 막지 않는다", () => {
   // 동의 여부로 화면을 가르는 분기가 없다 — readLegalConsent 는 bootstrap 인자로만 쓰인다.
   const uses = [...code.matchAll(/readLegalConsent\(\)/g)];
   assert.equal(uses.length, 1, "동의 값을 여러 곳에서 본다");
-  assert.match(code, /bootstrapAccount\(collectContributorGuestIds\(\), readLegalConsent\(\)\)/);
+  // ★ 위와 같은 이유로 모양만 바뀌었다 — 읽는 곳은 여전히 한 곳이고, 그 값은
+  //   bootstrap 인자로만 간다. 화면을 가르는 데 쓰이지 않는다(이것이 규칙이다).
+  assert.match(code, /const legalAgreed = readLegalConsent\(\);/);
+  assert.match(code, /bootstrapAccount\(guestIds, legalAgreed\)/);
   // 막는 말이 생기지 않았다.
   for (const gate of ["동의가 필요", "동의해야", "약관에 동의하지"]) {
     assert.equal(app.includes(gate), false, `막는 문구가 생겼다: ${gate}`);

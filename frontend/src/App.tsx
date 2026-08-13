@@ -20,6 +20,7 @@ import UploadForm from "./components/UploadForm";
 import AlbumBottomNavigation from "./components/AlbumBottomNavigation";
 import { MoreHorizontal } from "lucide-react";
 import SheetDialog from "./components/SheetDialog";
+import LegalConsent from "./components/LegalConsent";
 import AccountSheetRow from "./components/AccountSheetRow";
 import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
@@ -27,6 +28,7 @@ import ConfirmSheet from "./components/ConfirmSheet";
 import type { AuthPanelReason } from "./lib/authPanelCopy";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
+import { readBootstrapCache, shouldCallBootstrap, writeBootstrapCache } from "./lib/bootstrapOnce";
 import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
 import type { WithdrawalSummary } from "./types";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
@@ -100,6 +102,11 @@ function App() {
   // Bootstrap still records album_count/max_albums in state; the creation gate is
   // removed (limit is now an abuse ceiling, not a paywall). Kept for a future paid plan.
   const [, setAlbumLimit] = useState<{ count: number; max: number } | null>(null);
+  /** 동의 기록이 없는 계정에게만 로그인 뒤 한 번 뜨는 창. */
+  const [needsLegalConsent, setNeedsLegalConsent] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
   // 카카오 SDK 는 앱이 뜰 때 한 번 초기화해 둔다 — 공유 시트가 열리자마자 쓸 수 있게.
   useKakaoSdk();
   const sharedAlbumId = getAlbumIdFromPath();
@@ -212,9 +219,29 @@ function App() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    void bootstrapAccount(collectContributorGuestIds(), readLegalConsent())
+    // ★ 화면을 옮길 때마다 다시 부르지 않는다 (lib/bootstrapOnce 의 주석 참고).
+    //   이 앱은 화면 이동이 곧 페이지 새로고침이라 App 이 매번 새로 마운트된다 —
+    //   운영 로그 08-13 08:54 에 20초 사이 세 번(234·160·94ms) 나갔다.
+    //   할 일(게스트 귀속·약관 동의)이 있으면 무조건 부르고, 없을 때만 최근 성공을 믿는다.
+    const guestIds = collectContributorGuestIds();
+    const legalAgreed = readLegalConsent();
+    const cached = readBootstrapCache(user.id, Date.now());
+    if (!shouldCallBootstrap({ guestIds, legalAgreed, cache: cached })) {
+      if (typeof cached?.max_albums === "number") {
+        setAlbumLimit({ count: Number(cached.album_count) || 0, max: cached.max_albums });
+      }
+      setBootstrapError(null);
+      setNeedsLegalConsent(false);
+      return () => { active = false; };
+    }
+    void bootstrapAccount(guestIds, legalAgreed)
       .then((data) => {
         if (!active) return;
+        writeBootstrapCache(user.id, { at: Date.now(), album_count: data.album_count, max_albums: data.max_albums, legal_agreed: data.legal_agreed });
+        // ★ 동의는 **기록이 없는 사람에게만** 한 번 받는다(PO 2026-08-13).
+        //   예전에는 로그인 화면이 매번 체크를 요구해서, 로그인만 하려는 사람에게도
+        //   가입 절차가 보였다. 이제 서버가 "기록 없음" 이라고 할 때만 묻는다.
+        setNeedsLegalConsent(!data.legal_agreed);
         // 서버에 닿았을 때에만 지운다 — 끊기면 다음에 다시 실어 보낸다(K-14).
         forgetLegalConsent();
         setBootstrapError(null);
@@ -494,6 +521,36 @@ function App() {
             {withdrawing ? "정리하는 중..." : "탈퇴하기"}
           </button>
         </div>
+      </SheetDialog>
+
+      {/* ★ 동의는 **기록이 없는 계정에게만, 로그인한 뒤 한 번** 받는다 (PO 2026-08-13).
+          예전에는 로그인 화면이 매번 체크를 요구해서 로그인만 하려는 사람에게도
+          가입 절차가 보였고, 체크 전에는 카카오 버튼이 회색이었다.
+          닫을 수 없다(locked) — 동의를 받는 자리라 그냥 지나칠 수 없어야 한다. */}
+      <SheetDialog open={needsLegalConsent} labelledBy="legal-consent-title" onClose={() => undefined} locked className="app__legal-consent">
+        <h2 id="legal-consent-title">시작하기 전에 한 번만 확인할게요</h2>
+        <LegalConsent checked={consentChecked} onChange={(next) => { setConsentChecked(next); setConsentError(null); }} />
+        {consentError ? <p className="notice notice--error" role="alert">{consentError}</p> : null}
+        <button
+          type="button"
+          className="auth-panel__kakao"
+          disabled={!consentChecked || consentBusy}
+          onClick={() => {
+            if (!user) return;
+            setConsentBusy(true);
+            setConsentError(null);
+            void bootstrapAccount(collectContributorGuestIds(), true)
+              .then((data) => {
+                writeBootstrapCache(user.id, { at: Date.now(), album_count: data.album_count, max_albums: data.max_albums, legal_agreed: data.legal_agreed });
+                if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
+                setNeedsLegalConsent(false);
+              })
+              .catch((error) => setConsentError(userFacingError(error, "동의를 저장하지 못했어요. 다시 시도해 주세요.")))
+              .finally(() => setConsentBusy(false));
+          }}
+        >
+          {consentBusy ? "저장하는 중..." : "동의하고 시작하기"}
+        </button>
       </SheetDialog>
     </div>
     </div>
