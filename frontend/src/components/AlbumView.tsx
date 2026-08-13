@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AlbumRenderer } from "../album-engine";
 
-import { applyContributions, createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getCollaborationStatus, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { applyContributions, createAlbumShareLink, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
@@ -164,26 +164,33 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 방명록 토큰 확보(1회). 실패해도 앨범 열람에는 영향이 없다 — 구역만 렌더링되지 않는다.
   useEffect(() => {
     if (!album || requestedEdition !== null) return;
-    let active = true;
-    void resolvePublicShareUrl()
-      .then((url) => {
-        const token = new URL(url, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
-        if (active && token) setGuestbookToken(token);
-      })
-      .catch(() => undefined);
-    return () => { active = false; };
+    // ★ 여기서 공유 링크를 **새로 만들지 않는다.** 예전에는 resolvePublicShareUrl 이
+    //   링크가 없으면 POST /share-links 로 하나 발급했다 — 앨범을 여는 것만으로
+    //   서버에 쓰기가 일어났다. 방명록은 이미 공유한 앨범에서만 의미가 있으므로,
+    //   앨범 응답에 실려 온 주소가 있을 때만 토큰을 뽑는다. 없으면 그냥 두고,
+    //   `구경하라고 보내기` 를 누르는 순간 발급된다(resolvePublicShareUrl 는 그대로다).
+    const shared = album.share_url;
+    if (!isPublicShareUrl(shared)) return;
+    const token = new URL(shared, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
+    if (token) setGuestbookToken(token);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [album?.album_id, requestedEdition]);
 
-  // 함께 만든 사람 수: 소유자만 조회(참여자는 상태 API 권한이 없을 수 있음). 실패해도 조용히 생략.
+  // 함께 만든 사람 수 — ★ **요청을 따로 보내지 않는다.**
+  //
+  // 예전에는 이 숫자 하나 때문에 `/collaboration` 을 또 불렀다. 그런데 같은 화면의
+  // 참여 패널이 그것을 이미 부르고 있어서, 앨범을 열 때마다 **같은 요청이 두 번**
+  // 나갔다(운영 로그 08-13 07:04:28 에 258ms · 370ms 두 줄). 하나는 신호를 달고
+  // 하나는 안 달아서 중복 제거에도 걸리지 않았다.
+  //
+  // 이 숫자는 앨범 응답의 `contributor_names` 로 이미 와 있다. 백엔드가 그 이름들을
+  // **세는 규칙과 같은 자리**에서 모으므로(collaboration_service.list_active_contributor_names)
+  // 길이가 곧 사람 수다 — 오히려 "3명이라 써 놓고 두 명만 적히는" 어긋남이 없어진다.
   useEffect(() => {
-    if (!album?.can_edit) return;
-    let active = true;
-    void getCollaborationStatus(albumId)
-      .then((status) => { if (active) setContributorCount(status?.contributor_count ?? null); })
-      .catch(() => { if (active) setContributorCount(null); });
-    return () => { active = false; };
-  }, [album?.can_edit, albumId, collabRefreshKey]);
+    if (!album?.can_edit) { setContributorCount(null); return; }
+    const names = album.contributor_names;
+    setContributorCount(Array.isArray(names) ? names.length : null);
+  }, [album?.can_edit, album?.contributor_names]);
 
   useEffect(() => {
     // Keep a shared in-flight request alive across React StrictMode's
