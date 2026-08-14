@@ -74,25 +74,88 @@ function MyAlbumCoverStrip({ userId }: { userId: string }) {
 }
 
 /**
- * 로그인 전 첫 화면의 그림 띠 (2026-08-12).
+ * 로그인 전 첫 화면 히어로 — **각자 올린 사진이 한 권으로** (시안 1a · 2026-08-14).
  *
- * ★ 사진 서비스인데 첫 화면에 사진이 0장이라 화면이 죽어 보였다.
- * ★ 그런데 로그인 전 사람에게 보여줄 **진짜 사진이 없다.** 남의 사진을 쓸 수 없고,
- *   실제 아이·가족 사진은 공개 이미지가 되어 버린다. 그래서 **얼굴 없는 그림**이다.
- *   폴라로이드 더미 · 초를 켠 케이크 · 노을 진 바다 — 앨범이 담는 순간들이다.
- * ★ 로그인하면 이 자리는 **내 앨범 표지**로 바뀐다. 그림은 그때 사라진다.
- * ★ 장식이라 alt 은 비운다. 바로 위 제목이 이미 무엇인지 말한다.
+ * ★ 왜 바꿨나: 예전 그림 세 장은 서로 관계없는 장식이라, 이 서비스가 무엇을 만들어
+ *   주는지 말하지 않았다. 같은 하루의 세 시선(아빠·엄마·나) → 점선 → 앨범 한 권으로
+ *   모이는 그림이 곧 이 서비스의 요점이다.
+ * ★ 접었다 펼 수 있다. 처음엔 열려 있고, 닫으면 그 선택을 **localStorage** 에 남긴다
+ *   — sessionStorage 는 카카오 로그인 왕복에서 사라진다(§11). 닫히는 배너가 아니라
+ *   본인이 여닫는 자리라 언제든 다시 펼 수 있다.
+ * ★ 시안의 손글씨 폰트(Gowun Dodum)는 쓰지 않는다. 첫 화면에 폰트를 새로 받으면
+ *   카카오 웹뷰에서 그만큼 늦게 뜬다. 본문 폰트 그대로 둔다.
  */
-const HERO_IMAGES = ["/hero-1.png", "/hero-2.png", "/hero-3.png"];
+const HERO_KEY = "woorialbum-landing-hero";
 
-function HeroStrip() {
+const HERO_SHOTS = [
+  { src: "/hero-dad.webp", initial: "아", name: "아빠", alt: "셋이 안고 찍은 한 장" },
+  { src: "/hero-mom.webp", initial: "엄", name: "엄마", alt: "둘이 걷던 모래사장" },
+  { src: "/hero-me.webp", initial: "나", name: "나", alt: "비 보며 보낸 저녁" },
+];
+
+const HERO_NOTES = [
+  { initial: "아", text: "비 오는데도 셋 다 웃고 있네" },
+  { initial: "엄", text: "우산 하나로 버티다 결국 다 젖었어" },
+];
+
+function LandingHero() {
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(HERO_KEY) !== "closed"; } catch { return true; }
+  });
+  const toggle = () => {
+    setOpen((current) => {
+      const next = !current;
+      try { localStorage.setItem(HERO_KEY, next ? "open" : "closed"); } catch { /* 못 남겨도 여닫힌다 */ }
+      return next;
+    });
+  };
+
   return (
-    <div className="landing__covers landing__covers--hero" aria-hidden="true">
-      {HERO_IMAGES.map((src) => (
-        <span key={src} className="landing__cover">
-          <img src={src} alt="" loading="lazy" decoding="async" />
-        </span>
-      ))}
+    <div className="landing-hero">
+      {open ? (
+        <div className="landing-hero__stage">
+          <ul className="landing-hero__shots">
+            {HERO_SHOTS.map((shot) => (
+              <li key={shot.src} className="landing-hero__shot">
+                <span className="landing-hero__frame">
+                  <img src={shot.src} alt={shot.alt} loading="lazy" decoding="async" />
+                </span>
+                <span className="landing-hero__who">
+                  <span className="landing-hero__avatar" aria-hidden="true">{shot.initial}</span>
+                  {shot.name}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {/* 세 칸에서 아래 카드로 모이는 느낌 — 세로 점선 셋이면 충분하다. */}
+          <div className="landing-hero__flow" aria-hidden="true">
+            <span /><span /><span />
+          </div>
+
+          <div className="landing-hero__album">
+            <p className="landing-hero__album-title">비 온 날 바다, 셋이서</p>
+            <p className="landing-hero__album-meta">2026. 5. 18 · 제주도</p>
+            <div className="landing-hero__album-shots" aria-hidden="true">
+              {HERO_SHOTS.map((shot) => <img key={shot.src} src={shot.src} alt="" loading="lazy" decoding="async" />)}
+            </div>
+            <ul className="landing-hero__notes">
+              {HERO_NOTES.map((note) => (
+                <li key={note.text}>
+                  <span className="landing-hero__avatar" aria-hidden="true">{note.initial}</span>
+                  {note.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="landing-hero__caption">각자 올린 사진이 모여 우리 이야기 한 권으로</p>
+        </div>
+      ) : null}
+
+      <button type="button" className="landing-hero__toggle" onClick={toggle} aria-expanded={open}>
+        {open ? "닫아두기 ⌃" : "열어보기 ⌄"}
+      </button>
     </div>
   );
 }
@@ -151,7 +214,7 @@ export default function Landing({
           우리의 이야기가 시작돼요.
         </h1>
         <p className="landing__copy">{SCREEN_LEAD}</p>
-        {userId ? <MyAlbumCoverStrip userId={userId} /> : <HeroStrip />}
+        {userId ? <MyAlbumCoverStrip userId={userId} /> : <LandingHero />}
         {/* 질문은 설명이 아니라 **아래 칩에 대한 물음**이다. 그래서 무게도 자리도 다르다
             — 설명과 떨어뜨리고 칩에 붙인다(UI 정리 3단계 B). */}
         <p className="landing__question">누구와 함께한 앨범인가요?</p>

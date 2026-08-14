@@ -399,9 +399,10 @@ body {
   margin: 0;
   max-width: 16em;
   color: var(--c-text);
-  font-size: clamp(1.45rem, 5.8vw, 1.9rem);
+  /* 시안 1a: 25px · 1.38. clamp 를 두면 폭에 따라 아래 여백까지 흔들린다. */
+  font-size: 25px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.38;
   letter-spacing: -0.04em;
   word-break: keep-all;
 }
@@ -409,8 +410,169 @@ body {
 .landing__copy {
   margin: 0.65rem 0 0;
   color: var(--c-text-muted);
-  font-size: 0.95rem;
+  font-size: 13.5px;   /* 시안 1a */
   line-height: 1.45;
+}
+
+
+/* ─── 첫 화면 히어로: 각자 올린 사진이 한 권으로 (시안 1a · 2026-08-14) ───
+   ★ 시안의 색은 전부 토큰으로 옮겼다 — 화면 CSS 에 hex 를 직접 적지 않는다.
+     강조는 --c-accent, 본문 글자는 --c-text, 보조 글자는 --c-text-muted,
+     실선·구분선은 --c-hairline 이다.
+   ★ 손글씨 폰트(Gowun Dodum)는 쓰지 않는다. 첫 화면에 폰트를 새로 받으면
+     카카오 웹뷰에서 그만큼 늦게 뜬다. */
+.landing-hero {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(100%, 340px);
+  margin: var(--s-4) 0 0;
+}
+
+.landing-hero__stage {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.landing-hero__shots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-hero__shot { display: grid; justify-items: center; gap: 5px; min-width: 0; }
+
+/* 흰 프레임 — 인화지의 흰 가장자리다. 기울기와 한 세트로 "붙여 놓은 사진"이 된다. */
+.landing-hero__frame {
+  display: block;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 11px;
+  background: var(--c-surface);
+  /* 시안 0 6px 14px rgba(45,45,45,.08) — 토큰 --sh-md 가 사실상 같은 값이다. */
+  box-shadow: var(--sh-md);
+}
+
+.landing-hero__shot:nth-child(1) .landing-hero__frame { transform: rotate(-3.5deg); }
+.landing-hero__shot:nth-child(2) .landing-hero__frame { transform: rotate(1.5deg); }
+.landing-hero__shot:nth-child(3) .landing-hero__frame { transform: rotate(4deg); }
+
+.landing-hero__frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 7px;
+}
+
+.landing-hero__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-text-muted);
+  font-size: 11px;
+}
+
+.landing-hero__avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c-hairline);
+  color: var(--c-text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* 세 칸에서 아래 카드로 모인다 — 세로 점선 셋. */
+.landing-hero__flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  justify-items: center;
+  width: 100%;
+  height: 14px;
+}
+
+.landing-hero__flow span {
+  width: 0;
+  height: 100%;
+  border-left: 1px dashed var(--c-hairline);
+}
+
+.landing-hero__album {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 14px;
+  background: var(--c-surface);
+  text-align: left;
+}
+
+.landing-hero__album-title { margin: 0; color: var(--c-text); font-size: 15px; font-weight: 700; }
+.landing-hero__album-meta { margin: 2px 0 8px; color: var(--c-text-muted); font-size: 11px; }
+
+.landing-hero__album-shots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.landing-hero__album-shots img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.landing-hero__notes {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-hero__notes li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: var(--c-bg-soft);
+  color: var(--c-text);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.landing-hero__caption {
+  margin: 0;
+  color: var(--c-text-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* 본인이 여닫는 자리다 — 닫히는 배너가 아니다. 선택은 localStorage 에 남는다. */
+.landing-hero__toggle {
+  min-height: var(--tap-min);
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 /* 내 앨범 표지 띠 — 로그인한 사람에게만, 앨범이 있을 때만 그려진다.
@@ -619,13 +781,8 @@ body {
     padding-bottom: 1.25rem;
   }
 
-  .landing__title {
-    font-size: 1.95rem;
-  }
-
   .landing__copy {
     margin-top: 0.75rem;
-    font-size: 1rem;
   }
 
   .landing__categories {
