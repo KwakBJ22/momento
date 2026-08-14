@@ -150,7 +150,6 @@
   margin: 0;
 }
 
-.photo-memory-lines__edit-btn,
 .photo-memory-lines__action {
   flex-shrink: 0;
   min-width: 44px;
@@ -163,6 +162,44 @@
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ★ 연필은 네 자리 모두 같은 모양이다 (4/4 · 2026-08-14). 여기는 44px 사각형이었다.
+   ★ 원을 `::before` 로 그리는 이유: **누르는 영역 44px 을 지키면서** 보이는 원만
+     32px 로 두기 위해서다. 40대 이후 타깃이라 손가락이 32px 을 못 맞춘다 —
+     원을 버튼 크기로 만들면 둘 중 하나를 잃는다.
+   ★ 색은 자리마다 다르다: 여기는 본문 계열이라 --c-accent. */
+.photo-memory-lines__edit-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-accent);
+  cursor: pointer;
+}
+
+.photo-memory-lines__edit-btn::before {
+  content: "";
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: 50%;
+  background: var(--c-surface);
+}
+
+.photo-memory-lines__edit-btn > * {
+  position: relative;
+}
+
+.photo-memory-lines__edit-btn:hover::before {
+  background: var(--c-accent-soft);
+  border-color: var(--c-accent);
 }
 
 .photo-memory-lines__editor-wrap {
@@ -217,7 +254,6 @@
 
 /* 40+ 화면 가독성: 화면 모드에서만 캡션 14px 하한(인쇄 원본 유지). */
 .album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: clamp(0.875rem, 1.55vw, 0.9rem); }
-.album-renderer--screen .photo-memory-lines__edit-btn,
 .album-renderer--screen .photo-memory-lines__action { font-size: var(--t-xs); }
 
 /* 남의 캡션을 열기 전 확인 한 단계(SCREEN_SPEC §7). 경고색을 쓰지 않는다 —

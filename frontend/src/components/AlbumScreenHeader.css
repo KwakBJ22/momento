@@ -6,7 +6,14 @@
 .album-screen-header__title-row { display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .album-screen-header h1 { margin: 0; color: var(--c-text); font-size: clamp(1.8rem, 4vw, 2.35rem); font-weight: 780; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
 .album-screen-header__subtitle { margin: 0; color: var(--c-text-muted); font-size: 0.92rem; line-height: 1.5; }
-.album-screen-header__edit { display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); color: var(--c-brand-text); cursor: pointer; }
+/* ★ 연필은 네 자리 모두 같은 모양이다 (4/4 · 2026-08-14). 여기는 32px 원이 곧
+   버튼이라 **누르는 영역도 32px** 이었다 — 손가락이 못 맞춘다.
+   원을 `::before` 로 내려 누르는 영역만 44px 로 넓힌다. 보이는 크기는 그대로다.
+   ★ 색은 제목 자리라 --c-brand-text (본문 계열은 --c-accent). */
+.album-screen-header__edit { position: relative; display: inline-grid; place-items: center; flex: 0 0 auto; min-width: var(--tap-min); min-height: var(--tap-min); padding: 0; border: 0; background: transparent; color: var(--c-brand-text); cursor: pointer; }
+.album-screen-header__edit::before { content: ""; position: absolute; width: 32px; height: 32px; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); }
+.album-screen-header__edit > * { position: relative; }
+.album-screen-header__edit:hover::before { border-color: var(--c-brand-text); }
 .album-screen-header__editor { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; width: min(100%, 480px); max-width: 100%; }
 /* The input grows to fill the row; 저장/취소 stay content-sized (no grow) so they
    never balloon to ~half the screen. min-width:0 lets the input shrink instead of
