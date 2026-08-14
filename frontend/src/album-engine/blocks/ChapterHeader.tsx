@@ -78,12 +78,16 @@ export default function ChapterHeader({
     //   같은 날짜를 두 번 읽게 하지 않는다.
     //   ★ 장소는 시·군까지만이다 — 서버가 그렇게 줄여서 저장한다(집 주소가 드러나면 안 된다).
     const placeText = showPlace ? (place || "").trim() : "";
-    const headParts = [repeatsDate ? "" : dotRange || "", placeText].filter(Boolean);
+    // ★ 날짜를 빼는 것은 **대신 쓸 장소가 있을 때뿐**이다.
+    //   갈음할 것이 없으면 줄이 비고, 연필만 남는다(PO 2026-08-14).
+    const dropDate = repeatsDate && Boolean(placeText);
+    const headParts = [dropDate ? "" : dotRange || "", placeText].filter(Boolean);
     const dateLine = headParts.length ? `${headParts.join(" · ")}${countSuffix}` : null;
     // 날짜를 생략한 줄에는 월 표시도 다시 쓰지 않는다 — 바로 위에 이미 있다.
-    const showMonth = Boolean(monthLine) && !repeatsDate;
+    const showMonth = Boolean(monthLine) && !dropDate;
 
-    if (!showMonth && !dateLine && !canEditPlace) return null;
+    // ★ 쓸 글자가 없으면 그리지 않는다. 연필 때문에 빈 줄을 만들지 않는다(§11 J-11).
+    if (!showMonth && !dateLine) return null;
 
     // ★ 그 자리에서 고친다 — 새 시트를 열지 않는다(§7). 이야기 편집과 같은 모양이다.
     if (isEditingPlace && placeEdit && placeKey) {
@@ -132,7 +136,7 @@ export default function ChapterHeader({
     return (
       <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜">
         {showMonth ? <p className="chapter-header__month">{monthLine}</p> : null}
-        {dateLine || canEditPlace ? (
+        {dateLine ? (
           <p className="chapter-header__dayline">
             {dateLine}
             {estimated ? <span className="chapter-header__badge">추정</span> : null}

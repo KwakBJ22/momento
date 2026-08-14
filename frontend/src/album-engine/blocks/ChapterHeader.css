@@ -129,20 +129,37 @@
 
 /* 날짜 줄의 장소 고치기 — 주최자만 본다. 모양은 StoryBlock 의 연필과 **같다**
    (44px 누름 영역 + ::before 32px 동그라미). 같은 일이니 같아야 한다. */
+.chapter-header--date-only .chapter-header__dayline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
 .chapter-header__edit-btn {
   position: relative;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
+  width: 32px;
+  height: 32px;
   margin-left: 2px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--c-accent);
-  vertical-align: middle;
   cursor: pointer;
+}
+
+/* 누름 영역만 44px — 상자를 44px 로 두면 연필이 글자보다 위로 솟는다(PO 2026-08-14). */
+.chapter-header__edit-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  transform: translate(-50%, -50%);
 }
 
 .chapter-header__edit-btn::before {
