@@ -158,6 +158,25 @@ def parse_file_created_at(raw: Any) -> datetime | None:
         return None
 
 
+def parse_coordinate(raw: Any, *, limit: float) -> float | None:
+    """화면이 보낸 위도·경도 한 개를 숫자로. 이상하면 None.
+
+    ★ 믿고 그대로 쓰지 않는다 — 화면에서 오는 값이다. 범위를 벗어나거나 숫자가
+      아니면 버린다. 정확히 0,0 도 버린다(기니만 앞바다다 — 실제로는 못 받은 값이다).
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if value != value or value in (float("inf"), float("-inf")):  # NaN·inf
+        return None
+    if abs(value) > limit:
+        return None
+    return value
+
+
 def parse_captured_at(raw: Any) -> datetime | None:
     """Accept only an explicit ISO capture date, never a file timestamp."""
     if not isinstance(raw, str) or not raw.strip():
@@ -196,6 +215,11 @@ def process_upload(
     *,
     file_created_at: datetime | None = None,
     captured_at: datetime | None = None,
+    # ★ 화면이 원본에서 읽어 보낸 좌표. EXIF 보다 **먼저** 쓴다 — 업로드 전에
+    #   canvas 로 다시 그리면서 EXIF 가 사라지므로, 서버에는 읽을 것이 없다
+    #   (운영 사진 67장 중 위치 0장이었던 이유다). 촬영일과 같은 통로다.
+    captured_latitude: float | None = None,
+    captured_longitude: float | None = None,
     generate_derivatives: bool = True,
 ) -> ProcessedPhoto:
     """Decode, validate and sanitize a user upload before it reaches Storage."""
@@ -271,8 +295,8 @@ def process_upload(
         height=int(exif_meta["height"] or height or 0),
         orientation=str(exif_meta["orientation"] or "square"),
         taken_at=captured_at or exif_meta.get("taken_at"),
-        latitude=exif_meta.get("latitude"),
-        longitude=exif_meta.get("longitude"),
+        latitude=captured_latitude if captured_latitude is not None else exif_meta.get("latitude"),
+        longitude=captured_longitude if captured_longitude is not None else exif_meta.get("longitude"),
         datetime_original=exif_meta.get("datetime_original"),
         create_date=exif_meta.get("create_date"),
     )

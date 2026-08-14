@@ -109,7 +109,8 @@ from app.services.supabase import (
     upload_album_media_assets,
     upload_result_image,
 )
-from app.services.image_upload_service import parse_captured_at, process_upload, validate_upload_limits
+from app.services.image_upload_service import parse_captured_at, parse_coordinate, process_upload, validate_upload_limits
+from app.services.place_name_service import resolve_city_name_cached
 from app.services.album_generation_service import (
     create_generation_job,
     generation_status,
@@ -591,9 +592,14 @@ async def upload_album(
     for upload_order, photo in enumerate(photos):
         raw_meta = meta_list[upload_order] if upload_order < len(meta_list) and isinstance(meta_list[upload_order], dict) else {}
         captured_at = parse_captured_at(raw_meta.get("captured_at"))
+        captured_lat = parse_coordinate(raw_meta.get("latitude"), limit=90)
+        captured_lng = parse_coordinate(raw_meta.get("longitude"), limit=180)
         # Originals and basic metadata are the only synchronous work. Web
         # derivatives and album storytelling run from the persisted job.
-        processed = process_upload(photo, settings, captured_at=captured_at, generate_derivatives=False)
+        processed = process_upload(
+            photo, settings, captured_at=captured_at, generate_derivatives=False,
+            captured_latitude=captured_lat, captured_longitude=captured_lng,
+        )
         entries.append(
             {
                 "processed": processed,
@@ -650,9 +656,19 @@ async def upload_album(
                 # has succeeded.  It is therefore a valid generation input;
                 # ``uploading`` would make the retry path incorrectly treat
                 # it as absent before derivatives are created.
-                "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso, "latitude": processed.latitude,
-                "longitude": processed.longitude, "location_name": None,
-                "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown",
+                # ★ 좌표는 **저장하지 않는다** (PO 판단 2026-08-13). 집 주소가 드러나는
+                #   값이고 앨범은 여럿이 본다. 시·군 이름으로 바꾼 뒤 버린다.
+                #   지명을 못 얻으면(키 없음·카카오 실패·좌표 없음) 장소 없이 그냥 간다.
+                "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso,
+                "latitude": None, "longitude": None,
+                "location_name": (place_name := resolve_city_name_cached(
+                    # ★ getattr 이다. 이 설정 값이 없어도 **업로드는 통과해야 한다** —
+                    #   place_name_service 가 약속한 것이 그것이다("사진 업로드가 지명
+                    #   하나 때문에 실패하면 안 된다"). 직접 읽었더니 값이 없는 설정에서
+                    #   AttributeError 로 500 이 났다.
+                    processed.latitude, processed.longitude, getattr(settings, "kakao_rest_api_key", ""),
+                )),
+                "location_source": "exif" if place_name else "unknown",
                 "orientation": processed.orientation, "width": processed.width or None, "height": processed.height or None,
             })
             if int(entry["upload_order"]) == cover_photo_order:
@@ -663,12 +679,13 @@ async def upload_album(
                 "mime_type": processed.original_mime_type, "original_filename": upload.filename,
                 "original_path": original_path, "thumbnail_path": None, "file_size": len(processed.original_bytes),
                 "width": processed.width or None, "height": processed.height or None, "sort_order": sort_order,
-                "processing_status": "processing", "taken_at": taken_at_iso, "latitude": processed.latitude,
-                "longitude": processed.longitude, "orientation": processed.orientation,
+                # 원본 기록에도 좌표를 남기지 않는다 — 위와 같은 이유다.
+                "processing_status": "processing", "taken_at": taken_at_iso, "latitude": None,
+                "longitude": None, "orientation": processed.orientation,
                 "metadata": {"source": "album_photos", "datetime_original": processed.datetime_original,
                              "create_date": processed.create_date, "upload_order": entry["upload_order"],
                              "day_group_count": len(_day_groups),
-                             "location_source": "exif" if processed.latitude is not None and processed.longitude is not None else "unknown"},
+                             "location_source": "exif" if place_name else "unknown"},
             })
         originals_uploaded_at = time.perf_counter()
         _log_upload_stage(
