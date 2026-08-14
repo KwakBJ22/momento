@@ -345,6 +345,7 @@ export default function AlbumRenderer({
           kind={chapter.kind}
           photoCount={chapter.photos.length}
           variant="date-only"
+          repeatsDate={chapterIndex > 0 && album?.chapters[chapterIndex - 1]?.date === chapter.date}
         />
         <div className="album-screen-photo-grid">
           {chapter.photos.map((photo, photoIndex) => (
