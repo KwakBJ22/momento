@@ -8,6 +8,7 @@ import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
 import { DateStoryEditProvider, type DateStoryEditState } from "./components/DateStoryEditContext";
+import { PlaceEditProvider, type PlaceEditState } from "./components/PlaceEditContext";
 import { isDateStoryEligible } from "../lib/storyRules";
 import { AlbumRenderModeProvider } from "./components/AlbumRenderModeContext";
 import { resolveImageLoading } from "./components/album/imageLoadingMode";
@@ -54,6 +55,8 @@ export interface AlbumRendererProps {
   onEditEpilogue?: () => void;
   photoCommentEdit?: PhotoCommentEditState | null;
   dateStoryEdit?: DateStoryEditState | null;
+  /** 날짜 줄의 장소 고치기 — 주최자에게만 온다. 인쇄에는 넘기지 않는다. */
+  placeEdit?: PlaceEditState | null;
   livingAppendPages?: LivingAppendPage[];
   className?: string;
 }
@@ -124,6 +127,7 @@ export default function AlbumRenderer({
   onEditEpilogue,
   photoCommentEdit = null,
   dateStoryEdit = null,
+  placeEdit = null,
   livingAppendPages = [],
   className = "",
 }: AlbumRendererProps) {
@@ -346,6 +350,8 @@ export default function AlbumRenderer({
           photoCount={chapter.photos.length}
           variant="date-only"
           repeatsDate={chapterIndex > 0 && album?.chapters[chapterIndex - 1]?.date === chapter.date}
+          placeKey={storyKey}
+          placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
         <div className="album-screen-photo-grid">
           {chapter.photos.map((photo, photoIndex) => (
@@ -428,6 +434,7 @@ export default function AlbumRenderer({
 
       <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
         <DateStoryEditProvider value={dateStoryEdit ?? null}>
+        <PlaceEditProvider value={placeEdit ?? null}>
         <div className="album-renderer__body">
           {mode === "screen" ? (
             <div className="album-renderer__screen-chapters">
@@ -512,6 +519,7 @@ export default function AlbumRenderer({
             </div>
           </section>
         </div>
+        </PlaceEditProvider>
         </DateStoryEditProvider>
       </PhotoCommentEditProvider>
     </div>

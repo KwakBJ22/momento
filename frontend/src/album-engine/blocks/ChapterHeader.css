@@ -126,3 +126,97 @@
 .album-renderer--screen .chapter-header__extras { font-size: clamp(0.875rem, 1.4vw, 0.9375rem); }
 .album-renderer--screen .chapter-header__place { font-size: clamp(0.875rem, 1.5vw, 0.9375rem); }
 .album-renderer--screen .chapter-header__date { font-size: clamp(0.875rem, 1.6vw, 0.95rem); }
+
+/* 날짜 줄의 장소 고치기 — 주최자만 본다. 모양은 StoryBlock 의 연필과 **같다**
+   (44px 누름 영역 + ::before 32px 동그라미). 같은 일이니 같아야 한다. */
+.chapter-header__edit-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-accent);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.chapter-header__edit-btn::before {
+  content: "";
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: 50%;
+  background: var(--c-surface);
+}
+
+.chapter-header__edit-btn > * {
+  position: relative;
+}
+
+.chapter-header__edit-btn:hover::before {
+  background: var(--c-accent-soft);
+  border-color: var(--c-accent);
+}
+
+/* 고치는 동안 — 그 줄이 입력칸이 된다. 새 시트를 열지 않는다(§7). */
+.chapter-header__place-edit {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.chapter-header__place-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 15px;
+  text-align: center;
+}
+
+.chapter-header__place-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chapter-header__place-action {
+  min-height: var(--tap-min);
+  padding: 0 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  color: var(--c-text-soft);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.chapter-header__place-action--save {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  font-weight: 650;
+}
+
+.chapter-header__place-hint {
+  margin: 0;
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+}
+
+.chapter-header__place-error {
+  margin: 0;
+}
