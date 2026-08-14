@@ -31,6 +31,11 @@ class Settings(BaseSettings):
 
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
+
+    # 좌표를 시·군 이름으로 바꾸는 데만 쓴다(카카오 로컬 API).
+    # ★ 비어 있어도 앱은 돈다 — 장소가 안 붙을 뿐이다. 사진 업로드가 이 키 하나
+    #   때문에 실패하면 안 된다(place_name_service 참고).
+    kakao_rest_api_key: str = ""
     vision_model: str = ""
     enable_vision_analysis: bool = False
     question_model: str = ""
