@@ -26,6 +26,15 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#ff6b6b" />
+    <!-- 홈 화면에 담았을 때 앱처럼 열리게 하는 값 — 아이폰은 매니페스트를 잘 안 봐서
+         메타로 따로 말해야 한다. **PWA 로 만드는 것이 아니다**: 서비스 워커도,
+         오프라인 캐시도, 푸시도 없다. 우리 주 통로인 카카오톡 인앱 브라우저에서는
+         설치 자체가 안 되고, 브라우저로 직접 들어온 사람에게만 해당한다.
+         진짜 PWA 는 출시 뒤 재방문 수치를 보고 판단한다. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="우리앨범" />
+    <meta name="application-name" content="우리앨범" />
     <!-- Pretendard: 기기 기본 글꼴에 의존하면 안드로이드 카톡 웹뷰에서
          제조사 기본 글꼴이 나온다. dynamic-subset 은 필요한 글자만 받아 가볍다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
