@@ -1,5 +1,27 @@
 const EXIF_DATE_PATTERN = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 
+/**
+ * EXIF 를 읽을 만큼만 잘라 온다.
+ *
+ * ★ **파일 전체를 읽지 않는다.** EXIF 는 JPEG 맨 앞의 APP1 조각에 있고 보통 몇 십 KB 다.
+ *   예전에는 촬영일과 위치가 각각 `file.arrayBuffer()` 로 원본을 통째로 읽어서,
+ *   사진 한 장마다 원본 크기의 메모리를 **두 번** 잡았다. 12장을 고르면 그것만
+ *   100MB 가 넘게 오간다 — 준비 중에 브라우저가 멈춘 원인이다(2026-08-14).
+ *   이 자리에는 원래 "안드로이드 탭이 다시 뜨게 만드는 메모리 급증" 경고가 있었다.
+ * ★ 앞 256KB 로 못 찾으면 없는 것으로 본다. 그보다 뒤에 EXIF 가 있는 사진은
+ *   사실상 없고, 없으면 날짜·장소가 안 붙을 뿐 사진은 그대로 올라간다.
+ */
+const EXIF_HEAD_BYTES = 256 * 1024;
+
+async function readExifHead(file: File): Promise<DataView | null> {
+  if (!/^image\/jpeg$/i.test(file.type) && !/\.jpe?g$/i.test(file.name)) return null;
+  const head = file.slice(0, Math.min(EXIF_HEAD_BYTES, file.size));
+  const buffer = await head.arrayBuffer();
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  return view;
+}
+
 function readUint16(view: DataView, offset: number, littleEndian: boolean): number {
   return view.getUint16(offset, littleEndian);
 }
@@ -26,14 +48,15 @@ function readExifDate(view: DataView, tiffOffset: number, ifdOffset: number, lit
 
 /** Reads the original JPEG before canvas optimization strips EXIF. */
 export async function extractOriginalCaptureDate(file: File): Promise<string | null> {
-  if (!/^image\/jpeg$/i.test(file.type) && !/\.jpe?g$/i.test(file.name)) return null;
-  const view = new DataView(await file.arrayBuffer());
-  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  const view = await readExifHead(file);
+  if (!view) return null;
   let offset = 2;
   while (offset + 4 <= view.byteLength) {
     if (view.getUint8(offset) !== 0xff) break;
     const marker = view.getUint8(offset + 1);
     const length = view.getUint16(offset + 2);
+    // 잘라 온 앞부분 끝에 걸치면 더 볼 수 없다 — 없는 것으로 본다(예외를 내지 않는다).
+    if (offset + 10 > view.byteLength) return null;
     if (marker === 0xe1 && length >= 16 && String.fromCharCode(...new Uint8Array(view.buffer, offset + 4, 4)) === "Exif") {
       const tiff = offset + 10;
       const little = view.getUint16(tiff) === 0x4949;
@@ -121,14 +144,15 @@ function readGpsIfd(view: DataView, tiffOffset: number, ifdOffset: number, littl
 
 /** 최적화가 EXIF 를 지우기 **전에** 원본에서 좌표를 읽는다. 없으면 null. */
 export async function extractOriginalGps(file: File): Promise<ExifGps | null> {
-  if (!/^image\/jpeg$/i.test(file.type) && !/\.jpe?g$/i.test(file.name)) return null;
-  const view = new DataView(await file.arrayBuffer());
-  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  const view = await readExifHead(file);
+  if (!view) return null;
   let offset = 2;
   while (offset + 4 <= view.byteLength) {
     if (view.getUint8(offset) !== 0xff) break;
     const marker = view.getUint8(offset + 1);
     const length = view.getUint16(offset + 2);
+    // 잘라 온 앞부분 끝에 걸치면 더 볼 수 없다 — 없는 것으로 본다(예외를 내지 않는다).
+    if (offset + 10 > view.byteLength) return null;
     if (marker === 0xe1 && length >= 16 && String.fromCharCode(...new Uint8Array(view.buffer, offset + 4, 4)) === "Exif") {
       const tiff = offset + 10;
       const little = view.getUint16(tiff) === 0x4949;
