@@ -65,8 +65,15 @@ test("★ 글자가 보조색이 된 상자는 배경도 보조색이다", () =>
   // 연한 회색 위 딥 틸은 색이 겉돈다 — 상자째 한 계열로 맞춘다.
   const badge = read("album-engine/blocks/ChapterHeader.css");
   assert.match(badge, /background: var\(--c-accent-soft\);\s*\n\s*color: var\(--c-accent\);/);
+  // ★ StoryBlock 은 **상자가 없어졌다** (2026-08-13 · 연필 통일). 제목은 면 없이
+  //   글자만 보조색이라 "겉도는" 문제 자체가 생기지 않는다. 남은 보조색 면은
+  //   연필 동그라미(hover)뿐이고, 그것은 여전히 배경·테두리가 한 계열이다.
+  //   이 검사가 지키는 규칙(보조색 글자를 회색 면 위에 두지 않는다)은 그대로다.
   const story = read("album-engine/blocks/StoryBlock.css");
-  assert.match(story, /background: var\(--c-accent-soft\);\s*\n\s*color: var\(--c-accent\);/);
+  assert.match(story, /background: var\(--c-accent-soft\);\s*\n\s*border-color: var\(--c-accent\);/);
+  const title = story.slice(story.indexOf(".story-block__title {"), story.indexOf("}", story.indexOf(".story-block__title {")));
+  assert.match(title, /color: var\(--c-accent\)/);
+  assert.equal(title.includes("background"), false, "보조색 글자 뒤에 면이 생겼다");
 });
 
 test("★ 로고와 주 버튼은 브랜드색 그대로다 — 여기는 보조색이 오지 않는다", () => {

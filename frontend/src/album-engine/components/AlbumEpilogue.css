@@ -20,20 +20,32 @@
   gap: 0.75rem;
 }
 
-/* 날짜 이야기의 연필(.story-block__edit-btn)과 **같은 모양**이다. 두 곳이 달라
-   보이면 같은 일인 줄 모른다. 색만 보조색을 유지한다(이 자리는 앨범의 맺음말이다). */
 .album-epilogue__edit {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0.25rem;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
   border: 0;
-  border-radius: var(--r-full);
   background: transparent;
   color: var(--c-accent);
   cursor: pointer;
+}
+
+.album-epilogue__edit::before {
+  content: "";
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: 50%;
+  background: var(--c-surface);
+}
+
+.album-epilogue__edit > * {
+  position: relative;
 }
 
 .album-epilogue__body,
