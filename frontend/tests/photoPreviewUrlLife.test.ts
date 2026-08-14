@@ -47,7 +47,10 @@ test("★ 주소는 사진 한 장에 하나다 — 다시 그릴 때 새로 만
   const creates = [...form.matchAll(/URL\.createObjectURL\(/g)];
   // 사진을 만들 때 한 번, 깨졌을 때 다시 한 번. 그 둘뿐이다.
   assert.equal(creates.length, 2);
-  assert.match(form, /return \{ id: createId\(\), file, previewUrl: URL\.createObjectURL\(previewSource\), previewSource, story: "", capturedAt \};/);
+  // ★ 인자가 하나 늘었다 (2026-08-13): EXIF 위치(gps). 최적화가 canvas 로 다시
+  //   그리면서 EXIF 를 통째로 날리므로, 날짜와 **같은 자리**에서 원본에서 읽어
+  //   따로 실어 보낸다. 이 검사가 지키는 규칙(주소는 사진 한 장에 하나)은 그대로다.
+  assert.match(form, /return \{ id: createId\(\), file, previewUrl: URL\.createObjectURL\(previewSource\), previewSource, story: "", capturedAt, gps \};/);
   // 그리는 쪽(PhotoCommentList)은 주소를 만들지 않는다 — 들고 있는 것을 쓸 뿐이다.
   assert.equal(list.includes("createObjectURL"), false);
 });

@@ -355,6 +355,9 @@ export interface PhotoItem {
   previewRetried?: boolean;
   story: string;
   capturedAt: string | null;
+  /** 원본에서 읽은 좌표. **업로드에만 쓰고 화면에는 안 낸다** — 서버가 시·군 이름으로
+   *  바꾼 뒤 버린다(집 주소가 드러나면 안 된다). 없으면 null. */
+  gps: { latitude: number; longitude: number } | null;
 }
 
 export interface StoryPayload {

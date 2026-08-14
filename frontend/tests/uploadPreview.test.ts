@@ -105,7 +105,9 @@ test("UploadForm builds previewUrl from previewBlob, falling back to the upload 
   //   깨진 주소를 파일을 다시 읽지 않고 한 번 되살리려는 것이다. 고르는 규칙은 그대로다.
   assert.match(uploadForm, /const previewSource = previewBlob \?\? file;/);
   assert.match(uploadForm, /previewUrl: URL\.createObjectURL\(previewSource\), previewSource,/);
-  assert.match(uploadForm, /createPhotoItem\(prepared, previewBlob, capturedAt\)/);
+  // ★ 인자가 하나 늘었다 (2026-08-13): EXIF 위치(gps). 미리보기를 만드는 규칙
+  //   (previewBlob 우선, 없으면 업로드 파일)은 그대로다.
+  assert.match(uploadForm, /createPhotoItem\(prepared, previewBlob, capturedAt, gps\)/);
 });
 
 test("PhotoCommentList decodes previews lazily and asynchronously", () => {

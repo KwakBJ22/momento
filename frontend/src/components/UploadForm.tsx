@@ -7,7 +7,7 @@ import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, imageAcceptFo
 import { currentUserAgent } from "../lib/webview";
 import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
-import { extractOriginalCaptureDate } from "../lib/exifCaptureDate";
+import { extractOriginalCaptureDate, extractOriginalGps, type ExifGps } from "../lib/exifCaptureDate";
 import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -38,12 +38,12 @@ interface UploadFormProps {
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
 
-function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null): PhotoItem {
+function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null, gps: ExifGps | null): PhotoItem {
   // Prefer the small 800px preview; fall back to the upload file when it is null
   // (GIF / HEIC / decode failure), preserving the current behavior.
   const previewSource = previewBlob ?? file;
   // ★ 덩어리를 함께 들고 있는다 — 주소가 죽었을 때 파일을 다시 읽지 않고 되살리려고다(K-10).
-  return { id: createId(), file, previewUrl: URL.createObjectURL(previewSource), previewSource, story: "", capturedAt };
+  return { id: createId(), file, previewUrl: URL.createObjectURL(previewSource), previewSource, story: "", capturedAt, gps };
 }
 
 export default function UploadForm({ category, photosNeedReselect = false, onPhotoCountChange, onSuccess }: UploadFormProps) {
@@ -153,6 +153,16 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
           } catch (cause) {
             console.warn("Capture date extraction failed", { cause, fileName: file.name });
           }
+          // ★ 장소도 **여기서** 읽는다. 바로 아래 prepareUploadAndPreview 가 canvas 로
+          //   다시 그리면서 EXIF 를 통째로 지우기 때문이다 — 촬영일과 같은 이유다.
+          //   서버는 이 좌표를 시·군 이름으로 바꾼 뒤 버린다(좌표는 저장하지 않는다).
+          //   실패해도 사진을 버리지 않는다. 장소가 안 붙을 뿐이다.
+          let gps: ExifGps | null = null;
+          try {
+            gps = await extractOriginalGps(file);
+          } catch (cause) {
+            console.warn("Location extraction failed", { cause, fileName: file.name });
+          }
           // One decode yields both the upload file and a small preview blob.
           // Optimization failure falls back to the original file so no photo is lost.
           const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
@@ -162,7 +172,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
           // ★ 그리기를 기다리되 무한정은 아니다: 화면이 숨겨지면 프레임이 오지 않아
           // 여기서 준비가 통째로 멈춘다(F-3). lib/yieldToPaint 참고.
           await yieldToPaint();
-          return { prepared, previewBlob, capturedAt };
+          return { prepared, previewBlob, capturedAt, gps };
         },
         (result) => {
           // Input order: append photos so the album keeps the user's selected order.
@@ -173,13 +183,13 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
             }
             return;
           }
-          const { prepared, previewBlob, capturedAt } = result.value;
+          const { prepared, previewBlob, capturedAt, gps } = result.value;
           // Over the total cap: block only this photo; keep everything already chosen.
           if (!fitsWithinUploadTotal(nextTotal, prepared.size)) {
             failures.push("사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.");
             return;
           }
-          const item = createPhotoItem(prepared, previewBlob, capturedAt);
+          const item = createPhotoItem(prepared, previewBlob, capturedAt, gps);
           nextTotal += prepared.size;
           setPhotos((previous) => [...previous, item]);
           setCoverPhotoId((current) => current || item.id);
@@ -269,7 +279,11 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       formData.append("template", TEMPLATE_TYPE_TO_LAYOUT[templateType]);
       formData.append("title", "우리의 추억");
       formData.append("description", "");
-      formData.append("file_meta", JSON.stringify(photos.map((photo) => ({ captured_at: photo.capturedAt }))));
+      formData.append("file_meta", JSON.stringify(photos.map((photo) => ({
+        captured_at: photo.capturedAt,
+        latitude: photo.gps?.latitude ?? null,
+        longitude: photo.gps?.longitude ?? null,
+      }))));
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
       // Demand signal only: how many videos the user tried to add (all filtered out).
       formData.append("dropped_video_count", String(droppedVideoCountRef.current));
