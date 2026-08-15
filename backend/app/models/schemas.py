@@ -69,10 +69,18 @@ class AlbumPhotoUrlResponse(BaseModel):
 
 
 class AlbumPhotoLocationUpdate(BaseModel):
+    """날짜 줄에서 고치는 것 — **장소와 촬영일**이다 (2026-08-16).
+
+    ★ 주소는 `/location` 그대로다. 고치는 자리가 화면에서 한 줄이므로 서버도 한 자리로
+      둔다 — 새 주소를 만들지 않는다(§10). `taken_at` 을 넣지 않으면 날짜는 건드리지 않는다.
+    """
+
     location_name: str | None = Field(default=None, max_length=120)
     latitude: float | None = None
     longitude: float | None = None
     location_source: Literal["exif", "user", "ai_estimated", "unknown"] = "user"
+    # 촬영일 — 넣은 것만 고친다. 날짜는 **앨범의 뼈대**라 주최자만 고칠 수 있다(§7).
+    taken_at: datetime | None = None
 
 
 class AlbumCoverPhotoUpdate(BaseModel):

@@ -96,14 +96,46 @@ export default function ChapterHeader({
     const showMonth = Boolean(monthLine) && !dropDate && !repeatsMonth;
 
     // ★ 쓸 글자가 없으면 그리지 않는다. 연필 때문에 빈 줄을 만들지 않는다(§11 J-11).
-    if (!showMonth && !dateLine) return null;
+    //   ★ 다만 **주최자에게는** 한 줄을 둔다(2026-08-16). 촬영일이 없는 사진은
+    //     (카톡·다운로드로 EXIF 가 지워진 사진이 그렇다) 날짜 줄 자체가 안 그려져
+    //     넣을 자리가 없었다. 참여자·구경꾼에게는 그대로 아무것도 없다.
+    if (!showMonth && !dateLine) {
+      if (!canEditPlace || !placeEdit || !placeKey || isEditingPlace) {
+        if (!isEditingPlace) return null;
+      } else {
+        return (
+          <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜">
+            <button
+              type="button"
+              className="chapter-header__add-date"
+              onClick={() => placeEdit.startEdit(placeKey, "")}
+            >
+              날짜 넣기
+            </button>
+          </header>
+        );
+      }
+    }
 
     // ★ 그 자리에서 고친다 — 새 시트를 열지 않는다(§7). 이야기 편집과 같은 모양이다.
     if (isEditingPlace && placeEdit && placeKey) {
       return (
-        <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜">
+        <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜와 장소 수정">
           {showMonth ? <p className="chapter-header__month">{monthLine}</p> : null}
           <div className="chapter-header__place-edit">
+            {/* ★ 날짜도 **같은 자리**에서 고친다(2026-08-16). 연필을 하나 더 만들지 않는다.
+                날짜가 없어 줄이 안 그려지던 묶음도 이 자리로 들어와 날짜를 넣는다. */}
+            {placeEdit.setDateDraft ? (
+              <input
+                className="chapter-header__place-input chapter-header__date-input"
+                value={placeEdit.dateDraft ?? ""}
+                onChange={(event) => placeEdit.setDateDraft?.(event.target.value)}
+                maxLength={10}
+                inputMode="numeric"
+                placeholder="언제였나요? (예: 2018.07.08)"
+                aria-label="날짜 수정"
+              />
+            ) : null}
             <input
               className="chapter-header__place-input"
               value={placeEdit.draft}

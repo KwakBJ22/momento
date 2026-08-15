@@ -20,6 +20,18 @@ export interface PlaceEditState {
   setDraft: (value: string) => void;
   /** 그 날짜 묶음의 사진 전부에 같은 장소를 넣는다. */
   saveEdit: (placeKey: string, photoIds: string[]) => void;
+  /**
+   * 촬영일 — **같은 연필, 같은 자리**에서 함께 고친다 (2026-08-16).
+   *
+   * ★ 연필을 하나 더 만들지 않는다. 한 줄에 연필이 둘이면 무엇을 누를지 생각하게 된다(§7).
+   * ★ 날짜는 **앨범의 뼈대**다. 바뀌면 그 묶음의 사진이 다른 묶음으로 옮겨 가고,
+   *   `YYYY.MM.DD의 이야기` 도 새 날짜를 따라간다(사람이 쓴 글이라 버리지 않는다).
+   *   그래서 날짜를 **바꿀 때만** 부르는 쪽이 한 번 묻는다.
+   * ★ 형식은 `YYYY.MM.DD` 다. 비워 두고 저장하면 날짜를 지우는 것이 아니라 그대로 둔다 —
+   *   지우는 길은 만들지 않는다(날짜 없는 앨범을 새로 만들 이유가 없다).
+   */
+  dateDraft?: string;
+  setDateDraft?: (value: string) => void;
 }
 
 const PlaceEditContext = createContext<PlaceEditState | null>(null);

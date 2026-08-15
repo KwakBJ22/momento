@@ -419,6 +419,8 @@ export async function updateAlbumPhotoLocation(
     latitude?: number | null;
     longitude?: number | null;
     location_source?: "exif" | "user" | "ai_estimated" | "unknown";
+    /** 촬영일 — **넣은 것만** 고친다. 날짜는 주최자만 고칠 수 있고 서버가 그것을 본다. */
+    taken_at?: string;
   },
 ): Promise<import("../types").AlbumPhoto> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/location`, {
@@ -429,6 +431,8 @@ export async function updateAlbumPhotoLocation(
       latitude: payload.latitude ?? null,
       longitude: payload.longitude ?? null,
       location_source: payload.location_source ?? "user",
+      // 안 넣으면 아예 보내지 않는다 — 서버가 `없으면 건드리지 않는다` 로 읽는다.
+      ...(payload.taken_at ? { taken_at: payload.taken_at } : {}),
     }),
   });
   if (!response.ok) throw new Error(await parseError(response));

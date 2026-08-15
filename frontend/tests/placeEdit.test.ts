@@ -117,7 +117,9 @@ test("★ 새 API 를 만들지 않았다 — 이미 있던 PATCH 를 그대로 
 
 test("★ 실패하면 우리 말로 말한다 (§11)", () => {
   const fn = view.slice(view.indexOf("const handleSavePlace"), view.indexOf("const handleSaveTitle"));
-  assert.match(fn, /userFacingError\(cause, "장소를 저장하지 못했어요\. 다시 시도해 주세요\."\)/);
+  // ★ 2026-08-16 에 문구가 넓어졌다. 같은 자리에서 **날짜도** 고치므로
+  //   `장소를 저장하지 못했어요` 로는 무엇이 안 됐는지 어긋난다.
+  assert.match(fn, /userFacingError\(cause, "날짜와 장소를 저장하지 못했어요\. 다시 시도해 주세요\."\)/);
   assert.equal(fn.includes("setPlaceSaveError(cause"), false, "서버 문구가 화면으로 샌다");
 });
 

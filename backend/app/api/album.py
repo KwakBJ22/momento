@@ -1295,6 +1295,15 @@ def update_photo_location(
         access=access,
     )
 
+    # ★ 촬영일은 **앨범의 뼈대**다 — 바뀌면 묶음이 다시 갈리고 이야기가 따라 움직인다.
+    #   그래서 장소와 달리 **주최자만** 고친다(§7). 프런트가 연필을 감추는 것과 별개로
+    #   여기서 막는다(§10).
+    if body.taken_at is not None:
+        require_album_edit_settings(access)
+        if body.taken_at.year < 1900:
+            raise HTTPException(status_code=400, detail="1900년 이후 날짜만 넣을 수 있어요.")
+        # 앞날은 막지 않는다 — 기기 시계가 틀린 사진이 있고, 그건 사용자가 알아서 고친다.
+
     name = (body.location_name or "").strip() or None
     payload: dict[str, Any] = {
         "location_name": name,
@@ -1306,6 +1315,8 @@ def update_photo_location(
         payload["longitude"] = body.longitude
     if not name and body.latitude is None and body.longitude is None:
         payload["location_source"] = "unknown"
+    if body.taken_at is not None:
+        payload["taken_at"] = body.taken_at.isoformat()
 
     updated = (
         client.table("album_photos")

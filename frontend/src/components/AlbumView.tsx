@@ -164,6 +164,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [editingPlaceKey, setEditingPlaceKey] = useState<string | null>(null);
   const [placeDraft, setPlaceDraft] = useState("");
   const [isSavingPlace, setIsSavingPlace] = useState(false);
+  // 촬영일 — **같은 연필, 같은 자리**에서 함께 고친다(2026-08-16).
+  // 날짜를 바꿀 때만 한 번 묻는다(묶음이 다시 갈리기 때문이다). 장소만 고칠 때는 안 묻는다.
+  const [dateDraft, setDateDraft] = useState("");
+  const [pendingDateMove, setPendingDateMove] = useState<
+    { placeKey: string; photoIds: string[]; date: string } | null
+  >(null);
   const [placeSaveError, setPlaceSaveError] = useState<string | null>(null);
 
   // 되살린 화면이 낡은 상태로 뜨지 않게 한다 — 그 사이 바뀐 사진·대표사진을 모른 채
@@ -393,7 +399,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
    * ★ 비우고 저장하면 지워진다. 서버가 빈 이름을 받으면 source 를 "unknown" 으로
    *   두므로(album.py) 화면에서도 장소 줄이 사라진다. 지우는 길을 따로 만들지 않는다.
    */
-  const handleSavePlace = async (photoIds: string[]) => {
+  const handleSavePlace = async (photoIds: string[], nextDate?: string | null) => {
     setIsSavingPlace(true);
     setPlaceSaveError(null);
     const name = placeDraft.trim();
@@ -402,21 +408,69 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         photoIds.map((photoId) => updateAlbumPhotoLocation(albumId, photoId, {
           location_name: name || null,
           location_source: name ? "user" : "unknown",
+          // 넣은 것만 고친다 — 날짜를 안 건드릴 때는 아예 보내지 않는다.
+          ...(nextDate ? { taken_at: `${nextDate}T00:00:00Z` } : {}),
         })),
       );
       const byId = new Map(updated.map((photo) => [photo.id, photo]));
       setPhotos((current) => current.map((photo) => {
         const next = byId.get(photo.id);
-        return next ? { ...photo, location_name: next.location_name, location_source: next.location_source } : photo;
+        return next
+          ? { ...photo, location_name: next.location_name, location_source: next.location_source, taken_at: next.taken_at }
+          : photo;
       }));
+      // ★ `YYYY.MM.DD의 이야기` 는 날짜 키에 매여 있다. 날짜가 바뀌면 그 글이 길을 잃는다 —
+      //   **사람이 쓴 글이라 버리지 않는다.** 새 날짜로 옮기고, 그 자리에 이미 글이 있으면
+      //   덮어쓰지 않고 줄바꿈으로 잇는다. 새로 만들지는 않는다(AI 를 부르지 않는다).
+      if (nextDate && editingPlaceKey && editingPlaceKey !== nextDate) {
+        const stories = album?.chapter_stories ?? {};
+        const moving = (stories[editingPlaceKey] || "").trim();
+        if (moving) {
+          const existing = (stories[nextDate] || "").trim();
+          // 새 자리에 먼저 쓴다 — 중간에 실패해도 글이 사라지지 않는다.
+          const merged = await patchChapterStory(albumId, nextDate, existing ? `${existing}\n${moving}` : moving);
+          const cleared = await patchChapterStory(albumId, editingPlaceKey, "");
+          setAlbum((current) => current
+            ? withAlbumVersion({ ...current, chapter_stories: cleared.chapter_stories ?? merged.chapter_stories }, cleared)
+            : current);
+        }
+      }
       setEditingPlaceKey(null);
       setPlaceDraft("");
+      setDateDraft("");
     } catch (cause) {
       // ★ 서버·SDK 가 준 말을 그대로 내지 않는다(§11).
-      setPlaceSaveError(userFacingError(cause, "장소를 저장하지 못했어요. 다시 시도해 주세요."));
+      setPlaceSaveError(userFacingError(cause, "날짜와 장소를 저장하지 못했어요. 다시 시도해 주세요."));
     } finally {
       setIsSavingPlace(false);
     }
+  };
+
+  /** `YYYY.MM.DD` 만 받는다. 아니면 null — 부르는 쪽이 그때는 날짜를 안 건드린다. */
+  const parseDateDraft = (value: string): string | null => {
+    const matched = value.trim().match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+    if (!matched) return null;
+    const [, year, month, day] = matched;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  };
+
+  /**
+   * 저장 버튼 — 날짜가 **바뀔 때만** 한 번 묻는다(§5).
+   *
+   * ★ 묶음이 다시 갈리기 때문이다. 장소만 고칠 때는 묻지 않는다(지금 그대로).
+   * ★ `되돌릴 수 없어요` 라고 쓰지 않는다 — 다시 고치면 된다.
+   */
+  const requestSavePlace = (placeKey: string, photoIds: string[]) => {
+    const parsed = parseDateDraft(dateDraft);
+    if (dateDraft.trim() && !parsed) {
+      setPlaceSaveError("날짜는 2018.07.08 처럼 적어 주세요.");
+      return;
+    }
+    if (parsed && parsed !== placeKey) {
+      setPendingDateMove({ placeKey, photoIds, date: parsed });
+      return;
+    }
+    void handleSavePlace(photoIds, parsed && parsed === placeKey ? parsed : null);
   };
 
   const handleSaveTitle = async (next: string): Promise<string> => {
@@ -865,6 +919,23 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           onCancel={() => setDeleteConfirmOpen(false)}
         />
       ) : null}
+      {/* 날짜 옮기기 — 묶음이 다시 갈리므로 한 번 묻는다(§5).
+          ★ `되돌릴 수 없어요` 라고 쓰지 않는다 — 다시 고치면 된다. */}
+      {pendingDateMove ? (
+        <ConfirmSheet
+          title={`이 날짜의 사진 ${pendingDateMove.photoIds.length}장을 ${pendingDateMove.date.replace(/-/g, ".")} 로 옮길까요?`}
+          description="앨범에서 이 사진들의 자리가 바뀌어요."
+          confirmLabel="옮기기"
+          cancelFirst
+          busy={isSavingPlace}
+          onConfirm={() => {
+            const move = pendingDateMove;
+            setPendingDateMove(null);
+            void handleSavePlace(move.photoIds, move.date);
+          }}
+          onCancel={() => setPendingDateMove(null)}
+        />
+      ) : null}
       {/* 사진 빼기 — 되돌릴 수 없으므로 한 번 묻는다. `그만두기` 가 왼쪽이고 기본이다(§5).
           `영구 삭제`·`복구 불가능` 같은 말을 쓰지 않는다 — `되돌릴 수 없어요` 다(§8). */}
       {removingPhotoId ? (
@@ -920,7 +991,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         />
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
-        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); }, setDraft: setPlaceDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) void handleSavePlace(photoIds); } } : null} />
+        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); setDateDraft(/^\d{4}-\d{2}-\d{2}$/.test(key) ? key.replace(/-/g, ".") : ""); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); setDateDraft(""); }, setDraft: setPlaceDraft, dateDraft, setDateDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) requestSavePlace(key, photoIds); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}

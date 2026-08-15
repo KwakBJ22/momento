@@ -238,3 +238,22 @@
 .chapter-header__place-error {
   margin: 0;
 }
+
+/* 날짜를 고치는 칸 — 장소 칸과 같은 모양이다(한 자리에서 둘을 고친다 · 2026-08-16). */
+.chapter-header__date-input {
+  margin-bottom: 6px;
+}
+
+/* 촬영일이 없는 묶음의 자리 — **주최자에게만** 보인다.
+   EXIF 가 지워진 사진(카톡·다운로드)은 날짜 줄 자체가 안 그려져 넣을 자리가 없었다. */
+.chapter-header__add-date {
+  min-height: var(--tap-min);
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--c-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
