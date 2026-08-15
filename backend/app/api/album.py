@@ -663,7 +663,7 @@ async def upload_album(
                 # ``uploading`` would make the retry path incorrectly treat
                 # it as absent before derivatives are created.
                 # ★ 좌표는 **저장하지 않는다** (PO 판단 2026-08-13). 집 주소가 드러나는
-                #   값이고 앨범은 여럿이 본다. 시·군 이름으로 바꾼 뒤 버린다.
+                #   값이고 앨범은 여럿이 본다. 시·군·구 이름으로 바꾼 뒤 버린다(2026-08-15 · 구까지).
                 #   지명을 못 얻으면(키 없음·카카오 실패·좌표 없음) 장소 없이 그냥 간다.
                 "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso,
                 "latitude": None, "longitude": None,

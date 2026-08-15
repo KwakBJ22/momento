@@ -784,7 +784,7 @@ def contribute_upload_photos(
             "orientation": processed.orientation,
             "taken_at": processed.taken_at.isoformat() if processed.taken_at else None,
             # ★ 좌표는 **저장하지 않는다**(PO 판단 2026-08-13). 집 주소가 드러나는 값이고
-            #   앨범은 여럿이 본다. 시·군 이름으로 바꾼 뒤 버린다.
+            #   앨범은 여럿이 본다. 시·군·구 이름으로 바꾼 뒤 버린다(2026-08-15 · 구까지).
             #   이 자리는 그 규칙이 빠져 있어 좌표를 그대로 넣고 이름은 null 로 박았다 —
             #   앨범을 만들 때와 **같은 함수**를 부른다(판정이 셋으로 갈리지 않게).
             "latitude": None,

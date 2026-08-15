@@ -81,7 +81,8 @@ export default function ChapterHeader({
     // ★ 날짜 · 장소 (사진 N장) — 이 순서다 (PO 2026-08-13).
     //   앞 묶음과 날짜가 같으면 날짜를 빼고 장소부터 쓴다: `제주 성산읍 (사진 2장)`.
     //   같은 날짜를 두 번 읽게 하지 않는다.
-    //   ★ 장소는 시·군까지만이다 — 서버가 그렇게 줄여서 저장한다(집 주소가 드러나면 안 된다).
+    //   ★ 장소는 **구(區)까지**다 — 서버가 그렇게 줄여서 저장한다(2026-08-15 PO).
+    //     동·번지로는 내려가지 않는다(그건 집 주소다).
     const placeText = showPlace ? (place || "").trim() : "";
     // ★ 날짜를 빼는 것은 **대신 쓸 장소가 있을 때뿐**이다.
     //   갈음할 것이 없으면 줄이 비고, 연필만 남는다(PO 2026-08-14).
@@ -108,7 +109,7 @@ export default function ChapterHeader({
               value={placeEdit.draft}
               onChange={(event) => placeEdit.setDraft(event.target.value)}
               maxLength={40}
-              // 시·군까지만 쓴다 — 서버가 저장할 때도 그렇게 줄인다(집 주소가 드러나면 안 된다).
+              // 구(區)까지 쓴다 — 서버가 저장할 때도 그렇게 줄인다(동·번지로는 안 내려간다).
               placeholder="어디였나요? (예: 제주 서귀포시)"
               aria-label="장소 수정"
               autoFocus
