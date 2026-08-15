@@ -19,6 +19,12 @@ export interface AlbumPdfInput {
   templateType?: AlbumTemplateType | string | null;
   chapterStories?: Record<string, string> | null;
   coverPhotoId?: string | null;
+  /** ★ 받기는 하지만 **인쇄에는 넣지 않는다** (PO 결정 2026-08-15 · A안).
+   *  화면에는 `새로 더해진` 자리와 `앨범을 만든 분이 나중에 한 번에 정리해서 앨범을
+   *  다시 만들어요` 한 줄이 있어 "아직 정리 전"이 보이지만, **종이에는 그 맥락이 없다.**
+   *  주최자가 못 본 사진이 책 뒤에 붙어 나가면 되돌릴 수 없다.
+   *  화면 쪽 값을 그대로 넘겨받는 자리를 남겨 두고, 인쇄로 나가는 문턱은 아래
+   *  `renderAlbumPdfBlob` 한 곳에서만 닫는다 — 화면/인쇄를 가르는 자리를 늘리지 않는다(§9). */
   livingAppendPages?: LivingAppendPage[];
   /** "함께 만든 사람" 한 줄 — PDF 에 들어간다(CLAUDE.md §6). ★ 넘기지 않으면 그 줄이
    *  통째로 빠진다. 실제로 그렇게 빠져 있었다: PDF 는 화면과 다른 AlbumRenderer 인스턴스를
@@ -110,6 +116,13 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   host.appendChild(mount);
 
   const root = createRoot(mount);
+  // ★ 인쇄에는 `새로 더해진` 자리를 넣지 않는다 (PO 결정 2026-08-15 · A안).
+  //   사진은 주최자가 반영해야 앨범에 들어간다. 화면에는 그 자리와 안내 한 줄이 있어
+  //   "아직 정리 전"이 보이지만 **종이에는 그 맥락이 없다** — 주최자가 못 본 사진이
+  //   책 뒤에 붙어 나가고, 종이는 되돌릴 수 없다.
+  //   그래서 `input.livingAppendPages` 를 **여기서 버린다.** 렌더러 안에
+  //   `mode === "print"` 갈래를 새로 만들지 않는다 — 화면/인쇄를 가르는 자리를
+  //   하나로 유지한다(§9). 서버 응답도 그대로다(화면이 쓰는 응답이다).
   root.render(
     <AlbumRenderer
       photos={input.photos}
@@ -121,7 +134,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
       chapterStories={input.chapterStories}
       albumId={input.albumId}
       coverPhotoId={input.coverPhotoId}
-      livingAppendPages={input.livingAppendPages}
+      livingAppendPages={[]}
       contributorNames={input.contributorNames ?? []}
       mode="print"
     />,

@@ -154,3 +154,53 @@ test("페이지 나눔이 새 단위를 본다", () => {
   const pdf = read("lib/exportPdf.tsx");
   assert.match(pdf, /const selector = "\.album-cover, \.print-page, \.print-closing, \.album-living-page, \.album-renderer__brand-page"/);
 });
+
+/**
+ * ★ 주최자가 반영하지 않은 사진은 **인쇄에 넣지 않는다** (PO 결정 2026-08-15 · A안).
+ *
+ * 사진은 주최자가 반영해야 앨범에 들어간다(17차). 화면에는 `새로 더해진` 자리와
+ * `앨범을 만든 분이 나중에…` 한 줄이 있어 "아직 정리 전"이 보이지만, **종이에는 그
+ * 맥락이 없다.** 주최자가 못 본 사진이 책 뒤에 붙어 나가고 종이는 되돌릴 수 없다.
+ *
+ * 문턱은 **렌더러가 아니라 PDF 를 만드는 자리**에 있다 — `mode === "print"` 갈래를
+ * 렌더러 안에 늘리지 않는다(§9). 그래서 두 쪽을 같이 잰다.
+ */
+const LIVING_PAGE = [{
+  id: "page-1", type: "append_page", created_at: "2026-08-02T00:00:00Z",
+  photos: [photo("p9", "2026-08-02", "나중에 올린 사진")],
+  memories: [{ id: "mem-1", author_name: "둘째", content: "늦었지만 한마디", created_at: "2026-08-02T00:00:00Z" }],
+}];
+
+test("★ 인쇄에는 `새로 더해진` 자리가 오지 않는다 — 종이는 되돌릴 수 없다", async () => {
+  // ① PDF 를 만드는 자리가 빈 배열을 넘긴다 — 화면 값을 그대로 흘려보내지 않는다.
+  const pdf = read("lib/exportPdf.tsx");
+  assert.match(pdf, /livingAppendPages=\{\[\]\}/, "화면 값이 그대로 인쇄로 간다");
+  assert.equal(pdf.includes("livingAppendPages={input.livingAppendPages}"), false, "인쇄로 넘기는 자리가 남았다");
+  // ② 그렇게 넘겼을 때 인쇄 렌더에 그 자리가 하나도 없다.
+  const view = await renderPrint([photo("p1", "2026-08-01")], { livingAppendPages: [] });
+  assert.equal(view.container.querySelectorAll(".album-living-page").length, 0);
+  // 본문은 그대로 인쇄된다 — 통째로 지운 것이 아니다.
+  assert.equal(view.container.querySelectorAll(".print-frame").length, 1);
+  assert.match(view.container.textContent || "", /좋은 날이었다\./, "`우리의 이야기` 가 사라졌다");
+  await view.React.act(async () => { view.root.unmount(); });
+});
+
+test("★ 화면에는 그대로 나온다 — 인쇄만 막았지 화면까지 지우지 않았다", async () => {
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: AlbumRenderer } = await import("../src/album-engine/AlbumRenderer");
+  const container = document.getElementById("root")!;
+  container.innerHTML = "";
+  const root = createRoot(container);
+  await React.act(async () => {
+    root.render(React.createElement(AlbumRenderer, {
+      photos: [photo("p1", "2026-08-01")], title: "우리 여행", epilogue: "좋은 날이었다.",
+      albumId: "album-1", mode: "screen", livingAppendPages: LIVING_PAGE,
+    } as never));
+  });
+  await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+  assert.equal(container.querySelectorAll(".album-living-page").length, 1, "화면에서도 사라졌다");
+  assert.equal(container.querySelectorAll(".album-living-page__photos img").length, 1, "사진이 안 그려진다");
+  assert.match(container.textContent || "", /늦었지만 한마디/, "그 자리의 글이 사라졌다");
+  await React.act(async () => { root.unmount(); });
+});
