@@ -59,13 +59,13 @@ async function renderHeader(placeEdit: Record<string, unknown> | null) {
 
 test("★ 참여자·구경꾼에게는 연필이 안 보인다", async () => {
   const none = await renderHeader(null);
-  assert.equal(none.pencil(), null, "권한 없이 연필이 보인다");
+  assert.equal(none.pencil() === null, true, "권한 없이 연필이 보인다");
   assert.match(none.text(), /제주 서귀포시/, "장소 자체는 보여야 한다");
   await none.cleanup();
 
   const reader = await renderHeader({ canEdit: false, editingKey: null, savingKey: null, draft: "",
     startEdit: () => {}, cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
-  assert.equal(reader.pencil(), null, "canEdit=false 인데 연필이 보인다");
+  assert.equal(reader.pencil() === null, true, "canEdit=false 인데 연필이 보인다");
   await reader.cleanup();
 });
 
@@ -75,7 +75,7 @@ test("★ 주최자에게는 연필이 보이고, 누르면 그 자리가 입력
     startEdit: (key: string, text: string) => { started.push([key, text]); },
     cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
   const pencil = owner.pencil();
-  assert.ok(pencil, "주최자인데 연필이 없다");
+  assert.equal(pencil != null, true, "주최자인데 연필이 없다");
   await owner.React.act(async () => { pencil!.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); });
   assert.deepEqual(started, [["2018-07-08", "제주 서귀포시"]], "지금 값이 담긴 채로 열려야 한다");
   await owner.cleanup();
@@ -83,8 +83,8 @@ test("★ 주최자에게는 연필이 보이고, 누르면 그 자리가 입력
   // 고치는 중이면 같은 자리에 입력칸이 있다 — 시트를 새로 열지 않는다.
   const editing = await renderHeader({ canEdit: true, editingKey: "2018-07-08", savingKey: null,
     draft: "제주 서귀포시", startEdit: () => {}, cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
-  assert.ok(editing.input(), "그 자리에 입력칸이 없다");
-  assert.equal(editing.container.querySelector(".album-inline-action"), null, "새 시트를 열었다");
+  assert.equal(editing.input() != null, true, "그 자리에 입력칸이 없다");
+  assert.equal(editing.container.querySelector(".album-inline-action") === null, true, "새 시트를 열었다");
   await editing.cleanup();
 });
 

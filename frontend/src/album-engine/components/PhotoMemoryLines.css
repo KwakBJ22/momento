@@ -253,7 +253,9 @@
 }
 
 /* 40+ 화면 가독성: 화면 모드에서만 캡션 14px 하한(인쇄 원본 유지). */
-.album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: clamp(0.875rem, 1.55vw, 0.9rem); }
+/* 시안 album-skins-v2: 캡션은 16px / weight 600 이다. 한마디(15px/400)와
+   **같은 크기·굵기를 쓰지 않는 것**이 두 계층을 가르는 절반이다. */
+.album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: 16px; font-weight: 600; }
 .album-renderer--screen .photo-memory-lines__action { font-size: var(--t-xs); }
 
 /* 남의 캡션을 열기 전 확인 한 단계(SCREEN_SPEC §7). 경고색을 쓰지 않는다 —

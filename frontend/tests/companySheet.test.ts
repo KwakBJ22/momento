@@ -25,12 +25,12 @@ async function openCompanySheet() {
 
   const opener = Array.from(container.querySelectorAll("button"))
     .find((button) => button.textContent?.includes("회사 정보")) as HTMLButtonElement;
-  assert.ok(opener, "푸터에 `회사 정보` 진입점이 있어야 한다");
+  assert.equal(opener != null, true, "푸터에 `회사 정보` 진입점이 있어야 한다");
   await React.act(async () => { opener.click(); });
   await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
 
   const sheet = container.querySelector("[aria-label='회사 정보']") as HTMLElement;
-  assert.ok(sheet, "시트가 열려야 한다");
+  assert.equal(sheet != null, true, "시트가 열려야 한다");
   return { React, root, sheet, container };
 }
 
@@ -48,7 +48,7 @@ test("시트에 6줄이 있다 (사업자 5 + 홈페이지)", async () => {
 test("홈페이지는 새 창으로 열리고, 앱을 벗어나는 링크임이 보인다", async () => {
   const view = await openCompanySheet();
   const link = view.sheet.querySelector("a[href^='https://insightnet.co.kr']") as HTMLAnchorElement;
-  assert.ok(link, "홈페이지 링크가 있어야 한다");
+  assert.equal(link != null, true, "홈페이지 링크가 있어야 한다");
   assert.equal(link.target, "_blank");
   assert.match(link.rel, /noopener/);
   assert.match(link.textContent || "", /insightnet\.co\.kr/);

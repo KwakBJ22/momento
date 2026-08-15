@@ -69,7 +69,7 @@ test("★ 이름을 로고 조합으로 쓴다 — 보통 글자가 아니다", 
   });
   // 로고 조합: 우리(진한 글자색) + 앨범(브랜드색). 두 조각이 따로 있어야 색을 나눌 수 있다.
   const word = container.querySelector(".album-brand-mark__word");
-  assert.ok(word, "로고 조합이 없다(보통 글자로 적었다)");
+  assert.equal(word !== null, true, "로고 조합이 없다(보통 글자로 적었다)");
   assert.equal(word!.querySelector("b")?.textContent, "우리");
   assert.equal(word!.querySelector("i")?.textContent, "앨범");
   // 기간은 다듬어진 형태로 들어간다.

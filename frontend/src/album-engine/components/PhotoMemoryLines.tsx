@@ -55,7 +55,11 @@ export default function PhotoMemoryLines({
   if (!lines.length && !(showEditWhenEmpty && canInlineEdit)) return null;
 
   const tier = photoMemoryLayoutTier(lines);
-  const multiAuthor = photoMemoryHasAuthors(lines);
+  // ★ **캡션에는 이름을 붙이지 않는다** (CLAUDE.md §6 · 화면_기준 §7).
+  //   캡션은 그 사진을 올린 사람의 말이라 이름이 없어도 누구 말인지 자연스럽고,
+  //   사진마다 이름이 붙으면 인쇄물이 지저분해진다. 누가 썼는지는 마운트 **밖**
+  //   한마디에서 보인다. (시안 v1 에 이름 붙은 판이 있었으나 v2 에서 잡았다.)
+  const multiAuthor = variant !== "caption" && photoMemoryHasAuthors(lines);
   const displayText = hasExplicitEditableText ? (editableText ?? "").trim() : (lines[0]?.text ?? "");
 
   const classes = [

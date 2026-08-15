@@ -74,7 +74,7 @@ test("③ 딤을 누르면 닫힌다", async () => {
   const { root, show, closes, React } = await mount();
   await show(true);
   const dim = document.querySelector("[aria-hidden=true]") as HTMLElement;
-  assert.ok(dim, "딤이 있어야 한다");
+  assert.equal(dim != null, true, "딤이 있어야 한다");
   dim.click();
   assert.equal(closes.length, 1, "딤 클릭이 닫기를 호출해야 한다");
   await React.act(async () => { root.unmount(); });
@@ -91,11 +91,11 @@ test("④ Tab 이 대화상자 안에서 순환한다 (밖으로 빠져나가지
 
   last.focus();
   document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
-  assert.equal(document.activeElement, first, "마지막에서 Tab 을 누르면 처음으로 돈다");
+  assert.equal(document.activeElement === first, true, "마지막에서 Tab 을 누르면 처음으로 돈다");
 
   first.focus();
   document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
-  assert.equal(document.activeElement, last, "처음에서 Shift+Tab 을 누르면 마지막으로 돈다");
+  assert.equal(document.activeElement === last, true, "처음에서 Shift+Tab 을 누르면 마지막으로 돈다");
   await React.act(async () => { root.unmount(); });
 });
 
@@ -104,7 +104,7 @@ test("⑤ 닫으면 열었던 버튼으로 포커스가 돌아온다", async () 
   await show(true);
   await show(false);
   await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
-  assert.equal(document.activeElement, trigger, "열었던 자리로 포커스가 돌아와야 한다");
+  assert.equal(document.activeElement === trigger, true, "열었던 자리로 포커스가 돌아와야 한다");
   await React.act(async () => { root.unmount(); });
 });
 

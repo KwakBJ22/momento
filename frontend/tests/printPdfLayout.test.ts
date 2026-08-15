@@ -56,10 +56,10 @@ test("표지와 브랜드 페이지가 각각 독립 페이지다", async () => 
   const view = await renderPrint([photo("p1", "2026-08-01")]);
   const cover = view.container.querySelector(".album-cover");
   const brand = view.container.querySelector(".album-renderer__brand-page");
-  assert.ok(cover, "표지가 있어야 한다");
-  assert.ok(brand, "브랜드 페이지가 있어야 한다");
+  assert.equal(cover !== null, true, "표지가 있어야 한다");
+  assert.equal(brand !== null, true, "브랜드 페이지가 있어야 한다");
   // 예전에는 본문 끝에 작게 붙는 footer 였다 — 독립 section 으로 바꿨다.
-  assert.equal(view.container.querySelector(".album-renderer__brand-footer"), null);
+  assert.equal(view.container.querySelector(".album-renderer__brand-footer") === null, true);
 
   const css = read("album-engine/components/PrintPages.css");
   // 한 덩어리가 정확히 A4 한 장이라, 표지 아래에 본문이 붙을 자리가 없다.
@@ -89,17 +89,17 @@ test("★ 날짜 머리글과 그 날 첫 사진이 같은 페이지에 있다",
   const view = await renderPrint(photos);
   const pages = Array.from(view.container.querySelectorAll(".print-page"));
   const first = pages[0];
-  assert.ok(first.querySelector(".chapter-header"), "첫 장에 머리글이 있다");
-  assert.ok(first.querySelector(".print-frame"), "머리글만 앞 장에 남지 않는다");
+  assert.equal(first.querySelector(".chapter-header") !== null, true, "첫 장에 머리글이 있다");
+  assert.equal(first.querySelector(".print-frame") !== null, true, "머리글만 앞 장에 남지 않는다");
   // 이어지는 장에는 머리글을 다시 붙이지 않는다.
-  assert.equal(pages[1].querySelector(".chapter-header"), null);
+  assert.equal(pages[1].querySelector(".chapter-header") === null, true);
   await view.React.act(async () => { view.root.unmount(); });
 });
 
 test("사진과 캡션이 하나의 프레임 안에 있다", async () => {
   const view = await renderPrint([photo("p1", "2026-08-01", "그날 바람이 좋았다.")]);
   const frame = view.container.querySelector(".print-frame")!;
-  assert.ok(frame.querySelector("img"), "프레임 안에 사진");
+  assert.equal(frame.querySelector("img") !== null, true, "프레임 안에 사진");
   assert.match(frame.textContent || "", /그날 바람이 좋았다\./, "프레임 안에 캡션");
   await view.React.act(async () => { view.root.unmount(); });
 });
@@ -108,7 +108,7 @@ test("★ 화면(웹·공유)에는 사진 프레임이 없다", async () => {
   const view = await renderPrint([photo("p1", "2026-08-01", "캡션")], { mode: "screen" });
   assert.equal(view.container.querySelectorAll(".print-frame").length, 0);
   assert.equal(view.container.querySelectorAll(".print-page").length, 0);
-  assert.equal(view.container.querySelector(".album-cover"), null, "화면에는 표지가 없다");
+  assert.equal(view.container.querySelector(".album-cover") === null, true, "화면에는 표지가 없다");
   // 프레임 CSS 도 인쇄 모드에서만 걸린다.
   const css = read("album-engine/components/PrintPages.css");
   for (const line of css.split("\n").filter((l) => l.includes(".print-frame") && l.includes("{"))) {
@@ -141,8 +141,8 @@ test("★ PDF 안의 브랜드는 로고 조합이다 (검은 글자 단독 표�
   const brand = view.container.querySelector(".album-renderer__brand-page")!;
   // 로고 조합: `우리`(진한 글자색) + `앨범`(브랜드색) — BrandMark 가 두 조각으로 그린다.
   const mark = brand.querySelector(".brand-mark");
-  assert.ok(mark, "브랜드 페이지에 로고가 있어야 한다");
-  assert.ok(mark!.querySelector("b") && mark!.querySelector("i"), "두 색 조각으로 그린다");
+  assert.equal(mark !== null, true, "브랜드 페이지에 로고가 있어야 한다");
+  assert.equal(mark!.querySelector("b") !== null && mark!.querySelector("i") !== null, true, "두 색 조각으로 그린다");
   // 서비스 이름을 글자로만 적은 자리가 없다.
   const renderer = read("album-engine/AlbumRenderer.tsx");
   const code = renderer.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "");

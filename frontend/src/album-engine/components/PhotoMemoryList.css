@@ -1,27 +1,61 @@
-/* 사진에 달린 한마디 목록 (K-23 · SCREEN_SPEC §7).
-   ★ 사진 프레임 **밖**이다. 캡션과 자리가 다른 것이 이 계층의 정의다.
-   ★ 카드·테두리·그림자·배경을 쓰지 않는다 — 사진이 가장 커야 한다(§6).
-   ★ 이름은 굵게, 말은 보통 — 한 줄에 이어 읽힌다.
-   ★ 프레임과 사이가 **눈에 보이게** 떨어져 있어야 한다. 캡션이 비어 있으면 한마디가
-     사진 바로 아래로 올라붙어 캡션처럼 읽히기 때문이다(PO 실기기 확인 2026-08-10).
-     캡션은 프레임 안에서 가운데 정렬이고, 한마디는 프레임 밖에서 왼쪽으로 흐른다 —
-     테두리 밖 · 간격 · 정렬 셋이 겹쳐 두 계층이 섞이지 않는다. */
+/* 사진에 달린 한마디 목록 (K-23 · SCREEN_SPEC §7 · 시안 album-skins-v2).
+   ★ **마운트가 곧 인쇄되는 경계다.** 마운트 안(캡션)은 종이에 남고, 이 세로선 아래는
+     화면에서만 산다. 자리로 갈라 두면 설명 없이 규칙이 전달된다.
+   ★ 왼쪽 세로선으로 들여쓴다 — 카드·말풍선을 만들지 않는다(§6, 사진이 가장 크다).
+   ★ 글자는 캡션(16px/600)과 **같은 크기·굵기를 쓰지 않는다**(15px/400). 그것이
+     구분의 절반이다. */
 .photo-memory-list {
-  /* ★ 1.35rem 은 눈대중이 아니다 — 프레임이 ±3° 기울면 겉넓이가 위아래로 각 10px 남짓
-     늘어난다(실측: 0.9rem 일 때 남는 틈 5.7px). 기운 뒤에도 틈이 보이게 잡은 값이다. */
-  margin: 1.35rem 0 0;
-  padding: 0 0.15rem;
-  list-style: none;
-  display: grid;
-  gap: 0.3rem;
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 2px solid var(--c-hairline);
   text-align: start;
 }
 
+.photo-memory-list__items {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .photo-memory-list__item {
-  color: var(--c-text-soft);
-  font-size: var(--t-sm);
-  line-height: 1.55;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   word-break: keep-all;
+}
+
+/* 아바타 배경은 **사람마다 고정**이다(무작위 금지 — 새로고침마다 바뀌면 안 된다).
+   두 벌을 이름으로 번갈아 정한다. 정하는 규칙은 컴포넌트에 있다. */
+.photo-memory-list__avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.photo-memory-list__avatar--accent {
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+}
+
+.photo-memory-list__avatar--soft {
+  background: var(--c-bg-soft);
+  color: var(--c-text-soft);
+}
+
+.photo-memory-list__body {
+  min-width: 0;
+  color: var(--c-text-soft);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .photo-memory-list__author {
@@ -34,8 +68,30 @@
   white-space: pre-line;
 }
 
+/* 접기 한 줄 · 비었을 때의 `한마디 남기기` — 같은 모양이다. */
+.photo-memory-list__more {
+  display: block;
+  min-height: var(--tap-min);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.photo-memory-list__items + .photo-memory-list__more {
+  margin-top: 2px;
+}
+
 /* 인쇄에서는 아예 없다. 부르는 쪽이 화면일 때만 그리지만, PDF 가 화면 DOM 을 찍는
    경로(html2canvas)도 있어서 여기서도 한 번 더 막는다 — 종이는 되돌릴 수 없다. */
 @media print {
   .photo-memory-list { display: none !important; }
 }
+
+/* 인쇄 렌더 안에서는 어떤 경로로도 그리지 않는다(§7). */
+.album-renderer--print .photo-memory-list { display: none !important; }

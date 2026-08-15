@@ -65,7 +65,7 @@ async function render(photo: unknown) {
 
 test("★ 한마디의 부모는 프레임이 아니라 격자 한 칸이다", async () => {
   const dom = await render(PHOTO_WITH_MEMORY);
-  assert.ok(dom.list, "한마디 목록이 그려지지 않았다");
+  assert.equal(dom.list !== null, true, "한마디 목록이 그려지지 않았다");
   assert.equal(dom.frame.contains(dom.list), false, "프레임이 한마디를 품고 있다");
   assert.equal(dom.list.parentElement?.className, "photo-block album-photo-card");
   // 사진은 프레임 안이다 — 프레임이 빈 껍데기가 되면 안 된다.
@@ -81,8 +81,8 @@ test("★ 프레임 안에는 사진과 캡션만 있다", async () => {
   assert.match(inside[0], /album-photo-frame/);
   assert.match(inside[1], /photo-memory-lines--caption/);
   // 한마디는 그 다음, 프레임 밖이다.
-  assert.equal(dom.block.children[0], dom.frame);
-  assert.equal(dom.block.children[1], dom.list);
+  assert.equal(dom.block.children[0] === dom.frame, true, "첫 자리가 프레임이 아니다");
+  assert.equal(dom.block.children[1] === dom.list, true, "둘째 자리가 한마디가 아니다");
   await dom.cleanup();
 });
 
@@ -95,9 +95,14 @@ test("★ 기우는 것은 프레임뿐이다 — 한마디는 같이 기울지 
   await dom.cleanup();
 });
 
-test("한마디가 없으면 프레임 밖에 빈 자리를 만들지 않는다", async () => {
+test("한마디가 없으면 `한마디 남기기` 한 줄만 둔다 (프레임 밖)", async () => {
+  // ★ 2026-08-15 에 뒤집었다. 예전에는 아무것도 안 그렸는데, C1 에서
+  //   `한마디 남기기` 한 줄(44px)을 두기로 정했다. 없으면 참여자가 글을 남길
+  //   자리를 못 찾는다. 프레임 **밖**이라는 규칙은 그대로다.
   const dom = await render({ ...PHOTO_WITH_MEMORY, comments: [] });
-  assert.equal(dom.list, null);
-  assert.equal(dom.block.children.length, 1);
+  assert.equal(dom.list !== null, true, "`한마디 남기기` 줄이 없다");
+  assert.equal(dom.list.className.includes("photo-memory-list--empty"), true);
+  assert.equal(dom.frame.contains(dom.list), false, "프레임이 품고 있다");
+  assert.equal(dom.block.children.length, 2);
   await dom.cleanup();
 });

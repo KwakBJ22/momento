@@ -122,7 +122,7 @@ test("시트 안은 §5 그대로다 — 세 항목, 각각 설명 한 줄", asy
     "구경용 링크를 복사해요",
   ]);
   // 시트 밖을 눌러 닫을 수 있다(다른 시트와 같은 방식).
-  assert.ok(container.querySelector(".album-sheet-dim"));
+  assert.equal(container.querySelector(".album-sheet-dim") !== null, true, "시트 밖 딤이 없다");
   await React.act(async () => { root.unmount(); });
 });
 

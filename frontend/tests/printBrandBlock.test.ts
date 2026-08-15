@@ -62,7 +62,7 @@ test("★ 순서는 로고 → 영문 → 주소다", async () => {
   assert.equal(page.querySelector(".album-renderer__brand-en")?.textContent, "woorialbum");
   assert.equal(page.querySelector(".album-renderer__brand-url")?.textContent, "woorialbum.com");
   // ★ 주소는 글자로만 쓴다 — 인쇄물이라 링크로 만들지 않는다.
-  assert.equal(page.querySelector("a"), null);
+  assert.equal(page.querySelector("a") === null, true);
   await React.act(async () => { root.unmount(); });
 });
 
@@ -80,7 +80,7 @@ test("★ 화면 렌더는 건드리지 않는다 — 두 줄은 인쇄에만 �
       title: "표본", epilogue: "끝", albumId: "a", mode: "screen", contributorNames: ["가"],
     } as never));
   });
-  assert.equal(container.querySelector(".album-renderer__brand-id"), null, "화면에 새 두 줄이 생겼다");
+  assert.equal(container.querySelector(".album-renderer__brand-id") === null, true, "화면에 새 두 줄이 생겼다");
   await React.act(async () => { root.unmount(); });
 });
 
@@ -116,12 +116,12 @@ test("★ 자리가 있으면 끝 글 쪽 **아래**에 붙고, 없으면 제 �
 
   const roomy = build(true);
   assert.equal(placeBrandOnClosingPage(roomy), "closing");
-  assert.ok(roomy.querySelector(".print-closing > .album-renderer__brand-page"), "끝 글 쪽 안에 들어가야 한다");
+  assert.equal(roomy.querySelector(".print-closing > .album-renderer__brand-page") !== null, true, "끝 글 쪽 안에 들어가야 한다");
   assert.equal(roomy.querySelector<HTMLElement>(".album-renderer__brand-page")!.dataset.printBrandInline, "1");
 
   const tight = build(false);
   assert.equal(placeBrandOnClosingPage(tight), "own-page");
-  assert.equal(tight.querySelector(".print-closing > .album-renderer__brand-page"), null, "제 쪽으로 되돌아가야 한다");
+  assert.equal(tight.querySelector(".print-closing > .album-renderer__brand-page") === null, true, "제 쪽으로 되돌아가야 한다");
   const returned = tight.querySelector<HTMLElement>(".album-renderer__brand-page")!;
   assert.equal(returned.dataset.printBrandInline, undefined, "되돌릴 때 표시도 지운다");
   assert.equal(returned.parentElement?.className, "album-renderer__body");

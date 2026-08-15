@@ -110,10 +110,10 @@ test("★ 캡션이 프레임 안이다 — 함께 기운다 (I-1b 로 뒤집힌
   //   검사이므로 첫째가 아닌 프레임을 고른다 — 그 규칙은 아래 별도 검사가 지킨다.
   const frames = view.container.querySelectorAll(".album-screen-photo-grid > .photo-block > .photo-block__frame");
   const frame = frames[1] as HTMLElement;
-  assert.ok(frame, "둘째 사진 프레임이 있어야 한다");
+  assert.equal(frame != null, true, "둘째 사진 프레임이 있어야 한다");
   const caption = frame.querySelector(".photo-memory-lines--caption");
   // 캡션이 프레임의 **자손**이다(형제가 아니다).
-  assert.ok(caption, "캡션이 프레임 안에 있어야 한다");
+  assert.equal(caption !== null, true, "캡션이 프레임 안에 있어야 한다");
   // 회전은 프레임에 붙고, 캡션은 그 안에 있으므로 함께 기운다.
   assert.match(frame.getAttribute("style") || "", /rotate\(/, "프레임이 기운다");
   assert.equal(/rotate\(/.test(caption!.getAttribute("style") || ""), false, "캡션에 따로 회전을 주지 않는다");
