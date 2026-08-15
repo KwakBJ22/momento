@@ -65,6 +65,7 @@ from app.services.collaboration_service import (
     update_photo_memory,
 )
 from app.services.image_upload_service import process_upload
+from app.services.place_name_service import resolve_place_for_upload
 from app.services.storage_service import StorageService
 from app.services.membership import get_album_access
 from app.services.supabase import (
@@ -782,14 +783,14 @@ def contribute_upload_photos(
             "height": processed.height or None,
             "orientation": processed.orientation,
             "taken_at": processed.taken_at.isoformat() if processed.taken_at else None,
-            "latitude": processed.latitude,
-            "longitude": processed.longitude,
-            "location_name": None,
-            "location_source": (
-                "exif"
-                if processed.latitude is not None and processed.longitude is not None
-                else "unknown"
-            ),
+            # ★ 좌표는 **저장하지 않는다**(PO 판단 2026-08-13). 집 주소가 드러나는 값이고
+            #   앨범은 여럿이 본다. 시·군 이름으로 바꾼 뒤 버린다.
+            #   이 자리는 그 규칙이 빠져 있어 좌표를 그대로 넣고 이름은 null 로 박았다 —
+            #   앨범을 만들 때와 **같은 함수**를 부른다(판정이 셋으로 갈리지 않게).
+            "latitude": None,
+            "longitude": None,
+            "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+            "location_source": place[1],
             "created_at": created_at,
         }
         save_album_photo_records(client, [record])

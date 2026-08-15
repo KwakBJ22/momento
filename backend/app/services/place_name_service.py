@@ -111,3 +111,21 @@ def resolve_city_name_cached(latitude: float | None, longitude: float | None, ap
     if latitude is None or longitude is None or not api_key:
         return None
     return _resolve_cached(round(latitude, _GRID_DECIMALS), round(longitude, _GRID_DECIMALS), api_key)
+
+
+def resolve_place_for_upload(latitude: float | None, longitude: float | None, settings: Any) -> tuple[str | None, str]:
+    """사진 한 장을 저장할 때 쓸 `(장소 이름, 출처)` — **좌표는 부르는 쪽이 버린다.**
+
+    ★ 부르는 자리가 셋이다: 앨범 만들 때 · 그 밖의 업로드 · 참여자가 사진을 더할 때.
+      셋이 각자 적으면 갈린다 — 실제로 갈렸다(2026-08-15 dev 실측: 셋 중 **하나만**
+      이름을 채웠고, 나머지 둘은 이름을 null 로 박은 채 **좌표를 그대로 저장**했다).
+      그래서 세 자리가 이 함수 하나를 부른다.
+
+    ★ 출처는 **이름을 얻었는지**로 정한다. 좌표가 있는지로 정하면, 이름이 없는데도
+      `exif` 라고 적혀 화면이 "장소를 안다"고 잘못 읽는다.
+
+    ★ `getattr` 이다. 이 설정 값이 없어도 **업로드는 통과해야 한다** —
+      place_name_service 가 약속한 것이 그것이다.
+    """
+    place_name = resolve_city_name_cached(latitude, longitude, getattr(settings, "kakao_rest_api_key", ""))
+    return place_name, ("exif" if place_name else "unknown")

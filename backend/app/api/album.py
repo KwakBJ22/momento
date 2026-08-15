@@ -112,7 +112,7 @@ from app.services.supabase import (
     upload_result_image,
 )
 from app.services.image_upload_service import parse_captured_at, parse_coordinate, process_upload, validate_upload_limits
-from app.services.place_name_service import resolve_city_name_cached
+from app.services.place_name_service import resolve_place_for_upload
 from app.services.album_generation_service import (
     create_generation_job,
     generation_status,
@@ -667,14 +667,10 @@ async def upload_album(
                 #   지명을 못 얻으면(키 없음·카카오 실패·좌표 없음) 장소 없이 그냥 간다.
                 "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso,
                 "latitude": None, "longitude": None,
-                "location_name": (place_name := resolve_city_name_cached(
-                    # ★ getattr 이다. 이 설정 값이 없어도 **업로드는 통과해야 한다** —
-                    #   place_name_service 가 약속한 것이 그것이다("사진 업로드가 지명
-                    #   하나 때문에 실패하면 안 된다"). 직접 읽었더니 값이 없는 설정에서
-                    #   AttributeError 로 500 이 났다.
-                    processed.latitude, processed.longitude, getattr(settings, "kakao_rest_api_key", ""),
-                )),
-                "location_source": "exif" if place_name else "unknown",
+                # 판정은 place_name_service 한 곳에 있다 — 저장하는 자리가 셋이라 각자
+                # 적으면 갈린다(실제로 갈렸다). 여기서는 그 결과를 넣기만 한다.
+                "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+                "location_source": place[1],
                 "orientation": processed.orientation, "width": processed.width or None, "height": processed.height or None,
             })
             if int(entry["upload_order"]) == cover_photo_order:
@@ -691,7 +687,7 @@ async def upload_album(
                 "metadata": {"source": "album_photos", "datetime_original": processed.datetime_original,
                              "create_date": processed.create_date, "upload_order": entry["upload_order"],
                              "day_group_count": len(_day_groups),
-                             "location_source": "exif" if place_name else "unknown"},
+                             "location_source": place[1]},
             })
         originals_uploaded_at = time.perf_counter()
         _log_upload_stage(
@@ -868,14 +864,12 @@ async def upload_album(
                     "legacy_author_label": story["user"] or None,
                     "status": ALBUM_PHOTO_READY,
                     "taken_at": taken_at_iso,
-                    "latitude": processed.latitude,
-                    "longitude": processed.longitude,
-                    "location_name": None,
-                    "location_source": (
-                        "exif"
-                        if processed.latitude is not None and processed.longitude is not None
-                        else "unknown"
-                    ),
+                    # ★ 좌표는 **저장하지 않는다**(PO 판단 2026-08-13). 이 자리는 그 규칙이
+                    #   빠져 있어 좌표를 그대로 넣고 이름은 null 로 박았다 — 위 자리와 같게 맞춘다.
+                    "latitude": None,
+                    "longitude": None,
+                    "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+                    "location_source": place[1],
                     "orientation": processed.orientation,
                     "width": processed.width or None,
                     "height": processed.height or None,
@@ -897,8 +891,9 @@ async def upload_album(
                     "sort_order": sort_order,
                     "processing_status": "ready",
                     "taken_at": taken_at_iso,
-                    "latitude": processed.latitude,
-                    "longitude": processed.longitude,
+                    # 원본 기록에도 좌표를 남기지 않는다 — 위와 같은 이유다.
+                    "latitude": None,
+                    "longitude": None,
                     "orientation": processed.orientation,
                     "metadata": {
                         "source": "album_photos",
@@ -906,11 +901,7 @@ async def upload_album(
                         "create_date": processed.create_date,
                         "upload_order": entry["upload_order"],
                         "day_group_count": len(_day_groups),
-                        "location_source": (
-                            "exif"
-                            if processed.latitude is not None and processed.longitude is not None
-                            else "unknown"
-                        ),
+                        "location_source": place[1],
                     },
                 }
             )
