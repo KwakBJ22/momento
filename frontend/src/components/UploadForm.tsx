@@ -234,6 +234,10 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
    *   깨짐→다시 만듦 이 끝없이 돈다).
    */
   const repairPreview = (id: string) => {
+    // ★ K-10 계측 (2026-08-15) — 고치는 것이 아니라 **재는** 줄이다. 화면에는 아무것도
+    //   내지 않는다. 세는 자리는 여기 하나이므로 상태 갱신 **밖**에서 남긴다
+    //   (updater 안에 두면 React 가 두 번 부를 때 두 번 찍힌다).
+    console.warn("[K-10] repair", { index: photosRef.current.findIndex((photo) => photo.id === id) });
     setPhotos((previous) => previous.map((photo) => {
       if (photo.id !== id || photo.previewRetried) return photo;
       URL.revokeObjectURL(photo.previewUrl);
