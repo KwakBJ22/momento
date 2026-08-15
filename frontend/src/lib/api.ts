@@ -466,14 +466,22 @@ export async function updateAlbumCoverPhoto(albumId: string, photoId: string): P
   return response.json() as Promise<{ cover_photo_id: string | null; cover_image_url: string | null }>;
 }
 
-export async function startPublicContribution(token: string, guestId: string | null, displayName: string) {
+/**
+ * 이름을 적고 참여 세션을 만든다.
+ *
+ * ★ `intent` 는 **무엇을 하려고 이름을 적는가**다(PO 2026-08-16 · `인쇄되는 것만 잠근다`).
+ *   `memory` 면 감상 링크에서도, 확정된 앨범에서도 받아 준다 — 한마디는 인쇄되지 않는다.
+ *   그때 서버는 그 사람을 **참여자로 만들지 않는다**(이름만 받는다 · 화면_기준 §1).
+ *   넘기지 않으면 예전 그대로 사진이다.
+ */
+export async function startPublicContribution(token: string, guestId: string | null, displayName: string, intent: "photo" | "memory" = "photo") {
   const session = await getSession();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ guest_id: guestId, display_name: displayName }),
+    body: JSON.stringify({ guest_id: guestId, display_name: displayName, intent }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<{ album_id: string; contributor_id: string; guest_id: string | null; display_name: string }>;

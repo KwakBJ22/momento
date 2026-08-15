@@ -104,8 +104,9 @@ test("★ 쓸 수 없으면 예전 그대로다 — 하단 네비 흐름으로 �
 });
 
 test("★ 구경꾼도 한마디를 쓴다 — 캡션과 갈려 있다 (회귀 ①)", () => {
-  // 한마디: 백엔드의 can_contribute 하나로 가른다(역할을 추측하지 않는다).
-  assert.match(view, /canWrite: \(\) => requestedEdition === null && displayAlbum\?\.can_contribute === true/);
+  // ★ 2026-08-16 — 한마디는 can_add_memory 를 본다(볼 수 있으면 참). 예전에는
+  //   can_contribute(사진과 한마디를 묶은 값)라 참여가 끝나면 한마디까지 막혔다.
+  assert.match(view, /canWrite: \(\) => requestedEdition === null && displayAlbum\?\.can_add_memory === true/);
   // 캡션: 그 사진의 can_edit_caption 이다. 둘이 **다른 값**을 본다.
   assert.match(view, /canEditPhoto: \(photoId: string\) => photoById\.get\(photoId\)\?\.can_edit_caption === true/);
 });

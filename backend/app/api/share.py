@@ -37,7 +37,7 @@ from app.services.supabase import (
     get_supabase_client,
 )
 from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, pending_contribution_rules, resolve_contributor_names, unpack_edition_snapshot
-from app.services.collaboration_service import count_active_contributors, join_as_contributor, new_guest_id
+from app.services.collaboration_service import VIEWER_CONTRIBUTOR_ROLE, count_active_contributors, join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
 
@@ -390,7 +390,11 @@ def get_public_share(
         # 함께한 사람 수 — 주최자를 포함한다(§1). 세는 식은 count_active_contributors 한 곳.
         contributor_count=count_active_contributors(client, album_id),
         # 프런트는 링크 종류를 알지 않는다. "무엇을 할 수 있는가"만 본다(SCREEN_SPEC §1).
+        # ★ 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 결정 2026-08-16).
+        #   사진은 링크 종류·참여 종료에 걸리고, 한마디는 이 링크를 볼 수 있으면 남길 수 있다.
         can_contribute=contribution_block_reason(share, album) is None,
+        can_add_photo=contribution_block_reason(share, album) is None,
+        can_add_memory=True,
         reaction_counts=reaction_counts(client, album_id),
         guestbook=[GuestbookItem(**entry) for entry in list_guestbook_entries(client, album_id)],
     )
@@ -417,9 +421,13 @@ def start_public_contribution(
     is_owner = bool(authenticated_user_id) and authenticated_user_id in {
         str(album.get("created_by") or ""), str(album.get("owner_id") or "")
     }
-    if not is_owner:
+    # ★ 무엇을 하려고 이름을 적는가 (PO 결정 2026-08-16 · `인쇄되는 것만 잠근다`).
+    #   한마디는 종이에 들어가지 않으므로 감상 링크에서도, 확정된 앨범에서도 남길 수 있다.
+    #   값이 없으면 예전 그대로 사진이다 — 기존 호출을 깨지 않는다(§10).
+    intent = str((body or {}).get("intent") or "photo")
+    if not is_owner and intent != "memory":
         # 링크 종류·참여 종료 판정은 contribution_block_reason 한 곳에서만 한다 —
-        # 공유 조회 응답의 can_contribute 도 같은 함수를 쓴다(SCREEN_SPEC §1).
+        # 공유 조회 응답의 can_add_photo 도 같은 함수를 쓴다(SCREEN_SPEC §1).
         blocked = contribution_block_reason(share, album)
         if blocked:
             raise HTTPException(status_code=403, detail=blocked)
@@ -429,6 +437,10 @@ def start_public_contribution(
     display_name = str((body or {}).get("display_name") or "").strip()
     if not display_name:
         raise HTTPException(status_code=400, detail="추억을 남긴 분의 이름을 입력해 주세요.")
+    # ★ 한마디만 남기러 온 사람은 **참여자로 만들지 않는다**(화면_기준 §1).
+    #   이름만 받아 `이름만 받은 사람`(viewer)으로 둔다 — `함께 만든 사람` 에 들어가지
+    #   않고 사진도 올릴 수 없다. 참여자가 되는 것은 사용자가 정하는 일이다.
+    memory_only = intent == "memory" and not is_owner and contribution_block_reason(share, album) is not None
     contributor = join_as_contributor(
         client,
         album,
@@ -437,6 +449,7 @@ def start_public_contribution(
         relationship=None,
         guest_id=guest_id,
         user_id=authenticated_user_id,
+        role=VIEWER_CONTRIBUTOR_ROLE if memory_only else "contributor",
     )
     log_event(client, "public_contribution_started", album_id=str(album["id"]), share_link_id=str(share["id"]))
     return {

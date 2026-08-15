@@ -94,7 +94,7 @@ def album_contribution_block_reason(album: dict[str, Any]) -> str | None:
     ★ 버튼만 사라지면 고장으로 보인다. **왜 그런지 한 줄**을 함께 내려보낸다(§11).
     """
     if album.get("collaboration_status") == "closed":
-        return "이 앨범은 사진과 한마디를 다 모았어요. 지금은 보기만 할 수 있어요."
+        return "이 앨범은 사진을 다 모았어요. 한마디는 지금도 남길 수 있어요."
     return None
 
 

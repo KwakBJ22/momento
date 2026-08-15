@@ -17,12 +17,14 @@ const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url)
 const share = read("components/PublicShareView.tsx");
 
 test("★ 공유 화면이 한마디 통로를 넘긴다 — 같은 식으로 가른다 (회귀 ①)", () => {
-  assert.match(share, /photoMemoryWrite=\{\{ canWrite: \(\) => requestedEdition === null && canContribute,/);
+  // ★ 2026-08-16 에 값이 갈렸다. 예전에는 can_contribute(사진과 한마디를 묶은 값)를
+  //   봤는데, 잣대가 `인쇄되는 것만 잠근다` 로 바뀌면서 한마디는 can_add_memory 를 본다.
+  assert.match(share, /photoMemoryWrite=\{\{ canWrite: \(\) => requestedEdition === null && canAddMemory,/);
   // 판정 근거는 서버가 내려준 값 하나다(프런트가 링크 종류를 알지 않는다).
-  assert.match(share, /const canContribute = album\?\.can_contribute === true;/);
+  assert.match(share, /const canAddMemory = album\?\.can_add_memory === true;/);
   // 앨범 화면과 **같은 식**이다.
   const view = read("components/AlbumView.tsx");
-  assert.match(view, /canWrite: \(\) => requestedEdition === null && displayAlbum\?\.can_contribute === true/);
+  assert.match(view, /canWrite: \(\) => requestedEdition === null && displayAlbum\?\.can_add_memory === true/);
 });
 
 test("★ 같은 화면에서 캡션 편집기는 안 열린다 — 둘이 갈려 있다 (회귀 ②)", () => {

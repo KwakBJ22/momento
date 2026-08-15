@@ -121,6 +121,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
   // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
   const canContribute = album?.can_contribute === true;
+  // ★ 한마디는 **인쇄되지 않으므로** 잠기지 않는다(PO 2026-08-16 · `인쇄되는 것만 잠근다`).
+  //   감상 링크로 온 구경꾼도, 확정된 앨범에서도 남길 수 있다. 판정은 서버가 한다.
+  const canAddMemory = album?.can_add_memory === true;
   // ★ 역할 판정은 lib/albumRole 한 곳이다(§1 · H-1). 화면이 따로 추측하지 않는다 —
   // 링크 종류가 아니라 서버가 내려준 능력 플래그로 갈린다.
   const role = resolveAlbumRole(album);
@@ -270,7 +273,14 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     }
     setIsStartingContribution(true);
     try {
-      const result = await startPublicContribution(token, authenticatedUser ? null : contributionGuestId(), displayName);
+      // ★ 무엇을 하려고 이름을 적는지 함께 보낸다. 한마디면 감상 링크·확정된 앨범에서도
+      //   받아 주고, 그 사람을 **참여자로 만들지 않는다**(이름만 받는다 · §1).
+      const result = await startPublicContribution(
+        token,
+        authenticatedUser ? null : contributionGuestId(),
+        displayName,
+        memoryPhotoAfterName ? "memory" : "photo",
+      );
       const session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
       saveCollabSession(session);
       setContributionAlbumId(result.album_id);
@@ -456,7 +466,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   );
   const publicBody = (
     <>
-      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} skin={album.skin} paper={album.paper} livingAppendPages={album.living_append_pages} mode="screen" photoMemoryWrite={{ canWrite: () => requestedEdition === null && canContribute, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} onReady={onAlbumRendererReady} /></div>
+      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} skin={album.skin} paper={album.paper} livingAppendPages={album.living_append_pages} mode="screen" photoMemoryWrite={{ canWrite: () => requestedEdition === null && canAddMemory, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} onReady={onAlbumRendererReady} /></div>
       <section className="public-share__reactions" aria-label="이 앨범에 마음 남기기">
         {REACTIONS.map((r) => {
           const isPressed = pressedReactions.has(r.code);

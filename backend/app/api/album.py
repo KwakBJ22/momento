@@ -2132,7 +2132,11 @@ async def get_album(
         "can_edit": access.is_album_owner,
         # ★ 화면이 묻는 것은 "지금 더할 수 있는가" 다 — 자격만이 아니라 앨범이
         # 열려 있는지까지 본다(J-8). 참여가 끝나면 참여자는 구경꾼 화면을 본다.
-        "can_contribute": access.can_add_contribution,
+        # 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 결정 2026-08-16).
+        # can_contribute 는 예전 이름이라 사진 쪽 뜻으로 그대로 둔다.
+        "can_contribute": access.can_add_photo,
+        "can_add_photo": access.can_add_photo,
+        "can_add_memory": access.can_add_memory,
         "contribution_block_reason": album_contribution_block_reason(record),
         "can_delete": access.can_delete_album,
         # 본문에 인쇄되는 값이라 역할과 무관하게 모두에게 내려간다(§6).

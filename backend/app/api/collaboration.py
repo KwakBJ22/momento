@@ -864,12 +864,15 @@ def create_memory(
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
 
+    # ★ 한마디는 인쇄되지 않는다 — 앨범이 확정된 뒤에도, 이름만 받은 사람에게도 열려 있다
+    #   (PO 결정 2026-08-16 · `인쇄되는 것만 잠근다`).
     contributor = require_contributor(
         client,
         album_id,
         contributor_id=str(body.contributor_id) if body.contributor_id else None,
         guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
         user_id=user_id,
+        for_memory=True,
     )
     memory = create_photo_memory(
         client, album_id=album_id, photo_id=photo_id, contributor=contributor, comment=body.comment
@@ -919,12 +922,14 @@ def patch_memory(
             user_id=user_id,
         ) or {"id": "owner"}
     else:
+        # 고치는 것도 한마디다 — 남기는 것과 같은 잣대를 쓴다(인쇄되지 않는다).
         contributor = require_contributor(
             client,
             album_id,
             contributor_id=str(body.contributor_id) if body.contributor_id else None,
             guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
+            for_memory=True,
         )
 
     memory = update_photo_memory(
@@ -970,12 +975,14 @@ def remove_memory(
 
     contributor = None
     if not is_owner:
+        # 자기가 남긴 한마디를 지우는 것 — 같은 잣대다.
         contributor = require_contributor(
             client,
             album_id,
             contributor_id=contributor_id,
             guest_id=guest_id or _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
+            for_memory=True,
         )
     delete_photo_memory(
         client, album_id=album_id, memory_id=memory_id, contributor=contributor, is_owner=is_owner

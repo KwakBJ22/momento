@@ -186,6 +186,11 @@ class AlbumDetailResponse(BaseModel):
     # (프런트는 이 값으로 버튼만 감춘다 — 실제 차단은 각 API의 백엔드 검사가 한다.)
     can_edit: bool = False
     can_contribute: bool = False
+    # ★ 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 결정 2026-08-16).
+    #   사진은 참여가 끝나면 잠기고, 한마디는 이 앨범을 볼 수 있으면 남길 수 있다.
+    #   화면은 이 두 값만 읽는다. 역할로 다시 추측하지 않는다(§11).
+    can_add_photo: bool = False
+    can_add_memory: bool = False
     can_delete: bool = False
     # 더할 수 없을 때 **왜 그런지 한 줄**. 버튼만 사라지면 고장으로 보인다(J-8 · §11).
     # 링크 경로(/s/)와 같은 함수가 만든다 — 판정은 한 곳이다(§1).
@@ -377,6 +382,9 @@ class PublicShareAlbumResponse(BaseModel):
     # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
     # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
     can_contribute: bool = True
+    # 인쇄되는 것만 잠근다 — 사진은 링크 종류·참여 종료에 걸리고, 한마디는 늘 열려 있다.
+    can_add_photo: bool = True
+    can_add_memory: bool = True
     # 로그인한 사람이 이 앨범을 **이미 담아 뒀는가**(§1 9차). 담기는 켜고 끄는 것이라
     # 화면이 지금 상태를 알아야 한다. 비로그인이면 항상 False 다.
     viewer_bookmarked: bool = False
