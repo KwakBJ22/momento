@@ -238,6 +238,25 @@ export async function patchAlbumTitle(albumId: string, title: string): Promise<A
   return (await response.json()) as AlbumResult;
 }
 
+/**
+ * 앨범 모양 · 종이 색을 고친다 — **기존 PATCH 를 넓혀 쓴다**(§10 · 새 주소를 만들지 않는다).
+ *
+ * ★ 넘긴 것만 고친다. 맺음말(narrative)은 넣지 않으므로 건드리지 않는다.
+ * ★ 허용값 검사와 권한 판정은 **백엔드**가 한다. 여기서 다시 막지 않는다.
+ */
+export async function patchAlbumAppearance(
+  albumId: string,
+  next: { skin?: string; paper?: string },
+): Promise<AlbumResult> {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(next),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumResult;
+}
+
 export async function patchEpilogue(albumId: string, epilogue: string): Promise<AlbumResult> {
   const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/epilogue`, {
     method: "PATCH",

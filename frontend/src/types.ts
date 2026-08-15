@@ -171,6 +171,10 @@ export interface AlbumResult {
   category?: AlbumCategory | string | null;
   template: TemplateType;
   template_type?: AlbumTemplateType | string | null;
+  /** 주최자가 고른 앨범 모양 · 종이 색. 고르지 않았으면 null 이고, 화면이
+   *  카테고리 추천으로 채운다(lib/albumSkin — 규칙은 한 곳에 있다). */
+  skin?: string | null;
+  paper?: string | null;
   title: string;
   date: string;
   /** @deprecated mirrors epilogue for legacy clients */
@@ -300,6 +304,9 @@ export interface PublicShareAlbum {
   date?: string;
   category?: string | null;
   template_type?: string | null;
+  /** 구경꾼도 **주최자가 고른 모양**으로 본다 — 앨범 화면과 같은 값·같은 규칙이다. */
+  skin?: string | null;
+  paper?: string | null;
   photos?: AlbumPhoto[];
   photo_count?: number;
   photo_limit?: number;

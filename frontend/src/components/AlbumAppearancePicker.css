@@ -1,0 +1,172 @@
+/* 앨범 모양·종이 색 고르기 — 더보기 시트 **안**의 몸이다(§11).
+   ★ 터치 44px 하한 · 라벨 14px 하한. 40대 이후 타깃이라 둘 다 양보하지 않는다. */
+
+.album-appearance {
+  display: grid;
+  gap: 14px;
+}
+
+.album-appearance__lead {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.album-appearance__lead b {
+  color: var(--c-text);
+  font-weight: var(--w-bold);
+}
+
+.album-appearance__error {
+  margin: 0;
+}
+
+.album-appearance__heading {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: var(--w-bold);
+}
+
+.album-appearance__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album-appearance__card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 10px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.album-appearance__card.is-selected {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+
+.album-appearance__card:disabled {
+  cursor: default;
+}
+
+/* 견본 — 선과 면으로 그린 모양이다. 실제 사진을 끌어오지 않는다. */
+.album-appearance__sample {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 46px;
+  border-radius: var(--r-sm);
+  background: var(--c-bg-soft);
+}
+
+.album-appearance__piece {
+  position: absolute;
+  display: block;
+  background: var(--c-border-strong);
+}
+
+.album-appearance__piece--one { inset: 8px 12px; border-radius: 2px; }
+
+.album-appearance__piece--tilt-a { inset: 8px 22px 10px 8px; border-radius: 2px; transform: rotate(-6deg); }
+.album-appearance__piece--tilt-b { inset: 12px 8px 6px 24px; border-radius: 2px; transform: rotate(5deg); }
+
+.album-appearance__piece--airy { inset: 12px 20px; border-radius: 0; }
+
+.album-appearance__piece--hero { inset: 5px 5px auto 5px; height: 18px; border-radius: 1px; }
+.album-appearance__sample--grid .album-appearance__piece--cell {
+  width: calc(50% - 6px);
+  height: 14px;
+  border-radius: 1px;
+}
+.album-appearance__sample--grid .album-appearance__piece--cell:nth-of-type(2) { top: 27px; left: 5px; }
+.album-appearance__sample--grid .album-appearance__piece--cell:nth-of-type(3) { top: 27px; right: 5px; }
+.album-appearance__sample--grid .album-appearance__piece--cell:nth-of-type(4) { top: 27px; left: 5px; opacity: 0; }
+.album-appearance__sample--grid .album-appearance__piece--cell:nth-of-type(5) { top: 27px; right: 5px; opacity: 0; }
+
+.album-appearance__piece--wide { left: 6px; right: 6px; height: 11px; border-radius: 1px; }
+.album-appearance__piece--narrow { left: 16px; right: 16px; height: 11px; border-radius: 1px; }
+.album-appearance__sample--magazine .album-appearance__piece:nth-of-type(1) { top: 5px; }
+.album-appearance__sample--magazine .album-appearance__piece:nth-of-type(2) { top: 18px; }
+.album-appearance__sample--magazine .album-appearance__piece:nth-of-type(3) { top: 31px; }
+
+.album-appearance__piece--full { inset: 0; border-radius: var(--r-sm); }
+
+.album-appearance__name {
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.album-appearance__check {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  color: var(--c-accent);
+  font-size: 14px;
+  font-weight: var(--w-bold);
+}
+
+.album-appearance__papers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album-appearance__paper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.album-appearance__paper.is-selected {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+
+.album-appearance__dot {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-full);
+}
+
+/* 종이 색 셋 — 값은 tokens.css 의 종이 규칙과 같다. */
+.album-appearance__dot--white { background: #fffdfb; }
+.album-appearance__dot--cream { background: #fdfaf3; }
+.album-appearance__dot--gray { background: #f7f7f6; }
+
+.album-appearance__note {
+  margin: 4px 0 0;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}

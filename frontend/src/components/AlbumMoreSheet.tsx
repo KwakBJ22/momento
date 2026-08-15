@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import AlbumAppearancePicker from "./AlbumAppearancePicker";
+import type { AlbumPaper, AlbumSkin } from "../lib/albumSkin";
 
 /**
  * 헤더 `⋯` 더보기 시트 — 앨범 상세와 공유 앨범이 **같은 것을 쓴다**(SCREEN_SPEC §5).
@@ -23,6 +25,13 @@ export interface AlbumMoreSheetProps {
   albumId: string;
   /** 표지 사진 바꾸기 — 주최자만. 넘기지 않으면 행이 없다. */
   onChangeCover?: () => void;
+  /** 앨범 모양 고치기 — 주최자만. 넘기지 않으면 **행 자체가 없다**(참여자·구경꾼).
+   *  누르면 이 시트의 **몸만** 바뀐다 — 새 페이지도, 겹쳐 뜨는 새 시트도 만들지 않는다(§11). */
+  appearance?: { skin: AlbumSkin; paper: AlbumPaper; category?: string | null };
+  onChangeAppearance?: (next: { skin?: AlbumSkin; paper?: AlbumPaper }) => void;
+  /** 저장이 실패했을 때 **우리 말**로 온다. 서버 문구를 그대로 내지 않는다(§11). */
+  appearanceError?: string | null;
+  isSavingAppearance?: boolean;
   /** 앨범 다시 구성하기 — 주최자만. 새로 더해진 것까지 넣어 앨범을 다시 짠다.
    *  ★ 새로 더해진 것을 **담는** 버튼이 아니다. 담기는 이미 자동으로 끝나 있다
    *    (올라오는 즉시 마지막 페이지에 붙는다). 이건 사진 배치와 이야기를 다시
@@ -45,10 +54,36 @@ export interface AlbumMoreSheetProps {
 
 export default function AlbumMoreSheet({
   onClose, accountSheet, canEdit, canDelete, photoCount, contributorCount, albumId,
-  onChangeCover, onRebuildEdition, isRebuilding = false, onExportPdf, isExportingPdf = false, onDeleteAlbum, isDeleting = false,
+  onChangeCover, appearance, onChangeAppearance, appearanceError = null, isSavingAppearance = false,
+  onRebuildEdition, isRebuilding = false, onExportPdf, isExportingPdf = false, onDeleteAlbum, isDeleting = false,
   showAbsentNotice = false, onLogout, onWithdraw,
 }: AlbumMoreSheetProps) {
   const openParticipants = () => window.location.assign(`/album/${albumId}/participants`);
+  // 같은 껍데기 안에서 몸만 바뀐다 — 시트를 겹쳐 열지 않는다(§11).
+  const [view, setView] = useState<"menu" | "appearance">("menu");
+  const showAppearance = canEdit && Boolean(appearance && onChangeAppearance);
+
+  if (view === "appearance" && appearance && onChangeAppearance) {
+    return (
+      <section className="album-inline-action album-more-sheet" aria-label="앨범 모양">
+        <div className="album-inline-action__header">
+          <h2>앨범 모양</h2>
+          <button type="button" onClick={() => setView("menu")}>뒤로</button>
+        </div>
+        <div className="album-inline-action__body">
+          <AlbumAppearancePicker
+            skin={appearance.skin}
+            paper={appearance.paper}
+            category={appearance.category}
+            onPick={onChangeAppearance}
+            error={appearanceError}
+            isSaving={isSavingAppearance}
+          />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="album-inline-action album-more-sheet" aria-label="더보기">
       <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={onClose}>닫기</button></div>
@@ -57,6 +92,8 @@ export default function AlbumMoreSheet({
         {accountSheet}
         {/* 목업 화면 3 그대로: 60px 목록 행 + 보조 라벨. 제목 고치기는 없다(인라인 수정과 중복). */}
         {canEdit && photoCount && onChangeCover ? <button type="button" className="album-more-sheet__row" onClick={() => { onClose(); onChangeCover(); }}><span>표지 사진 바꾸기</span></button> : null}
+        {/* ★ 앨범 모양 — 표지 바로 아래다. 시트를 닫지 않는다: 같은 자리에서 몸만 바뀐다. */}
+        {showAppearance ? <button type="button" className="album-more-sheet__row" onClick={() => setView("appearance")}><span>앨범 모양 고치기</span><em>사진 담는 모양과 종이 색</em></button> : null}
         {/* 소유자 "함께 만든 사람" / 참여자 "함께한 사람"(목업 3a) — 인원 수 출처가 다르다.
             이미 있는 참여자 목록 페이지로 간다(§5: 있는 것을 없애라는 뜻이 아니다). */}
         {contributorCount !== null

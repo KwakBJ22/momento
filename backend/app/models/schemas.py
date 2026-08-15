@@ -160,6 +160,10 @@ class AlbumDetailResponse(BaseModel):
     category: str | None = None
     template: str
     template_type: str | None = None
+    # 주최자가 고른 앨범 모양 · 종이 색. 고르지 않았으면 null 이고, 화면이
+    # 카테고리 추천으로 채운다(lib/albumSkin — 규칙은 프런트 한 곳에 있다).
+    skin: str | None = None
+    paper: str | None = None
     title: str
     date: str
     narrative: str
@@ -238,6 +242,25 @@ class NarrativeUpdate(BaseModel):
     """Deprecated: updates epilogue (우리의 이야기). Prefer EpilogueUpdate."""
 
     narrative: str = Field(default="", max_length=800)
+
+
+# 앨범 모양 · 종이 색 — DB 제약(albums_skin_check · albums_paper_check)과 같은 목록이다.
+# ★ 지키는 것은 서버다. 프런트가 막는 것은 편의일 뿐이다(§10).
+ALBUM_SKIN_VALUES = ("basic", "scrapbook", "airy", "grid", "magazine", "single")
+ALBUM_PAPER_VALUES = ("white", "cream", "gray")
+
+
+class AlbumSettingsUpdate(BaseModel):
+    """PATCH /albums/{id} — **넘긴 것만** 고친다.
+
+    ★ `narrative`(맺음말)는 예전 계약 그대로다. 넣지 않으면 건드리지 않는다.
+    ★ 값 검사는 라우터에서 한다 — 허용값 밖은 400 으로, 우리 말로 돌려준다.
+      (Literal 로 두면 422 가 나가고 문구를 우리가 못 고른다.)
+    """
+
+    narrative: str | None = Field(default=None, max_length=800)
+    skin: str | None = Field(default=None, max_length=32)
+    paper: str | None = Field(default=None, max_length=32)
 
 
 class EpilogueUpdate(BaseModel):
@@ -328,6 +351,10 @@ class PublicShareAlbumResponse(BaseModel):
     date: str = ""
     category: str | None = None
     template_type: str | None = None
+    # 구경꾼도 **주최자가 고른 모양**으로 본다. 고르지 않았으면 null 이고,
+    # 화면이 카테고리 추천으로 채운다 — 앨범 화면과 같은 규칙이다.
+    skin: str | None = None
+    paper: str | None = None
     media: list[PublicMediaItem]
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
     photo_count: int = 0

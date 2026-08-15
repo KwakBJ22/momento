@@ -374,6 +374,9 @@ def get_public_share(
         date=str(album.get("event_date") or ""),
         category=album.get("category"),
         template_type=album.get("template_type"),
+        # 구경꾼도 주최자가 고른 모양으로 본다 — 앨범 화면과 같은 값이다.
+        skin=album.get("skin"),
+        paper=album.get("paper"),
         media=media,
         photos=photos,
         photo_count=len(photo_records),

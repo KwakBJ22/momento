@@ -41,7 +41,9 @@ from app.models.schemas import (
     AlbumGenerationPreviewItem,
     AlbumGenerationPreviewResponse,
     MeetingType,
-    NarrativeUpdate,
+    ALBUM_PAPER_VALUES,
+    ALBUM_SKIN_VALUES,
+    AlbumSettingsUpdate,
     StoryInputResponse,
     StoryInputUpdate,
     StoryRegenerateResponse,
@@ -1782,6 +1784,9 @@ def _detail_from_record(
         category=record.get("category"),
         template=record.get("template", "B"),
         template_type=normalize_template_type(record.get("template_type")),
+        # 고르지 않았으면 null 이다 — 화면이 카테고리 추천으로 채운다(규칙은 프런트 한 곳).
+        skin=record.get("skin"),
+        paper=record.get("paper"),
         title=record.get("title", "우리의 모임"),
         date=record.get("event_date", ""),
         narrative=epilogue,
@@ -2279,21 +2284,51 @@ def update_album_cover_photo(
 @router.patch("/albums/{album_id}", response_model=AlbumDetailResponse)
 def patch_album(
     album_id: str,
-    body: NarrativeUpdate,
+    body: AlbumSettingsUpdate,
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumDetailResponse:
-    """Legacy: updates epilogue only (owner)."""
+    """앨범 설정 — **넘긴 것만** 고친다.
+
+    ★ 새 주소를 만들지 않고 이 자리를 넓혔다(§10). 예전 계약(맺음말만 고치기)은
+      그대로다 — `narrative` 를 넣지 않으면 맺음말을 건드리지 않는다.
+    ★ 권한은 고치는 것마다 다르다. 맺음말은 글 권한, 모양·종이는 설정 권한이다.
+      **프런트가 아니라 여기서** 가른다(§10).
+    """
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
     access = get_album_access(client, record, authenticated_user_id)
-    require_album_owner_story(access)
 
-    epilogue = body.narrative.strip()
-    updated = update_album_narrative(client, album_id, epilogue)
-    return _record_to_detail(updated or {**record, "epilogue": epilogue, "narrative": epilogue}, settings, client)
+    updated = record
+    if body.narrative is not None:
+        require_album_owner_story(access)
+        epilogue = body.narrative.strip()
+        updated = update_album_narrative(client, album_id, epilogue) or {
+            **updated, "epilogue": epilogue, "narrative": epilogue,
+        }
+
+    # 앨범 모양 · 종이 색 — 허용값은 DB 제약과 같은 목록이다. 밖이면 400 이다.
+    appearance: dict[str, Any] = {}
+    if body.skin is not None:
+        if body.skin not in ALBUM_SKIN_VALUES:
+            raise HTTPException(status_code=400, detail="고를 수 없는 앨범 모양입니다.")
+        appearance["skin"] = body.skin
+    if body.paper is not None:
+        if body.paper not in ALBUM_PAPER_VALUES:
+            raise HTTPException(status_code=400, detail="고를 수 없는 종이 색입니다.")
+        appearance["paper"] = body.paper
+    if appearance:
+        require_album_edit_settings(access)
+        client.table("albums").update(appearance).eq("id", album_id).execute()
+        updated = {**updated, **appearance}
+        # ★ 이벤트를 남기지 않는다. 허용된 이름 목록(analytics_events CHECK)에 없는 이름을
+        #   쓰면 **조용히 버려진다**. 이름을 늘리려면 migration 이 필요하고, 이번 축이 아니다.
+
+    if body.narrative is None and not appearance:
+        raise HTTPException(status_code=400, detail="바꿀 내용이 없습니다.")
+    return _record_to_detail(updated, settings, client)
 
 
 @router.patch("/albums/{album_id}/epilogue", response_model=AlbumDetailResponse)

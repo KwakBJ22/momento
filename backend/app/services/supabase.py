@@ -361,7 +361,9 @@ def get_album_record(client: Client, album_id: str) -> dict[str, Any] | None:
 ALBUM_DETAIL_LIGHT_COLUMNS = (
     "id,meeting_type,category,template,template_type,title,event_date,"
     "epilogue,narrative,chapter_stories,result_path,cover_photo_id,created_at,"
-    "album_version,living_latest_edition_previous,living_append_pages"
+    "album_version,living_latest_edition_previous,living_append_pages,"
+    # 앨범 모양 · 종이 색. 짧은 글자 둘이라 가벼운 조회에 실어도 부담이 없다.
+    "skin,paper"
 )
 
 
