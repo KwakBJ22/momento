@@ -7,6 +7,7 @@ import AlbumContributors from "./components/AlbumContributors";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
+import { PhotoMemoryWriteProvider, type PhotoMemoryWriteState } from "./components/PhotoMemoryWriteContext";
 import { DateStoryEditProvider, type DateStoryEditState } from "./components/DateStoryEditContext";
 import { PlaceEditProvider, type PlaceEditState } from "./components/PlaceEditContext";
 import { isDateStoryEligible } from "../lib/storyRules";
@@ -57,6 +58,8 @@ export interface AlbumRendererProps {
   onReady?: () => void;
   onEditEpilogue?: () => void;
   photoCommentEdit?: PhotoCommentEditState | null;
+  /** 사진 밑에서 바로 한마디를 쓴다. 넘기지 않으면 예전처럼 하단 네비 흐름으로 간다. */
+  photoMemoryWrite?: PhotoMemoryWriteState | null;
   dateStoryEdit?: DateStoryEditState | null;
   /** 날짜 줄의 장소 고치기 — 주최자에게만 온다. 인쇄에는 넘기지 않는다. */
   placeEdit?: PlaceEditState | null;
@@ -132,6 +135,7 @@ export default function AlbumRenderer({
   onReady,
   onEditEpilogue,
   photoCommentEdit = null,
+  photoMemoryWrite = null,
   dateStoryEdit = null,
   placeEdit = null,
   livingAppendPages = [],
@@ -404,12 +408,14 @@ export default function AlbumRenderer({
         <AlbumRenderModeProvider mode={mode}>
         <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()} data-album-renderer="">
           <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+          <PhotoMemoryWriteProvider value={photoMemoryWrite ?? null}>
             <div className="album-renderer__body">
               <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
               <AlbumContributors names={contributorNames} />
               {livingPages}
               {brandFooter}
             </div>
+          </PhotoMemoryWriteProvider>
           </PhotoCommentEditProvider>
         </div>
         </AlbumRenderModeProvider>
@@ -453,6 +459,7 @@ export default function AlbumRenderer({
       ) : null}
 
       <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+          <PhotoMemoryWriteProvider value={photoMemoryWrite ?? null}>
         <DateStoryEditProvider value={dateStoryEdit ?? null}>
         <PlaceEditProvider value={placeEdit ?? null}>
         <div className="album-renderer__body">
@@ -541,7 +548,8 @@ export default function AlbumRenderer({
         </div>
         </PlaceEditProvider>
         </DateStoryEditProvider>
-      </PhotoCommentEditProvider>
+      </PhotoMemoryWriteProvider>
+          </PhotoCommentEditProvider>
     </div>
     </AlbumRenderModeProvider>
   );

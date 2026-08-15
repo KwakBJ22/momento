@@ -87,6 +87,56 @@
   margin-top: 2px;
 }
 
+/* 그 자리에서 바로 쓰는 입력칸 (2026-08-15). 캡션 고치기와 **같은 모양**이다 —
+   새 시트를 열지 않는다. 목록 아래에 붙고 목록을 밀어내지 않는다. */
+.photo-memory-list__editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.photo-memory-list__input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.photo-memory-list__editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.photo-memory-list__action {
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  color: var(--c-text-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+.photo-memory-list__action--save {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+}
+
+.photo-memory-list__action:disabled { cursor: default; opacity: 0.6; }
+
+.photo-memory-list__error { margin: 0; font-size: 14px; line-height: 1.5; }
+
 /* 인쇄에서는 아예 없다. 부르는 쪽이 화면일 때만 그리지만, PDF 가 화면 DOM 을 찍는
    경로(html2canvas)도 있어서 여기서도 한 번 더 막는다 — 종이는 되돌릴 수 없다. */
 @media print {

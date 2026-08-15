@@ -115,7 +115,9 @@ test("★ 프레임과 한마디 사이에 눈에 보이는 간격이 있다 —
 
 test("★ 인쇄에는 넣지 않는다 (§7)", () => {
   // 기울기와 **같은 근거**로 화면/인쇄를 가른다 — 판단이 두 곳이 되지 않는다.
-  assert.match(block, /\{isScreen \? <PhotoMemoryList entries=\{memoryEntries\} \/> : null\}/);
+  // ★ 2026-08-15 에 `photoId` 가 붙었다(사진 밑에서 바로 한마디를 쓰기 위해서다).
+  //   화면일 때만 그린다는 규칙은 그대로다 — 이 검사가 지키는 것이 그것이다.
+  assert.match(block, /\{isScreen \? <PhotoMemoryList entries=\{memoryEntries\} photoId=\{photo\.id\} \/> : null\}/);
   const css = readFileSync(path.join(SRC, "album-engine/components/PhotoMemoryList.css"), "utf8");
   assert.match(css, /@media print \{[\s\S]*?\.photo-memory-list \{ display: none !important; \}/);
 });

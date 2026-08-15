@@ -6,7 +6,7 @@ import { AlbumRenderer } from "../album-engine";
 const CLAIM_WAIT_MS = 800;
 const CLAIM_WAIT_LIMIT = 5;
 
-import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, removeAlbumPhoto, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, createPhotoMemory, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, removeAlbumPhoto, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
@@ -145,6 +145,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 앨범 모양 · 종이 색 고르기(더보기 시트 안). 저장이 실패하면 고른 것을 되돌린다.
   const [isSavingAppearance, setIsSavingAppearance] = useState(false);
   const [appearanceError, setAppearanceError] = useState<string | null>(null);
+  // 사진 밑에서 바로 한마디 쓰기 — 초대받아 처음 온 사람이 가장 짧은 길로 참여한다(§8).
+  const [memoryPhotoId, setMemoryPhotoId] = useState<string | null>(null);
+  const [memoryDraft, setMemoryDraft] = useState("");
+  const [savingMemoryPhotoId, setSavingMemoryPhotoId] = useState<string | null>(null);
+  const [memoryWriteError, setMemoryWriteError] = useState<string | null>(null);
   // 사진 빼기 — 되돌릴 수 없으므로 한 번 묻는다(ConfirmSheet). window.confirm 을 쓰지 않는다.
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
   const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
@@ -469,6 +474,51 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       setAppearanceError("앨범 모양을 저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       setIsSavingAppearance(false);
+    }
+  };
+
+  /**
+   * 사진 밑에서 **바로** 한마디를 남긴다 (2026-08-15).
+   *
+   * ★ 새 API 를 만들지 않는다 — 지금 한마디를 저장하는 `createPhotoMemory` 를 그대로 부른다.
+   * ★ 이름을 아직 모르면(참여 세션이 없으면) **기존 흐름**을 연다. 여기서 이름을 새로
+   *   묻지 않는다 — 물어보는 자리가 둘이 되면 서로 어긋난다. 이름을 받고 나면 그다음부터는
+   *   이 자리에서 바로 써진다.
+   * ★ 저장하면 그 사진 밑 목록에만 붙인다. **앨범을 다시 그리지 않는다**(§9).
+   * ★ 실패해도 **쓴 글을 지우지 않는다** — 다시 누르면 그대로 있어야 한다(§11).
+   */
+  const startMemoryHere = (photoId: string) => {
+    const session = contributionSession ?? loadCollabSession(albumId);
+    if (!session) {
+      // 이름을 받는 자리는 하나다 — 기존 흐름으로 보낸다.
+      void openContribution("memory");
+      return;
+    }
+    setMemoryWriteError(null);
+    setMemoryDraft("");
+    setMemoryPhotoId(photoId);
+  };
+
+  const saveMemoryHere = async (photoId: string) => {
+    const text = memoryDraft.trim();
+    const session = contributionSession ?? loadCollabSession(albumId);
+    if (!text || !session) return;
+    setSavingMemoryPhotoId(photoId);
+    setMemoryWriteError(null);
+    try {
+      await createPhotoMemory(albumId, photoId, session, text);
+      // 그 사진 밑 목록에만 더한다 — AlbumRenderer 는 재마운트되지 않는다.
+      setPhotos((current) => current.map((photo) => (
+        photo.id === photoId
+          ? { ...photo, comments: [...(photo.comments ?? []), { author: session.displayName || null, text }] }
+          : photo
+      )));
+      setMemoryPhotoId(null);
+      setMemoryDraft("");
+    } catch {
+      setMemoryWriteError("한마디를 남기지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setSavingMemoryPhotoId(null);
     }
   };
 
@@ -870,7 +920,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         />
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
-        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); }, setDraft: setPlaceDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) void handleSavePlace(photoIds); } } : null} />
+        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_contribute === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); }, setDraft: setPlaceDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) void handleSavePlace(photoIds); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}
