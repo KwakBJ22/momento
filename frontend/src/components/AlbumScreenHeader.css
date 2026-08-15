@@ -11,9 +11,10 @@
    원을 `::before` 로 내려 누르는 영역만 44px 로 넓힌다. 보이는 크기는 그대로다.
    ★ 색은 제목 자리라 --c-brand-text (본문 계열은 --c-accent). */
 .album-screen-header__edit { position: relative; display: inline-grid; place-items: center; flex: 0 0 auto; min-width: var(--tap-min); min-height: var(--tap-min); padding: 0; border: 0; background: transparent; color: var(--c-brand-text); cursor: pointer; }
-.album-screen-header__edit::before { content: ""; position: absolute; width: 32px; height: 32px; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface); }
+.album-screen-header__edit::before { content: ""; position: absolute; box-sizing: border-box; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--c-brand-soft); }
 .album-screen-header__edit > * { position: relative; }
-.album-screen-header__edit:hover::before { border-color: var(--c-brand-text); }
+/* 기본이 이미 brand-soft 라 hover 는 테두리만 남긴다 — 그래야 두 상태가 갈린다. */
+.album-screen-header__edit:hover::before { border: 1px solid var(--c-brand-text); }
 .album-screen-header__editor { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; width: min(100%, 480px); max-width: 100%; }
 /* The input grows to fill the row; 저장/취소 stay content-sized (no grow) so they
    never balloon to ~half the screen. min-width:0 lets the input shrink instead of
