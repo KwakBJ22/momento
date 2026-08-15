@@ -1543,6 +1543,13 @@ def delete_media(
     deleted = soft_delete_album_photo_with_references(client, album_id, media_id) if photo_rows else delete_album_media_record(client, album_id, media_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
+    # ★ 표지로 쓰던 사진을 뺐으면 표지를 옮긴다 — 표지가 **빈 자리**가 되면 안 된다.
+    #   남은 사진의 첫 장으로 가고, 남은 것이 없으면 비운다(사진 0장 앨범도 막지 않는다).
+    #   앨범을 다시 만들지는 않는다 — 캡션·한마디·이야기는 그대로다.
+    if str(album.get("cover_photo_id") or "") == str(media_id):
+        remaining = get_album_photo_records(client, album_id)
+        next_cover = str(remaining[0]["id"]) if remaining else None
+        client.table("albums").update({"cover_photo_id": next_cover}).eq("id", album_id).execute()
     try:
         StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, sorted(paths))
     except Exception as exc:

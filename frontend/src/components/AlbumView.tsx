@@ -6,7 +6,7 @@ import { AlbumRenderer } from "../album-engine";
 const CLAIM_WAIT_MS = 800;
 const CLAIM_WAIT_LIMIT = 5;
 
-import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
+import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, removeAlbumPhoto, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
 import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
@@ -145,6 +145,10 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   // 앨범 모양 · 종이 색 고르기(더보기 시트 안). 저장이 실패하면 고른 것을 되돌린다.
   const [isSavingAppearance, setIsSavingAppearance] = useState(false);
   const [appearanceError, setAppearanceError] = useState<string | null>(null);
+  // 사진 빼기 — 되돌릴 수 없으므로 한 번 묻는다(ConfirmSheet). window.confirm 을 쓰지 않는다.
+  const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
+  const [removePhotoError, setRemovePhotoError] = useState<string | null>(null);
   const [confirmingCaptionPhotoId, setConfirmingCaptionPhotoId] = useState<string | null>(null);
   const [confirmingCaptionText, setConfirmingCaptionText] = useState("");
   const [editingStoryKey, setEditingStoryKey] = useState<string | null>(null);
@@ -468,6 +472,37 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     }
   };
 
+  /**
+   * 사진 한 장을 앨범에서 뺀다 (§5 · §9).
+   *
+   * ★ **앨범 전체를 다시 그리지 않는다.** photos 목록에서 그 한 장만 빼면
+   *   AlbumRenderer 는 재마운트 없이 그 자리만 지운다. 그 날짜의 사진이 0장이 되면
+   *   날짜 묶음도 함께 사라진다(엔진이 사진으로 묶기 때문이다).
+   * ★ **앨범을 다시 만들지 않는다.** 캡션·한마디·`그날의 이야기`·`우리의 이야기` 는 그대로다.
+   * ★ 실패하면 화면에서도 지우지 않는다 — 지운 척하지 않는다(§11).
+   */
+  const confirmRemovePhoto = async () => {
+    const photoId = removingPhotoId;
+    if (!photoId) return;
+    setIsRemovingPhoto(true);
+    setRemovePhotoError(null);
+    try {
+      await removeAlbumPhoto(albumId, photoId);
+      setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+      // 표지로 쓰던 사진이면 표지를 옮긴다 — 서버도 같은 규칙으로 옮긴다.
+      setAlbum((current) => {
+        if (!current || current.cover_photo_id !== photoId) return current;
+        const next = photos.find((photo) => photo.id !== photoId) ?? null;
+        return { ...current, cover_photo_id: next?.id ?? null, cover_image_url: next?.thumbnail_url ?? null };
+      });
+      setRemovingPhotoId(null);
+    } catch {
+      setRemovePhotoError("사진을 빼지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setIsRemovingPhoto(false);
+    }
+  };
+
   const handlePdf = async () => {
 
     if (!album) return;
@@ -754,6 +789,12 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       handleStartPhotoCommentEdit(photoId, confirmingCaptionText);
     },
     cancelConfirm: () => { setConfirmingCaptionPhotoId(null); setConfirmingCaptionText(""); },
+    // ★ 뺄 수 있는가 — **서버가 내려준 값**으로만 가른다. 주최자(can_edit)면 모든 사진,
+    //   참여자면 자기가 올린 사진(is_mine)만. 구경꾼은 can_edit 도 is_mine 도 없어 안 보인다.
+    //   이전 판(edition)을 보는 중에는 고치지 못하므로 canEdit 이 이미 false 다.
+    canRemovePhoto: (photoId: string) => requestedEdition === null
+      && (canEdit || photoById.get(photoId)?.is_mine === true),
+    requestRemove: (photoId: string) => { setRemovePhotoError(null); setRemovingPhotoId(photoId); },
   };
 
   const albumBody = (
@@ -772,6 +813,22 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           busy={isDeleting}
           onConfirm={() => { setDeleteConfirmOpen(false); void handleDeleteAlbum(); }}
           onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      ) : null}
+      {/* 사진 빼기 — 되돌릴 수 없으므로 한 번 묻는다. `그만두기` 가 왼쪽이고 기본이다(§5).
+          `영구 삭제`·`복구 불가능` 같은 말을 쓰지 않는다 — `되돌릴 수 없어요` 다(§8). */}
+      {removingPhotoId ? (
+        <ConfirmSheet
+          title="이 사진을 뺄까요?"
+          description={removePhotoError
+            ? `${removePhotoError}`
+            : "사진과 함께 달린 한마디도 같이 지워져요. 되돌릴 수 없어요."}
+          confirmLabel="빼기"
+          danger
+          cancelFirst
+          busy={isRemovingPhoto}
+          onConfirm={() => { void confirmRemovePhoto(); }}
+          onCancel={() => { setRemovingPhotoId(null); setRemovePhotoError(null); }}
         />
       ) : null}
       {moreOpen ? <div className="album-sheet-dim" aria-hidden="true" onClick={requestCloseMore} /> : null}

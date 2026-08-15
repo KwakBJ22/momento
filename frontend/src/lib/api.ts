@@ -199,6 +199,17 @@ export async function deleteAlbum(albumId: string): Promise<void> {
 }
 
 /**
+ * 앨범에서 사진 한 장을 뺀다 — **이미 있던 주소**를 부른다(§10 · 새 API 를 만들지 않는다).
+ *
+ * ★ 권한 검사도 Storage 파일 정리도 서버가 한다. 화면은 보여줄지만 정한다.
+ * ★ 앨범을 다시 만들지 않는다. 그 사진만 빠지고 캡션·한마디·이야기는 그대로다.
+ */
+export async function removeAlbumPhoto(albumId: string, photoId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/media/${photoId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+/**
  * 탈퇴하면 무엇이 얼마나 사라지는지 (K-17 · SCREEN_SPEC §5 27차).
  *
  * ★ 세는 것은 **서버 한 곳**이다. 화면은 받아서 보여주기만 하고, 지울 때 이 값을

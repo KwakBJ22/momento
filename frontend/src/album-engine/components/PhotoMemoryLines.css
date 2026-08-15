@@ -210,6 +210,27 @@
 
 .photo-memory-lines__error { margin: 0.4rem 0 0; font-size: 0.8rem; line-height: 1.4; }
 
+/* 이 사진 빼기 — **빨간 글자만**이다. 배경도 테두리도 채우지 않는다(§5).
+   되돌릴 수 없는 것이라 캡션·저장 버튼보다 **아래**에 둔다.
+   누르는 자리는 44px 하한을 지킨다(40대 이후 타깃). */
+.photo-memory-lines__remove {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin: 0.5rem 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-danger);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  text-align: center;
+  cursor: pointer;
+}
+
+.photo-memory-lines__remove:disabled { cursor: default; opacity: 0.6; }
+
 .photo-memory-lines__input {
   box-sizing: border-box;
   display: block;

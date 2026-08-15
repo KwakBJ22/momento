@@ -58,6 +58,7 @@ export async function createAlbumShareLink(): Promise<{ share_url: string }> {
 export async function deleteAlbum(): Promise<void> {}
 export async function patchAlbumTitle(): Promise<void> {}
 export async function patchAlbumAppearance(): Promise<void> {}
+export async function removeAlbumPhoto(): Promise<void> {}
 export async function patchChapterStory(): Promise<void> {}
 export async function patchEpilogue(): Promise<void> {}
 export async function saveAlbumPhotoCaption(): Promise<void> {}
