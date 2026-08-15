@@ -114,3 +114,53 @@
   /* ---- 터치 타깃 ---- */
   --tap-min: 44px;
 }
+
+/* ============================================================
+   앨범 모양 6종의 강조색 (시안 docs/mockups/album-skins-v2.html)
+
+   ★ 색만 여기 있다. **배치 규칙은 AlbumSkins.css** 에 있고 화면에만 걸린다.
+     색 두 변수는 루트에 얹으므로 **인쇄에도 따라간다** — PDF 에서 갈리는 것은
+     이야기 제목 색과 표지 강조선 둘뿐이다.
+   ★ `--c-accent-soft` 는 **배경 전용**이다. 글자색으로 쓰지 않는다.
+   ★ 본문 CSS 는 계속 var(--c-accent) / var(--c-accent-soft) 만 참조한다 —
+     모양 이름을 아는 선택자를 본문에 만들지 않는다.
+   ★ :root 의 기본값(#1f6b6b)은 그대로 둔다. 앨범 밖 화면이 그것을 쓴다.
+   ============================================================ */
+
+.album-renderer--skin-basic {
+  --c-accent: #3f5b7a;
+  --c-accent-soft: #eef2f7;
+}
+
+.album-renderer--skin-scrapbook {
+  --c-accent: #8a2c2c;
+  --c-accent-soft: #fff0f0;
+}
+
+.album-renderer--skin-airy {
+  --c-accent: #9a3d63;
+  --c-accent-soft: #fdf0f4;
+}
+
+.album-renderer--skin-grid {
+  --c-accent: #7a5a1f;
+  --c-accent-soft: #faf3e4;
+}
+
+.album-renderer--skin-magazine {
+  --c-accent: #1f6b6b;
+  --c-accent-soft: #e9f2f1;
+}
+
+.album-renderer--skin-single {
+  --c-accent: #6b4a2f;
+  --c-accent-soft: #f7f0e9;
+}
+
+/* ---- 종이 색 3종 — 모양과 **분리**한다 ----
+   배경을 모양에 묶으면 같은 사진이 모양마다 달라 보인다. 그래서 나눈다.
+   ★ 덮는 것은 --c-bg 하나뿐이다. 사진이 놓이는 흰 마운트(--c-surface)는 그대로다.
+   ★ **인쇄는 항상 흰 종이다** — 아래 규칙은 화면에만 건다(잉크를 쓰지 않는다). */
+.album-renderer--screen.album-renderer--paper-white { --c-bg: #fffdfb; }
+.album-renderer--screen.album-renderer--paper-cream { --c-bg: #fdfaf3; }
+.album-renderer--screen.album-renderer--paper-gray { --c-bg: #f7f7f6; }

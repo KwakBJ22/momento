@@ -1,0 +1,328 @@
+/**
+ * 앨범 모양 6종의 **배치 규칙** — 화면 전용 (시안 docs/mockups/album-skins-v2.html).
+ *
+ * ★ 이 파일의 모든 선택자는 `.album-renderer--screen.album-renderer--skin-*` 로 시작한다.
+ *   그래서 **인쇄에는 구조적으로 샐 수 없다.** print 쪽에 예외 코드를 두지 않는다 —
+ *   "인쇄일 때는 빼기"를 코드로 적으면 언젠가 하나를 빠뜨린다.
+ * ★ 색(--c-accent · --c-accent-soft)은 여기 없다. tokens.css 의 모양 클래스에 있고
+ *   루트에 얹히므로 인쇄에도 따라간다.
+ * ★ 마크업은 6종이 같다. 여기서 하는 일은 **덮어쓰기**뿐이다.
+ *
+ * 6종이 함께 지키는 것(여기서 건드리지 않는다):
+ *   본문 글자색 · 구조(월 → 날짜 → 사진+캡션 → 그날의 이야기 → 우리의 이야기) ·
+ *   캡션 자리(마운트 안 · 최대 2줄 · 이름 없음 · 카드 없음) ·
+ *   한마디 자리(마운트 밖 · 2개 + 모두 보기) · 라벨 14px 하한 · 터치 44px 하한 · 폰트.
+ */
+
+/* 종이 색이 실제로 보이려면 화면 앨범이 --c-bg 를 칠해야 한다.
+   ★ 예전에는 화면도 --c-surface(#ffffff)였다 — 흰 마운트와 **같은 색**이라
+     마운트가 배경에 묻혔다(PO 2026-08-15 가 본 것이 이것이다).
+   인쇄는 그대로 --c-surface 다(위 .album-renderer 기본값). */
+.album-renderer--screen {
+  background: var(--c-bg);
+}
+
+/* ============================================================
+   기울기·겹침은 **스크랩북에서만**이다.
+   값은 JS 가 인라인으로 넣지만(모양을 모른다 — 분기 코드를 만들지 않는다),
+   쓸지 말지는 여기서 정한다. 나머지 다섯은 0 이다.
+   ============================================================ */
+.album-renderer--screen:not(.album-renderer--skin-scrapbook)
+  .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  transform: none !important;
+}
+
+.album-renderer--screen:not(.album-renderer--skin-scrapbook)
+  .album-screen-photo-grid > .photo-block[data-overlap] {
+  margin-inline-start: 0 !important;
+}
+
+/* ============================================================
+   1) 기본형 — 흰 마운트 7px · 간격 22px · 날짜 중앙(월 + 짧은 선) ·
+      이야기 블록 배경 채움 · 캡션 마운트 안 좌측
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-basic .album-screen-photo-grid {
+  gap: 22px;
+}
+
+.album-renderer--screen.album-renderer--skin-basic .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 7px;
+}
+
+/* 월 아래 짧은 선 — 월과 한 몸이다(월이 없으면 선도 없다). */
+.album-renderer--screen.album-renderer--skin-basic .chapter-header__month::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 2px;
+  margin: 8px auto 0;
+  background: var(--c-accent);
+}
+
+.album-renderer--screen.album-renderer--skin-basic .story-block {
+  padding: 16px;
+  border-top: 0;
+  border-radius: var(--r-md);
+  background: var(--c-accent-soft);
+}
+
+.album-renderer--screen.album-renderer--skin-basic .album-screen-photo-grid .photo-memory-lines--caption,
+.album-renderer--screen.album-renderer--skin-basic .album-screen-photo-grid .photo-memory-lines__line {
+  text-align: start;
+}
+
+/* ============================================================
+   2) 스크랩북 — 마운트 6px + 기울기 · 겹침 −14px · 기울어진 라벨 태그 ·
+      이야기 블록 좌측 강조선 + 배경
+      ★ 기울기·겹침 구현은 지금 것을 그대로 쓴다(engine/scrapbookLayout).
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-scrapbook .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 6px;
+}
+
+/* 날짜 줄이 기울어진 라벨 태그가 된다 — 글자를 감싼 자리에만 붙는다. */
+.album-renderer--screen.album-renderer--skin-scrapbook .chapter-header__dayline {
+  display: inline-block;
+  transform: rotate(-1.8deg);
+  padding: 8px 14px;
+  border: 1px solid var(--c-accent);
+  border-radius: 3px;
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+  font-weight: var(--w-bold);
+}
+
+.album-renderer--screen.album-renderer--skin-scrapbook .story-block {
+  padding: 16px 16px 16px 14px;
+  border-top: 0;
+  border-left: 4px solid var(--c-accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--c-accent-soft);
+}
+
+/* ============================================================
+   3) 여백형 — 마운트 14px · 좌우 36px · 간격 40px · 날짜에 큰 숫자(일) ·
+      이야기 블록 배경 없이 상단 선 · 캡션 중앙 ·
+      한마디는 세로선 대신 중앙 정렬(전부 중앙이라 선이 튄다. 아바타를 빼서 가른다)
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-airy .album-screen-photo-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  padding-inline: 36px;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 14px;
+  border-radius: 0;
+}
+
+/* 날짜의 `일`만 큰 숫자로 — 글자는 그대로 두고 크기만 바꾼다(새 데이터를 만들지 않는다). */
+.album-renderer--screen.album-renderer--skin-airy .chapter-header__month {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline {
+  color: var(--c-accent);
+  font-size: 34px;
+  font-weight: var(--w-bold);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .story-block {
+  padding: 20px 0 0;
+  border-top: 1px solid var(--c-accent);
+  background: none;
+  text-align: center;
+}
+
+/* 한마디 — 세로선을 걷고 중앙으로. 아바타를 빼서 캡션과 갈린다. */
+.album-renderer--screen.album-renderer--skin-airy .photo-memory-list {
+  padding-left: 0;
+  border-left: 0;
+  text-align: center;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .photo-memory-list__item {
+  justify-content: center;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .photo-memory-list__avatar {
+  display: none;
+}
+
+.album-renderer--screen.album-renderer--skin-airy .photo-memory-list__more {
+  text-align: center;
+}
+
+/* ============================================================
+   4) 격자형 — 마운트 없음 · 대표 1장 + 격자 · 간격 6px ·
+      날짜 좌측 + 장수 배지 · 이야기 블록 상단 굵은 선 + 폭 꽉 ·
+      캡션은 대표 사진과 격자 묶음 아래에만
+      ★ 로직을 만들지 않았다. 대표 1장은 `:first-child` 가 격자를 가로지르는 것으로 끝난다.
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-grid .album-screen-photo-grid {
+  gap: 6px;
+  padding-inline: 16px;
+}
+
+.album-renderer--screen.album-renderer--skin-grid .album-screen-photo-grid > .photo-block:first-child {
+  grid-column: 1 / -1;
+}
+
+.album-renderer--screen.album-renderer--skin-grid .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  box-shadow: none;
+  background: none;
+}
+
+.album-renderer--screen.album-renderer--skin-grid .chapter-header--date-only {
+  justify-items: start;
+  text-align: start;
+}
+
+/* 장수 배지 — 이미 글로 있는 `(사진 N장)` 을 그대로 쓴다. */
+.album-renderer--screen.album-renderer--skin-grid .chapter-header__dayline {
+  color: var(--c-text-muted);
+}
+
+.album-renderer--screen.album-renderer--skin-grid .story-block {
+  padding: 16px;
+  border-top: 4px solid var(--c-accent);
+  border-radius: 0;
+  background: var(--c-accent-soft);
+}
+
+/* 캡션은 격자 칸에서는 자리를 밀어낸다 — 대표 사진 아래에만 둔다. */
+.album-renderer--screen.album-renderer--skin-grid .album-screen-photo-grid .photo-memory-lines--caption,
+.album-renderer--screen.album-renderer--skin-grid .album-screen-photo-grid .photo-memory-lines__line {
+  text-align: start;
+}
+
+/* ============================================================
+   5) 잡지형 — 마운트 없음 · 직각 · 간격 24px + 폭이 번갈아 들여쓰기 ·
+      날짜 좌측 세로선 + 넓은 자간 라벨 · 이야기 블록에 큰 인용부호
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-magazine .album-screen-photo-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  padding-inline: 16px;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .album-screen-photo-grid > .photo-block > .photo-block__frame .album-photo-frame__img {
+  border-radius: 0;
+}
+
+/* 폭이 번갈아 들어간다 — 짝수 번째만 좌우를 좁힌다. */
+.album-renderer--screen.album-renderer--skin-magazine .album-screen-photo-grid > .photo-block:nth-child(even) {
+  padding-inline: 28px;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .chapter-header--date-only {
+  justify-items: start;
+  padding-left: 12px;
+  border-left: 2px solid var(--c-accent);
+  text-align: start;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .chapter-header__dayline {
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .story-block {
+  position: relative;
+  padding: 28px 0 0;
+  border-top: 0;
+}
+
+.album-renderer--screen.album-renderer--skin-magazine .story-block::before {
+  content: "\201C";
+  position: absolute;
+  top: -10px;
+  left: 0;
+  color: var(--c-accent);
+  font-size: 56px;
+  font-weight: var(--w-bold);
+  line-height: 1;
+}
+
+/* ============================================================
+   6) 한 장씩 크게 — 마운트 없음 · 좌우 여백 0 · 화면 폭 꽉 · 직각 ·
+      간격 30px · 날짜 알약 칩 · 캡션 18px + `1 / N` · 이야기 블록도 폭 꽉
+      ★ `1 / N` 은 그 날짜 묶음 안 순번이다. 세는 것은 CSS 카운터가 한다 —
+        전체 장수만 격자가 `--photo-total` 로 알려 준다(새 데이터가 아니다).
+   ============================================================ */
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 30px;
+  padding-inline: 0;
+  counter-reset: album-photo 0 album-photo-total var(--photo-total, 0);
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block {
+  counter-increment: album-photo;
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block > .photo-block__frame {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block > .photo-block__frame .album-photo-frame__img {
+  border-radius: 0;
+}
+
+.album-renderer--screen.album-renderer--skin-single .chapter-header__dayline {
+  padding: 7px 14px;
+  border-radius: var(--r-full);
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+  font-weight: var(--w-medium);
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid .photo-memory-lines--caption {
+  padding-inline: 20px;
+  text-align: start;
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid .photo-memory-lines--caption .photo-memory-lines__line {
+  font-size: 18px;
+  text-align: start;
+}
+
+.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block > .photo-block__frame::after {
+  content: counter(album-photo) " / " counter(album-photo-total);
+  display: block;
+  padding: 8px 20px 0;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  font-weight: var(--w-medium);
+}
+
+/* 한마디도 좌우 20px 안으로 — 사진만 폭을 꽉 채운다. */
+.album-renderer--screen.album-renderer--skin-single .photo-memory-list {
+  margin-inline: 20px;
+}
+
+.album-renderer--screen.album-renderer--skin-single .story-block {
+  padding: 16px 20px;
+  border-top: 4px solid var(--c-accent);
+  background: var(--c-accent-soft);
+}

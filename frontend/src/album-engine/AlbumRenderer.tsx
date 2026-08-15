@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
@@ -17,6 +17,7 @@ import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
+import { albumSkinClassNames, resolveAlbumSkin } from "../lib/albumSkin";
 import { waitForAlbumAssets } from "./waitForAlbumAssets";
 // ★ 엔진이 **자기 색을 스스로 싣는다**(I-4b-1). 엔진 CSS 는 --c-surface · --c-border ·
 // --c-brand 를 쓰는데, 예전에는 그 정의를 앱 진입점(main.tsx)이 실어 준다고 **기대만**
@@ -29,6 +30,8 @@ import "../styles/tokens.css";
 import "../styles/notice.css";
 import "../styles/loading.css";
 import "./AlbumRenderer.css";
+// 앨범 모양 6종의 **배치 규칙**. 모든 선택자가 `--screen` 안에 있어 인쇄에는 못 샌다.
+import "./AlbumSkins.css";
 import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
@@ -58,6 +61,9 @@ export interface AlbumRendererProps {
   /** 날짜 줄의 장소 고치기 — 주최자에게만 온다. 인쇄에는 넘기지 않는다. */
   placeEdit?: PlaceEditState | null;
   livingAppendPages?: LivingAppendPage[];
+  /** 앨범 모양 · 종이 색 (albums.skin · albums.paper). 없으면 카테고리 추천이 걸린다. */
+  skin?: string | null;
+  paper?: string | null;
   className?: string;
 }
 
@@ -129,6 +135,8 @@ export default function AlbumRenderer({
   dateStoryEdit = null,
   placeEdit = null,
   livingAppendPages = [],
+  skin = null,
+  paper = null,
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
@@ -140,6 +148,12 @@ export default function AlbumRenderer({
   const measurePhotos = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
   const [newAppendPageIds, setNewAppendPageIds] = useState<Set<string>>(new Set());
+  // ★ 앨범 모양·종이 색은 **루트 클래스 둘**로만 전달한다(§9 — 재마운트를 늘리지 않는다).
+  //   무엇을 쓸지 정하는 규칙은 lib/albumSkin 한 곳에 있다. 여기서 다시 세지 않는다.
+  const shellClass = useMemo(() => {
+    const resolved = resolveAlbumSkin({ skin, paper, category });
+    return albumSkinClassNames(resolved.skin, resolved.paper);
+  }, [skin, paper, category]);
 
   useEffect(() => {
     let active = true;
@@ -356,7 +370,10 @@ export default function AlbumRenderer({
           placeKey={storyKey}
           placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
-        <div className="album-screen-photo-grid">
+        {/* ★ `--photo-total` 은 `한 장씩 크게` 모양의 `1 / N` 이 쓰는 값이다.
+            그 날짜 묶음의 장수일 뿐 새 데이터가 아니고, 세는 것은 CSS 카운터가 한다 —
+            모양별 분기 코드를 만들지 않으려고 값만 늘 실어 둔다(다른 모양은 안 쓴다). */}
+        <div className="album-screen-photo-grid" style={{ "--photo-total": chapter.photos.length } as CSSProperties}>
           {chapter.photos.map((photo, photoIndex) => (
             <PhotoWithMemories
               key={photo.id}
@@ -385,7 +402,7 @@ export default function AlbumRenderer({
     if (livingAppendPages.length) {
       return (
         <AlbumRenderModeProvider mode={mode}>
-        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+        <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()} data-album-renderer="">
           <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
             <div className="album-renderer__body">
               <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
@@ -400,26 +417,26 @@ export default function AlbumRenderer({
     }
     if (!fallbackImageUrl) {
       return mode === "screen" ? (
-        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+        <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()} data-album-renderer="">
           <p className="album-renderer__empty">사진을 추가해 새 앨범을 만들어보세요.</p>
         </div>
       ) : null;
     }
     return (
-      <div className={`album-renderer album-renderer--${mode} ${className}`.trim()}>
+      <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()}>
         <img src={fallbackImageUrl} alt={title || "앨범"} className="album-renderer__fallback-image" />
       </div>
     );
   }
 
   if (!album) {
-    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading loading-shimmer ${className}`.trim()} aria-busy="true" />;
+    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading loading-shimmer ${shellClass} ${className}`.trim()} aria-busy="true" />;
   }
 
   return (
     <AlbumRenderModeProvider mode={mode}>
     <div
-      className={`album-renderer album-renderer--${mode} album-renderer--${album.layout.kind.toLowerCase()} ${className}`.trim()}
+      className={`album-renderer album-renderer--${mode} album-renderer--${album.layout.kind.toLowerCase()} ${shellClass} ${className}`.trim()}
       data-layout-engine={album.layout.layoutEngineVersion}
       data-template-type={album.layout.templateType}
       data-chapter-count={album.chapters.length}

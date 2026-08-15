@@ -83,6 +83,9 @@ test("★ 흰 카드와 회전이 같은 요소다 — 프레임이 통째로 �
   //      `카드 나열처럼 보이는` 모양이 아니다.
   //   여백이 예전 12px 이 아니라 7px 인 것은 사진이 가장 중요하기 때문이다(§6).
   //   ★ 이 검사가 지키는 규칙은 "**도는 것과 모양이 같은 요소**"다(K-23) — 그건 그대로다.
+  //   ★ 2026-08-15 에 **앨범 모양 6종**이 들어왔다. 아래 값은 이제 그 여섯의 **바탕**이고,
+  //     모양마다 AlbumSkins.css 가 덮는다(스크랩북 6px · 격자·잡지·한 장씩은 마운트 없음).
+  //     덮는 쪽은 tests/albumSkins.test.ts 가 본다. 여기서는 바탕이 그대로인지만 본다.
   assert.match(frame, /padding: 7px/);
   assert.match(frame, /border: 1px solid var\(--c-border-strong\);/, "마운트가 배경에 묻힌다");
   assert.equal(/border: 1px solid var\(--c-border\);/.test(frame), false, "연한 선으로 돌아갔다 — 흰 배경에서 1.51:1 이라 안 보인다");
