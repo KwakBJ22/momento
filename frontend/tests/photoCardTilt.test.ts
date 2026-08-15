@@ -75,14 +75,19 @@ test("★ 흰 카드와 회전이 같은 요소다 — 프레임이 통째로 �
   //   ③ 다시 넣은 것: 1px 테두리 (2026-08-15 PO · dev 실기기).
   //      "프레임이 전에는 잘 보였는데 지금은 거의 안 보이고 흐리다." 흰색(#ffffff)
   //      마운트가 흰색(#fffdfb) 배경 위라 경계가 없었다 — ①에서 상자를 걷어낼 때
-  //      마운트의 테두리까지 같이 지워진 것이다. 시안 v2 대로 넣어 인화물처럼 읽히게
-  //      한다. 진한 --c-border-strong 이 아니라 **연한 --c-border** 다(카드로 돌아가지
-  //      않는다). 앨범 전체를 둘러싼 상자는 그대로 없다.
+  //      마운트의 테두리까지 같이 지워진 것이다.
+  //      처음에는 --c-border(#d6d1ce)로 넣었는데 흰 표면 대비 1.51:1 이라 그래도
+  //      안 보였다(같은 날 두 번째 확인). --c-border-strong(#b5b0ac · 2.15:1)으로 올렸다.
+  //      ①에서 뺀 것은 `테두리 + 진한 그림자(--sh-md)` **조합**이다. 지금 있는 것은
+  //      테두리뿐이고 그림자는 여전히 가장 약한 --sh-sm 이라, 그때 문제였던
+  //      `카드 나열처럼 보이는` 모양이 아니다.
   //   여백이 예전 12px 이 아니라 7px 인 것은 사진이 가장 중요하기 때문이다(§6).
   //   ★ 이 검사가 지키는 규칙은 "**도는 것과 모양이 같은 요소**"다(K-23) — 그건 그대로다.
   assert.match(frame, /padding: 7px/);
-  assert.match(frame, /border: 1px solid var\(--c-border\);/, "마운트가 배경에 묻힌다");
-  assert.equal(frame.includes("--c-border-strong"), false, "진한 테두리로 돌아가면 카드가 된다");
+  assert.match(frame, /border: 1px solid var\(--c-border-strong\);/, "마운트가 배경에 묻힌다");
+  assert.equal(/border: 1px solid var\(--c-border\);/.test(frame), false, "연한 선으로 돌아갔다 — 흰 배경에서 1.51:1 이라 안 보인다");
+  // 그림자는 계속 가장 약한 것이다 — 이것이 `카드`와 `마운트`를 가른다.
+  assert.equal(frame.includes("--sh-md"), false, "진한 그림자가 돌아오면 카드가 된다");
   assert.match(frame, /border-radius: var\(--r-sm\)/);
   assert.match(frame, /background: var\(--c-surface\)/);
   assert.match(frame, /box-shadow: var\(--sh-sm\)/, "진한 그림자(--sh-md)로 돌아가지 않는다");

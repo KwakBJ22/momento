@@ -833,7 +833,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       <div className="album-caption-notice__body">
         {/* `한마디`·`캡션` 이라는 말을 쓰지 않는다 — 앞은 다른 계층의 이름이고,
             뒤는 외래어라 한 번 더 생각하게 만든다(§7·§9). */}
-        <p>아직 아무 말도 적지 않은 사진이 {myEmptyCaptionPhotos.length}장 있어요.</p>
+        <p>설명이 없는 사진이 {myEmptyCaptionPhotos.length}장 있어요.</p>
         <p className="album-caption-notice__sub">한 줄만 적어도 앨범이 훨씬 풍성해져요.</p>
         <button type="button" className="album-caption-notice__link" onClick={goToFirstEmptyCaption}>채우러 가기</button>
       </div>

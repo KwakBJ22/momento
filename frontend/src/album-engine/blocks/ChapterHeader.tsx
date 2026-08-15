@@ -25,6 +25,10 @@ interface ChapterHeaderProps {
    *  한 날에 장소가 둘이면 `2018.07.08 · 제주 서귀포시` 다음은 `제주 성산읍` 만 쓴다.
    *  같은 날짜를 두 번 읽게 하지 않는다(PO 2026-08-13). */
   repeatsDate?: boolean;
+  /** 바로 앞 묶음과 **연·월이 같은가**. 같으면 월을 다시 쓰지 않는다 —
+   *  `2016년 11월` 이 그 달의 날짜 묶음마다 되풀이되던 것을 막는다(PO 2026-08-15).
+   *  ★ 날짜가 같은가(`repeatsDate`)만으로는 모자란다. 날짜가 달라도 달은 같을 수 있다. */
+  repeatsMonth?: boolean;
   /** 장소를 고칠 때 쓰는 키(날짜 묶음 키) — 없으면 연필을 그리지 않는다. */
   placeKey?: string | null;
   /** 이 날짜 묶음의 사진들. 저장은 **전부**에 같은 장소를 넣는다. */
@@ -44,6 +48,7 @@ export default function ChapterHeader({
   variant = "date-only",
   showYear = false,
   repeatsDate = false,
+  repeatsMonth = false,
   placeKey = null,
   placePhotoIds = [],
 }: ChapterHeaderProps) {
@@ -84,7 +89,10 @@ export default function ChapterHeader({
     const headParts = [dropDate ? "" : dotRange || "", placeText].filter(Boolean);
     const dateLine = headParts.length ? `${headParts.join(" · ")}${countSuffix}` : null;
     // 날짜를 생략한 줄에는 월 표시도 다시 쓰지 않는다 — 바로 위에 이미 있다.
-    const showMonth = Boolean(monthLine) && !dropDate;
+    // ★ 달이 바뀔 때만 쓴다 (PO 2026-08-15). 예전에는 날짜가 같은지만 봐서
+    //   `2016년 11월` 이 그 달의 날짜 묶음마다 되풀이됐다. 월 아래 짧은 선은
+    //   월과 한 몸이라 월이 없으면 선도 없다(CSS 가 이 요소에 붙어 있다).
+    const showMonth = Boolean(monthLine) && !dropDate && !repeatsMonth;
 
     // ★ 쓸 글자가 없으면 그리지 않는다. 연필 때문에 빈 줄을 만들지 않는다(§11 J-11).
     if (!showMonth && !dateLine) return null;

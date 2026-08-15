@@ -351,6 +351,8 @@ export default function AlbumRenderer({
           variant="date-only"
           repeatsDate={chapterIndex > 0 && Boolean(chapter.date)
             && album?.chapters[chapterIndex - 1]?.date === chapter.date}
+          repeatsMonth={chapterIndex > 0 && Boolean(chapter.date)
+            && album?.chapters[chapterIndex - 1]?.date?.slice(0, 7) === chapter.date?.slice(0, 7)}
           placeKey={storyKey}
           placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
