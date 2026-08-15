@@ -83,6 +83,15 @@ test("★ 앨범 끝 안내는 웹·공유에만, 마지막 페이지에만", ()
   assert.match(renderer, /mode === "screen" && index === livingAppendPages\.length - 1/);
 });
 
+test("★ `새로 더해진` 자리는 사진도 그린다 — 글만 뜨면 사진이 어디에도 안 보인다", () => {
+  // OPEN_ITEMS §2-1. 서버가 그 페이지에 사진을 실어 보내도, 화면이 memories 만
+  // 그리면 사라진 채로 남는다. 화면(웹)과 인쇄 두 갈래 모두 그려야 한다.
+  const renderer = read("album-engine/AlbumRenderer.tsx");
+  const drawn = renderer.match(/page\.photos\.length \? \(/g) || [];
+  assert.equal(drawn.length, 2, `사진을 그리는 갈래가 ${drawn.length} 개다 — 웹·인쇄 둘이어야 한다`);
+  assert.equal((renderer.match(/page\.photos\.map\(/g) || []).length, 2);
+});
+
 test("주최자 화면과 참여자 화면이 같은 것을 본다 — 붙는 자리가 하나다", () => {
   // 둘 다 같은 AlbumRenderer 의 livingAppendPages 를 그린다(§9 · 같은 렌더러).
   for (const file of ["components/AlbumView.tsx", "components/AlbumResult.tsx"]) {

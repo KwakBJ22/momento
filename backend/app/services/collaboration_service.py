@@ -93,6 +93,65 @@ def contribution_baseline_at(album: dict[str, Any]) -> str:
     return str(album.get("last_collaboration_applied_at") or album.get("created_at") or "")
 
 
+class PendingContributionRules:
+    """`아직 반영 안 된 참여` 판정 — 공유 화면과 앨범 화면이 **같은 자를 쓴다**.
+
+    ★ 예전에는 이 판정이 share.py 안에만 있었다. 앨범 화면은 저장된
+      `living_append_pages` 만 읽어서, 앨범 문서가 만들어진 뒤에 더해진 사진이
+      앨범 화면에서만 사라졌다 (OPEN_ITEMS §2-1). 같은 일을 두 곳이 다른 방식으로
+      하면 언젠가 갈린다 — 규칙을 한 벌로 둔다(§13).
+
+    ★ baseline 은 `album.created_at` 이다. `contribution_baseline_at` 이 쓰는
+      `last_collaboration_applied_at` 이 아니다 — 공유 화면이 쓰던 값 그대로다.
+      (반영된 것은 applied_*_ids 로 걸러지므로 여기서 두 번 걸 필요가 없다.)
+    """
+
+    def __init__(
+        self,
+        *,
+        baseline: str,
+        owner_ids: set[str],
+        applied_photo_ids: set[str],
+        applied_memory_ids: set[str],
+    ) -> None:
+        self.baseline = baseline
+        self.owner_ids = owner_ids
+        self.applied_photo_ids = applied_photo_ids
+        self.applied_memory_ids = applied_memory_ids
+
+    def is_pending_photo(self, photo: dict[str, object]) -> bool:
+        contributor_id = str(photo.get("uploaded_by_contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in self.owner_ids
+            and str(photo.get("created_at") or "") > self.baseline
+            and str(photo.get("id")) not in self.applied_photo_ids
+        )
+
+    def is_pending_memory(self, memory: dict[str, object]) -> bool:
+        contributor_id = str(memory.get("contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in self.owner_ids
+            and str(memory.get("created_at") or "") > self.baseline
+            and str(memory.get("id")) not in self.applied_memory_ids
+        )
+
+
+def pending_contribution_rules(
+    album: dict[str, Any], contributors: list[dict[str, Any]],
+) -> PendingContributionRules:
+    """앨범 한 건에 대한 판정 자를 만든다(순수 계산 — DB 를 다시 읽지 않는다)."""
+    return PendingContributionRules(
+        baseline=str(album.get("created_at") or ""),
+        owner_ids={str(row["id"]) for row in contributors if row.get("role") == "owner"},
+        applied_photo_ids={str(item) for item in (album.get("applied_contribution_photo_ids") or [])},
+        applied_memory_ids={str(item) for item in (album.get("applied_contribution_memory_ids") or [])},
+    )
+
+
 def count_new_contributions(
     photos: list[dict[str, Any]],
     memories: list[dict[str, Any]],

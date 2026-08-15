@@ -36,7 +36,7 @@ from app.services.supabase import (
     get_signed_urls_batch,
     get_supabase_client,
 )
-from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, resolve_contributor_names, unpack_edition_snapshot
+from app.services.collaboration_service import album_document_photo_ids, list_contributors, list_photo_memories, pending_contribution_rules, resolve_contributor_names, unpack_edition_snapshot
 from app.services.collaboration_service import count_active_contributors, join_as_contributor, new_guest_id
 from app.services.story_rules import visible_date_stories
 
@@ -167,38 +167,17 @@ def get_public_share(
     album_id = str(album["id"])
     photo_records = get_album_photo_records(client, album_id)
     memories = list_photo_memories(client, album_id)
-    baseline = str(album.get("created_at") or "")
-    applied_photo_ids = {str(item) for item in (album.get("applied_contribution_photo_ids") or [])}
-    applied_memory_ids = {str(item) for item in (album.get("applied_contribution_memory_ids") or [])}
     contributors = list_contributors(client, album_id)
-    owner_ids = {str(row["id"]) for row in contributors if row.get("role") == "owner"}
     contributor_names = {
         str(row["id"]): _public_author_name(row.get("display_name"))
         for row in contributors
     }
+    # ★ 판정은 collaboration_service 한 곳에 있다. 앨범 화면(album.py)도 **같은 자**를
+    #   쓴다 — 규칙이 두 벌이면 언젠가 갈린다(OPEN_ITEMS §2-1 이 그렇게 났다).
+    pending = pending_contribution_rules(album, contributors)
 
-    def is_pending_photo(photo: dict[str, object]) -> bool:
-        contributor_id = str(photo.get("uploaded_by_contributor_id") or "")
-        return (
-            bool(contributor_id)
-            and
-            contributor_id not in owner_ids
-            and str(photo.get("created_at") or "") > baseline
-            and str(photo.get("id")) not in applied_photo_ids
-        )
-
-    def is_pending_memory(memory: dict[str, object]) -> bool:
-        contributor_id = str(memory.get("contributor_id") or "")
-        return (
-            bool(contributor_id)
-            and
-            contributor_id not in owner_ids
-            and str(memory.get("created_at") or "") > baseline
-            and str(memory.get("id")) not in applied_memory_ids
-        )
-
-    pending_photo_records = [photo for photo in photo_records if is_pending_photo(photo)] if edition is None else []
-    shared_photo_records = [photo for photo in photo_records if not is_pending_photo(photo)]
+    pending_photo_records = [photo for photo in photo_records if pending.is_pending_photo(photo)] if edition is None else []
+    shared_photo_records = [photo for photo in photo_records if not pending.is_pending_photo(photo)]
     # 사진이 그려지는 자리 — 이 사진에 달린 한마디는 사진 밑에 그대로 나온다(K-24).
     rendered_photo_ids = {str(photo["id"]) for photo in shared_photo_records}
     # ★ K-24: 한마디는 `아직 반영 안 된 참여` 로 치지 않는다.
@@ -209,7 +188,7 @@ def get_public_share(
     #   안 보이는 글이 생기지 않고, 같은 글이 두 곳에 겹치지도 않는다.
     pending_memories = [
         memory for memory in memories
-        if is_pending_memory(memory) and str(memory.get("photo_id") or "") not in rendered_photo_ids
+        if pending.is_pending_memory(memory) and str(memory.get("photo_id") or "") not in rendered_photo_ids
     ] if edition is None else []
     current_document, selected_append_pages = _public_edition_document_and_pages(album, edition)
     document_photo_ids = album_document_photo_ids(current_document)

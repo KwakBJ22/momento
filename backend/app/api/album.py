@@ -156,6 +156,7 @@ from app.services.collaboration_service import (
     get_cached_pdf_path,
     get_cached_pdf_bucket,
     list_photo_memories,
+    pending_contribution_rules,
     set_cached_pdf_path,
     unpack_edition_snapshot,
 )
@@ -169,6 +170,9 @@ router = APIRouter(prefix="/api", tags=["album"])
 # 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
 #   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
 PDF_RENDERER_VERSION = 3
+# 저장된 `새로 더해진` 페이지가 아직 하나도 없을 때, 계산해서 세우는 한 장의 id.
+# ★ 값이 고정이어야 한다 — 화면이 이 id 로 `NEW` 표시를 기억한다(sessionStorage).
+_PENDING_APPEND_PAGE_ID = "pending-contributions"
 logger = logging.getLogger(__name__)
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
@@ -1830,6 +1834,60 @@ def _record_to_detail_light(
     )
 
 
+def _pending_append_ids(
+    album: dict[str, Any],
+    contributors: list[dict[str, Any]],
+    document: dict[str, Any] | None,
+    photos: list[dict[str, Any]],
+    memories: list[dict[str, Any]],
+    page_photo_ids: set[str],
+    page_memory_ids: set[str],
+) -> tuple[list[str], list[str], str | None]:
+    """저장된 페이지에 아직 안 적힌 참여를 **공유 화면과 같은 자로** 다시 센다.
+
+    ★ OPEN_ITEMS §2-1. 앨범 화면은 저장된 `living_append_pages` 만 읽었다. 그런데
+      한마디만 올라오면 그 페이지의 `photo_ids` 가 비어서(dev 실측 2026-08-15),
+      문서 이후에 더해진 사진은 본문에도 없고 이 페이지에도 없어 **어디에도** 안 보였다.
+
+    ★ K-24 를 지킨다 — 한마디를 사진과 같은 잣대로 거르지 않는다. 사진이 어디든
+      그려지면 한마디는 그 사진 밑에 그대로 나오므로 여기서 다시 세지 않는다.
+      **사진이 아직 안 그려지는 한마디만** 이 자리로 온다. 그래야 어디에도 안 보이는
+      글이 생기지 않고, 같은 글이 두 곳에 겹치지도 않는다.
+
+    Returns: (더할 사진 id, 더할 한마디 id, 가장 최근 참여 시각)
+    """
+    rules = pending_contribution_rules(album, contributors)
+    # 본문에 그려지는 사진 — album_photos 엔드포인트의 `visible_photos` 와 같은 조건이다.
+    body_photo_ids = album_document_photo_ids(document)
+
+    def drawn_in_body(photo_id: str) -> bool:
+        return not body_photo_ids or photo_id in body_photo_ids
+
+    pending_photos = [
+        photo for photo in photos
+        if rules.is_pending_photo(photo)
+        and not drawn_in_body(str(photo["id"]))
+        and str(photo["id"]) not in page_photo_ids
+    ]
+    drawn_photo_ids = page_photo_ids | {str(photo["id"]) for photo in pending_photos}
+    pending_memories = [
+        memory for memory in memories
+        if rules.is_pending_memory(memory)
+        and str(memory.get("id") or "") not in page_memory_ids
+        and not drawn_in_body(str(memory.get("photo_id") or ""))
+        and str(memory.get("photo_id") or "") not in drawn_photo_ids
+    ]
+    newest = max(
+        (str(item.get("created_at") or "") for item in (*pending_photos, *pending_memories)),
+        default="",
+    )
+    return (
+        [str(photo["id"]) for photo in pending_photos],
+        [str(memory["id"]) for memory in pending_memories],
+        newest or None,
+    )
+
+
 def _signed_living_append_pages(
     client: Any,
     settings: Settings,
@@ -1837,9 +1895,7 @@ def _signed_living_append_pages(
     album_id: str,
     edition: int | None,
 ) -> list[dict[str, Any]]:
-    _, append_pages = _edition_document_and_pages(record, edition)
-    if not append_pages:
-        return []
+    document, append_pages = _edition_document_and_pages(record, edition)
     photo_ids: list[str] = []
     memory_ids: set[str] = set()
     for page in append_pages:
@@ -1847,12 +1903,56 @@ def _signed_living_append_pages(
             continue
         photo_ids.extend(str(photo_id) for photo_id in (page.get("photo_ids") or []))
         memory_ids.update(str(memory_id) for memory_id in (page.get("memory_ids") or []))
+
+    # 이전 판(edition)을 볼 때는 다시 세지 않는다 — 공유 화면과 **같은 조건**이다.
+    all_memories: list[dict[str, Any]] | None = None
+    if edition is None:
+        # ★ 가벼운 record 에는 `album_json` 도 `applied_contribution_*` 도 없다.
+        #   본문에 무엇이 그려지는지 알아야 `어디에도 안 보이는` 것을 가릴 수 있어
+        #   여기서 전체 행을 한 번 읽는다.
+        full = get_album_record(client, album_id) or record
+        document = full.get("album_json") if isinstance(full.get("album_json"), dict) else document
+        all_memories = list_photo_memories(client, album_id)
+        extra_photo_ids, extra_memory_ids, newest_at = _pending_append_ids(
+            full,
+            list_contributors(client, album_id),
+            document,
+            get_album_photo_records(client, album_id),
+            all_memories,
+            set(photo_ids),
+            memory_ids,
+        )
+        if extra_photo_ids or extra_memory_ids:
+            # ★ 맨 뒤다. 본문에 끼워 넣지 않는다(PO 결정 A안 · 17차) — 앨범을 자동으로
+            #   다시 만들지 않는다. 페이지가 이미 있으면 **마지막 장에 쌓는다**
+            #   (apply_selected_contributions 와 같은 방식). 없을 때만 한 장을 세운다.
+            last = append_pages[-1] if append_pages and isinstance(append_pages[-1], dict) else None
+            if last is not None:
+                append_pages = [
+                    *append_pages[:-1],
+                    {
+                        **last,
+                        "photo_ids": [*(last.get("photo_ids") or []), *extra_photo_ids],
+                        "memory_ids": [*(last.get("memory_ids") or []), *extra_memory_ids],
+                    },
+                ]
+            else:
+                append_pages = [{
+                    "id": _PENDING_APPEND_PAGE_ID,
+                    "type": "append_page",
+                    "created_at": newest_at,
+                    "photo_ids": extra_photo_ids,
+                    "memory_ids": extra_memory_ids,
+                }]
+            photo_ids.extend(extra_photo_ids)
+            memory_ids.update(extra_memory_ids)
+
+    if not append_pages:
+        return []
     photos = get_album_photo_records_by_ids(client, album_id, photo_ids)
-    memories = [
-        memory
-        for memory in list_photo_memories(client, album_id)
-        if str(memory.get("id") or "") in memory_ids
-    ] if memory_ids else []
+    # 한마디는 **전부** 넘긴다 — 이 페이지에 그려지는 사진 밑에 그 사진의 한마디가
+    # 그대로 붙어야 한다(K-24). 페이지 목록에 오르는 것은 memory_ids 뿐이다.
+    memories = all_memories if all_memories is not None else list_photo_memories(client, album_id)
     signed_urls = _batch_signed_urls_for_photos(client, settings, photos)
     return _living_append_payload(client, settings, append_pages, photos, memories, signed_urls=signed_urls)
 
