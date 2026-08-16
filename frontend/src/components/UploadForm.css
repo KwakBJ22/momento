@@ -667,3 +667,11 @@
   font-size: var(--t-xs);
   font-weight: 700;
 }
+
+/* `만드는 중` 화면의 사진 진행 한 줄 — 안내 문구 바로 밑, 같은 계열의 작은 글씨.
+   무거운 변환이 이 자리로 옮겨 왔으므로 무슨 일이 도는지 말해 준다(2026-08-16). */
+.upload-progress__photos {
+  margin: 0.35rem 0 0;
+  color: var(--c-text-soft);
+  font-size: var(--t-xs);
+}

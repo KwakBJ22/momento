@@ -31,6 +31,40 @@ body {
   background-image: none;
 }
 
+/* 로그인 마무리 화면만 앱 기본 배경(--c-bg)이다. 흰 면이 깔리면 오는 화면과
+   가는 화면 사이에서 한 번 번쩍인다 — 0.5초 스쳐 가는 자리라 그것만 남는다. */
+.app.app--auth-callback,
+.app.app--auth-callback .app__main {
+  background: var(--c-bg);
+}
+
+/* 가운데 로고 + 한 줄 + 로딩 표시. 상자·테두리를 두지 않는다 — 카드가 아니다. */
+.auth-callback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 22vh 0 0;
+  text-align: center;
+}
+
+/* 헤더 로고와 같은 조합이다(§9) — `우리`(글자색) + `앨범`(브랜드색). */
+.auth-callback__brand { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.auth-callback__brand b { color: var(--c-text); font-weight: inherit; }
+.auth-callback__brand i { color: var(--c-brand); font-style: normal; }
+
+.auth-callback__text {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: 0.9375rem;
+}
+
+/* 움직임·색·0.3초 지연은 styles/loading.css 가 준다. 여기서는 크기만 정한다. */
+.auth-callback__bar {
+  width: 132px;
+  height: 6px;
+}
+
 /* Visually hide file inputs without display:none / hidden (iOS picker stability) */
 .file-input-mobile {
   position: absolute;

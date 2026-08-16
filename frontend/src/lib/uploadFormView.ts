@@ -80,6 +80,24 @@ export function preparingLabel(progress: { done: number; total: number } | null)
   return `${PREPARING_LABEL} · ${progress.total}장 중 ${progress.done}장`;
 }
 
+/** `앨범 만들기` 를 누른 뒤 사진을 올릴 준비를 하는 동안의 한 줄 (2026-08-16).
+ *
+ * 무거운 변환(2560 축소·인코딩)을 고르는 자리에서 **여기로 옮겼다.** 시간이 이쪽으로
+ * 옮겨 왔으므로 화면이 그 사실을 말해야 한다 — 지금 무슨 일이 도는지 말하지 않으면
+ * 멈춘 것으로 읽힌다(§11).
+ *
+ * 숫자를 붙이는 규칙은 준비 중 문구와 **같다**: 아직 한 장도 안 끝났으면 안 센다. */
+export const UPLOADING_LABEL = "사진을 올리고 있어요";
+
+export function uploadingLabel(progress: { done: number; total: number } | null): string {
+  if (!progress || progress.total <= 1 || progress.done <= 0) return UPLOADING_LABEL;
+  return `${UPLOADING_LABEL} · ${progress.total}장 중 ${progress.done}장`;
+}
+
+/** 총 용량이 넘칠 때의 안내. **변환한 뒤**에 판정한다(고를 때는 원본 크기로 어림잡는다).
+ *  오류가 아니라 안내다 — 다시 시도해도 같으므로 `다시 시도` 를 띄우지 않는다. */
+export const TOTAL_OVER_NOTICE = "사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.";
+
 // Copy for filtered-out files (CLAUDE.md §8: no tech terms, no "coming soon" promise).
 
 /** Notices when SOME photos were added but files were also dropped this pick.

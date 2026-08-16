@@ -14,7 +14,12 @@ test("상단은 화면당 하나 — AppHeader 만이 브랜드를 그린다", (
   //   — 예전에는 앨범이 자기 헤더를 그리고 전역 헤더를 감춰서 구현이 두 벌이었다.
   // ★ K-20 에서 헤더가 `onNavigateHome` 을 받는다(잃을 것이 있으면 한 번 묻는다).
   //   규칙은 그대로다 — 헤더를 그리는 곳은 여전히 한 곳뿐이다.
-  assert.equal((app.match(/<AppHeader[ />]/g) || []).length, 1);
+  // ★ 2026-08-16 — App 안의 <AppHeader> 가 둘이 됐다. 로그인 마무리 화면도 **같은
+  //   헤더**를 쓰기 때문이다(그 전에는 헤더가 아예 없어 화면이 갈려 보였다).
+  //   둘은 같은 함수의 **서로 배타적인 갈래**다 — 로그인 마무리는 early return 이라
+  //   한 화면에 헤더가 둘 서는 일은 없다. 규칙(그리는 곳은 App 하나)은 그대로다.
+  assert.equal((app.match(/<AppHeader[ />]/g) || []).length, 2);
+  assert.match(app, /if \(isAuthCallbackPage\(\)\) return <div className="app app--auth-callback"><AppHeader \/>/);
   assert.doesNotMatch(screen, /<AppHeader/);
   assert.match(screen, /<HeaderRight>/);
   // "이 화면에서는 전역 헤더를 감춘다" 분기가 없다.
