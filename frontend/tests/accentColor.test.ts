@@ -130,10 +130,12 @@ test("★ 손대지 않기로 한 것들이 그대로다", () => {
   // ★ 2026-08-15 PO — 여기에 한 자리가 더해져 7이다. 제목 자리 연필의 동그라미
   //   (.album-screen-header__edit::before)가 회색 면에서 brand-soft 로 바뀌었다.
   //   제목 자리는 색 계열이 브랜드색이라, 연필과 원을 한 벌로 맞추면 그 면이 된다.
+  // ★ 2026-08-16 — 여덟째. 소개 구역 뒤 2칸의 아이콘 자리(.brand-value__use-icon)다.
+  //   시안이 그 자리에 브랜드 계열의 연한 면을 쓴다.
   const selected = cssFiles()
     .map((file) => (readFileSync(file, "utf8").match(/background: var\(--c-brand-soft\)/g) || []).length)
     .reduce((sum, n) => sum + n, 0);
-  assert.equal(selected, 7, "선택/눌림 자리가 늘거나 줄었다");
+  assert.equal(selected, 8, "선택/눌림 자리가 늘거나 줄었다");
   // ★ 뒤집힌 항목 (2026-08-13 · PO: "디자인에는 없어"). 사진의 흰 상자
   //   (padding + 테두리 + 배경 + 그림자)를 통째로 없앴다 — 시안의 `.photo` 는
   //   border-radius·overflow·width 뿐이다. 그래서 잴 테두리 자체가 없다.

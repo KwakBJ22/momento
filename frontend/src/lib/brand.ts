@@ -62,41 +62,64 @@ export const BRAND_TITLE_SUFFIX = BRAND_NAME_KO;
  */
 export const BRAND_VALUE_TITLE = "휴대폰에 쌓인 사진, 앨범으로 남기세요";
 
-export interface BrandValueSection {
+/** 소개 구역의 라벨 — 로고 조합이다(§9). `우리`+`앨범` 이 색으로 갈린다. */
+export const BRAND_VALUE_LABEL = "소개";
+/** 뒤 2칸 위의 작은 라벨. */
+export const BRAND_USE_LABEL = "이런 앨범을 많이 만들어요";
+
+export interface BrandValueCard {
+  /** 제목 — `
+` 에서 줄을 바꾼다(시안이 두 줄이다). */
+  title: string;
+  /** 제목 안에서 브랜드색으로 쓸 조각. 없으면 전부 본문색이다. */
+  titleBrand?: string;
+  body: string;
+}
+
+/**
+ * 앞 2칸 — **왜 쓰나**. 흰 카드에 제목 · 그림 · 본문 순이다.
+ *
+ * ★ 그림은 사진이 아니라 **선과 면으로 그린 모양**이다(BrandValue.tsx). 두 칸이
+ *   말하는 것이 다르므로 그림도 다르다: 흩어진 더미 → 묶인 앨범 / 사진 + 두 사람의 말.
+ */
+export const BRAND_VALUE_CARDS: readonly BrandValueCard[] = [
+  {
+    title: "휴대폰에 쌓인 사진,\n날짜와 위치대로 알아서 한 권이 돼요",
+    body:
+      "수천 장 중에 작년 여행 사진 찾아 헤매지 않아도 돼요. " +
+      "올리면 찍은 날짜대로 묶여 펼쳐 보기만 하면 됩니다.",
+  },
+  {
+    title: "나만의 앨범이 아닌,\n우리앨범",
+    titleBrand: "앨범",
+    body:
+      "그날 같이 있었던 사람들과 사진을 한자리에. " +
+      "한마디씩 남기면 나란히 붙어 한 권이 됩니다.",
+  },
+];
+
+export interface BrandUseCase {
   icon: string;
   title: string;
   body: string;
 }
 
-export const BRAND_VALUE_SECTIONS: readonly BrandValueSection[] = [
+/**
+ * 뒤 2칸 — **누가 쓰나**. 2열 그리드에 작은 아이콘 + 제목 + 한 줄.
+ *
+ * ★ 앞 2칸과 무게가 달라야 한다. 넷이 같은 크기로 놓이면 전부 같게 읽히고
+ *   스크롤로 지나간다(2026-08-16 PO).
+ */
+export const BRAND_USE_CASES: readonly BrandUseCase[] = [
   {
-    icon: "/about-photos.png",
-    title: BRAND_VALUE_TITLE,
-    body:
-      "사진은 수천 장인데 작년 여행 사진이 어디 있는지는 못 찾죠. 정리할 엄두도 안 나고요. " +
-      "우리앨범에 올리면 찍은 날짜대로 묶여 한 권이 됩니다. 찾아 헤매지 않고 펼쳐 보기만 하면 돼요.",
-  },
-  {
-    icon: "/about-together.png",
-    title: "나만의 앨범이 아닌, 우리의 앨범",
-    body:
-      "그날 같이 있었던 사람들과 사진을 한자리에 모아 보세요. 사진마다 그때 있었던 일을 한마디씩 남기면, " +
-      "나만 아는 이야기와 친구만 아는 이야기가 나란히 붙어요. " +
-      "그렇게 모인 하루가 몇 년 뒤에 다시 꺼내 보는 한 권이 됩니다.",
-  },
-  {
-    icon: "/about-parents.png",
+    icon: "/use-parents.webp",
     title: "부모님 회고 앨범",
-    body:
-      "이 사진이 언제쯤인지 여쭤보면서, 젊으셨을 때부터 지금까지를 기간별로 묶어 보세요. " +
-      "선물로 드려도 좋고, 차곡차곡 쌓인 그 한 권이 훗날 가장 소중한 기록이 됩니다.",
+    body: "과거~현재까지 기간별로 묶어 소중한 한 권으로 드려요.",
   },
   {
-    icon: "/about-child.png",
+    icon: "/use-child.webp",
     title: "아이 성장 앨범",
-    body:
-      "탄생부터 돌잔치, 함께 간 여행까지 간직하고 싶은 순간을 앨범으로 남기세요. " +
-      "언제든 쉽게 꺼내 보여줄 수 있어요. 자기 이야기가 소중하게 담긴 걸 보고 자란 아이는, 자신도 그렇게 여깁니다.",
+    body: "탄생의 순간부터 지금까지 언제든 꺼내 보여줘요.",
   },
 ];
 
