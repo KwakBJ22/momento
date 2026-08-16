@@ -12,6 +12,8 @@ import {
 import { useEffect, useState } from "react";
 
 import BrandValue from "./BrandValue";
+// 히어로 등장 모션 — **이 화면에만** 싣는다(다른 화면·인쇄로 새지 않게).
+import "./Landing.css";
 import { getMyAlbumCoverUrls, getMyAlbums } from "../lib/api";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 import { mergeMyAlbumCoverUrls, requestMyAlbumCovers, requestMyAlbumList } from "../lib/myAlbumsRequest";
@@ -117,7 +119,7 @@ function LandingHero() {
         <div className="landing-hero__stage">
           <ul className="landing-hero__shots">
             {HERO_SHOTS.map((shot) => (
-              <li key={shot.src} className="landing-hero__shot">
+              <li key={shot.src} className="landing-hero__shot wa-drop">
                 <span className="landing-hero__frame">
                   <img src={shot.src} alt={shot.alt} loading="lazy" decoding="async" />
                 </span>
@@ -133,7 +135,7 @@ function LandingHero() {
               예전에는 세로 점선 셋이었는데, 그러면 `각자 올린 사진이 한 권으로` 라는
               뜻이 사라진다 — 나란히 내려갈 뿐 모이지 않는다. 곡선은 CSS 로는 못 그린다.
               읽어 줄 내용이 없는 장식이라 aria-hidden 이다. */}
-          <svg className="landing-hero__flow" viewBox="0 0 300 40" width="100%" height="40" aria-hidden="true" focusable="false">
+          <svg className="landing-hero__flow wa-line" viewBox="0 0 300 40" width="100%" height="40" aria-hidden="true" focusable="false">
             <path d="M50 2C50 22 100 18 150 34" />
             <path d="M150 2v32" />
             <path d="M250 2c0 20-50 16-100 32" />
@@ -141,7 +143,7 @@ function LandingHero() {
 
           {/* ★ 뒤에 한 장이 더 겹쳐 있다 — 한 장이 아니라 **여러 장이 쌓인 한 권**으로
               읽히게 하는 자리다(시안 1a). 장식이라 내용이 없다. */}
-          <div className="landing-hero__book">
+          <div className="landing-hero__book wa-rise">
             <span className="landing-hero__book-back" aria-hidden="true" />
           <div className="landing-hero__album">
             <p className="landing-hero__album-title">비 온 날 바다, 셋이서</p>
@@ -151,7 +153,7 @@ function LandingHero() {
             </div>
             <ul className="landing-hero__notes">
               {HERO_NOTES.map((note) => (
-                <li key={note.text}>
+                <li key={note.text} className="wa-pop">
                   <span className={`landing-hero__avatar landing-hero__avatar--${note.tone}`} aria-hidden="true">{note.initial}</span>
                   {note.text}
                 </li>
@@ -161,7 +163,7 @@ function LandingHero() {
 
           </div>
 
-          <p className="landing-hero__caption">각자 올린 사진이 모여 우리 이야기 한 권으로</p>
+          <p className="landing-hero__caption wa-fade">각자 올린 사진이 모여 우리 이야기 한 권으로</p>
         </div>
       ) : null}
 
