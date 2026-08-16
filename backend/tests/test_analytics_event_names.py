@@ -7,7 +7,23 @@ from unittest import TestCase
 REPO = Path(__file__).resolve().parents[2]
 APP = Path(__file__).resolve().parents[1] / "app"
 # The latest migration that (re)defines the analytics_events CHECK is the source of truth.
-CHECK_MIGRATION = REPO / "supabase" / "migrations" / "20260803150000_analytics_contribution_claimed.sql"
+# ★ 2026-08-16 — 파일 이름을 박아 두지 않는다. 이름을 하나 더할 때마다 새 migration 이
+#   생기는데, 그때 이 줄을 같이 고치는 것을 잊으면 **검사가 옛 목록을 보고 통과시킨다.**
+#   되돌리기(rollback) 파일은 뺀다 — 그건 되돌린 뒤의 목록이다.
+MIGRATIONS = REPO / "supabase" / "migrations"
+
+
+def _latest_check_migration() -> Path:
+    candidates = [
+        path for path in sorted(MIGRATIONS.glob("*.sql"))
+        if not path.name.endswith("_rollback.sql")
+        and "analytics_events_event_name_check" in path.read_text(encoding="utf-8")
+    ]
+    assert candidates, "analytics_events CHECK 를 정의하는 migration 이 없다"
+    return candidates[-1]
+
+
+CHECK_MIGRATION = _latest_check_migration()
 
 
 def allowed_names() -> set[str]:

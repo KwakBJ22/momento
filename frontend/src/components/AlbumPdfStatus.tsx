@@ -1,4 +1,6 @@
-import { isPdfActionNotice, splitPdfActionNotice } from "../lib/pdfNotice";
+import type { ReactNode } from "react";
+
+import { isPdfActionNotice, isPdfReadyNotice, splitPdfActionNotice } from "../lib/pdfNotice";
 
 import "./AlbumScreen.css";
 import "./AlbumPdfStatus.css";
@@ -41,11 +43,15 @@ interface AlbumPdfStatusProps {
   working: boolean;
   /** 끝났을 때 보여줄 문구(성공·실패 모두). 없으면 결과 표시가 없다. */
   notice: string | null;
+  /** `실물 앨범으로 받아보기` (선택). **파일이 만들어졌다는 소식일 때만** 붙는다 —
+   *  실패 안내 밑에서 묻지 않는다. 누구에게 보일지는 부르는 쪽이 정한다(구경꾼 제외). */
+  printIntent?: ReactNode;
   onDismiss: () => void;
 }
 
-export default function AlbumPdfStatus({ working, notice, onDismiss }: AlbumPdfStatusProps) {
+export default function AlbumPdfStatus({ working, notice, printIntent = null, onDismiss }: AlbumPdfStatusProps) {
   if (!working && !notice) return null;
+  const offer = !working && isPdfReadyNotice(notice) ? printIntent : null;
   // 끝났고 **할 일이 남은** 결과 — 하단이 아니라 딤 위 시트다(K-8).
   if (!working && notice && isPdfActionNotice(notice)) {
     const { title, body } = splitPdfActionNotice(notice);
@@ -58,6 +64,7 @@ export default function AlbumPdfStatus({ working, notice, onDismiss }: AlbumPdfS
             <p className="album-pdf-action__text">{body}</p>
             {/* 되돌릴 것이 없다 — 버튼은 하나다. */}
             <button type="button" className="album-pdf-action__confirm" onClick={onDismiss}>확인</button>
+            {offer}
           </div>
         </section>
       </>
@@ -70,6 +77,7 @@ export default function AlbumPdfStatus({ working, notice, onDismiss }: AlbumPdfS
       {!working && notice ? (
         <button type="button" className="album-pdf-status__close" onClick={onDismiss}>닫기</button>
       ) : null}
+      {offer}
     </div>
   );
 }

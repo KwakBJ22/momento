@@ -14,6 +14,8 @@
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  /* 아래에 `실물 앨범으로 받아보기` 한 칸이 붙을 수 있다 — 그때만 줄이 하나 는다. */
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--c-border-strong);

@@ -59,6 +59,9 @@ export async function deleteAlbum(): Promise<void> {}
 export async function patchAlbumTitle(): Promise<void> {}
 export async function patchAlbumAppearance(): Promise<void> {}
 export async function removeAlbumPhoto(): Promise<void> {}
+
+/** 실물 인쇄 관심 — 재는 값이라 화면 검사에서는 부르기만 하고 아무 일도 하지 않는다. */
+export async function recordPrintIntent(): Promise<void> {}
 export async function patchChapterStory(): Promise<void> {}
 export async function patchEpilogue(): Promise<void> {}
 export async function saveAlbumPhotoCaption(): Promise<void> {}

@@ -11,6 +11,7 @@ import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import AlbumPdfStatus from "./AlbumPdfStatus";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import PrintIntentCta from "./PrintIntentCta";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import { bookmarkTroubleMessage, runAfterLogin } from "../lib/albumTrouble";
@@ -497,6 +498,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           albumId={albumId || ""}
           onExportPdf={role === "contributor" ? () => { void handleSharePdf(); } : undefined}
           isExportingPdf={isExportingPdf}
+          // 함께 만든 사람에게만 묻는다 — 구경꾼은 자기 앨범이 아니다.
+          canAskPrintIntent={role !== "visitor" && Boolean(albumId)}
           showAbsentNotice={role === "contributor"}
           // ★ 로그인했으면 **자기 계정을 다루는 줄**은 역할과 무관하게 보인다
           // (K-7c · §5 22차). 예전에는 `role === "contributor"` 로 걸어서, 담아두기로
@@ -508,7 +511,12 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         />
       ) : null}
       {/* 앨범 상세와 같은 표시를 쓴다(I-3) — 시트를 닫아도 남는다. */}
-      <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
+      <AlbumPdfStatus
+        working={isExportingPdf}
+        notice={pdfNotice}
+        printIntent={role !== "visitor" && albumId ? <PrintIntentCta albumId={albumId} variant="notice" /> : null}
+        onDismiss={() => setPdfNotice(null)}
+      />
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
           구역 안의 버튼은 `여기에 남기기` 다 — 사진에 다는 `이 사진에 한마디` 와
           성격이 달라 이름을 나눴다(§4·§7). */}

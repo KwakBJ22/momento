@@ -28,6 +28,7 @@ import ContributeWorkspace, { type WorkspaceState } from "./ContributeWorkspace"
 import AlbumScreen from "./AlbumScreen";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import PrintIntentCta from "./PrintIntentCta";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import ConfirmSheet from "./ConfirmSheet";
 
@@ -907,7 +908,14 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       {actionError ? <p className="notice notice--error album-inline-action__error" role="alert">{actionError}</p> : null}
       {/* ★ 시트를 닫아도 남는다(I-3). 진행 표시가 시트 안 버튼 라벨뿐이라, 누르는 순간
           시트와 함께 사라졌다 — 완료까지 화면에 아무 변화가 없었다. */}
-      <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
+      {/* ★ 파일로 받고 난 자리에서 `종이로도 받고 싶다`를 묻는다 — 파는 것이 아니라
+          재는 것이다(유료화_기준 §7). 구경꾼에게는 없다. */}
+      <AlbumPdfStatus
+        working={isExportingPdf}
+        notice={pdfNotice}
+        printIntent={role !== "visitor" ? <PrintIntentCta albumId={albumId} variant="notice" /> : null}
+        onDismiss={() => setPdfNotice(null)}
+      />
       {deleteConfirmOpen ? (
         <ConfirmSheet
           title="이 앨범을 지울까요?"
@@ -973,6 +981,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
           isRebuilding={isRebuilding}
           onExportPdf={() => { void handlePdf(); }}
           isExportingPdf={isExportingPdf}
+          canAskPrintIntent={role !== "visitor"}
           onDeleteAlbum={() => setDeleteConfirmOpen(true)}
           isDeleting={isDeleting}
           showAbsentNotice={role === "contributor"}

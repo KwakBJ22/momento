@@ -42,7 +42,8 @@ test("두 화면의 실패 처리가 같다 — 조용히 삼키는 catch 가 �
   // 화면에 뜨는 자리가 실제로 있다(상태만 만들고 안 그리면 같은 증상이 반복된다).
   // I-3: 그 자리는 **시트 밖**이다 — 시트를 닫아도 남아야 진행·결과가 보인다.
   for (const [name, source] of [["AlbumView", view], ["AlbumResult", result]] as const) {
-    assert.match(source, /<AlbumPdfStatus working=\{isExportingPdf\} notice=\{pdfNotice\}/, name);
+    // ★ 2026-08-16 — 태그가 여러 줄이 됐다(인쇄 관심 prop). 보는 것은 그대로다.
+    assert.match(source, /<AlbumPdfStatus[\s\S]{0,200}?notice=\{pdfNotice\}/, name);
   }
 });
 

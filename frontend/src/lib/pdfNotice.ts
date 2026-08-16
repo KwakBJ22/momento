@@ -37,6 +37,16 @@ export function webviewSaveMessage(userAgent: string): string {
 }
 
 /**
+ * 이 결과가 **파일이 만들어졌다**는 소식인가 (성공·할 일 남음 둘 다 참).
+ *
+ * 실물 인쇄를 묻는 자리가 이 판정을 쓴다 — 실패 안내 밑에서 묻지 않기 위해서다.
+ * 방금 실패한 사람에게 `실물로 받아보시겠어요` 는 말이 안 된다.
+ */
+export function isPdfReadyNotice(notice: string | null): boolean {
+  return Boolean(notice && notice.startsWith(PDF_READY_TITLE));
+}
+
+/**
  * 이 결과에 **사용자가 할 일이 남았는가** (K-8).
  *
  * 남았으면 하단에 지나가듯 두지 않는다 — 놓치면 무엇을 해야 할지 모른다.

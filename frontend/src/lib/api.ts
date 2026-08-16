@@ -439,6 +439,28 @@ export async function updateAlbumPhotoLocation(
   return (await response.json()) as import("../types").AlbumPhoto;
 }
 
+/**
+ * `실물 앨범으로 받아보기` 를 누른 사람을 센다 — **파는 것이 아니라 재는 것**이다.
+ *
+ * ★ 결제도 배송지도 연락처도 없다. 여기서 연락처를 받지 않는다(§5) — 그 자리는
+ *   `다른 곳에는 쓰지 않아요` 라고 적어 둔 자리다.
+ * ★ 같은 사람이 두 번 눌러도 **한 번만** 센다. 그 판정은 서버가 한다(§10) —
+ *   화면은 눌렸다는 사실만 기억해서 다시 묻지 않는다.
+ * ★ 실패해도 화면을 되돌리지 않는다. 재는 값 하나 때문에 방금 남긴 마음을
+ *   `안 됐어요` 로 만들지 않는다 — 부르는 쪽이 조용히 삼킨다.
+ */
+export async function recordPrintIntent(albumId: string): Promise<void> {
+  // 로그인하지 않은 참여자도 사람 단위로 세려면 방문자 토큰이 필요하다(getPublicShare 와 같다).
+  const headers: Record<string, string> = {};
+  const visitor = getVisitorToken();
+  if (visitor) headers["X-Woorialbum-Visitor"] = visitor;
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/print-intent`, {
+    method: "POST",
+    headers,
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
 export async function getPublicShare(token: string, edition?: number | null): Promise<import("../types").PublicShareAlbum> {
   const params = edition ? `?edition=${encodeURIComponent(String(edition))}` : "";
   // 방문자를 **사람 단위**로 세기 위한 값(§1). 무작위 토큰이고 서버는 해시만 저장한다.

@@ -2261,6 +2261,67 @@ async def get_album_living_append_pages(
     return LivingAppendPagesResponse(living_append_pages=pages)
 
 
+@router.post("/albums/{album_id}/print-intent", status_code=status.HTTP_204_NO_CONTENT)
+def record_print_intent(
+    album_id: str,
+    x_woorialbum_visitor: str | None = Header(default=None),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
+) -> Response:
+    """`실물 앨범으로 받아보기` 를 누른 사람을 센다 — **파는 것이 아니라 재는 것**이다.
+
+    ★ 인쇄는 1순위 수익원인데 지금은 아무 데서도 안 내보인다. 시범운영이 끝나도
+      `사람들이 돈을 낼까` 에 대한 데이터가 0 이 된다(제품_방향 §7 · 유료화_기준 §7).
+      결제도 배송도 연락처도 여기 없다. 관심을 남길 뿐이다.
+
+    ★ 새 테이블을 만들지 않는다 — analytics_events 에 `print_intent` 로 남긴다.
+      그 이름은 migration 20260816090000 로 허용 목록에 먼저 넣었다(§3③).
+
+    ★ **같은 사람이 같은 앨범에서 두 번 눌러도 한 번만 센다.** 수요를 재는 값이라
+      한 사람이 여러 번 누르면 수가 부풀어 판단이 틀어진다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    # ★ 주최자와 참여자만이다. **구경꾼은 이 자리를 보지도 못하고, 세지도 않는다** —
+    #   구경만 한 사람의 관심은 `내 앨범을 인쇄해 갖고 싶다` 와 다른 값이라 섞으면
+    #   수요가 부풀어 보인다. 화면이 감추는 것과 별개로 여기서도 막는다(§10).
+    #   `can_contribute` 는 **자격**이라 참여가 끝난 뒤에도 참이다 — 그게 맞다.
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
+    require_album_read(access)
+    if not access.can_contribute:
+        raise HTTPException(status_code=403, detail="이 앨범을 함께 만든 분만 남길 수 있어요.")
+
+    visitor_key = resolve_visitor_key(authenticated_user_id, x_woorialbum_visitor)
+    if visitor_key:
+        already = (
+            client.table("analytics_events")
+            .select("id")
+            .eq("event_name", "print_intent")
+            .eq("album_id", album_id)
+            .eq("visitor_key", visitor_key)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if already:
+            # 이미 센 사람이다. 화면은 그대로 `알려드릴게요` 를 보여 준다.
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    log_event(
+        client, "print_intent", album_id=album_id, visitor_key=visitor_key,
+        metadata={
+            "photo_count": count_ready_album_photos(client, album_id),
+            # 주최자인지 참여자인지 — 누가 갖고 싶어 하는지가 값의 절반이다.
+            "source": "owner" if access.can_edit_settings else "contributor",
+        },
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch("/albums/{album_id}/cover-photo", response_model=AlbumCoverPhotoResponse)
 def update_album_cover_photo(
     album_id: str,

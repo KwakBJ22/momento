@@ -1,0 +1,52 @@
+/* `실물 앨범으로 받아보기` — 파는 자리가 아니라 재는 자리다(유료화_기준 §7).
+   ★ 광고처럼 보이지 않게 한다. 브랜드색 채운 배너가 아니라 연한 면 한 칸이다 —
+     앨범을 보다가 만나는 것이라 앨범보다 세면 안 된다.
+   ★ 색은 토큰만 쓴다(§8). */
+.print-intent {
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--c-bg-soft);
+}
+
+.print-intent__title {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--c-text);
+}
+
+.print-intent__text {
+  margin: 0;
+  font-size: var(--t-xs);
+  line-height: 1.6;
+  color: var(--c-text-soft);
+}
+
+/* 누르는 자리 44px — 40대 이후 타깃이라 양보하지 않는다. */
+.print-intent__button {
+  margin-top: 10px;
+  min-height: var(--tap-min);
+  padding: 0 18px;
+  border: 1px solid var(--c-brand-text);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-brand-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+
+/* 누른 뒤 — 버튼이 있던 자리에 그대로 남는다(사라지지 않는다). */
+.print-intent__done {
+  margin: 10px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--c-brand-text);
+}
+
+/* 더보기 시트: PDF 행 바로 아래라 행들과 같은 좌우 여백에 맞춘다. */
+.print-intent--sheet { margin: 10px 0 2px; padding: 14px; }
+
+/* PDF 안내 아래: 안내 띠 안이라 여백을 줄이고 폭을 다 쓴다. */
+.print-intent--notice { width: 100%; margin-top: 10px; padding: 12px; }
