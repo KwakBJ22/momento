@@ -89,6 +89,13 @@ export default function ChapterHeader({
     const dropDate = repeatsDate && Boolean(placeText);
     const headParts = [dropDate ? "" : dotRange || "", placeText].filter(Boolean);
     const dateLine = headParts.length ? `${headParts.join(" · ")}${countSuffix}` : null;
+    // ★ 날짜 줄을 **날짜 조각과 나머지**로 나눠 둔다(2026-08-16). 글자는 그대로다 —
+    //   `여백형` 이 큰 숫자로 일(日)만 키우고 날짜 조각은 감추기 위해서다.
+    //   마크업은 6종 공통이고, 무엇을 보일지는 CSS 가 정한다(AlbumSkins.css).
+    const dateHead = dropDate ? "" : dotRange || "";
+    const dateTail = `${dateHead && placeText ? " · " : ""}${placeText}${countSuffix}`;
+    // 큰 숫자로 쓸 **일 두 자리**. 새 데이터가 아니라 날짜에서 잘라 쓴다.
+    const dayNumber = date ? date.slice(8, 10) : null;
     // 날짜를 생략한 줄에는 월 표시도 다시 쓰지 않는다 — 바로 위에 이미 있다.
     // ★ 달이 바뀔 때만 쓴다 (PO 2026-08-15). 예전에는 날짜가 같은지만 봐서
     //   `2016년 11월` 이 그 달의 날짜 묶음마다 되풀이됐다. 월 아래 짧은 선은
@@ -176,10 +183,12 @@ export default function ChapterHeader({
 
     return (
       <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜">
+        {/* 큰 숫자(일)는 `여백형` 에서만 보인다 — 다른 모양에서는 CSS 가 감춘다. */}
+        {dayNumber && dateLine ? <p className="chapter-header__day" aria-hidden="true">{dayNumber}</p> : null}
         {showMonth ? <p className="chapter-header__month">{monthLine}</p> : null}
         {dateLine ? (
           <p className="chapter-header__dayline">
-            {dateLine}
+            <span className="chapter-header__dayline-date">{dateHead}</span>{dateTail}
             {estimated ? <span className="chapter-header__badge">추정</span> : null}
             {canEditPlace && placeEdit && placeKey ? (
               <button

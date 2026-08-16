@@ -461,7 +461,8 @@ export async function getPublicShare(token: string, edition?: number | null): Pr
 }
 
 export async function updateAlbumCoverPhoto(albumId: string, photoId: string): Promise<{ cover_photo_id: string | null; cover_image_url: string | null }> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/cover-photo`, {
+  // 게스트 주최자도 자기 앨범의 표지를 고른다(§1) — 토큰을 함께 보내는 길로 부른다.
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/cover-photo`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ photo_id: photoId }),

@@ -65,7 +65,7 @@
   line-height: 1.65;
 }
 
-/* --- 카드 안의 그림 (선과 면으로만 그린다) --- */
+/* --- 카드 안의 그림 (시안대로 **실제 사진**을 쓴다 · 2026-08-16) --- */
 
 .brand-value__art {
   display: grid;
@@ -92,6 +92,7 @@
   border-radius: 5px;
   background: var(--c-surface);
   box-shadow: var(--sh-tile);
+  object-fit: cover;
 }
 
 .brand-value__pile-shot:nth-child(1) { left: 14px; top: 6px; transform: rotate(-9deg); }
@@ -136,10 +137,14 @@
   gap: 3px;
 }
 
-.brand-value__book-grid i {
+.brand-value__book-grid img {
+  width: 100%;
   height: 12px;
   border-radius: 3px;
   background: var(--c-about-tile);
+  object-fit: cover;
+  /* 같은 사진이라도 잘리는 자리가 다르면 네 칸이 다르게 보인다(시안). */
+  object-position: 70% 50%;
 }
 
 /* 둘째 칸 — 사진 한 장에 두 사람의 말이 붙는다. */
@@ -160,6 +165,7 @@
   height: 62px;
   border-radius: 10px;
   background: var(--c-about-tile);
+  object-fit: cover;
 }
 
 .brand-value__bubbles {

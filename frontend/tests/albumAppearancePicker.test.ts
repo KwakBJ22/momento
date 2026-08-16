@@ -47,13 +47,14 @@ async function renderSheet(props: Record<string, unknown>) {
 
 const APPEARANCE = { skin: "single", paper: "white", category: "family" } as const;
 
-test("★ 주최자에게는 `앨범 모양 고치기` 행이 표지 바로 아래에 있다", async () => {
+// ★ 2026-08-16 PO — 행 이름이 `고치기` 에서 `바꾸기` 로 바뀌었다.
+test("★ 주최자에게는 `앨범 모양 바꾸기` 행이 표지 바로 아래에 있다", async () => {
   const view = await renderSheet({
     onChangeCover: () => {}, appearance: APPEARANCE, onChangeAppearance: () => {},
   });
   const rows = view.rowText();
   const cover = rows.findIndex((text) => text.includes("표지 사진 바꾸기"));
-  const shape = rows.findIndex((text) => text.includes("앨범 모양 고치기"));
+  const shape = rows.findIndex((text) => text.includes("앨범 모양 바꾸기"));
   assert.equal(shape !== -1, true, "행이 없다");
   assert.equal(shape === cover + 1, true, `표지 바로 아래가 아니다 (표지 ${cover} · 모양 ${shape})`);
   // `스킨` 이라는 말이 화면에 없다(§8).
@@ -68,7 +69,7 @@ test("★ 참여자·구경꾼에게는 행 자체가 없다 (회귀 ②)", asyn
     { canEdit: true },
   ]) {
     const view = await renderSheet(props);
-    assert.equal(view.rowText().some((text) => text.includes("앨범 모양 고치기")), false);
+    assert.equal(view.rowText().some((text) => text.includes("앨범 모양 바꾸기")), false);
     await view.cleanup();
   }
 });
@@ -77,7 +78,7 @@ test("★ 누르면 같은 시트 안에서 몸만 바뀐다 — 새 시트를 �
   const view = await renderSheet({
     onChangeCover: () => {}, appearance: APPEARANCE, onChangeAppearance: () => {},
   });
-  await view.click("앨범 모양 고치기");
+  await view.click("앨범 모양 바꾸기");
   assert.equal(view.container.querySelectorAll(".album-inline-action").length, 1, "시트가 둘이 됐다");
   assert.equal(view.container.querySelectorAll(".album-appearance").length, 1);
   // 여섯 모양 + 종이 셋. `저장` 버튼은 없다.
@@ -101,10 +102,41 @@ test("★ 고르면 그 값이 바로 올라간다 — 누르는 것 한 번이�
     onChangeCover: () => {}, appearance: APPEARANCE,
     onChangeAppearance: (next: Record<string, string>) => { picked.push(next); },
   });
-  await view.click("앨범 모양 고치기");
+  await view.click("앨범 모양 바꾸기");
   await view.click("격자형");
   await view.click("미색 종이");
   assert.deepEqual(picked, [{ skin: "grid" }, { paper: "cream" }]);
+  await view.cleanup();
+});
+
+test("★ 고른 뒤 앨범으로 바로 돌아간다 — `닫기` 가 있다 (2026-08-16 PO)", async () => {
+  // 고른 것은 이미 저장돼 있는데(저장 버튼이 없다) 시트가 남아, `뒤로` → `닫기` 로
+  // 두 번 눌러야 앨범이 보였다. `뒤로` 는 그대로 둔다 — 메뉴로 가고 싶은 사람이 있다.
+  let closed = 0;
+  const view = await renderSheet({
+    onClose: () => { closed += 1; },
+    onChangeCover: () => {}, appearance: APPEARANCE, onChangeAppearance: () => {},
+  });
+  await view.click("앨범 모양 바꾸기");
+  const labels = Array.from(view.container.querySelectorAll(".album-inline-action__header button"))
+    .map((button) => button.textContent || "");
+  assert.deepEqual(labels, ["뒤로", "닫기"]);
+  await view.click("닫기");
+  assert.equal(closed, 1, "닫기가 시트를 닫지 않는다");
+  await view.cleanup();
+});
+
+test("★ 고른 순간 자동으로 닫지 않는다 — 여러 개를 눌러 보는 자리다", async () => {
+  let closed = 0;
+  const view = await renderSheet({
+    onClose: () => { closed += 1; },
+    onChangeCover: () => {}, appearance: APPEARANCE, onChangeAppearance: () => {},
+  });
+  await view.click("앨범 모양 바꾸기");
+  await view.click("격자형");
+  await view.click("잡지형");
+  assert.equal(closed, 0, "고르자마자 시트가 닫힌다");
+  assert.equal(view.container.querySelectorAll(".album-appearance").length, 1, "고르는 화면이 사라졌다");
   await view.cleanup();
 });
 
@@ -113,7 +145,7 @@ test("★ 저장이 실패하면 우리 말로 알린다 (회귀 ④)", async ()
     onChangeCover: () => {}, appearance: APPEARANCE, onChangeAppearance: () => {},
     appearanceError: "앨범 모양을 저장하지 못했어요. 다시 시도해 주세요.",
   });
-  await view.click("앨범 모양 고치기");
+  await view.click("앨범 모양 바꾸기");
   assert.equal(view.container.querySelectorAll(".album-appearance__error").length, 1);
   assert.match(view.container.textContent || "", /앨범 모양을 저장하지 못했어요\. 다시 시도해 주세요\./);
   await view.cleanup();

@@ -41,7 +41,17 @@ function rule(css: string, selector: string): string {
 
 test("★ 네 자리 모두 44px 이상 누를 수 있다", () => {
   for (const { file, selector } of PENCILS) {
-    const body = rule(read(file), selector);
+    const css = read(file);
+    const body = rule(css, selector);
+    // ★ 2026-08-16 — 캡션 연필은 **자리 32px + 누름 영역 ::after 44px** 로 바뀌었다.
+    //   `min-height: 44px` 이 캡션 줄 높이를 밀어 올려 연필이 사진 위로 솟았기 때문이다.
+    //   지키는 규칙(손가락이 닿는 넓이 44px)은 그대로다 — 재는 자리만 옮겼다.
+    const viaAfter = css.includes(`${selector}::after`)
+      && /width: var\(--tap-min\)[\s\S]*?height: var\(--tap-min\)/.test(rule(css, `${selector}::after`));
+    if (viaAfter) {
+      assert.match(body, /width: 32px/, `${selector}: 보이는 크기가 32px 이 아니다`);
+      continue;
+    }
     assert.match(body, /min-width: var\(--tap-min\)/, `${selector}: 누르는 폭이 44px 이 아니다`);
     assert.match(body, /min-height: var\(--tap-min\)/, `${selector}: 누르는 높이가 44px 이 아니다`);
   }

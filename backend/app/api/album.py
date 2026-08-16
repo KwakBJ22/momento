@@ -2265,14 +2265,16 @@ async def get_album_living_append_pages(
 def update_album_cover_photo(
     album_id: str,
     body: AlbumCoverPhotoUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumCoverPhotoResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    # 게스트 주최자도 표지를 고른다 — 같은 자기 앨범이다(§1).
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     require_album_edit_settings(access)
 
     photos = get_album_photo_records(client, album_id)
@@ -2285,7 +2287,7 @@ def update_album_cover_photo(
         raise HTTPException(status_code=400, detail="앨범에 반영된 사진만 대표사진으로 선택할 수 있습니다.")
     selected_id = requested or (str(photos[0]["id"]) if photos else None)
     client.table("albums").update({"cover_photo_id": selected_id}).eq("id", album_id).execute()
-    log_event(client, "cover_photo_changed", album_id=album_id, metadata={"owner_id": authenticated_user_id})
+    log_event(client, "cover_photo_changed", album_id=album_id, metadata={"owner_id": authenticated_user_id})  # 게스트면 None 이다
     updated_album = {**album, "cover_photo_id": selected_id}
     cover_photo_id, cover_image_url = _cover_image_url(client, settings, updated_album, photos)
     return AlbumCoverPhotoResponse(
@@ -2298,7 +2300,8 @@ def update_album_cover_photo(
 def patch_album(
     album_id: str,
     body: AlbumSettingsUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumDetailResponse:
     """앨범 설정 — **넘긴 것만** 고친다.
 
@@ -2312,7 +2315,10 @@ def patch_album(
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, record, authenticated_user_id)
+    # ★ **게스트 주최자는 주최자와 권한이 같다**(화면_기준 §1 · 2026-08-16 고침).
+    #   예전에는 로그인을 요구해서, 게스트로 만든 자기 앨범인데 설정을 못 고쳤다.
+    #   판정은 다른 엔드포인트가 쓰는 그 함수 하나다 — 새 판정을 만들지 않는다.
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
 
     updated = record
     if body.narrative is not None:

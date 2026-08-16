@@ -37,7 +37,9 @@ async function renderHeader(props: Record<string, unknown>) {
   const view = {
     text: container.textContent || "",
     months: container.querySelectorAll(".chapter-header__month").length,
-    lines: container.querySelectorAll("p").length,
+    // ★ 2026-08-16 — `여백형` 이 쓰는 큰 숫자(일) <p> 가 마크업에 늘 있다(다른 모양에서는
+    //   CSS 가 감춘다 · 마크업은 6종 공통이다). 여기서 보는 것은 **글자 줄**이므로 뺀다.
+    lines: container.querySelectorAll("p:not(.chapter-header__day)").length,
   };
   await React.act(async () => { root.unmount(); });
   return view;

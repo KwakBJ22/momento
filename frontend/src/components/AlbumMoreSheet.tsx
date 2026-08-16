@@ -25,7 +25,7 @@ export interface AlbumMoreSheetProps {
   albumId: string;
   /** 표지 사진 바꾸기 — 주최자만. 넘기지 않으면 행이 없다. */
   onChangeCover?: () => void;
-  /** 앨범 모양 고치기 — 주최자만. 넘기지 않으면 **행 자체가 없다**(참여자·구경꾼).
+  /** 앨범 모양 바꾸기 — 주최자만. 넘기지 않으면 **행 자체가 없다**(참여자·구경꾼).
    *  누르면 이 시트의 **몸만** 바뀐다 — 새 페이지도, 겹쳐 뜨는 새 시트도 만들지 않는다(§11). */
   appearance?: { skin: AlbumSkin; paper: AlbumPaper; category?: string | null };
   onChangeAppearance?: (next: { skin?: AlbumSkin; paper?: AlbumPaper }) => void;
@@ -66,9 +66,17 @@ export default function AlbumMoreSheet({
   if (view === "appearance" && appearance && onChangeAppearance) {
     return (
       <section className="album-inline-action album-more-sheet" aria-label="앨범 모양">
+        {/* ★ `닫기` 가 있어야 고른 뒤 앨범으로 바로 돌아간다(2026-08-16 PO).
+            고른 것은 이미 저장돼 있는데(저장 버튼이 없다) 시트가 남아 있으면
+            `뒤로` → `닫기` 로 두 번 눌러야 앨범이 보였다.
+            `뒤로` 는 그대로 둔다 — 메뉴로 돌아가고 싶은 사람이 있다.
+            고른 순간 자동으로 닫지 않는다: 여러 개를 눌러 보며 고르는 자리다. */}
         <div className="album-inline-action__header">
           <h2>앨범 모양</h2>
-          <button type="button" onClick={() => setView("menu")}>뒤로</button>
+          <div className="album-more-sheet__header-actions">
+            <button type="button" onClick={() => setView("menu")}>뒤로</button>
+            <button type="button" onClick={onClose}>닫기</button>
+          </div>
         </div>
         <div className="album-inline-action__body">
           <AlbumAppearancePicker
@@ -93,7 +101,7 @@ export default function AlbumMoreSheet({
         {/* 목업 화면 3 그대로: 60px 목록 행 + 보조 라벨. 제목 고치기는 없다(인라인 수정과 중복). */}
         {canEdit && photoCount && onChangeCover ? <button type="button" className="album-more-sheet__row" onClick={() => { onClose(); onChangeCover(); }}><span>표지 사진 바꾸기</span></button> : null}
         {/* ★ 앨범 모양 — 표지 바로 아래다. 시트를 닫지 않는다: 같은 자리에서 몸만 바뀐다. */}
-        {showAppearance ? <button type="button" className="album-more-sheet__row" onClick={() => setView("appearance")}><span>앨범 모양 고치기</span><em>사진 담는 모양과 종이 색</em></button> : null}
+        {showAppearance ? <button type="button" className="album-more-sheet__row" onClick={() => setView("appearance")}><span>앨범 모양 바꾸기</span><em>사진 담는 모양과 종이 색</em></button> : null}
         {/* 소유자 "함께 만든 사람" / 참여자 "함께한 사람"(목업 3a) — 인원 수 출처가 다르다.
             이미 있는 참여자 목록 페이지로 간다(§5: 있는 것을 없애라는 뜻이 아니다). */}
         {contributorCount !== null

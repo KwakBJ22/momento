@@ -383,9 +383,13 @@ class AlbumAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_unauthenticated_update_is_rejected(self) -> None:
+        # ★ 2026-08-16 에 401 → 403 이 됐다. **막는다는 사실은 그대로다.**
+        #   이 PATCH 가 게스트 토큰도 받게 되면서(게스트 주최자는 주최자와 권한이 같다 · §1),
+        #   `증명이 없다`(401)가 아니라 `이 앨범에 권한이 없다`(403)가 맞는 말이 됐다.
+        #   조회(GET)가 이미 같은 이유로 403 이다 — 두 자리가 이제 같게 답한다.
         response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Attempted update"})
 
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)
 
     def test_unauthenticated_album_creation_is_allowed_for_guests(self) -> None:
         # Policy: login is not required to create an album; the guest branch runs.
@@ -416,8 +420,10 @@ class AlbumAuthorizationTests(TestCase):
         # nor a valid guest token is "no access" (403), not "unauthenticated" (401).
         # A present-but-invalid bearer still 401s (see optional_strict_current_user),
         # preserving the frontend's refresh-retry. Legacy owner-only routes 401.
+        # ★ 2026-08-16 — 설정 PATCH 도 게스트 토큰을 받게 되어 같은 이유로 403 이다.
+        #   지우는 것(DELETE)은 여전히 로그인만이라 401 그대로다.
         self.assertEqual(get_response.status_code, 403)
-        self.assertEqual(patch_response.status_code, 401)
+        self.assertEqual(patch_response.status_code, 403)
         self.assertEqual(delete_response.status_code, 401)
 
     def test_light_album_detail_keeps_epilogue_and_date_stories(self) -> None:

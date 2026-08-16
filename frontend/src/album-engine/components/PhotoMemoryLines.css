@@ -169,18 +169,33 @@
      32px 로 두기 위해서다. 40대 이후 타깃이라 손가락이 32px 을 못 맞춘다 —
      원을 버튼 크기로 만들면 둘 중 하나를 잃는다.
    ★ 색은 자리마다 다르다: 여기는 본문 계열이라 --c-accent. */
+/* ★ 2026-08-16 — 캡션 연필이 사진 위로 솟았다. 날짜 줄 연필에서 8월 15일에 고친 것과
+   **같은 자리**인데 여기만 안 고쳤다. 보이는 크기(32px)가 곧 자리 크기여야 줄에 맞는다.
+   누르는 44px 은 아래 `::after` 가 지킨다 — 자리를 밀지 않고 손가락만 넓힌다. */
 .photo-memory-lines__edit-btn {
   position: relative;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--c-accent);
   cursor: pointer;
+}
+
+/* 누르는 영역만 44px 로 넓힌다(40대 이후 타깃 — 손가락은 32px 을 못 맞춘다).
+   자리를 차지하지 않으므로 캡션 줄 높이가 그대로다. */
+.photo-memory-lines__edit-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  transform: translate(-50%, -50%);
 }
 
 .photo-memory-lines__edit-btn::before {
@@ -284,3 +299,11 @@
    잘못을 지적하는 말이 아니라 한 번 묻는 말이다. */
 .photo-memory-lines__confirm { display: grid; gap: 8px; padding: 10px 0 2px; }
 .photo-memory-lines__confirm-text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.5; }
+
+/* 캡션 줄의 글자와 연필을 **같은 높이**로 맞춘다 — 화면에서만이다.
+   ★ 인쇄에는 연필이 없다. 선택자를 `--screen` 안에 두어 구조적으로 못 새게 한다(§11). */
+.album-renderer--screen .photo-memory-lines__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

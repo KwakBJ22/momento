@@ -169,9 +169,11 @@ class MembershipApiTests(TestCase):
             patch_response = self.client.patch(f"/api/albums/{ALBUM_ID}", json={"narrative": "Hack"})
 
         # Detail now accepts a guest token, so no bearer + no valid token = 403
-        # (no access), not 401. The legacy epilogue PATCH stays owner-only (401).
+        # (no access), not 401.
+        # ★ 2026-08-16 — 설정 PATCH 도 게스트 토큰을 받는다(게스트 주최자는 주최자와
+        #   권한이 같다 · §1). 그래서 같은 이유로 403 이다. 막는다는 사실은 그대로다.
         self.assertEqual(get_response.status_code, 403)
-        self.assertEqual(patch_response.status_code, 401)
+        self.assertEqual(patch_response.status_code, 403)
 
     def test_create_invitation_returns_link(self) -> None:
         self.as_user(OWNER_ID)

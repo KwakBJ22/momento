@@ -104,18 +104,29 @@ test("★ 하단 메뉴에는 넣지 않는다 (전역 네비는 행동만 놓�
   }
 });
 
-test("★ 그림은 **선과 면**이다 — 사진을 끌어오지 않는다", () => {
-  // ★ 2026-08-16 에 바뀌었다. 예전에는 칸마다 아이콘 한 장(about-*.png)이 제목 **옆**에
-  //   붙었다. 지금 앞 2칸의 그림은 그린 모양이라 <img> 가 아니다 —
-  //   무엇이 달라지는지가 사진에 가리지 않는다.
+test("★ 소개의 그림은 **실제 사진**이다 (시안)", () => {
+  // ★ 2026-08-16 에 뒤집혔다. 그 전날 `선과 면으로 그린 모양` 으로 바꿨는데,
+  //   그건 **앨범 모양 견본**(AlbumAppearancePicker)의 규칙이었다 —
+  //   소개는 무엇이 되는지 보여 주는 자리라 시안이 실제 사진을 쓴다.
+  //   선과 면으로 그리는 것은 견본뿐이다.
   const c = read("components/BrandValue.tsx");
   assert.match(c, /function SortArt\(\)/);
   assert.match(c, /function TogetherArt\(\)/);
-  // <img> 는 셋뿐이다: 짧은 판 하나 · 라벨 심벌 하나 · 뒤 2칸 아이콘 하나(map).
-  assert.equal((c.match(/<img/g) || []).length, 3);
+  // 사진은 히어로와 **같은 세 장**이다 — 새 파일을 늘리지 않는다.
+  assert.match(c, /const ART_SHOTS = \["\/hero-mom\.webp", "\/hero-dad\.webp", "\/hero-me\.webp"\];/);
+  // 더미 3장 · 앨범 그리드 4장 · 둘째 칸 1장 · 라벨 심벌 · 뒤 2칸 아이콘 · 짧은 판.
+  assert.equal((c.match(/<img/g) || []).length, 6);
   // 장식이므로 낭독기에는 읽히지 않는다.
-  assert.equal((c.match(/alt=""/g) || []).length, 3);
+  assert.equal((c.match(/alt=""/g) || []).length, 6);
   assert.equal((c.match(/aria-hidden="true"/g) || []).length, 2, "그림 둘 다 장식으로 표시해야 한다");
+  // 잘리는 자리를 정해 네 칸이 같아 보이지 않게 한다.
+  assert.match(read("components/BrandValue.css"), /object-position: 70% 50%/);
+});
+
+test("★ 견본은 그대로 선과 면이다 — 두 규칙이 섞이지 않는다", () => {
+  const picker = read("components/AlbumAppearancePicker.tsx");
+  assert.equal(picker.includes("<img"), false, "앨범 모양 견본에 사진이 들어갔다");
+  assert.match(picker, /선과 면으로 그린 모양/);
 });
 
 test("★ 소개 구역에 hex 를 직접 쓰지 않는다 — 값은 토큰 한 곳이다 (§8)", () => {
