@@ -94,6 +94,17 @@ export default function ChapterHeader({
     //   마크업은 6종 공통이고, 무엇을 보일지는 CSS 가 정한다(AlbumSkins.css).
     const dateHead = dropDate ? "" : dotRange || "";
     const dateTail = `${dateHead && placeText ? " · " : ""}${placeText}${countSuffix}`;
+    // ★ 여백형은 **한 줄**이다 (시안 album-skins-v2 스킨3 · PO 2026-08-17).
+    //   큰 숫자가 이미 `일` 을 말하므로 아래 줄에 날짜를 다시 쓰지 않고,
+    //   `월 · 지역 · 사진 N장` 을 가운뎃점으로 잇는다. 괄호도 쓰지 않는다.
+    //   ★ 빈 조각은 잇지 않는다 — 지역이 없으면 `2017년 3월 · 사진 1장` 이다(0을 말하지 않는다).
+    //   ★ 조각을 잇는 방식은 위 dateHead/dateTail 과 **같다**. 규칙을 두 벌 만들지 않는다.
+    //   마크업은 6종 공통이고, 무엇을 보일지는 CSS 가 정한다(AlbumSkins.css).
+    const airyLine = [
+      monthLine || "",
+      placeText,
+      typeof photoCount === "number" && photoCount > 0 ? `사진 ${photoCount}장` : "",
+    ].filter(Boolean).join(" · ");
     // 큰 숫자로 쓸 **일 두 자리**. 새 데이터가 아니라 날짜에서 잘라 쓴다.
     const dayNumber = date ? date.slice(8, 10) : null;
     // 날짜를 생략한 줄에는 월 표시도 다시 쓰지 않는다 — 바로 위에 이미 있다.
@@ -188,7 +199,11 @@ export default function ChapterHeader({
         {showMonth ? <p className="chapter-header__month">{monthLine}</p> : null}
         {dateLine ? (
           <p className="chapter-header__dayline">
-            <span className="chapter-header__dayline-date">{dateHead}</span>{dateTail}
+            {/* 앞의 둘은 여백형에서 감춰지고, 셋째만 보인다 — 세 조각 다 같은 글줄 안이라
+                연필도 `추정` 표시도 한 벌뿐이다(§9 — 마크업을 스킨마다 늘리지 않는다). */}
+            <span className="chapter-header__dayline-date">{dateHead}</span>
+            <span className="chapter-header__dayline-rest">{dateTail}</span>
+            <span className="chapter-header__dayline-airy">{airyLine}</span>
             {estimated ? <span className="chapter-header__badge">추정</span> : null}
             {canEditPlace && placeEdit && placeKey ? (
               <button

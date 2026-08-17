@@ -121,7 +121,10 @@
    예전에는 날짜 줄 전체가 34px 이라 `2018.07.08 · 제주 서귀포시 (사진 2장)` 이 통째로
    커졌다 — 글자가 화면을 다 먹었다. 달·장소·장수는 작은 줄로 내려간다. */
 .album-renderer--screen.album-renderer--skin-airy .chapter-header--date-only {
-  grid-template-columns: auto auto;
+  /* ★ 한 칸이다 (PO 2026-08-17). 예전에는 `auto auto` 라 열이 둘 생겨 `2017년 3월` 과
+     날짜 줄이 **가로로 나란히** 앉았고, 사이에 `·` 도 공백도 없어 `2017년 3월(사진 1장)`
+     로 붙어 보였다. 큰 숫자 아래는 시안대로 **한 줄**이다. */
+  grid-template-columns: minmax(0, 1fr);
   justify-content: center;
   gap: 0;
   padding: 34px 0 26px;
@@ -149,11 +152,18 @@
   line-height: 1.4;
 }
 
-.album-renderer--screen.album-renderer--skin-airy .chapter-header__month { grid-column: 1; }
-.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline { grid-column: 2; }
+/* ★ 월은 그 한 줄 **안으로** 들어갔다(아래 --airy 조각). 그래서 자기 줄은 감춘다.
+   ★ 다만 그 줄이 있을 때만이다 — 날짜도 장소도 없어 줄이 안 그려지는 묶음에서는
+     월이 유일한 글이라 그대로 둔다. */
+.album-renderer--screen.album-renderer--skin-airy .chapter-header--date-only:has(.chapter-header__dayline) .chapter-header__month {
+  display: none;
+}
 
-/* 날짜 조각은 큰 숫자와 겹친다 — 작은 줄에서는 감춘다. */
-.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline-date { display: none; }
+/* 날짜 조각과 그 뒤(장소 · 괄호 장수)는 큰 숫자와 겹치거나 시안과 다르다 — 감춘다.
+   대신 `월 · 지역 · 사진 N장` 한 줄(--airy)만 보인다. */
+.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline-date,
+.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline-rest { display: none; }
+.album-renderer--screen.album-renderer--skin-airy .chapter-header__dayline-airy { display: inline; }
 
 /* 월 아래 짧은 선(기본형의 것)은 여기 오지 않는다. */
 .album-renderer--screen.album-renderer--skin-airy .chapter-header__month::after { content: none; }

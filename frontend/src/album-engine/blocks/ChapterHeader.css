@@ -155,6 +155,10 @@
   vertical-align: middle;
 }
 
+/* ★ 여백형(airy) 전용 한 줄 — 다른 모양에는 없는 글이다. 마크업은 6종 공통이고
+   무엇을 보일지는 AlbumSkins.css 가 정한다(§9 — 스킨마다 마크업을 늘리지 않는다). */
+.chapter-header__dayline-airy { display: none; }
+
 .chapter-header__edit-btn {
   position: relative;
   display: inline-grid;
