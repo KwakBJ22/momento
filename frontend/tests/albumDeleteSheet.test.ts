@@ -113,6 +113,52 @@ test("★ 사라질 것을 못 받아와도 시트는 뜨고 지울 수 있다 (
   assert.match(view.text, /지울까요\?/);
 });
 
+test("★ 버튼이 밀려 올라오지 않는다 — 받기 **전과 후**의 버튼 위 높이가 같다", async () => {
+  // ★ PO 실측 2026-08-17: 시트가 먼저 뜨고 2초 뒤 띠·문장이 들어오며 `앨범 지우기` 가
+  //   위로 밀렸다. 되돌릴 수 없는 버튼이라 손가락이 가 있는 자리가 움직이면 안 된다.
+  //   늦게 오는 것이 아니라 **자리가 움직이는 것**이 문제다.
+  server(preview(9, 4, 3));
+  const React = (await import("react")).default;
+  const { createRoot } = await import("react-dom/client");
+  const { default: AlbumDeleteSheet } = await import("../src/components/AlbumDeleteSheet");
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  // 아직 아무것도 못 받은 첫 그림.
+  await React.act(async () => {
+    root.render(React.createElement(AlbumDeleteSheet as never, {
+      albumId: "album-1", title: "우리의 추억", onConfirm: () => {}, onCancel: () => {},
+    } as never));
+  });
+  const countBefore = container.querySelectorAll(".album-delete-sheet__body > *").length;
+  const stripBefore = container.querySelectorAll(".album-delete-sheet__strip").length;
+  const summaryBefore = container.querySelectorAll(".album-delete-sheet__summary").length;
+
+  // 받아온 뒤.
+  await React.act(async () => { await Promise.resolve(); });
+  await React.act(async () => { await Promise.resolve(); });
+  const countAfter = container.querySelectorAll(".album-delete-sheet__body > *").length;
+
+  // 버튼 위에 서는 덩어리 수가 같다 — jsdom 은 높이를 재지 않으므로 **자리 수**로 본다.
+  // (실제 높이는 CSS 가 64px · 한 줄로 고정한다 — 그 값은 브라우저에서 쟀다.)
+  assert.equal(stripBefore, 1, "받기 전에 띠 자리가 없다(그때 시트가 커진다)");
+  assert.equal(summaryBefore, 1, "받기 전에 문장 자리가 없다");
+  assert.equal(countAfter, countBefore, "받고 나서 덩어리 수가 달라졌다(버튼이 밀린다)");
+  await React.act(async () => { root.unmount(); });
+  container.remove();
+});
+
+test("★ 다 받았는데 셀 것이 없으면 그때 자리를 없앤다 (아직 손이 가기 전이다)", async () => {
+  const empty = await renderSheet(preview(0, 0, 1));
+  assert.equal(empty.strips, 0);
+  assert.equal(empty.summary, null);
+  // 실패해도 같다 — 자리를 비우고, 지우는 길은 그대로다.
+  const failed = await renderSheet("fail");
+  assert.equal(failed.strips, 0);
+  assert.equal(failed.hasDelete, true);
+});
+
 test("★ 세는 규칙은 한 곳이다 — 순수 함수로 따로 본다", async () => {
   const { deleteSummarySentence } = await import("../src/components/AlbumDeleteSheet");
   // 아무것도 없으면 그 줄을 그리지 않는다(빈 문장을 만들지 않는다).

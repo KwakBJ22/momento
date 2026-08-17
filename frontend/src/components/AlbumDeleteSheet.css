@@ -58,6 +58,24 @@
 .album-delete-sheet__tile--2 { opacity: 0.8; }
 .album-delete-sheet__tile--3 { opacity: 0.55; }
 
+/* 기다리는 동안의 빈 띠 — 자리를 **미리 차지한다**. 받고 나서 그 자리에 사진이 들어온다.
+   ★ 이 한 칸이 있어야 `앨범 지우기` 가 밀려 올라오지 않는다(PO 실측 2026-08-17). */
+.album-delete-sheet__tile-empty {
+  flex: 1;
+  height: 64px;
+  border-radius: 11px;
+  background: var(--c-surface-pressed);
+}
+
+/* 문장 자리도 같다 — 한 줄 높이를 미리 잡는다. */
+.album-delete-sheet__summary-empty {
+  display: block;
+  width: 70%;
+  height: 13.5px;
+  border-radius: 4px;
+  background: var(--c-surface-pressed);
+}
+
 /* 남은 장수 한 칸. 남는 폭을 다 쓴다 — 사진 셋과 한 줄로 앉는다. */
 .album-delete-sheet__more {
   flex: 1;
@@ -75,6 +93,8 @@
 /* 무엇이 사라지는지 한 문장. 세는 규칙은 컴포넌트(deleteSummarySentence)에 있다. */
 .album-delete-sheet__summary {
   margin: 10px 0 0;
+  /* 비어 있을 때도 한 줄이다 — 글이 들어오며 시트가 커지지 않는다. */
+  min-height: calc(13.5px * 1.6);
   color: var(--c-text-muted);
   font-size: 13.5px;
   line-height: 1.6;
