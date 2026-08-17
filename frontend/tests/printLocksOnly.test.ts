@@ -82,8 +82,11 @@ test("★ 이름은 `무엇을 하려는지`와 함께 받는다 — 참여자�
   const api = read("lib/api.ts");
   assert.match(api, /intent: "photo" \| "memory" = "photo"/);
   assert.match(api, /body: JSON\.stringify\(\{ guest_id: guestId, display_name: displayName, intent \}\)/);
-  // 공유 화면은 사진 밑에서 시작했으면 memory 로 보낸다.
-  assert.match(share, /memoryPhotoAfterName \? "memory" : "photo",/);
+  // ★ 2026-08-16 — 사진 밑 한마디는 이제 **그 자리에서** 세션을 시작한다(시트를 거치지
+  //   않는다). 그때도 `memory` 를 함께 보낸다 — 참여자로 만들지 않는 근거는 그대로다.
+  assert.match(share, /startPublicContribution\(\s*token,\s*authenticatedUser \? null : contributionGuestId\(\),\s*displayName,\s*"memory",\s*\)/);
+  // 이름 묻는 자리(하단 네비·딥링크)도 무엇을 하려는지 그대로 보낸다.
+  assert.match(share, /nameAction === "memory" \? "memory" : "photo",/);
 });
 
 test("★ 하단 네비 칸 수는 그대로다 — 구경꾼 1칸(§4)", () => {

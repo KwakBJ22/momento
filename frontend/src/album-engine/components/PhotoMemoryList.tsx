@@ -25,11 +25,15 @@ interface PhotoMemoryListProps {
  * ★ 이름을 못 풀어도 글은 남긴다. 이름 자리만 비운다 — `익명` 을 지어내지 않는다(K-17).
  * ★ **여기서 바로 쓴다** (2026-08-15). `한마디 남기기` 를 누르면 그 자리가 입력칸이 된다 —
  *   캡션 고치기와 같은 모양이고, 새 시트를 열지 않는다(§7·§11).
+ * ★ **이름을 모르는 사람도 여기서 쓴다** (2026-08-16). 그때는 이름 칸이 하나 더 선다.
+ *   예전에는 그 경우에만 시트로 빠져서, 처음 누르면 시트 · 그다음부터는 인라인이었다.
  */
 
 const VISIBLE_LIMIT = 2;
 /** 한마디 길이 상한 — 기존 흐름(ContributeWorkspace)과 **같은 값**이다. */
 const MEMORY_MAX_LENGTH = 300;
+/** 이름 길이 상한 — 공유 화면의 이름 칸과 **같은 값**이다(두 자리가 갈리지 않는다). */
+const NAME_MAX_LENGTH = 40;
 
 /**
  * 아바타 배경은 **사람마다 고정**이다 — 무작위로 두면 새로고침마다 색이 바뀐다.
@@ -62,8 +66,23 @@ export default function PhotoMemoryList({ entries, photoId }: PhotoMemoryListPro
   };
 
   // ★ 입력칸은 목록 **아래**에 붙는다. 목록을 밀어내지 않는다.
+  // ★ 이름을 모르면 **같은 자리**에 이름 칸이 하나 더 선다(2026-08-16). 처음 누른
+  //   사람만 시트로 빠지던 것을 없앴다 — 첫 번째와 두 번째가 같은 자리여야 한다(§11).
+  const needsName = Boolean(write?.needsName);
+  const nameReady = !needsName || Boolean(write?.nameDraft?.trim());
   const editor = isWriting && write && photoId ? (
     <div className="photo-memory-list__editor">
+      {needsName ? (
+        <input
+          className="photo-memory-list__name"
+          value={write.nameDraft ?? ""}
+          onChange={(event) => write.setNameDraft?.(event.target.value)}
+          maxLength={NAME_MAX_LENGTH}
+          autoComplete="name"
+          placeholder="이름 (처음 한 번만 물어요)"
+          aria-label="이름"
+        />
+      ) : null}
       <textarea
         className="photo-memory-list__input"
         value={write.draft}
@@ -72,14 +91,14 @@ export default function PhotoMemoryList({ entries, photoId }: PhotoMemoryListPro
         rows={2}
         placeholder="이 사진에 한마디 남겨요"
         aria-label="한마디 쓰기"
-        autoFocus
+        autoFocus={!needsName}
       />
       <div className="photo-memory-list__editor-actions">
         <button
           type="button"
           className="photo-memory-list__action photo-memory-list__action--save"
           onClick={() => write.save(photoId)}
-          disabled={isSaving || !write.draft.trim()}
+          disabled={isSaving || !write.draft.trim() || !nameReady}
         >
           {isSaving ? "남기는 중..." : "남기기"}
         </button>

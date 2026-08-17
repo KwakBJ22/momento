@@ -95,6 +95,22 @@
   margin-top: 8px;
 }
 
+/* 이름 칸 — 이름을 모를 때만 선다(2026-08-16). 한마디 칸과 같은 모양이라
+   두 칸이 한 벌로 읽힌다. 40대 이후 타깃이라 높이는 44px 을 지킨다. */
+.photo-memory-list__name {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  /* 칸 사이 간격은 .photo-memory-list__editor 의 gap 이 준다 — 여기서 또 주지 않는다. */
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 15px;
+}
+
 .photo-memory-list__input {
   box-sizing: border-box;
   display: block;

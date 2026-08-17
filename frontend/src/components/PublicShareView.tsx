@@ -160,7 +160,6 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [savingMemoryPhotoId, setSavingMemoryPhotoId] = useState<string | null>(null);
   const [memoryWriteError, setMemoryWriteError] = useState<string | null>(null);
   /** 이름을 받고 나서 열어 줄 사진 — 이름 묻는 자리는 이 화면에 이미 있는 그것 하나다. */
-  const [memoryPhotoAfterName, setMemoryPhotoAfterName] = useState<string | null>(null);
   const photos = useMemo(() => mapSharePhotos(album?.photos), [album?.photos]);
 
   useEffect(() => {
@@ -280,22 +279,16 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         token,
         authenticatedUser ? null : contributionGuestId(),
         displayName,
-        memoryPhotoAfterName ? "memory" : "photo",
+        nameAction === "memory" ? "memory" : "photo",
       );
       const session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
       saveCollabSession(session);
       setContributionAlbumId(result.album_id);
       setContributionSession(session);
-      // ★ 사진 밑에서 시작한 한마디면 **그 사진으로 돌아간다.** 참여 화면을 열지 않는다 —
-      //   고른 사진이 있는데 목록을 다시 보여 주면 왔던 길을 또 걷게 된다.
-      if (memoryPhotoAfterName) {
-        setMemoryPhotoId(memoryPhotoAfterName);
-        setMemoryPhotoAfterName(null);
-        setMemoryDraft("");
-        setMemoryWriteError(null);
-      } else {
-        setContributionAction(nameAction ?? requestedContribution);
-      }
+      // ★ 2026-08-16 — `사진 밑에서 시작한 한마디면 그 사진으로 돌아간다` 는 우회로를
+      //   걷어냈다. 이제 사진 밑 한마디는 이 흐름으로 오지 않는다(그 자리에서 끝난다).
+      //   이 자리는 하단 네비·딥링크로 들어온 길 하나만 맡는다.
+      setContributionAction(nameAction ?? requestedContribution);
       setNameAction(null);
       if (authenticatedUser) authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
     } catch (cause) {
@@ -307,22 +300,17 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   };
 
   /**
-   * 사진 밑에서 **바로** 한마디를 남긴다 — 앨범 화면과 같은 규칙이다(27fa413).
+   * 사진 밑에서 **바로** 한마디를 남긴다 — 앨범 화면과 같은 규칙이다(27fa413 · 2026-08-16 고침).
    *
-   * ★ 이름을 아직 모르면 **이 화면에 이미 있는 이름 묻는 자리**(nameAction)를 쓴다.
-   *   여기서 새로 묻지 않는다 — 묻는 자리가 둘이 되면 서로 어긋난다.
-   *   ★ §1 — 참여자가 되는 것은 사용자가 정하는 일이다. 그 자리에서 이름을 적고
-   *     `계속하기` 를 눌러야 시작된다. 묻지 않고 참여자로 만들지 않는다.
-   * ★ 새 API 를 만들지 않는다 — 지금 쓰는 createPhotoMemory 를 그대로 부른다.
+   * ★ **이름을 몰라도 여기서 연다.** 예전에는 그때만 이름 묻는 자리(nameAction)로 빠져서,
+   *   처음 누른 사람은 시트를 보고 그다음부터는 인라인이 됐다 — 같은 기능이 두 화면으로
+   *   갈렸다. 이제 이름 칸이 **같은 자리**에 하나 더 설 뿐이다(§11).
+   * ★ 이름을 받는 일 자체는 그대로다(§1 — 참여자가 되는 것은 사용자가 정한다).
+   *   적지 않으면 남길 수 없고, 적어서 `남기기` 를 눌러야 시작된다.
+   * ★ 새 API 를 만들지 않는다 — 지금 쓰는 startPublicContribution · createPhotoMemory 다.
    * ★ 실패해도 쓴 글을 지우지 않는다(§11).
    */
   const startMemoryHere = (photoId: string) => {
-    if (!contributionSession) {
-      setMemoryPhotoAfterName(photoId);
-      const next = contributionPanelAction(null, "memory");
-      setNameAction(next.nameAction);
-      return;
-    }
     setMemoryWriteError(null);
     setMemoryDraft("");
     setMemoryPhotoId(photoId);
@@ -330,17 +318,39 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
 
   const saveMemoryHere = async (photoId: string) => {
     const text = memoryDraft.trim();
-    if (!text || !contributionSession) return;
+    if (!text || !album) return;
     setSavingMemoryPhotoId(photoId);
     setMemoryWriteError(null);
     try {
-      await createPhotoMemory(album!.album_id, photoId, contributionSession, text);
+      // 이름을 아직 모르면 여기서 받은 이름으로 시작한다 — 이 화면이 이미 쓰는 그 API 다.
+      // ★ 무엇을 하려는지(`memory`)를 함께 보낸다. 한마디를 썼다고 참여자로 만들지
+      //   않는다 — 이름만 받는다(48489b7 · §1).
+      let session = contributionSession;
+      if (!session) {
+        const displayName = (authenticatedUser?.displayName || participantName).trim();
+        if (!displayName) {
+          setMemoryWriteError("이름을 적어 주세요.");
+          setSavingMemoryPhotoId(null);
+          return;
+        }
+        const result = await startPublicContribution(
+          token,
+          authenticatedUser ? null : contributionGuestId(),
+          displayName,
+          "memory",
+        );
+        session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
+        saveCollabSession(session);
+        setContributionAlbumId(result.album_id);
+        setContributionSession(session);
+      }
+      await createPhotoMemory(album.album_id, photoId, session, text);
       // 그 사진 밑 목록에만 더한다 — 앨범을 다시 읽지 않는다(§9).
       setAlbum((current) => current ? {
         ...current,
         photos: (current.photos || []).map((photo) => (
           photo.id === photoId
-            ? { ...photo, comments: [...(photo.comments ?? []), { author: contributionSession.displayName || null, text }] }
+            ? { ...photo, comments: [...(photo.comments ?? []), { author: session.displayName || null, text }] }
             : photo
         )),
       } : current);
@@ -467,7 +477,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   );
   const publicBody = (
     <>
-      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} skin={album.skin} paper={album.paper} livingAppendPages={album.living_append_pages} mode="screen" photoMemoryWrite={{ canWrite: () => requestedEdition === null && canAddMemory, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} onReady={onAlbumRendererReady} /></div>
+      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} skin={album.skin} paper={album.paper} livingAppendPages={album.living_append_pages} mode="screen" photoMemoryWrite={{ canWrite: () => requestedEdition === null && canAddMemory, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, needsName: !contributionSession && !authenticatedUser, nameDraft: participantName, setNameDraft: setParticipantName, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} onReady={onAlbumRendererReady} /></div>
       <section className="public-share__reactions" aria-label="이 앨범에 마음 남기기">
         {REACTIONS.map((r) => {
           const isPressed = pressedReactions.has(r.code);

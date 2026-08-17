@@ -124,20 +124,27 @@ test("★ 저장하면 그 사진 밑에만 붙는다 — 재마운트가 없다
 test("★ 실패해도 쓴 글이 남는다 (회귀 ③)", () => {
   const handler = view.slice(view.indexOf("const saveMemoryHere ="), view.indexOf("사진 한 장을 앨범에서 뺀다"));
   // catch 는 문구만 세운다 — 초안(draft)도 열린 사진도 건드리지 않는다.
-  const caught = handler.slice(handler.indexOf("} catch {"));
-  assert.match(caught, /setMemoryWriteError\("한마디를 남기지 못했어요\. 다시 시도해 주세요\."\);/);
+  // ★ 2026-08-16 — catch 가 까닭을 받는다(이름이 비었는지). 지키는 것은 그대로다:
+  //   문구만 세우고 초안도 열린 사진도 건드리지 않는다.
+  const caught = handler.slice(handler.indexOf("} catch (cause) {"));
+  assert.match(caught, /setMemoryWriteError\(cause instanceof MissingNameError/);
+  assert.match(caught, /"한마디를 남기지 못했어요\. 다시 시도해 주세요\."/);
   assert.equal(caught.includes("setMemoryDraft"), false, "실패했는데 쓴 글을 지운다");
   assert.equal(caught.includes("setMemoryPhotoId"), false, "실패했는데 입력칸을 닫는다");
   // 서버가 준 말을 그대로 내지 않는다(§11).
   assert.equal(/userFacingError\(/.test(handler), false);
 });
 
-test("★ 이름을 새로 묻지 않는다 — 이미 있는 흐름이 받는다", () => {
+test("★ 이름을 몰라도 **여기서** 연다 — 처음 누른 사람만 시트를 보던 것을 고쳤다", () => {
+  // ★ 2026-08-16 뒤집힘 — 예전에는 세션이 없으면 기존 흐름(시트)으로 보냈다. 그래서
+  //   처음 누르면 시트, 그다음부터는 인라인이었다(PO 실측). 이름을 받는 일 자체는
+  //   그대로이고(§1), **묻는 자리**를 같은 자리로 옮겼다(§11).
   const start = view.slice(view.indexOf("const startMemoryHere ="), view.indexOf("const saveMemoryHere ="));
-  assert.match(start, /const session = contributionSession \?\? loadCollabSession\(albumId\);/);
-  assert.match(start, /if \(!session\) \{[\s\S]*?void openContribution\("memory"\);/);
-  // 이름을 받는 입력칸을 여기서 만들지 않는다.
-  assert.equal(start.includes("displayName"), false, "이름을 묻는 자리가 둘이 됐다");
+  assert.equal(start.includes("openContribution"), false, "아직 시트로 보낸다");
+  assert.match(start, /setMemoryPhotoId\(photoId\);/);
+  // 세션을 만드는 자리는 여전히 하나다 — 저장할 때 그 함수를 부른다.
+  assert.match(view, /const ensureContributionSession = async \(displayName: string, intent\?: "photo" \| "memory"\)/);
+  assert.equal((view.match(/await startPublicContribution\(/g) || []).length, 1, "세션을 만드는 자리가 둘이 됐다");
 });
 
 test("★ 인쇄에는 한마디가 없다 (회귀 ④ — C1 그대로)", async () => {

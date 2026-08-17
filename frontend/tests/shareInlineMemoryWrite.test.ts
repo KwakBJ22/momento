@@ -47,23 +47,26 @@ test("★ 한마디를 썼다고 참여자가 되지 않는다 — 역할이 그
   assert.equal(handler.includes("window.location"), false);
 });
 
-test("★ 이름은 이 화면에 이미 있는 자리가 받는다 — 새로 묻지 않는다", () => {
+test("★ 이름을 몰라도 **여기서** 연다 — 이름 칸이 같은 자리에 하나 더 선다", () => {
+  // ★ 2026-08-16 뒤집힘 — 예전에는 세션이 없으면 이름 묻는 자리(nameAction)로 보냈다.
+  //   그래서 처음 누른 사람은 시트를, 두 번째부터는 인라인을 봤다(PO 실측).
+  //   이름을 받는 일 자체는 그대로다(§1) — 자리만 같은 자리로 옮겼다(§11).
   const start = share.slice(share.indexOf("const startMemoryHere ="), share.indexOf("const saveMemoryHere ="));
-  // 세션이 없으면 기존 이름 흐름(nameAction)을 연다.
-  assert.match(start, /if \(!contributionSession\) \{[\s\S]*?setNameAction\(next\.nameAction\);/);
-  assert.match(start, /contributionPanelAction\(null, "memory"\)/);
-  // 이름 입력칸을 새로 만들지 않는다.
-  assert.equal(start.includes("participantName"), false, "이름 묻는 자리가 둘이 됐다");
-  // ★ 묻지 않고 참여자로 만들지 않는다(§1) — 세션을 여기서 시작하지 않는다.
-  assert.equal(start.includes("startPublicContribution"), false, "묻지 않고 참여자로 만든다");
+  assert.equal(start.includes("setNameAction"), false, "아직 이름 시트로 보낸다");
+  assert.equal(start.includes("contributionPanelAction"), false);
+  assert.match(start, /setMemoryPhotoId\(photoId\);/);
+  // 이름은 이 화면이 **이미 들고 있는 것**을 쓴다 — 이름을 두 곳에 두지 않는다.
+  assert.match(share, /nameDraft: participantName, setNameDraft: setParticipantName/);
 });
 
-test("★ 이름을 적고 나면 **그 사진으로** 돌아간다 — 참여 화면을 열지 않는다", () => {
-  const startContribution = share.slice(share.indexOf("const startContribution ="), share.indexOf("const startMemoryHere ="));
-  assert.match(startContribution, /if \(memoryPhotoAfterName\) \{/);
-  assert.match(startContribution, /setMemoryPhotoId\(memoryPhotoAfterName\);/);
-  // 그 경우에는 참여 화면(contributionAction)을 열지 않는다.
-  assert.match(startContribution, /\} else \{\s*[\r\n]+\s*setContributionAction\(nameAction \?\? requestedContribution\);/);
+test("★ 묻지 않고 참여자로 만들지 않는다 (§1) — 이름을 적고 `남기기` 를 눌러야 시작된다", () => {
+  const start = share.slice(share.indexOf("const startMemoryHere ="), share.indexOf("const saveMemoryHere ="));
+  // 여는 것만으로는 아무것도 시작되지 않는다.
+  assert.equal(start.includes("startPublicContribution"), false, "여는 것만으로 참여자가 된다");
+  // 시작은 저장할 때이고, 이름이 비어 있으면 시작하지 않는다.
+  const save = share.slice(share.indexOf("const saveMemoryHere ="), share.indexOf("const addPendingItems ="));
+  assert.match(save, /if \(!displayName\) \{[\s\S]{0,160}?return;/);
+  assert.match(save, /"이름을 적어 주세요\."/);
 });
 
 test("★ 실패해도 쓴 글이 남는다 · 우리 말로 알린다 (§11)", () => {
@@ -76,7 +79,10 @@ test("★ 실패해도 쓴 글이 남는다 · 우리 말로 알린다 (§11)", 
 
 test("★ 새 API 를 만들지 않았다 — 지금 쓰는 그 함수를 부른다 (§10)", () => {
   const handler = share.slice(share.indexOf("const saveMemoryHere ="), share.indexOf("const addPendingItems ="));
-  assert.match(handler, /await createPhotoMemory\(album!\.album_id, photoId, contributionSession, text\);/);
+  // ★ 2026-08-16 — 이 자리에서 세션을 확보할 수 있게 됐다(이름을 그때 받는다).
+  //   부르는 함수는 그대로다: startPublicContribution · createPhotoMemory.
+  assert.match(handler, /await createPhotoMemory\(album\.album_id, photoId, session, text\);/);
+  assert.match(handler, /await startPublicContribution\(/);
 });
 
 test("★ 이전 판을 볼 때는 못 쓴다", () => {

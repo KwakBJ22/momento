@@ -43,6 +43,9 @@ import { userFacingError } from "../lib/userFacingError";
 
 
 
+/** 이름을 아직 안 적었다 — 저장 실패와 **다른 말**이라 따로 둔다(§11). */
+class MissingNameError extends Error {}
+
 interface AlbumViewProps {
 
   albumId: string;
@@ -151,6 +154,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   const [memoryDraft, setMemoryDraft] = useState("");
   const [savingMemoryPhotoId, setSavingMemoryPhotoId] = useState<string | null>(null);
   const [memoryWriteError, setMemoryWriteError] = useState<string | null>(null);
+  // 이름을 아직 모를 때 **그 자리에서** 함께 받는 이름(2026-08-16).
+  const [memoryNameDraft, setMemoryNameDraft] = useState("");
   // 사진 빼기 — 되돌릴 수 없으므로 한 번 묻는다(ConfirmSheet). window.confirm 을 쓰지 않는다.
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
   const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
@@ -533,22 +538,17 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
   };
 
   /**
-   * 사진 밑에서 **바로** 한마디를 남긴다 (2026-08-15).
+   * 사진 밑에서 **바로** 한마디를 남긴다 (2026-08-15 · 2026-08-16 고침).
    *
    * ★ 새 API 를 만들지 않는다 — 지금 한마디를 저장하는 `createPhotoMemory` 를 그대로 부른다.
-   * ★ 이름을 아직 모르면(참여 세션이 없으면) **기존 흐름**을 연다. 여기서 이름을 새로
-   *   묻지 않는다 — 물어보는 자리가 둘이 되면 서로 어긋난다. 이름을 받고 나면 그다음부터는
-   *   이 자리에서 바로 써진다.
+   * ★ **이름을 몰라도 여기서 연다** (2026-08-16). 예전에는 그때만 기존 흐름(시트)으로
+   *   빠져서, 처음 누른 사람은 시트를 보고 그다음부터는 인라인이 됐다 — 같은 기능이
+   *   두 화면으로 갈렸다. 이제 이름 칸이 **같은 자리**에 하나 더 설 뿐이다(§11).
+   *   이름을 받는 일 자체는 그대로다(§1 — 참여자가 되는 것은 사용자가 정한다).
    * ★ 저장하면 그 사진 밑 목록에만 붙인다. **앨범을 다시 그리지 않는다**(§9).
    * ★ 실패해도 **쓴 글을 지우지 않는다** — 다시 누르면 그대로 있어야 한다(§11).
    */
   const startMemoryHere = (photoId: string) => {
-    const session = contributionSession ?? loadCollabSession(albumId);
-    if (!session) {
-      // 이름을 받는 자리는 하나다 — 기존 흐름으로 보낸다.
-      void openContribution("memory");
-      return;
-    }
     setMemoryWriteError(null);
     setMemoryDraft("");
     setMemoryPhotoId(photoId);
@@ -556,11 +556,14 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
   const saveMemoryHere = async (photoId: string) => {
     const text = memoryDraft.trim();
-    const session = contributionSession ?? loadCollabSession(albumId);
-    if (!text || !session) return;
+    if (!text) return;
     setSavingMemoryPhotoId(photoId);
     setMemoryWriteError(null);
     try {
+      // 이름을 아직 모르면 여기서 받은 이름으로 시작한다 — **지금 쓰는 그 API** 그대로다.
+      // ★ 한마디로 시작한 사람을 참여자로 만들지 않는다. 그 판정은 서버가 하고,
+      //   무엇을 하려는지(`memory`)를 함께 보내는 것이 그 근거다(48489b7 · §1).
+      const session = await ensureContributionSession(memoryNameDraft, "memory");
       await createPhotoMemory(albumId, photoId, session, text);
       // 그 사진 밑 목록에만 더한다 — AlbumRenderer 는 재마운트되지 않는다.
       setPhotos((current) => current.map((photo) => (
@@ -570,8 +573,11 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
       )));
       setMemoryPhotoId(null);
       setMemoryDraft("");
-    } catch {
-      setMemoryWriteError("한마디를 남기지 못했어요. 다시 시도해 주세요.");
+    } catch (cause) {
+      // 이름이 비어 있는 것과 저장 실패는 다른 말이다 — 무엇을 해야 하는지 말해 준다(§11).
+      setMemoryWriteError(cause instanceof MissingNameError
+        ? "이름을 적어 주세요."
+        : "한마디를 남기지 못했어요. 다시 시도해 주세요.");
     } finally {
       setSavingMemoryPhotoId(null);
     }
@@ -708,6 +714,32 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     // Bring the just-opened participation panel into view (it renders inline below).
     requestAnimationFrame(() => document.querySelector(".album-inline-action")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
+  /**
+   * 참여 세션을 확보한다 — 없으면 **지금 쓰는 그 API** 로 만든다(§10).
+   *
+   * ★ 만드는 자리를 하나로 둔다. 예전에는 openContribution 안에만 있어서, 사진 밑에서
+   *   한마디를 쓰려면 그 흐름(시트)을 통째로 열 수밖에 없었다 — 이번 결함의 뿌리다.
+   * ★ 무엇을 하려는지(`intent`)를 함께 보낸다. 한마디면 감상 링크·참여가 끝난 앨범에서도
+   *   받아 주고, 그 사람을 **참여자로 만들지 않는다**(48489b7 · §1).
+   */
+  const ensureContributionSession = async (displayName: string, intent?: "photo" | "memory"): Promise<CollabSession> => {
+    const existing = contributionSession ?? loadCollabSession(albumId);
+    if (existing) {
+      if (!contributionSession) setContributionSession(existing);
+      return existing;
+    }
+    const name = displayName.trim();
+    if (!name) throw new MissingNameError();
+    const shareUrl = await resolvePublicShareUrl();
+    const token = new URL(shareUrl, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
+    if (!token) throw new Error("공유 링크를 준비하지 못했습니다.");
+    const started = await startPublicContribution(token, null, name, intent);
+    const session = { albumId: started.album_id, contributorId: started.contributor_id, guestId: started.guest_id, displayName: started.display_name };
+    saveCollabSession(session);
+    setContributionSession(session);
+    return session;
+  };
+
   const openContribution = async (action: "photo" | "memory") => {
     if (actionLoading) return;
     setActionError(null);
@@ -722,13 +754,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     }
     setActionLoading(true);
     try {
-      const shareUrl = await resolvePublicShareUrl();
-      const token = new URL(shareUrl, window.location.origin).pathname.match(/^\/s\/([^/]+)$/)?.[1];
-      if (!token) throw new Error("공유 링크를 준비하지 못했습니다.");
-      const started = await startPublicContribution(token, null, "앨범지기");
-      const session = { albumId: started.album_id, contributorId: started.contributor_id, guestId: started.guest_id, displayName: started.display_name };
-      saveCollabSession(session);
-      setContributionSession(session);
+      // 이 길(하단 네비·딥링크)은 예전 그대로 `앨범지기` 로 시작한다 — 묻는 자리를 늘리지 않는다.
+      await ensureContributionSession("앨범지기", action);
       activateContribution(action);
     } catch (cause) {
       setActionError(userFacingError(cause, "참여 화면을 열지 못했습니다."));
@@ -1000,7 +1027,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         />
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
-        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); setDateDraft(/^\d{4}-\d{2}-\d{2}$/.test(key) ? key.replace(/-/g, ".") : ""); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); setDateDraft(""); }, setDraft: setPlaceDraft, dateDraft, setDateDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) requestSavePlace(key, photoIds); } } : null} />
+        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, needsName: !contributionSession, nameDraft: memoryNameDraft, setNameDraft: setMemoryNameDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); setDateDraft(/^\d{4}-\d{2}-\d{2}$/.test(key) ? key.replace(/-/g, ".") : ""); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); setDateDraft(""); }, setDraft: setPlaceDraft, dateDraft, setDateDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) requestSavePlace(key, photoIds); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}
