@@ -170,3 +170,40 @@ test("★ 위와 갈리는 자리다 — 배경과 선으로 가른다", () => {
   assert.match(sheet, /border-top: 0/);
   assert.match(sheet, /background: none/);
 });
+
+/**
+ * 🔴 소개 아이콘 두 개가 시안과 다르다 (PO 2026-08-17 —
+ *    `부모님 회고 앨범, 아이 성장 앨범 옆의 아이콘도 달라`).
+ *
+ * webp 로 만들 때 **투명 배경이 사라져서**, `#FFF1F0` 둥근 칸 안에 네모난 어두운
+ * 덩어리가 앉아 있었다(불투명 100% · 평균색 #924041). 시안은 배경이 비고 선만 있는
+ * 브랜드 코럴 그림이다.
+ *
+ * ★ 여기서 지키는 것은 **알파 채널이 있는가** 하나다. 다시 납작하게 구우면 잡힌다.
+ *   색·크기까지 고정하지 않는다 — 그림은 바뀔 수 있고, 배경이 차 있으면 안 되는 것이
+ *   이 결함의 본질이다.
+ * ★ 파일 이름을 여기 적지 않는다. `BRAND_USE_CASES` 가 가리키는 것을 따라간다 —
+ *   그래야 아이콘을 갈아 끼워도 검사가 낡지 않는다.
+ */
+function webpHasAlpha(bytes: Buffer): boolean {
+  assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF", "webp 가 아니다");
+  assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP", "webp 가 아니다");
+  const chunk = bytes.subarray(12, 16).toString("ascii");
+  // 무손실(VP8L)은 머리 비트 하나로 알파를 말한다. 5바이트 서명 뒤 28번째 비트다.
+  if (chunk === "VP8L") {
+    assert.equal(bytes[20], 0x2f, "VP8L 서명이 아니다");
+    return Boolean((bytes.readUInt32LE(21) >>> 28) & 1);
+  }
+  // 확장(VP8X)은 플래그 바이트에 알파 비트가 있다.
+  if (chunk === "VP8X") return Boolean(bytes[20] & 0x10);
+  // 손실(VP8)은 별도 ALPH 조각이 있어야 투명하다 — 없으면 납작한 그림이다.
+  return bytes.subarray(0, 512).toString("latin1").includes("ALPH");
+}
+
+test("★ 소개 아이콘은 배경이 비어 있다 — 둥근 칸 안에 네모가 앉지 않는다", () => {
+  const publicDir = fileURLToPath(new URL("../public/", import.meta.url));
+  for (const useCase of BRAND_USE_CASES) {
+    const bytes = readFileSync(path.join(publicDir, useCase.icon.replace(/^\//, "")));
+    assert.equal(webpHasAlpha(bytes), true, `${useCase.icon}: 투명 배경이 없다(다시 납작해졌다)`);
+  }
+});
