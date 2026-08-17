@@ -19,6 +19,7 @@ from app.models.schemas import (
     CurrentEditionSummary,
     MyAlbumListItem,
     MyAlbumsResponse,
+    AlbumDeletePreviewResponse,
     AlbumPdfUrlResponse,
     AlbumMediaSummary,
     AlbumMediaUploadResponse,
@@ -176,6 +177,9 @@ PDF_RENDERER_VERSION = 3
 # ★ 값이 고정이어야 한다 — 화면이 이 id 로 `NEW` 표시를 기억한다(sessionStorage).
 _PENDING_APPEND_PAGE_ID = "pending-contributions"
 logger = logging.getLogger(__name__)
+
+#: 지우기 시트에 미리 보여줄 사진 수 (시안 1b — 세 장 + `+N` 칸).
+DELETE_PREVIEW_PHOTOS = 3
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
@@ -2698,6 +2702,52 @@ async def upload_album_pdf(
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
+
+
+@router.get("/albums/{album_id}/delete-preview", response_model=AlbumDeletePreviewResponse)
+def get_album_delete_preview(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumDeletePreviewResponse:
+    """지우기 전에 **무엇이 사라지는지** 보여줄 값 (시안 1b · 2026-08-17).
+
+    지금 시트는 `제목 · 한 줄 · 버튼 둘`뿐이라 무엇이 사라지는지 보이지 않는다.
+    되돌릴 수 없는 일이므로 잃는 것을 눈과 숫자로 보여 준다.
+
+    ★ 권한은 **지우기와 똑같다** — 이미 있는 검사를 그대로 쓴다(§10).
+      미리 보는 것도 남의 앨범 속을 보는 일이다. 새 판정을 만들지 않는다.
+    ★ 세는 규칙도 이미 있는 것 하나씩이다: 사진은 count_ready_album_photos,
+      한마디는 list_photo_memories, 함께한 사람은 count_active_contributors
+      (`함께 만든 사람` 이름 줄과 **같은 규칙**이다 — 두 곳이 갈리면 안 된다).
+    ★ 썸네일은 display 자산이다. 원본은 인쇄의 몫이다(§9).
+    ★ 목록 API 에 넣지 않는다 — 지우려고 누른 그 순간에만 부른다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_delete(access)
+    if not access.is_album_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this album.")
+
+    photos = get_album_photo_records(client, album_id)
+    preview_urls = [
+        get_signed_url(
+            client,
+            str(photo.get("display_bucket") or photo["storage_bucket"]),
+            str(photo.get("display_path") or photo["storage_path"]),
+            settings.signed_url_ttl_seconds,
+        )
+        for photo in sorted(photos, key=lambda row: row.get("sort_order") or 0)[:DELETE_PREVIEW_PHOTOS]
+    ]
+    return AlbumDeletePreviewResponse(
+        photo_count=count_ready_album_photos(client, album_id),
+        memory_count=len(list_photo_memories(client, album_id)),
+        contributor_count=count_active_contributors(client, album_id),
+        preview_photo_urls=[url for url in preview_urls if url],
+    )
 
 
 @router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)

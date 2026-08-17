@@ -207,7 +207,9 @@ test("★ 내 앨범의 `삭제` 는 빨간 글씨가 아니다 — 막는 것�
   // 확인 단계는 그대로다 — 색을 낮춘 대신 시트를 없애면 안 된다.
   const list = readFileSync(path.join(SRC, "components/MyAlbums.tsx"), "utf8");
   assert.match(list, /\{pendingDelete \? \(/);
-  assert.match(list, /<ConfirmSheet/);
+  // ★ 2026-08-17 — 그 자리는 사라질 것을 보여주는 전용 시트가 됐다(시안 1b).
+  //   **묻는 단계가 그대로 있다**는 것이 이 검사가 지키는 것이고, 그것은 그대로다.
+  assert.match(list, /<AlbumDeleteSheet/);
 });
 
 test("죽은 값 onTop 이 코드에 남아 있지 않다", () => {

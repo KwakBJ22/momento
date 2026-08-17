@@ -4,7 +4,7 @@ import { deleteAlbum, getMyAlbums, removeAlbumBookmark, type MyAlbum } from "../
 import { bookmarkRemoveTroubleMessage } from "../lib/albumTrouble";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 import { useRefreshOnReturn } from "../lib/useRefreshOnReturn";
-import ConfirmSheet from "./ConfirmSheet";
+import AlbumDeleteSheet from "./AlbumDeleteSheet";
 import { myAlbumCardImageUrl } from "../lib/myAlbumCardImage";
 import { userFacingError } from "../lib/userFacingError";
 
@@ -245,12 +245,12 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
           </div>
         </>
       ) : null}
+      {/* ★ 지우기는 **사라질 것을 보여주는 시트**를 쓴다(시안 1b · 2026-08-17).
+          ConfirmSheet 는 그대로 둔다 — 다른 여덟 자리가 같이 쓴다. */}
       {pendingDelete ? (
-        <ConfirmSheet
-          title={`"${pendingDelete.title}" 앨범을 지울까요?`}
-          description="지운 앨범과 그 안의 사진·글은 되돌릴 수 없어요."
-          confirmLabel="앨범 지우기"
-          danger
+        <AlbumDeleteSheet
+          albumId={pendingDelete.album_id}
+          title={pendingDelete.title}
           busy={deletingId === pendingDelete.album_id}
           onConfirm={() => { const target = pendingDelete; setPendingDelete(null); void handleDelete(target); }}
           onCancel={() => setPendingDelete(null)}

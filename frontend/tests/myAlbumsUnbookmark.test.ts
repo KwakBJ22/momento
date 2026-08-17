@@ -75,5 +75,9 @@ test("★ 두 글자 모두 중립색이다 — 막는 것은 색이 아니라 �
   // 위치·문구·동작은 그대로다 — 색만 낮췄다.
   const list = readFileSync(path.join(SRC, "components/MyAlbums.tsx"), "utf8");
   assert.match(list, /className="my-albums__delete"/);
-  assert.match(list, /<ConfirmSheet/);
+  // ★ 2026-08-17 — 지우기 물음이 전용 시트가 됐다(시안 delete-sheet 1b). 이 검사가
+  //   지키는 것은 `막는 것은 색이 아니라 시트다` — 그 시트는 그대로 있다.
+  assert.match(list, /<AlbumDeleteSheet/);
+  // 담아둔 앨범 빼기는 여전히 공용 시트다.
+  assert.match(list, /<ConfirmSheet|removeAlbumBookmark/);
 });

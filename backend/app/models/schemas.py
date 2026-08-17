@@ -245,6 +245,21 @@ class MyAlbumsResponse(BaseModel):
     bookmarked: list[MyAlbumListItem] = Field(default_factory=list)
 
 
+class AlbumDeletePreviewResponse(BaseModel):
+    """앨범을 지우기 전에 **무엇이 사라지는지** 보여줄 값 (2026-08-17 · 시안 1b).
+
+    ★ 목록 API 에 넣지 않는다. 첫 화면이 무거워진다 — 지우려고 누른 그 순간에만 부른다.
+    ★ 썸네일은 **display 자산**이다. 원본은 인쇄의 몫이고, 시트에 원본을 내리면
+      64px 자리에 몇 MB 를 받는다(§9).
+    """
+
+    photo_count: int
+    memory_count: int
+    contributor_count: int
+    #: 최대 3장. 화면이 흑백으로 눌러 `사라짐` 을 미리 보여준다.
+    preview_photo_urls: list[str] = []
+
+
 class AlbumPdfUrlResponse(BaseModel):
     url: str | None = None
     album_version: int

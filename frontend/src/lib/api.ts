@@ -193,6 +193,21 @@ export async function removeAlbumBookmark(albumId: string): Promise<void> {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+/** 지우기 전에 **무엇이 사라지는지** — 지우려고 누른 그 순간에만 부른다(목록에 넣지 않는다). */
+export interface AlbumDeletePreview {
+  photo_count: number;
+  memory_count: number;
+  contributor_count: number;
+  /** display(WebP) 자산 최대 3장. 원본이 아니다(§9). */
+  preview_photo_urls: string[];
+}
+
+export async function getAlbumDeletePreview(albumId: string): Promise<AlbumDeletePreview> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/delete-preview`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumDeletePreview;
+}
+
 export async function deleteAlbum(albumId: string): Promise<void> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));

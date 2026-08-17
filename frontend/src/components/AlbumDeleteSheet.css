@@ -1,0 +1,117 @@
+/* 앨범 지우기 시트 — 사라질 것을 보여준다 (시안 delete-sheet 1b · 2026-08-17).
+   ★ 껍데기(album-inline-action · album-sheet-dim)는 이미 있는 것을 그대로 쓴다.
+     여기서는 그 안의 배치와 글자만 정한다.
+   ★ hex 를 적지 않는다(§8) — 색은 tokens.css 의 변수다. */
+
+.album-delete-sheet__body {
+  display: grid;
+  /* 시안의 세로 간격 18px. */
+  gap: 18px;
+}
+
+/* 제목 줄 위의 작은 표시 — 무엇을 하려는 자리인지 한 마디로 알린다. */
+.album-delete-sheet__eyebrow {
+  margin: 0;
+  color: var(--c-danger);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* 머리에는 닫기만 남긴다 — 제목은 `지우기 전 확인` **아래**에 온다(시안 순서). */
+.album-delete-sheet__header {
+  justify-content: flex-end;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.album-delete-sheet__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--c-text);
+}
+
+/* 두 줄은 한 덩어리다 — 사이는 18px 이 아니라 붙여 둔다(시안). */
+.album-delete-sheet__eyebrow + .album-delete-sheet__title {
+  margin-top: -10px;
+}
+
+/* 사라질 사진 세 장 — **흑백으로 눌러** `사라짐`을 미리 보여준다(시안 1b). */
+.album-delete-sheet__strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.album-delete-sheet__tile {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  object-fit: cover;
+  /* 뒤로 갈수록 옅어진다 — 줄줄이 사라지는 것으로 읽힌다. */
+  filter: grayscale(0.5);
+}
+
+.album-delete-sheet__tile--2 { opacity: 0.8; }
+.album-delete-sheet__tile--3 { opacity: 0.55; }
+
+/* 남은 장수 한 칸. 남는 폭을 다 쓴다 — 사진 셋과 한 줄로 앉는다. */
+.album-delete-sheet__more {
+  flex: 1;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--c-surface-pressed);
+  color: var(--c-text-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 무엇이 사라지는지 한 문장. 세는 규칙은 컴포넌트(deleteSummarySentence)에 있다. */
+.album-delete-sheet__summary {
+  margin: 10px 0 0;
+  color: var(--c-text-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.album-delete-sheet__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.album-delete-sheet__cancel,
+.album-delete-sheet__confirm {
+  flex: 1;
+  height: 54px;
+  border-radius: 15px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.album-delete-sheet__cancel {
+  border: 0;
+  background: var(--c-surface-pressed);
+  color: var(--c-text);
+}
+
+/* ★ 위험 버튼은 **테두리만**이다(시안 1b). 채우면 그쪽이 먼저 눈에 들어와,
+   기본 손가락이 안전한 쪽에 놓인다는 뜻이 사라진다. */
+.album-delete-sheet__confirm {
+  border: 1.5px solid var(--c-danger);
+  background: none;
+  color: var(--c-danger);
+}
+
+.album-delete-sheet__cancel:disabled,
+.album-delete-sheet__confirm:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
