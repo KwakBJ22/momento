@@ -86,6 +86,16 @@ test("★ 인쇄에는 연필도 정렬 규칙도 안 샌다 (§11)", () => {
   assert.match(block, /const isScreen = useAlbumRenderMode\(\) === "screen";/);
 });
 
+test("★ 연필을 줄 밖으로 띄우지 않는다 — 덮어쓰는 규칙이 없다 (2026-08-17)", () => {
+  // 줄 안에서 `align-items: center` 로 맞추는데, 화면 규칙에서 연필만 절대 배치로
+  // 빼놓으면 정렬이 통째로 무시된다(실측: 글자 cy 330 / 연필 cy 322 — 8px 위로 떴다).
+  const renderer = read("album-engine/AlbumRenderer.css");
+  const blocks = renderer.split("}")
+    .filter((b) => b.includes(".photo-memory-lines__edit-btn") && b.includes("{"));
+  const floated = blocks.some((b) => /position:\s*absolute|position:\s*fixed/.test(b));
+  assert.equal(floated, false, "캡션 연필이 다시 줄 밖으로 떴다");
+});
+
 test("★ 날짜 줄 연필과 같은 방식이다 — 두 자리가 갈리지 않는다", () => {
   // 날짜 줄은 8월 15일에 이미 이 방식이다(::before 32px 원 + 누름 영역 분리).
   const chapter = read("album-engine/blocks/ChapterHeader.css");
