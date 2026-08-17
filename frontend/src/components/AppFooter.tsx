@@ -7,8 +7,11 @@ import "./AppChrome.css";
 /**
  * 모든 화면(관리자 콘솔 제외)의 단 하나의 하단 블록.
  *
- * 두 줄이다(§6): 1행 브랜드 / 2행 약관·개인정보·회사 정보. 사업자 정보는 늘어놓지 않고
- * `회사 정보` 안에 둔다 — 법적 표시 의무는 "찾을 수 있는 곳에 있으면" 충족된다.
+ * ★ **한 줄이다** (PO 2026-08-17 — `토스나 카톡 다 이런게 아래 없잖아`).
+ * 예전에는 2행에 `이용약관 · 개인정보처리방침 · 회사 정보` 가 모든 화면 맨 아래에 늘
+ * 붙어 있었다. 그 세 가지는 **`우리앨범 소개` 시트 맨 아래**로 옮겼다 —
+ * 없앤 것이 아니라 자리를 옮긴 것이다(주소·문구·내용은 하나도 바꾸지 않았다).
+ * 법적 표시 의무는 "사이버몰 안에서 찾을 수 있으면" 충족된다.
  * 새 페이지를 만들지 않고 이미 있는 시트 껍데기로 연다(§11).
  *
  * 원래 설명: 눈에 띄지 않되 읽을 수 있게
@@ -40,17 +43,23 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
           {BRAND_NAME_KO} 소개
         </button>
       </p>
-      <p className="app-footer__legal">
-        {LEGAL_LINKS.map((link, index) => (
-          <span key={link.href}>
-            {index > 0 ? <span aria-hidden="true"> · </span> : null}
-            <a href={link.href} target="_blank" rel="noopener">{link.label}</a>
-          </span>
-        ))}
-        <span aria-hidden="true"> · </span>
-        <button type="button" className="app-footer__company-link" onClick={() => setCompanyOpen(true)}>회사 정보</button>
-      </p>
     </footer>
+  );
+
+  /** 약관·개인정보·회사 정보 한 줄 — 이제 이 줄은 **소개 시트 안**에만 있다. */
+  const legalLine = (
+    <p className="app-footer__legal app-footer__legal--in-sheet">
+      {LEGAL_LINKS.map((link, index) => (
+        <span key={link.href}>
+          {index > 0 ? <span aria-hidden="true"> · </span> : null}
+          <a href={link.href} target="_blank" rel="noopener">{link.label}</a>
+        </span>
+      ))}
+      <span aria-hidden="true"> · </span>
+      {/* ★ 시트 안에서 시트를 열지 않는다 — 소개 시트를 닫고 회사 정보 시트를 연다.
+          둘이 겹치면 `닫기` 가 어느 것을 닫는지 알 수 없다(§11). */}
+      <button type="button" className="app-footer__company-link" onClick={() => { setAboutOpen(false); setCompanyOpen(true); }}>회사 정보</button>
+    </p>
   );
 
   return (
@@ -63,6 +72,7 @@ export default function AppFooter({ withBottomNavigation = false }: AppFooterPro
             <div className="album-inline-action__header"><h2>{BRAND_NAME_KO} 소개</h2><button type="button" onClick={() => setAboutOpen(false)}>닫기</button></div>
             <div className="album-inline-action__body">
               <BrandValue variant="sheet" />
+              {legalLine}
             </div>
           </section>
         </>

@@ -84,6 +84,24 @@
 .app-footer__brand { margin: 0; font-weight: 700; color: var(--c-text-soft); }
 .app-footer__legal { margin: 0; }
 .app-footer__legal a { color: var(--c-text-soft); text-decoration: underline; text-underline-offset: 2px; }
+/* ★ 이 줄은 이제 **소개 시트 안**에만 있다(PO 2026-08-17 — 푸터 아래에서 치웠다).
+   시트 안에서는 위와 갈리는 옅은 선 하나를 두고, 크기·색은 푸터에서 쓰던 그대로다.
+   누르는 자리는 44px 을 지킨다 — 40대 이후 타깃이라 양보하지 않는다. */
+.app-footer__legal--in-sheet {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--c-hairline);
+  color: var(--c-text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+  text-align: center;
+}
+.app-footer__legal--in-sheet a,
+.app-footer__legal--in-sheet .app-footer__company-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+}
 
 
 /* 하단 고정 네비가 있는 화면에서만 그 높이만큼 비워, 끝까지 스크롤하면 푸터가 보이게

@@ -44,13 +44,22 @@ test("하단도 화면당 하나 — 관리자 제외 모든 화면에 AppFooter
   assert.doesNotMatch(read("components/AlbumScreen.tsx"), /<AppFooter/);
 });
 
-test("푸터는 두 줄 — 사업자 정보는 `회사 정보` 안에 있다 (§6)", () => {
+test("푸터는 **한 줄** — 약관·회사 정보는 소개 시트 안에 있다 (§6)", () => {
+  // ★ 2026-08-17 뒤집음(§10-2). 예전 규칙은 `푸터는 두 줄`이었다.
+  //   PO: `토스나 카톡 다 이런게 아래 없잖아` — 모든 화면 맨 아래에 늘 붙어 있던
+  //   2행을 치우고, 그 세 가지를 `우리앨범 소개` 시트 맨 아래로 **옮겼다.**
+  //   없앤 것이 아니다. 주소·문구·회사 정보 내용은 하나도 바꾸지 않았다.
   const footer = read("components/AppFooter.tsx");
   assert.match(footer, /BRAND_NAME_KO/);
   assert.match(footer, /LEGAL_LINKS/);
-  // 본문에 늘어놓지 않는다: 사업자 정보는 시트 안에서만 그린다.
+  // 푸터 본문에는 브랜드 한 줄뿐이다 — 약관 줄도 사업자 정보도 없다.
   const body = footer.slice(footer.indexOf("const footer = ("), footer.indexOf("</footer>"));
   assert.doesNotMatch(body, /BRAND_BUSINESS_INFO/);
+  assert.equal(body.includes("LEGAL_LINKS"), false, "약관 줄이 아직 푸터 아래에 있다");
+  // 옮긴 자리는 소개 시트 몸 안이다.
+  assert.match(footer, /<BrandValue variant="sheet" \/>\s*\r?\n\s*\{legalLine\}/);
+  // ★ 시트 안에서 시트를 열지 않는다 — 소개를 닫고 회사 정보를 연다.
+  assert.match(footer, /onClick=\{\(\) => \{ setAboutOpen\(false\); setCompanyOpen\(true\); \}\}/);
   assert.match(footer, /app-footer__company-link[\s\S]{0,80}회사 정보/);
   // 새 페이지를 만들지 않고 이미 있는 시트 껍데기를 쓴다(§11).
   assert.match(footer, /className="album-inline-action album-more-sheet" aria-label="회사 정보"/);

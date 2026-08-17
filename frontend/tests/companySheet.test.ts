@@ -23,16 +23,52 @@ async function openCompanySheet() {
   const root = createRoot(container);
   await React.act(async () => { root.render(React.createElement(AppFooter, {})); });
 
-  const opener = Array.from(container.querySelectorAll("button"))
-    .find((button) => button.textContent?.includes("회사 정보")) as HTMLButtonElement;
-  assert.equal(opener != null, true, "푸터에 `회사 정보` 진입점이 있어야 한다");
-  await React.act(async () => { opener.click(); });
-  await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  const click = async (label: string, missing: string) => {
+    const button = Array.from(container.querySelectorAll("button"))
+      .find((node) => node.textContent?.includes(label)) as HTMLButtonElement | undefined;
+    assert.equal(button != null, true, missing);
+    await React.act(async () => { button!.click(); });
+    await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  };
+  // ★ 2026-08-17 — `회사 정보` 진입점이 푸터에서 **소개 시트 안**으로 옮겨졌다
+  //   (PO: 토스·카톡처럼 아래에 늘 붙여 두지 않는다). 여는 길이 한 단계 늘었을 뿐,
+  //   시트가 열리고 사업자 정보가 그대로 있다는 규칙은 그대로다.
+  await click("소개", "푸터에 `우리앨범 소개` 진입점이 있어야 한다");
+  await click("회사 정보", "소개 시트에 `회사 정보` 진입점이 있어야 한다");
 
   const sheet = container.querySelector("[aria-label='회사 정보']") as HTMLElement;
   assert.equal(sheet != null, true, "시트가 열려야 한다");
   return { React, root, sheet, container };
 }
+
+test("★ 푸터 아래에는 약관 줄이 없다 — 세 가지는 소개 시트 안에 있다 (2026-08-17)", async () => {
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: AppFooter } = await import("../src/components/AppFooter");
+  const container = document.getElementById("root")!;
+  container.innerHTML = "";
+  const root = createRoot(container);
+  await React.act(async () => { root.render(React.createElement(AppFooter, {})); });
+
+  const footerText = container.querySelector(".app-footer")?.textContent || "";
+  for (const gone of ["이용약관", "개인정보처리방침", "회사 정보"]) {
+    assert.equal(footerText.includes(gone), false, `푸터에 아직 ${gone} 가 있다`);
+  }
+
+  // 소개 시트를 열면 세 가지가 그 안에 있다 — 없앤 것이 아니라 옮긴 것이다.
+  const about = Array.from(container.querySelectorAll("button"))
+    .find((button) => button.textContent?.includes("소개")) as HTMLButtonElement;
+  await React.act(async () => { about.click(); });
+  const sheetText = container.querySelector("[aria-label$='소개']")?.textContent || "";
+  for (const kept of ["이용약관", "개인정보처리방침", "회사 정보"]) {
+    assert.equal(sheetText.includes(kept), true, `소개 시트에 ${kept} 가 없다`);
+  }
+  // 주소는 그대로다.
+  const hrefs = Array.from(container.querySelectorAll("[aria-label$='소개'] a")).map((a) => a.getAttribute("href"));
+  assert.equal(hrefs.includes("/terms.html"), true);
+  assert.equal(hrefs.includes("/privacy.html"), true);
+  await React.act(async () => { root.unmount(); });
+});
 
 test("시트에 6줄이 있다 (사업자 5 + 홈페이지)", async () => {
   const view = await openCompanySheet();
