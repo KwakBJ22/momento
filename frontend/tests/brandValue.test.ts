@@ -153,6 +153,19 @@ test("★ 위와 갈리는 자리다 — 배경과 선으로 가른다", () => {
   assert.match(root, /padding: 30px max\(22px, calc\(\(100% - 34rem\) \/ 2\)\) 34px/);
   assert.equal(root.includes("max-width"), false, "배경에 폭 제한이 다시 걸렸다");
   // 시트에서는 그 둘을 뺀다 — 이미 제목 줄과 경계가 있다.
+  // ★ 2026-08-17 추가 — 배경 띠가 화면 끝에 닿지 않던 것(PO `디자인 html 과 다르다`).
+  //   원인은 이 요소가 아니라 부모였다: `.app` 이 좌우 `--page-padding-x`(20px)를 갖는다.
+  //   실측 화면 500 / 띠 440. `--full` 만 그 여백을 음수로 되돌려 끝까지 간다.
+  //   숫자를 여기 다시 적지 않는다 — 부모가 쓰는 변수를 그대로 읽어야 한쪽만 안 바뀐다.
+  const full = css.slice(css.indexOf(".brand-value--full {"), css.indexOf("}", css.indexOf(".brand-value--full {")));
+  assert.match(full, /margin-left: calc\(var\(--page-padding-x, 20px\) \* -1\)/);
+  assert.match(full, /margin-right: calc\(var\(--page-padding-x, 20px\) \* -1\)/);
+
+  // ★ 그림 안 네 칸은 **정사각**이다(시안). 높이를 12px 로 묶으면 사진이 띠가 된다.
+  const grid = css.slice(css.indexOf(".brand-value__book-grid img {"), css.indexOf("}", css.indexOf(".brand-value__book-grid img {")));
+  assert.match(grid, /aspect-ratio: 1/);
+  assert.equal(grid.includes("height: 12px"), false, "네 칸이 다시 띠가 됐다");
+
   const sheet = css.slice(css.indexOf(".brand-value--sheet {"), css.indexOf("}", css.indexOf(".brand-value--sheet {")));
   assert.match(sheet, /border-top: 0/);
   assert.match(sheet, /background: none/);
