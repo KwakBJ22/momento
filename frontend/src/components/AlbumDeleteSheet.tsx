@@ -43,6 +43,11 @@ function subjectParticle(word: string): "이" | "가" {
 /**
  * 사라지는 것을 한 문장으로. **있는 것만 센다** — 0은 말하지 않는다.
  *
+ * ★ 조각을 쉼표로 잇는다 (PO 2026-08-18):
+ *     사진 9장, 한마디 4개, 함께한 3명의 화면에서도 없어져요.
+ *   `~가 함께 사라지고, ~에서도` 보다 짧아 **한 줄에 들어간다** — 시트가 뜬 뒤
+ *   문장이 두 줄로 늘어나면 그만큼 자리가 움직인다(985b5da 와 같은 이유).
+ *
  * 아무것도 셀 것이 없으면 null 이고, 그러면 화면은 그 줄을 그리지 않는다.
  * (렌더와 떼어 둔 순수 함수다 — 문장 규칙은 여기 하나에서 검사한다.)
  */
@@ -52,12 +57,10 @@ export function deleteSummarySentence(preview: AlbumDeletePreview): string | nul
   if (preview.memory_count > 0) items.push(`한마디 ${preview.memory_count}개`);
   // 나 혼자 만든 앨범이면 `함께한 사람` 이야기를 하지 않는다.
   const others = preview.contributor_count > 1 ? preview.contributor_count : 0;
-  const subject = items.join("과 ");
-  if (items.length && others) {
-    return `${subject}${subjectParticle(subject)} 함께 사라지고, 함께한 ${others}명의 화면에서도 없어져요.`;
-  }
-  if (items.length) return `${subject}${subjectParticle(subject)} 함께 사라져요.`;
-  if (others) return `함께한 ${others}명의 화면에서도 없어져요.`;
+  if (others) return [...items, `함께한 ${others}명의 화면에서도 없어져요.`].join(", ");
+  // 함께한 사람이 없으면 뒷문장이 없으니 서술어를 붙여 준다.
+  const subject = items.join(", ");
+  if (items.length) return `${subject}${subjectParticle(subject)} 사라져요.`;
   return null;
 }
 

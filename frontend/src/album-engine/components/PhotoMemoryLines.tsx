@@ -6,6 +6,7 @@ import {
   photoMemoryHasAuthors,
   photoMemoryLayoutTier,
 } from "./photoMemoryLineUtils";
+import { CAPTION_HINT_REMAINING, CAPTION_MAX_LENGTH } from "../../lib/albumLimits";
 import "./PhotoMemoryLines.css";
 
 interface PhotoMemoryLinesProps {
@@ -24,6 +25,19 @@ interface PhotoMemoryLinesProps {
 /**
  * 사진 아래 메모 — 카드/말풍선 없이 캡션처럼 자연스럽게 이어진다.
  */
+/**
+ * 캡션 길이 안내 — 할 말이 없으면 null 이다(평소에는 아무것도 안 띄운다).
+ *
+ * ★ 상한을 넘는 경우가 있다: 상한을 낮추기 **전에** 길게 쓴 캡션이다. maxLength 는
+ *   이미 있는 글을 자르지 않으므로, 그 사람에게 얼마나 줄여야 하는지 말해 준다.
+ */
+export function captionLengthNotice(draft: string): string | null {
+  const over = draft.length - CAPTION_MAX_LENGTH;
+  if (over > 0) return `종이에는 두 줄까지 나와요. ${over}자 줄여 주세요.`;
+  if (over >= -CAPTION_HINT_REMAINING) return `${draft.length} / ${CAPTION_MAX_LENGTH}자`;
+  return null;
+}
+
 export default function PhotoMemoryLines({
   segments,
   text,
@@ -95,17 +109,24 @@ export default function PhotoMemoryLines({
             className="photo-memory-lines__input"
             value={edit.draft}
             onChange={(event) => edit.setDraft(event.target.value)}
-            maxLength={300}
+            maxLength={CAPTION_MAX_LENGTH}
             rows={2}
             aria-label="한 줄 고치기"
             autoFocus
           />
+          {/* ★ 조용히 막지 않는다(§11). 상한에 가까워질 때만 남은 수를 말하고,
+              **예전에 길게 쓴 캡션**이면 얼마나 줄여야 하는지 알려 준다. */}
+          {captionLengthNotice(edit.draft) ? (
+            <p className={`photo-memory-lines__count${edit.draft.length > CAPTION_MAX_LENGTH ? " photo-memory-lines__count--over" : ""}`} aria-live="polite">
+              {captionLengthNotice(edit.draft)}
+            </p>
+          ) : null}
           <div className="photo-memory-lines__edit-actions">
             <button
               type="button"
               className="photo-memory-lines__action photo-memory-lines__action--save"
               onClick={() => edit.saveEdit(photoId)}
-              disabled={isSaving}
+              disabled={isSaving || edit.draft.length > CAPTION_MAX_LENGTH}
             >
               {isSaving ? "저장 중..." : "저장"}
             </button>

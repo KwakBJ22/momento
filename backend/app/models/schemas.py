@@ -26,12 +26,25 @@ MEETING_TYPE_LABELS: dict[str, str] = {
 TemplateType = Literal["A", "B", "C"]
 
 
+#: 캡션 글자 상한 — **종이에 다 나오는 만큼**이다 (PO 결정 2026-08-18).
+#:
+#: 정사각 판형(200×200mm)은 칸 높이가 고정이라 캡션이 두 줄에서 잘린다. 캡션은
+#: 인쇄까지 가는 유일한 사용자 글이라, 자르는 대신 **처음부터 두 줄까지만** 쓰게 한다.
+#: 가장 좁은 칸(4장 쪽 84mm)에서 한 줄 24자 → 두 줄 48자.
+#: ★ 화면과 같은 값이다 — frontend/src/lib/albumLimits.ts 의 CAPTION_MAX_LENGTH.
+#: ★ **읽기에는 걸지 않는다.** 상한을 낮추기 전에 저장된 긴 캡션은 그대로 보이고
+#:   그대로 인쇄된다(두 줄까지). 고쳐 저장할 때만 줄여 달라고 한다.
+CAPTION_MAX_LENGTH = 48
+
+
 class PhotoStoryInput(BaseModel):
     """사진 한 장에 대한 설명(스토리)."""
 
     order: int = Field(ge=0, lt=30, description="업로드 슬롯 순서 (0부터 연속)")
     user: str = Field(default="", max_length=30, description="작성자 이름(선택)")
-    text: str = Field(min_length=1, max_length=300, description="사진 설명 스토리")
+    #: 업로드 화면에서 사진마다 쓰는 캡션이다 — 위 PhotoCaptionUpdate 와 같은 글이라
+    #: 같은 상한을 쓴다(값은 아래 CAPTION_MAX_LENGTH 한 곳).
+    text: str = Field(min_length=1, max_length=CAPTION_MAX_LENGTH, description="사진 설명 스토리")
 
 
 class AlbumPhotoCommentItem(BaseModel):
@@ -502,7 +515,7 @@ class AlbumPhotoUrlsResponse(BaseModel):
 class PhotoCaptionUpdate(BaseModel):
     """캡션(①) 저장 요청 — album_photos.caption. 코멘트(photo_memories)와 다르다."""
 
-    caption: str | None = Field(default=None, max_length=300)
+    caption: str | None = Field(default=None, max_length=CAPTION_MAX_LENGTH)
 
 
 class PhotoCaptionResponse(BaseModel):

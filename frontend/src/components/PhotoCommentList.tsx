@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CAPTION_MAX_LENGTH } from "../lib/albumLimits";
 
 import { showsPhotoList } from "../lib/uploadFormView";
 import type { PhotoItem } from "../types";
@@ -85,7 +86,7 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, on
             <textarea
               className="photo-comments__input"
               rows={3}
-              maxLength={300}
+              maxLength={CAPTION_MAX_LENGTH}
               value={photo.story}
               placeholder={COMMENT_PLACEHOLDER}
               aria-label={`사진 ${index + 1} 한 줄`}

@@ -87,17 +87,20 @@ test("★ 사진 0장이면 띠 자체를 그리지 않는다", async () => {
 });
 
 test("★ 0을 말하지 않는다 — 한마디가 없으면 문장에 `한마디` 가 없다", async () => {
+  // ★ 2026-08-18 PO — 문장을 쉼표로 잇는 짧은 말로 바꿨다. `~가 함께 사라지고, ~에서도`
+  //   보다 짧아 **한 줄에 들어간다**(시트가 뜬 뒤 자리가 움직이지 않게 · 985b5da).
   const view = await renderSheet(preview(9, 0, 3));
-  assert.equal(view.summary, "사진 9장이 함께 사라지고, 함께한 3명의 화면에서도 없어져요.");
+  assert.equal(view.summary, "사진 9장, 함께한 3명의 화면에서도 없어져요.");
   assert.equal((view.summary || "").includes("한마디"), false);
   // 있는 것은 그대로 센다.
   const both = await renderSheet(preview(9, 4, 3));
-  assert.equal(both.summary, "사진 9장과 한마디 4개가 함께 사라지고, 함께한 3명의 화면에서도 없어져요.");
+  assert.equal(both.summary, "사진 9장, 한마디 4개, 함께한 3명의 화면에서도 없어져요.");
 });
 
 test("★ 나 혼자 만든 앨범이면 `함께한 사람` 이야기를 하지 않는다", async () => {
+  // 뒷문장이 없으니 서술어를 붙여 준다 — 조사는 앞말 받침을 따른다.
   const view = await renderSheet(preview(9, 4, 1));
-  assert.equal(view.summary, "사진 9장과 한마디 4개가 함께 사라져요.");
+  assert.equal(view.summary, "사진 9장, 한마디 4개가 사라져요.");
 });
 
 test("★ `그만두기` 가 `앨범 지우기` 보다 **앞에** 그려진다 (K-20)", async () => {
@@ -166,6 +169,6 @@ test("★ 세는 규칙은 한 곳이다 — 순수 함수로 따로 본다", as
   // 함께한 사람만 있는 경우.
   assert.equal(deleteSummarySentence(preview(0, 0, 3)), "함께한 3명의 화면에서도 없어져요.");
   // 조사는 앞말 받침을 따른다 — `9장이` · `4개가`.
-  assert.match(deleteSummarySentence(preview(9, 0, 1)) || "", /9장이 함께/);
-  assert.match(deleteSummarySentence(preview(9, 4, 1)) || "", /4개가 함께/);
+  assert.match(deleteSummarySentence(preview(9, 0, 1)) || "", /9장이 사라져요\./);
+  assert.match(deleteSummarySentence(preview(9, 4, 1)) || "", /4개가 사라져요\./);
 });

@@ -5,7 +5,7 @@ import { CREATION_PROGRESS_TICK_MS, easeTowardTarget } from "../lib/creationProg
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { currentUserAgent } from "../lib/webview";
-import { fitsWithinUploadTotal, formatUploadSize, makePreviewBlob, MAX_ORIGINAL_IMAGE_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
+import { fitsWithinUploadTotal, makePreviewBlob, MAX_ORIGINAL_IMAGE_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
 import { extractOriginalCaptureDate, extractOriginalGps, type ExifGps } from "../lib/exifCaptureDate";
 import { yieldToPaint } from "../lib/yieldToPaint";
@@ -121,7 +121,6 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
   // (there is no other frontend->backend event path). See createAlbum.
   const droppedVideoCountRef = useRef(0);
   const templateType = recommendedTemplateType(category);
-  const totalUploadBytes = photos.reduce((total, photo) => total + photo.file.size, 0);
 
   const addFiles = useCallback(async (files: FileList | File[] | null) => {
     if (isPreparing) return;
@@ -417,8 +416,12 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
             <p className="notice notice--info drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
           </div>
         ) : null}
+        {/* ★ 용량을 쓰지 않는다 (PO 결정 2026-08-18). 무거운 변환을 `앨범 만들기` 로
+            미루면서 이 숫자가 **원본 합계**가 됐다 — 실제로 올라가는 것은 긴 변 2560 으로
+            줄인 파일이라 한참 작은데, 화면에는 상한(40MB)보다 큰 수가 뜰 수 있었다.
+            장수는 사용자가 쓰는 값이고, 용량은 그렇지 않다. */}
         {showsSelectionCount(photos.length) && !isPreparing ? (
-          <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
+          <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong></p>
         ) : null}
       </section>
       {/* Direct child of .upload-form (not the picker section) so position:sticky stays
