@@ -132,11 +132,27 @@
 
 /* 날짜 줄의 장소 고치기 — 주최자만 본다. 모양은 StoryBlock 의 연필과 **같다**
    (44px 누름 영역 + ::before 32px 동그라미). 같은 일이니 같아야 한다. */
+/* ★ 2026-08-17 PO — `날짜와 옆의 지역이 줄이 안 맞아` · `지역이 2줄로 내려가면 더 이상해져`.
+   예전에는 이 줄이 `display: flex; align-items: center` 였다. 이 줄은 **배치가 아니라 글줄**인데
+   flex 로 만들어서 두 가지가 한꺼번에 어긋났다:
+     ① 날짜 뒤 `" · 지역"` 의 **앞 공백이 잘렸다** — flex 안에서 맨 텍스트는 익명 항목이 되고
+        그 앞뒤 공백이 사라진다. 그래서 `2017.08.11· 동대문구` 로 붙어 보였다.
+     ② 지역이 길어 **두 줄이 되면** 날짜(한 줄)가 두 줄 덩어리의 가운데로 내려갔다
+        (실측: 날짜 top 387.2 / 뒷글 첫 줄 top 378 — 9px 처짐).
+   글줄로 되돌린다. 가운데 정렬은 text-align 이 한다 — 그래야 공백도 살고 두 줄도 이어진다.
+   연필은 인라인으로 줄에 얹는다(vertical-align: middle).
+   되돌리지 않는다 — flex 로 다시 만들면 위 두 가지가 그대로 돌아온다. */
 .chapter-header--date-only .chapter-header__dayline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  display: block;
+  text-align: center;
+  line-height: 1.7;
+  /* 한글은 단어 가운데서 끊지 않는다 — `지명입 / 다` 로 갈리던 것을 막는다. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.chapter-header--date-only .chapter-header__edit-btn {
+  vertical-align: middle;
 }
 
 .chapter-header__edit-btn {

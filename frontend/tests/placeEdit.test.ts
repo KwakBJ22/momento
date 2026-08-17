@@ -144,3 +144,17 @@ test("인쇄에는 장소 연필이 오지 않는다", () => {
 });
 
 void photo;
+
+test("★ 날짜 줄은 글줄이다 — flex 로 만들지 않는다 (2026-08-17)", () => {
+  // PO: `날짜와 옆의 지역이 줄이 안 맞아` · `지역이 2줄로 내려가면 더 이상해져`.
+  // flex 로 만들면 ① 날짜 뒤 `" · 지역"` 앞 공백이 잘리고(익명 항목),
+  // ② 두 줄이 될 때 날짜가 두 줄 덩어리 가운데로 내려간다(실측 9px 처짐).
+  const css = readFileSync(new URL("../src/album-engine/blocks/ChapterHeader.css", import.meta.url), "utf8");
+  const at = css.indexOf(".chapter-header--date-only .chapter-header__dayline {");
+  const rule = css.slice(at, css.indexOf("}", at));
+  assert.match(rule, /display: block/);
+  assert.match(rule, /text-align: center/);
+  assert.equal(rule.includes("display: flex"), false, "날짜 줄이 다시 flex 가 됐다");
+  assert.equal(rule.includes("align-items"), false, "글줄에 배치 정렬이 다시 붙었다");
+  assert.match(rule, /word-break: keep-all/);
+});
