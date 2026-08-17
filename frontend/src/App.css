@@ -356,6 +356,12 @@ body {
 .my-albums__unbookmark { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-text-muted); font-size: var(--t-xs); font-weight: 700; cursor: pointer; }
 .my-albums__unbookmark:disabled { opacity: 0.6; cursor: wait; }
 .my-albums__card--skeleton { pointer-events: none; }
+/* 보관함(2026-08-17) — 목록 맨 아래 접힌 줄 하나. 누르면 **그 자리에서** 펼친다.
+   ★ 눈에 띄면 안 된다. 감춰 둔 것을 찾는 자리이지 권하는 자리가 아니다. */
+.my-albums__archive-toggle { width: 100%; min-height: var(--tap-min); margin-top: var(--s-4); padding: 0; border: 0; border-top: 1px solid var(--c-hairline); background: none; color: var(--c-text-muted); font: inherit; font-size: var(--t-xs); font-weight: 700; text-align: left; cursor: pointer; }
+/* 넣자마자 뜨는 한 줄 — `되돌리기` 가 그 줄 안에 있다. 사라지는 토스트가 아니다. */
+.my-albums__archived-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.my-albums__archived-undo { min-height: var(--tap-min); padding: 0 var(--s-2); border: 0; background: none; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
 /* 자리표시자의 색·움직임은 styles/loading.css 의 .loading-shimmer 가 준다(I-6b).
    전에는 그라디언트 세 지점이 전부 --c-brand-soft 라 **움직여도 아무것도 안 보였다.** */
 .my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; }

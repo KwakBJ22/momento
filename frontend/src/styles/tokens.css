@@ -35,6 +35,10 @@
      ★ 새로 만든 값은 이것 하나다. 나머지 색(#A3231F·#2D2D2D·#7D716F)은
        --c-danger · --c-text · --c-text-muted 로 이미 있었다. */
   --c-surface-pressed: #f4efee;
+  /* 되돌릴 길 블록의 선 두 겹 — 시안(delete-sheet 1b)의 #EDE3E2 · #E0D4D2.
+     --c-border(#d6d1ce)보다 연하고 따뜻해서 `권하는 자리`로 읽힌다(경고가 아니다). */
+  --c-keep-line: #ede3e2;
+  --c-keep-button-line: #e0d4d2;
 
   /* ---- 색: 글자 (배경 --c-bg 기준) ---- */
   --c-text: #2d2d2d;           /* 본문·제목        13.57:1 */

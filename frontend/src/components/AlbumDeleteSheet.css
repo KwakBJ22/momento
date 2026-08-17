@@ -80,6 +80,44 @@
   line-height: 1.6;
 }
 
+/* 되돌릴 길 — 지우기 **전에** 권하는 자리(시안 1b). 위험 버튼보다 위에 온다. */
+.album-delete-sheet__keep {
+  padding: 13px 14px;
+  border: 1px solid var(--c-keep-line);
+  border-radius: 14px;
+  background: var(--c-about-bg);
+}
+
+.album-delete-sheet__keep-title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.album-delete-sheet__keep-text {
+  margin: 4px 0 0;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.album-delete-sheet__keep-button {
+  width: 100%;
+  height: 44px;
+  margin-top: 11px;
+  border: 1px solid var(--c-keep-button-line);
+  border-radius: 12px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.album-delete-sheet__keep-button:disabled { opacity: 0.6; cursor: default; }
+
 .album-delete-sheet__actions {
   display: flex;
   gap: 10px;

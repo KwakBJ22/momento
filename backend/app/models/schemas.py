@@ -243,6 +243,9 @@ class MyAlbumsResponse(BaseModel):
     # 담아둔 앨범(§1 9차) — 구경하다가 계정에 담아 둔 것. 권한이 아니라 목록일 뿐이다.
     # 위 두 칸에 이미 있는 앨범은 여기서 뺀다(같은 앨범이 두 칸에 뜨지 않는다).
     bookmarked: list[MyAlbumListItem] = Field(default_factory=list)
+    # 보관함(2026-08-17) — 지우지 않고 감춰 둔 **자기 앨범**. status 한 칸이 전부이고
+    # 사진·한마디는 그대로 있다. 더하기만 한 칸이라 옛 화면은 그대로 돈다.
+    archived: list[MyAlbumListItem] = Field(default_factory=list)
 
 
 class AlbumDeletePreviewResponse(BaseModel):

@@ -164,11 +164,33 @@ export type MyAlbum = {
   share_token?: string | null;
 };
 
-export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[] }> {
+export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[]; archived: MyAlbum[] }> {
   const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
-  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[]; bookmarked?: MyAlbum[] };
-  return { albums: data.albums ?? [], participating: data.participating ?? [], bookmarked: data.bookmarked ?? [] };
+  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[]; bookmarked?: MyAlbum[]; archived?: MyAlbum[] };
+  return {
+    albums: data.albums ?? [],
+    participating: data.participating ?? [],
+    bookmarked: data.bookmarked ?? [],
+    // 보관함(2026-08-17). 옛 응답에는 없다 — 없으면 빈 목록이고 화면은 그 줄을 안 그린다.
+    archived: data.archived ?? [],
+  };
+}
+
+/**
+ * 지우지 않고 **감춰 둔다** (2026-08-17 · 시안 delete-sheet 1b 의 되돌릴 길).
+ *
+ * ★ 바뀌는 것은 앨범의 상태 한 칸이다. 사진·한마디는 그대로 있다 —
+ *   그래야 `언제든 다시 꺼낼 수 있어요` 가 참말이 된다. 판정은 서버가 한다(주최자만).
+ */
+export async function archiveAlbum(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/archive`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function unarchiveAlbum(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/unarchive`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
 }
 
 /**

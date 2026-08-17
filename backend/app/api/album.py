@@ -92,6 +92,7 @@ from app.services.supabase import (
     list_album_photo_cover_records,
     list_album_photo_list_summaries,
     list_owned_album_cover_records,
+    list_archived_album_list_records,
     list_owned_album_list_records,
     list_participating_album_list_records,
     get_signed_url,
@@ -2031,6 +2032,11 @@ async def get_my_albums(
     bookmark_photo_rows = await asyncio.to_thread(
         list_album_photo_list_summaries, client, [str(record["id"]) for record in bookmark_records]
     )
+    # 보관함 — 지우지 않고 감춰 둔 자기 앨범(2026-08-17). 위 목록에서는 빠져 있다.
+    archived_records = list_archived_album_list_records(client, authenticated_user_id, limit=20)
+    archived_photo_rows = await asyncio.to_thread(
+        list_album_photo_list_summaries, client, [str(record["id"]) for record in archived_records]
+    )
     payload = MyAlbumsResponse(
         bookmarked=[
             item.model_copy(update={"share_token": bookmark_tokens.get(str(item.album_id))})
@@ -2050,6 +2056,12 @@ async def get_my_albums(
             client,
             settings,
             _my_album_list_items(client, settings, participating_records, {}, participating_photo_rows),
+        ),
+        archived=_attach_my_album_cover_urls(
+            client,
+            settings,
+            authenticated_user_id,
+            _my_album_list_items(client, settings, archived_records, {}, archived_photo_rows),
         ),
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -2702,6 +2714,50 @@ async def upload_album_pdf(
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
+
+
+def _require_album_owner_for_archive(client, album_id: str, authenticated_user_id: str) -> dict:
+    """보관·꺼내기의 문 — **지우기와 같은 검사**다(§10). 새 판정을 만들지 않는다."""
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_delete(access)
+    if not access.is_album_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to archive this album.")
+    return record
+
+
+@router.post("/albums/{album_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
+def archive_album(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """앨범을 **지우지 않고 감춘다** (2026-08-17 · 시안 delete-sheet 1b 의 되돌릴 길).
+
+    ★ 바뀌는 것은 `albums.status` **한 칸**이다. 사진·한마디·Storage 는 아무것도
+      건드리지 않는다 — 그래야 `언제든 다시 꺼낼 수 있어요` 가 참말이 된다.
+    ★ `archived` 는 CHECK 에 이미 있는 값이다(20260712160000). migration 이 없다.
+    ★ 주최자만이다. 삭제와 같은 문을 쓴다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    _require_album_owner_for_archive(client, album_id, authenticated_user_id)
+    client.table("albums").update({"status": "archived"}).eq("id", album_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/albums/{album_id}/unarchive", status_code=status.HTTP_204_NO_CONTENT)
+def unarchive_album(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """보관함에서 다시 꺼낸다 — 위와 같은 자리에서 status 한 칸만 되돌린다."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    _require_album_owner_for_archive(client, album_id, authenticated_user_id)
+    client.table("albums").update({"status": "active"}).eq("id", album_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/albums/{album_id}/delete-preview", response_model=AlbumDeletePreviewResponse)

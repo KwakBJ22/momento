@@ -19,7 +19,9 @@ import "./AlbumDeleteSheet.css";
  *   이야기를 하지 않는다. 있는 것만 센다.
  * ★ 사라질 것을 못 받아와도 **시트는 그대로 뜬다.** 띠와 숫자 문장만 빠진다 —
  *   숫자를 못 세는 것이 지우지 못할 이유는 아니다(§11).
- * ★ `보관함에 넣기`는 여기 없다. 보관 기능이 아직 없으므로 **반쪽 버튼을 두지 않는다.**
+ * ★ **되돌릴 길을 먼저 준다** (2026-08-17 ②단계). 대부분의 사람이 실제로 원하는 것은
+ *   지우는 것이 아니라 `치우는 것`이다. 그래서 삭제를 막지 않되 보관을 먼저 권한다.
+ *   보관은 상태 한 칸만 바꾼다 — 사진도 한마디도 지우지 않는다.
  */
 
 /** 띠에 세우는 사진 수. 넘치는 만큼은 `+N` 칸 하나로 적는다. */
@@ -60,9 +62,12 @@ interface AlbumDeleteSheetProps {
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** 보관하기. 넘기지 않으면 되돌릴 길 블록을 그리지 않는다(반쪽 버튼을 두지 않는다). */
+  onArchive?: () => void;
+  archiving?: boolean;
 }
 
-export default function AlbumDeleteSheet({ albumId, title, busy = false, onConfirm, onCancel }: AlbumDeleteSheetProps) {
+export default function AlbumDeleteSheet({ albumId, title, busy = false, onConfirm, onCancel, onArchive, archiving = false }: AlbumDeleteSheetProps) {
   const [preview, setPreview] = useState<AlbumDeletePreview | null>(null);
 
   useEffect(() => {
@@ -99,10 +104,20 @@ export default function AlbumDeleteSheet({ albumId, title, busy = false, onConfi
             </div>
           ) : null}
           {sentence ? <p className="album-delete-sheet__summary">{sentence}</p> : null}
+          {/* ★ 지우기 **전에** 되돌릴 길을 준다(시안 1b). 막는 것이 아니라 먼저 권하는 것이다. */}
+          {onArchive ? (
+            <div className="album-delete-sheet__keep">
+              <p className="album-delete-sheet__keep-title">지우지 않고 감춰둘 수도 있어요</p>
+              <p className="album-delete-sheet__keep-text">목록에서만 숨기고, 원하면 언제든 다시 꺼낼 수 있어요.</p>
+              <button type="button" className="album-delete-sheet__keep-button" onClick={onArchive} disabled={busy || archiving}>
+                {archiving ? "넣는 중..." : "보관함에 넣기"}
+              </button>
+            </div>
+          ) : null}
           <div className="album-delete-sheet__actions">
             {/* ★ 안전한 쪽이 먼저다(K-20). 순서를 바꾸지 않는다. */}
-            <button type="button" className="album-delete-sheet__cancel" onClick={onCancel} disabled={busy}>그만두기</button>
-            <button type="button" className="album-delete-sheet__confirm" onClick={onConfirm} disabled={busy}>
+            <button type="button" className="album-delete-sheet__cancel" onClick={onCancel} disabled={busy || archiving}>그만두기</button>
+            <button type="button" className="album-delete-sheet__confirm" onClick={onConfirm} disabled={busy || archiving}>
               {busy ? "지우는 중..." : "앨범 지우기"}
             </button>
           </div>

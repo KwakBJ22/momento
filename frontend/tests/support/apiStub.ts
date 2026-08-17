@@ -146,9 +146,24 @@ export async function getJoinPreview(): Promise<any> { return undefined as any; 
 export async function getMemoryQuestions(): Promise<any> { return undefined as any; }
 export async function getMyAlbumCoverUrls(): Promise<any> { return undefined as any; }
 /** 내 앨범 목록 — 화면이 목록을 실제로 그리는지 보는 검사가 있어 값을 갈아 끼울 수 있다. */
-let myAlbums: any = { albums: [], participating: [], bookmarked: [] };
-export function setMyAlbums(value: any): void { myAlbums = value; }
+let myAlbums: any = { albums: [], participating: [], bookmarked: [], archived: [] };
+export function setMyAlbums(value: any): void {
+  // 보관함 칸이 없으면 빈 목록으로 둔다 — 옛 검사가 그대로 돈다.
+  myAlbums = { archived: [], ...value };
+}
 export async function getMyAlbums(): Promise<any> { return myAlbums; }
+
+/** 보관·꺼내기 — 무엇이 불렸는지 검사가 볼 수 있게 적어 둔다. */
+export const archiveCalls: Array<{ action: "archive" | "unarchive"; albumId: string }> = [];
+export async function archiveAlbum(albumId: string): Promise<void> { archiveCalls.push({ action: "archive", albumId }); }
+export async function unarchiveAlbum(albumId: string): Promise<void> { archiveCalls.push({ action: "unarchive", albumId }); }
+/** 담아둔 앨범 빼기 — 내 앨범 화면이 함께 부르는 자리다. */
+export async function removeAlbumBookmark(): Promise<void> {}
+export async function saveSharedAlbumBookmark(): Promise<void> {}
+
+export async function getAlbumDeletePreview(): Promise<any> {
+  return { photo_count: 0, memory_count: 0, contributor_count: 1, preview_photo_urls: [] };
+}
 export async function getMyFamily(): Promise<any> { return undefined as any; }
 export async function getParticipantStats(): Promise<any> { return undefined as any; }
 export async function getPendingContributions(): Promise<any> { return undefined as any; }

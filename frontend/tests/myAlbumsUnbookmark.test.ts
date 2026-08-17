@@ -20,7 +20,9 @@ const share = readFileSync(path.join(SRC, "components/PublicShareView.tsx"), "ut
 
 test("★ 담아둔 앨범 항목에만 빼기가 붙는다 — 여기가 유일한 빼기 자리다", () => {
   // 카드 모양은 한 벌이다(중복 마크업을 만들지 않는다). 담아둔 칸만 true 를 넘긴다.
-  assert.match(myAlbums, /const renderCard = \(album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false\)/);
+  // ★ 2026-08-17 — 보관함이 생기면서 인자가 하나 늘었다(canUnarchive). 카드가
+  //   **한 벌**이라는 규칙은 그대로다 — 보관함도 같은 renderCard 를 쓴다.
+  assert.match(myAlbums, /const renderCard = \(album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false, canUnarchive = false\)/);
   assert.match(myAlbums, /\{bookmarked\.map\(\(album, index\) => renderCard\(album, index, false, true\)\)\}/);
   assert.match(myAlbums, /\{albums\.map\(\(album, index\) => renderCard\(album, index, true\)\)\}/);
   assert.match(myAlbums, /\{participating\.map\(\(album, index\) => renderCard\(album, index, false\)\)\}/);

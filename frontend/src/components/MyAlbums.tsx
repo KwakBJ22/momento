@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
-import { deleteAlbum, getMyAlbums, removeAlbumBookmark, type MyAlbum } from "../lib/api";
+import { archiveAlbum, deleteAlbum, getMyAlbums, removeAlbumBookmark, unarchiveAlbum, type MyAlbum } from "../lib/api";
 import { bookmarkRemoveTroubleMessage } from "../lib/albumTrouble";
 import { requestMyAlbumList } from "../lib/myAlbumsRequest";
 import { useRefreshOnReturn } from "../lib/useRefreshOnReturn";
@@ -64,6 +64,13 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   // 목록을 다시 읽는 열쇠 — 화면으로 돌아왔을 때 오래됐으면 올린다(아래 useRefreshOnReturn).
   const [reloadKey, setReloadKey] = useState(0);
+  // 보관함(2026-08-17) — 지우지 않고 감춰 둔 자기 앨범. 목록 맨 아래에서 **그 자리에** 펼친다.
+  const [archived, setArchived] = useState<MyAlbum[]>([]);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  // 방금 보관한 앨범 — `되돌리기` 한 번을 위해 들고 있는다.
+  const [justArchived, setJustArchived] = useState<MyAlbum | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +82,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
         setAlbums(data.albums);
         setParticipating(data.participating);
         setBookmarked(data.bookmarked);
+        setArchived(data.archived);
         debugTiming("my albums list response", startedAt);
         window.requestAnimationFrame(() => debugTiming("my albums first card", startedAt));
       })
@@ -102,6 +110,47 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
     } finally {
       deletingIdsRef.current.delete(album.album_id);
       setDeletingId(null);
+    }
+  };
+
+  /**
+   * 지우지 않고 **감춰 둔다** (2026-08-17 · 시안 1b 의 되돌릴 길).
+   *
+   * ★ 사진도 한마디도 지우지 않는다 — 상태 한 칸만 바뀐다. 판정은 서버가 한다(주최자만).
+   * ★ 넣자마자 **되돌릴 길을 한 줄로** 보여 준다. 감췄는데 어디로 갔는지 모르면
+   *   감춘 것이 아니라 잃은 것이다.
+   */
+  const handleArchive = async (album: MyAlbum) => {
+    if (archivingId) return;
+    setArchivingId(album.album_id);
+    setArchiveError(null);
+    try {
+      await archiveAlbum(album.album_id);
+      setAlbums((current) => current?.filter((item) => item.album_id !== album.album_id) ?? []);
+      setArchived((current) => [album, ...current]);
+      setJustArchived(album);
+      setPendingDelete(null);
+    } catch (reason) {
+      setArchiveError(userFacingError(reason, "보관함에 넣지 못했어요."));
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  /** 보관함에서 다시 꺼낸다 — 같은 자리로 돌아온다. */
+  const handleUnarchive = async (album: MyAlbum) => {
+    if (archivingId) return;
+    setArchivingId(album.album_id);
+    setArchiveError(null);
+    try {
+      await unarchiveAlbum(album.album_id);
+      setArchived((current) => current.filter((item) => item.album_id !== album.album_id));
+      setAlbums((current) => [album, ...(current ?? [])]);
+      setJustArchived(null);
+    } catch (reason) {
+      setArchiveError(userFacingError(reason, "앨범을 다시 꺼내지 못했어요."));
+    } finally {
+      setArchivingId(null);
     }
   };
 
@@ -144,7 +193,7 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
       setRemovingBookmarkId(null);
     }
   };
-  const renderCard = (album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false) => {
+  const renderCard = (album: MyAlbum, index: number, canDelete: boolean, canRemoveBookmark = false, canUnarchive = false) => {
     const imageUrl = myAlbumCardImageUrl(album);
     const imageFailed = imageUrl ? failedImageUrls.has(imageUrl) : false;
     return (
@@ -187,6 +236,17 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
             onClick={() => void handleRemoveBookmark(album)}
           >
             {removingBookmarkId === album.album_id ? "빼는 중" : "내 목록에서 빼기"}
+          </button>
+        ) : null}
+        {/* 보관한 앨범에는 이 하나만 둔다 — 감춘 것을 도로 꺼내는 일이라 묻지 않는다. */}
+        {canUnarchive ? (
+          <button
+            type="button"
+            className="my-albums__unbookmark"
+            disabled={archivingId === album.album_id}
+            onClick={() => void handleUnarchive(album)}
+          >
+            {archivingId === album.album_id ? "꺼내는 중" : "다시 꺼내기"}
           </button>
         ) : null}
       </div>
@@ -245,6 +305,30 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
           </div>
         </>
       ) : null}
+      {/* 보관함(2026-08-17) — 목록 **맨 아래**에 접힌 줄 하나다. 누르면 그 자리에서
+          펼친다. **새 페이지를 만들지 않는다**(§7). 하나도 없으면 줄 자체가 없다. */}
+      {archived.length > 0 ? (
+        <>
+          <button type="button" className="my-albums__archive-toggle" aria-expanded={archiveOpen} onClick={() => setArchiveOpen((open) => !open)}>
+            보관함 {archived.length}개
+          </button>
+          {archiveOpen ? (
+            <div className="my-albums__list">
+              {archived.map((album, index) => renderCard(album, index, false, false, true))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      {archiveError ? <p className="notice notice--error" role="alert">{archiveError}</p> : null}
+      {/* 넣자마자 되돌릴 길을 한 줄로 준다 — 어디로 갔는지 모르면 잃은 것이 된다. */}
+      {justArchived ? (
+        <p className="notice notice--info my-albums__archived-note" role="status">
+          보관함에 넣었어요
+          <button type="button" className="my-albums__archived-undo" onClick={() => void handleUnarchive(justArchived)} disabled={archivingId === justArchived.album_id}>
+            되돌리기
+          </button>
+        </p>
+      ) : null}
       {/* ★ 지우기는 **사라질 것을 보여주는 시트**를 쓴다(시안 1b · 2026-08-17).
           ConfirmSheet 는 그대로 둔다 — 다른 여덟 자리가 같이 쓴다. */}
       {pendingDelete ? (
@@ -254,6 +338,8 @@ export default function MyAlbums({ userId }: MyAlbumsProps) {
           busy={deletingId === pendingDelete.album_id}
           onConfirm={() => { const target = pendingDelete; setPendingDelete(null); void handleDelete(target); }}
           onCancel={() => setPendingDelete(null)}
+          onArchive={() => { void handleArchive(pendingDelete); }}
+          archiving={archivingId === pendingDelete.album_id}
         />
       ) : null}
     </section>
