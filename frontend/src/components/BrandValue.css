@@ -3,10 +3,14 @@
      앞 2칸은 흰 카드(왜 쓰나), 뒤 2칸은 작은 2열(누가 쓰나).
    ★ 이 구역은 `하는 곳`(위)과 갈리는 자리다 — 배경과 위의 선이 그 경계다.
    ★ hex 를 여기 적지 않는다(§8). 값은 tokens.css 한 곳에 있다. */
+/* ★ 2026-08-17 PO — `디자인에 없는 박스를 치고 그 안에 넣어놓으니까 너무 작다`.
+   max-width 를 이 요소에 걸면 **배경과 위의 선까지** 가운데 좁은 띠가 되어,
+   `하는 곳(위) / 읽는 곳(아래)` 을 가르는 경계가 사라진다. 시안(landing-v2)에서
+   소개 구역은 화면 폭을 끝까지 쓰고 안쪽 여백만 22px 이다.
+   넓은 화면에서 글줄이 길어지는 것은 **좌우 padding 으로** 잡는다 — 배경은 끝까지 간다. */
 .brand-value {
-  margin: var(--s-8) auto 0;
-  max-width: 34rem;
-  padding: 30px 22px 34px;
+  margin: var(--s-8) 0 0;
+  padding: 30px max(22px, calc((100% - 34rem) / 2)) 34px;
   border-top: 1px solid var(--c-about-line);
   background: var(--c-about-bg);
   text-align: left;
@@ -236,7 +240,8 @@
   line-height: 1.55;
 }
 
-/* 시트 안에서는 이미 제목 줄과 경계가 있다 — 위의 선과 배경을 뺀다. */
+/* 시트 안에서는 이미 제목 줄과 경계가 있다 — 위의 선과 배경을 뺀다.
+   ★ 위에서 padding 을 max() 로 잡았으므로 여기서 0 으로 되돌린다 — 시트는 시트가 폭을 정한다. */
 .brand-value--sheet {
   margin-top: 0;
   padding: 0;

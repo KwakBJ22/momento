@@ -146,7 +146,12 @@ test("★ 위와 갈리는 자리다 — 배경과 선으로 가른다", () => {
   const root = css.slice(css.indexOf(".brand-value {"), css.indexOf("}", css.indexOf(".brand-value {")));
   assert.match(root, /background: var\(--c-about-bg\)/);
   assert.match(root, /border-top: 1px solid var\(--c-about-line\)/);
-  assert.match(root, /padding: 30px 22px 34px/);
+  // ★ 2026-08-17 뒤집음(§10-2). 예전에는 `padding: 30px 22px 34px` + `max-width: 34rem` 이었다.
+  //   max-width 를 이 요소에 걸면 **배경과 위의 선까지** 가운데 좁은 띠가 되어,
+  //   `하는 곳 / 읽는 곳` 을 가르는 경계가 사라졌다(PO 지적). 배경은 화면 끝까지 가고,
+  //   글줄 폭은 좌우 padding 이 잡는다.
+  assert.match(root, /padding: 30px max\(22px, calc\(\(100% - 34rem\) \/ 2\)\) 34px/);
+  assert.equal(root.includes("max-width"), false, "배경에 폭 제한이 다시 걸렸다");
   // 시트에서는 그 둘을 뺀다 — 이미 제목 줄과 경계가 있다.
   const sheet = css.slice(css.indexOf(".brand-value--sheet {"), css.indexOf("}", css.indexOf(".brand-value--sheet {")));
   assert.match(sheet, /border-top: 0/);
