@@ -116,6 +116,26 @@ async function resolveDimensions(photo: EnginePhoto): Promise<EnginePhoto> {
 }
 
 /**
+ * 인쇄에 쓰기에 **모자라는 사진을 센다** — 고치는 것이 아니라 재는 것이다(2026-08-16).
+ *
+ * 200mm @300dpi = 2362px 가 필요하다. 그런데 올릴 때 긴 변을 2560px 로 줄이므로
+ * (optimizeImageFile 의 MAX_EDGE — §9, 임의로 바꾸지 않는다) 세로 사진을 정사각 칸에
+ * 넣으면 짧은 변이 1920px = 244dpi 다.
+ *
+ * ★ 이번에는 **숫자만 모은다.** MAX_EDGE 를 얼마나 올려야 하는지 알아야 정할 수 있다.
+ *   화면에는 아무것도 내지 않는다 — 사용자가 할 수 있는 일이 없다.
+ */
+const PRINT_NEEDED_SHORT_SIDE_PX = 2362;
+
+function logLowResForPrint(photos: EnginePhoto[]): void {
+  for (const photo of photos) {
+    const shortSide = Math.min(photo.width ?? 0, photo.height ?? 0);
+    if (!shortSide || shortSide >= PRINT_NEEDED_SHORT_SIDE_PX) continue;
+    console.warn(`[print] event=print_photo_low_res photo_id=${photo.id} short_side=${shortSide} need=${PRINT_NEEDED_SHORT_SIDE_PX}`);
+  }
+}
+
+/**
  * 앨범 결과 / 공유 / PDF 공통 렌더러
  */
 export default function AlbumRenderer({
@@ -145,10 +165,9 @@ export default function AlbumRenderer({
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
   const blockRefs = useRef<Array<HTMLElement | null>>([]);
-  // ★ 열람용 PDF 는 **display(WebP)** 를 쓴다(§9). 원본은 인쇄용(200×200mm)의 몫이고
-  // 그것은 나중이다. 지금 원본을 쓰면 파일만 무거워지고 A4 화면 보기에는 차이가 없다.
-  // 크기 재기(resolveDimensions)는 인쇄 레이아웃에 필요하므로 print 에서만 계속 한다 —
-  // 예전에는 이 둘이 한 플래그였고, 그래서 화질까지 원본으로 끌려갔다.
+  // ★ 인쇄는 **원본**을 쓴다 (2026-08-16 · 판형이 200×200mm 정사각이 되면서).
+  //   전에는 display(WebP 1280px)를 썼다 — A4 열람용에서는 차이가 없었지만 종이에서는
+  //   그대로 보인다. 크기 재기(resolveDimensions)도 인쇄 레이아웃에 필요하므로 같이 한다.
   const measurePhotos = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
   const [newAppendPageIds, setNewAppendPageIds] = useState<Set<string>>(new Set());
@@ -167,13 +186,14 @@ export default function AlbumRenderer({
         active = false;
       };
     }
-    const base = photos.map((photo) => toEnginePhoto(photo, false));
+    const base = photos.map((photo) => toEnginePhoto(photo, measurePhotos));
     // The web album can render safely with the metadata it has. Preloading every
     // legacy image just to discover dimensions delayed the entire first screen.
     // Print keeps the dimension pass so PDF layout retains its existing quality.
     const prepared = measurePhotos ? Promise.all(base.map(resolveDimensions)) : Promise.resolve(base);
     void prepared.then((resolved) => {
       if (!active) return;
+      if (measurePhotos) logLowResForPrint(resolved);
       const built = buildAlbum(resolved, {
         title,
         epilogue: epilogueText || null,

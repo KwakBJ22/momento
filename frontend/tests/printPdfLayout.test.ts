@@ -62,11 +62,12 @@ test("표지와 브랜드 페이지가 각각 독립 페이지다", async () => 
   assert.equal(view.container.querySelector(".album-renderer__brand-footer") === null, true);
 
   const css = read("album-engine/components/PrintPages.css");
-  // 한 덩어리가 정확히 A4 한 장이라, 표지 아래에 본문이 붙을 자리가 없다.
+  // 한 덩어리가 정확히 한 장이라, 표지 아래에 본문이 붙을 자리가 없다.
   for (const selector of [".album-cover", ".album-renderer__brand-page", ".print-page", ".print-closing"]) {
     assert.ok(css.includes(selector), `${selector} 가 페이지 규칙에 있어야 한다`);
   }
-  assert.equal((css.match(/aspect-ratio: 210 \/ 297/g) || []).length, 3, "표지·브랜드 / 본문 / 끝 글");
+  // ★ 2026-08-16 — 지면이 정사각(206×206)이 됐다. 셋이 각각 한 장이라는 규칙은 그대로다.
+  assert.equal((css.match(/aspect-ratio: 1 \/ 1/g) || []).length, 3, "표지·브랜드 / 본문 / 끝 글");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -117,11 +118,14 @@ test("★ 화면(웹·공유)에는 사진 프레임이 없다", async () => {
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("★ 열람용은 display(WebP) 를 쓴다 — 원본이 아니다", async () => {
+test("★ 뒤집힘 — 인쇄는 **원본**을 쓴다 (2026-08-16 · 정사각 판형)", async () => {
+  // ★ 예전 규칙: 열람용 PDF 는 display(WebP 1280px). A4 화면 보기에서는 차이가 없었다.
+  //   판형이 종이(200×200mm @300dpi = 2362px)가 되면서 그 차이가 그대로 보인다.
+  //   ★ 그래도 모자란다 — 원본 긴 변이 2560px 이라 세로 사진은 짧은 변이 1920px 이다.
+  //     모자라는 사진은 print_photo_low_res 로 **센다**(AlbumRenderer). 고치지 않는다.
   const view = await renderPrint([photo("p1", "2026-08-01")]);
   const src = view.container.querySelector(".print-frame img")!.getAttribute("src") || "";
-  assert.match(src, /-display\.webp$/, "display 를 써야 한다");
-  assert.equal(src.includes("-original"), false, "원본은 인쇄용(200×200mm)의 몫이다");
+  assert.match(src, /-original/, "인쇄는 원본을 써야 한다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 

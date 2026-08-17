@@ -58,29 +58,39 @@ test("★ 캡션은 프레임 **안**이다 — 밖으로 빼지 않는다(§9 1
   assert.equal(/(^|\s)(border|background|box-shadow)\s*:/.test(caption), false);
 });
 
-test("★ 사진 세로 상한은 A4 기하에서 계산한 mm 다 — 백분율은 부모 높이가 auto 라 먹지 않는다", () => {
+test("★ 사진 세로 상한은 **지면 기하에서 나온 값**이다 — 백분율은 부모 높이가 auto 라 먹지 않는다", () => {
+  // ★ 2026-08-16 — 판형이 정사각(206×206)이 되면서 상한을 mm 숫자로 적지 않는다.
+  //   사진 영역(174×154)에서 계산한 --pr-* 토큰을 읽는다(tokens.css · PrintPages.css).
+  //   상한이 **있어야 한다**는 규칙(없으면 세로 사진이 쪽을 넘는다)은 그대로다.
   const img = rule(".album-renderer--print .print-frame__photo img");
   assert.match(img, /max-width: 100%/);
   assert.equal(/max-height:\s*100%/.test(img), false, "백분율 상한은 통하지 않는다");
-  // 장수별 상한이 넷 다 있다. (I-4g 뒤로 캡션이 길어진 만큼 빼는 calc 다.)
   for (const count of [1, 2, 3, 4]) {
-    assert.match(printCss, new RegExp(`\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\(\\d+mm - var\\(--print-caption-extra, 0mm\\)\\); \\}`), `${count}장 상한이 없다`);
+    assert.match(
+      printCss,
+      new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img[^{]*\\{ max-height: calc\\(var\\(--pr-(story-)?row-\\d\\) - var\\(--pr-caption\\)\\); \\}`),
+      `${count}장 상한이 없다`,
+    );
   }
+  // 캡션대만큼 늘 뺀다 — 칸 높이는 고정이고 캡션이 그 자리를 쓴다.
+  // (주석은 뺀다. 없어진 규칙을 **적어 둔** 줄까지 걸리면 그 사정을 적을 수 없다.)
+  const rules = printCss.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.equal(rules.includes("--print-caption-extra"), false, "캡션 길이로 사진을 또 낮춘다");
 });
 
 test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (네 장수 모두)", () => {
   // 4d-3 뒤로 이야기는 1~4장 어느 쪽에나 함께 들어간다 — 그만큼 상한이 낮다.
+  // ★ 2026-08-16 — 값이 아니라 **어느 토큰을 읽는지**로 본다. 이야기 쪽 토큰은
+  //   사진 영역에서 --pr-story 를 먼저 빼고 계산한다(tokens 정의가 그것을 보장한다).
   for (const count of [1, 2, 3, 4]) {
-    const withStory = printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`));
-    const plain = printCss.match(new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`));
-    assert.ok(withStory && plain, `${count}장: 두 벌이 다 있어야 한다`);
-    assert.ok(Number(withStory[1]) < Number(plain[1]), `${count}장: 이야기 쪽 상한이 더 낮아야 한다`);
+    const withStory = new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img`);
+    assert.match(printCss, withStory, `${count}장: 이야기 쪽 규칙이 없다`);
   }
-  // 짧은 변 60mm 하한을 지키는 값이다 — 3:4 세로 사진에서 상한 80mm 면 폭이 60mm 다.
-  const lowest = Math.min(...[1, 2, 3, 4].map((count) => Number(
-    printCss.match(new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img \\{ max-height: calc\\((\\d+)mm`))![1],
-  )));
-  assert.ok(lowest >= 80, `가장 낮은 상한이 ${lowest}mm — 3:4 세로 사진의 폭이 60mm 아래로 내려간다`);
+  const storyRow = printCss.match(/--pr-story-row-2:\s*([^;]+);/)![1];
+  assert.match(storyRow, /var\(--pr-story\)/, "이야기 쪽 칸이 이야기 자리를 빼지 않는다");
+  // ★ 뒤집힘 — 예전에는 여기서 `짧은 변 60mm 하한`(I-4b-5)을 함께 지켰다. 정사각 지면은
+  //   사진 영역이 154mm 라 4장 쪽에서 그 하한이 성립하지 않는다. 하한은 **배치 6종**
+  //   (칸이 사진을 정하고 넘치는 쪽을 자른다)에서 다시 세운다 — 다음 건이다.
 });
 
 test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", async () => {

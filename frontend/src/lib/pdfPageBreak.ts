@@ -1,11 +1,28 @@
-// Pure A4 page-break math for the PDF export, kept free of React/CSS imports so it
+// Pure page-break math for the PDF export, kept free of React/CSS imports so it
 // is unit-testable. See exportPdf.tsx `alignBlocksToPrintPages` for how it is used.
+
+/**
+ * 지면 한 장의 세로 ÷ 가로 — **정사각이라 1이다** (2026-08-16 · 인쇄 판형).
+ *
+ * ★ 값이 여기 하나여야 한다. 예전에는 `297 / 210` 이 이 파일과 exportPdf 두 곳에
+ *   따로 적혀 있었다. 한쪽만 고치면 페이지 나눔이 반 장씩 어긋난다.
+ * ★ mm 크기(206)는 CSS 토큰(--pr-page)이 갖고 있다. 여기 필요한 것은 **비율**뿐이다.
+ */
+export const PRINT_PAGE_ASPECT = 1;
+
+/**
+ * 지면 한 장의 mm 크기 — **작업 규격 206mm**(재단 200 + bleed 3 × 2).
+ *
+ * CSS 는 `--pr-page`(tokens.css)에서 읽고, PDF 를 만드는 쪽은 여기서 읽는다.
+ * 두 값이 어긋나면 지면이 통째로 어긋난다 — 바꿀 때 **둘 다** 바꾼다.
+ */
+export const PRINT_PAGE_MM = 206;
 
 export const PRINT_PAGE_EPS = 2; // px tolerance so a block sitting exactly on the line is not falsely pushed
 
 /**
- * If a block at `top` with `height` (px, relative to the page-0 origin) straddles an
- * A4 page boundary, return the margin needed to push it onto the next page; else null.
+ * If a block at `top` with `height` (px, relative to the page-0 origin) straddles a
+ * print-page boundary, return the margin needed to push it onto the next page; else null.
  * Blocks taller than a page cannot avoid a split, so they return null.
  */
 export function printPageStraddleGap(
@@ -47,11 +64,11 @@ export function wholePagesCaptureHeightPx(
   /** 반올림으로 생긴 1px 남짓은 새 장으로 치지 않는다(한 장의 2%). */
   eps = 0.02,
 ): { pages: number; heightPx: number } | null {
-  const truePageHeight = widthPx * (297 / 210);
+  const truePageHeight = widthPx * PRINT_PAGE_ASPECT;
   if (!(truePageHeight > 0) || !(contentHeightPx > 0) || !(scale > 0)) return null;
   const pages = Math.max(1, Math.ceil(contentHeightPx / truePageHeight - eps));
   // html2pdf 가 실제로 쓸 한 장 높이(내림). 이 값의 배수여야 빈 장이 생기지 않는다.
-  const canvasPageHeight = Math.floor(widthPx * scale * (297 / 210));
+  const canvasPageHeight = Math.floor(widthPx * scale * PRINT_PAGE_ASPECT);
   // ★ **정수 px** 로 돌려준다. 브라우저는 요소 높이를 정수로 반올림해서 캡처하므로
   //   1122.5px 로 두면 1123px 로 올라가 다시 1px 이 넘친다 — 소수점이 남으면 안 고쳐진다.
   return { pages, heightPx: Math.floor((pages * canvasPageHeight) / scale) };

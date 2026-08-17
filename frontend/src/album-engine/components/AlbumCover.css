@@ -61,22 +61,25 @@
   justify-content: center;
   width: 100%;
   margin: 0;
-  padding: 4mm;
+  padding: 0;
   box-sizing: border-box;
-  border: 1px solid var(--c-border);
-  border-radius: 2mm;
-  background: var(--c-surface);
+  /* ★ 화면 카드를 걷어낸다(시안 §1) — 표지에서 예외인 것은 **배경색**뿐이고,
+     테두리·둥근 모서리는 종이에 찍히면 안 된다. */
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 
-/* 세로 사진 상한 — A4 기하에서 계산한 값이다(재서 정한 것이 아니다).
-   297mm 에서 위아래 여백 38mm, 로고·제목·기간·이름 줄과 그 사이 간격(약 70mm),
-   프레임 여백 8mm 를 빼면 약 180mm 이 남는다. 175mm 로 둔다.
+/* 세로 사진 상한 — **정사각 기하**에서 계산한 값이다(재서 정한 것이 아니다 · 2026-08-16).
+   안전 영역 174mm 에서 로고·제목·기간·이름 줄과 그 사이 간격(약 70mm)을 빼면 약 104mm
+   가 남는다. 100mm 로 둔다.
+   ★ 표지 6종은 다음 건이다. 여기서는 세로 사진이 지면을 넘지 않는 것까지만 한다.
    ★ 백분율(max-height: 100%)로 두지 않는다 — 부모 높이가 확정되지 않아 세로 사진이
    상한 없이 늘어난다. */
 .album-cover__hero-img {
   display: block;
   max-width: 100%;
-  max-height: 175mm;
+  max-height: 100mm;
   width: auto;
   height: auto;
 }

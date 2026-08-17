@@ -1,46 +1,50 @@
-/* 열람용 PDF 본문 — A4 한 장 = .print-page 한 덩어리 (SCREEN_SPEC §9).
-   ★ 인쇄 모드에서만 쓴다. 화면(웹·공유)에는 이 클래스가 나타나지 않는다. */
+/* 인쇄 본문 — **정사각 지면 한 장 = .print-page 한 덩어리** (docs/mockups/print-layout.html).
+   ★ 인쇄 모드에서만 쓴다. 화면(웹·공유)에는 이 클래스가 나타나지 않는다.
+   ★ 지면·여백·격자 값은 styles/tokens.css 의 --pr-* 한 곳에서 읽는다. */
 
 /* ─────────────────────────────────────────────────────────────────────────
-   글자·로고 크기 — **값은 I-QUEUE 4-5 표 그대로다.** 재서 정하지 않는다(큐 규칙 6).
-   기준은 A4 210×297mm, 96dpi 에서 폭 794px = 210mm 다. 인쇄 루트가 210mm 로 고정
-   이라 표의 px 을 그대로 쓴다(루트 폭이 달라지면 그 비율로 곱한다).
+   글자 크기 — **pt 로 적는다** (2026-08-16 · 인쇄 판형).
+   종이에서 크기를 말하는 단위는 pt 다. px 로 두면 지면 폭이 바뀔 때마다 다시 환산해야
+   하고, 그 환산이 자리마다 흩어진다.
 
-     자리                        pt     px
-     표지 — 앨범 이름            28     37
-     표지 — `우리앨범` 로고       17     23
-     표지 — 기간                 12     16
-     날짜 머리글                 13     17
-     캡션                        11     15
-     `YYYY.MM.DD의 이야기` 제목   12     16
-     날짜 이야기 본문            11     15
-     `우리의 이야기` 제목        15     20
-     `우리의 이야기` 본문        11.5   15
-     `함께 만든 사람`            10.5   14
-     브랜드 쪽 — 로고            22     29
-     브랜드 쪽 — 문구            12     16
+     자리                        pt    굵기   줄간격
+     캡션                        9     600    1.3     ← 두 줄 고정
+     날짜 머리글                 11    800    1.3
+     `…의 이야기` 제목           12    800    1.3
+     날짜 이야기 본문            9.5   -      1.75
+     `우리의 이야기` 제목        15    800    1.3
+     `우리의 이야기` 본문        9.5   -      1.75
+     `함께 만든 사람`            10.5  -      1.6
+     표지 — 앨범 이름            28
+     표지 — `우리앨범` 로고       17
+     표지 — 기간                 12
+     브랜드 쪽 — 로고            22
+     브랜드 쪽 — 문구            12
+     브랜드 쪽 — 영문·주소        9
 
+   ★ **8pt 아래로 내려가지 않는다.** 40대 이후 타깃이라 그 아래는 안 읽힌다.
    ★ 값은 여기 한 곳에만 둔다. 자리마다 숫자를 흩지 않는다.
    사진이 가장 크다는 순서(§6)는 그대로다 — 글이 사진을 이기면 안 된다.
    ───────────────────────────────────────────────────────────────────────── */
 .album-renderer--print {
-  --print-cover-title: 37px;
-  --print-cover-logo: 23px;
-  --print-cover-period: 16px;
-  --print-date-heading: 17px;
-  --print-caption: 15px;
-  --print-story-title: 16px;
-  --print-story-body: 15px;
-  --print-epilogue-title: 20px;
-  --print-epilogue-body: 15px;
-  --print-contributors: 14px;
-  --print-brand-logo: 29px;
-  --print-brand-line: 16px;
-  /* 로고 아래 영문·주소 (I-4f-2). */
-  --print-brand-id: 12px;
-  /* 본문 줄간격 1.6, 제목 줄간격 1.3. */
+  --print-cover-title: 28pt;
+  --print-cover-logo: 17pt;
+  --print-cover-period: 12pt;
+  --print-date-heading: 11pt;
+  --print-caption: 9pt;
+  --print-story-title: 12pt;
+  --print-story-body: 9.5pt;
+  --print-epilogue-title: 15pt;
+  --print-epilogue-body: 9.5pt;
+  --print-contributors: 10.5pt;
+  --print-brand-logo: 22pt;
+  --print-brand-line: 12pt;
+  /* 로고 아래 영문·주소 (I-4f-2). 8pt 하한 위다. */
+  --print-brand-id: 9pt;
+  /* 줄간격 — 이야기 본문 1.75, 제목·캡션 1.3, 그 밖의 본문 1.6. */
   --print-leading-body: 1.6;
   --print-leading-title: 1.3;
+  --print-leading-story: 1.75;
 }
 
 /* 캡션 — 사진에 딸린 말(프레임 안, 사진 바로 아래). */
@@ -48,8 +52,10 @@
 .album-renderer--print .print-frame__caption .photo-memory-lines__line,
 .album-renderer--print .print-frame__caption .photo-memory-lines__text {
   font-size: var(--print-caption);
-  line-height: var(--print-leading-body);
+  font-weight: 600;
+  line-height: var(--print-leading-title);
 }
+
 
 /* 날짜 이야기 */
 .album-renderer--print .story-block__title {
@@ -58,7 +64,11 @@
 }
 .album-renderer--print .story-block__body {
   font-size: var(--print-story-body);
-  line-height: var(--print-leading-body);
+  line-height: var(--print-leading-story);
+  /* 글줄 폭 122mm(3열) — 그보다 넓으면 안 읽힌다(시안 §4). */
+  max-width: var(--pr-measure);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* 우리의 이야기 — 본문 크기는 AlbumEpilogue.css 에 자리가 있어 거기서 같은 변수를 읽는다. */
@@ -74,9 +84,9 @@
 }
 
 .album-renderer--print .print-page {
-  /* 정확히 A4 한 장. 덩어리가 늘 한 장 높이라 페이지 경계에 걸치는 자리가 없다 —
-     사진 프레임이 잘리거나 머리글만 앞 장에 남는 일이 생길 수 없다. */
-  aspect-ratio: 210 / 297;
+  /* 정확히 한 장(정사각 206×206). 덩어리가 늘 한 장 높이라 페이지 경계에 걸치는
+     자리가 없다 — 사진 프레임이 잘리거나 머리글만 앞 장에 남는 일이 생길 수 없다. */
+  aspect-ratio: 1 / 1;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -84,10 +94,11 @@
      가운데 정렬은 표지와 브랜드 쪽에만 쓴다. 가운데로 맞추면 날짜 머리글까지
      같이 내려와 쪽 중간에서 시작한다. */
   justify-content: flex-start;
-  gap: 6mm;
+  gap: var(--pr-gutter);
   /* 페이지끼리 붙는다. 사이에 여백이 생기면 한 장씩 밀려 빈 페이지가 만들어진다. */
   margin: 0;
-  padding: 14mm 14mm 12mm;
+  /* bleed 3 + 여백 13 = 16mm. 이 안쪽이 안전 영역 174×174 이고 **글자는 그 안**이다. */
+  padding: var(--pr-inset);
   overflow: hidden;
   break-inside: avoid;
   page-break-inside: avoid;
@@ -99,9 +110,14 @@
 .album-renderer--print .chapter-header--print-date {
   /* ★ 언제나 쪽 맨 위다. 어떤 정렬에도 딸려 내려가지 않는다(I-4c). */
   order: -1;
-  flex: 0 0 auto;
+  /* ★ 머리글대는 **높이가 고정**이다(14mm). 그래야 쪽마다 사진 시작선이 같다.
+     아래 6mm 는 지면의 gap 이 준다 — 사진 영역 174 × 154 가 여기서 나온다. */
+  flex: 0 0 var(--pr-head);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
-  padding: 0 0 2mm;
+  padding: 0;
   text-align: center;
 }
 
@@ -112,6 +128,37 @@
   line-height: var(--print-leading-title);
   font-weight: 780;
   letter-spacing: -0.02em;
+}
+
+/* ★ **화면 UI 를 인쇄에서 걷어낸다** (시안 §1 · 2026-08-16).
+   날짜 머리글은 화면에서 `.chapter-header` 의 둥근 모서리(16px)와 연한 테두리를 함께
+   갖고 온다. 종이에서는 그 선이 그대로 인쇄된다 — 위계는 글자와 자리가 낸다. */
+.album-renderer--print .chapter-header {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* 그날의 이야기 — **배경 채움 없음. 강조색 선 하나로만 표시한다**(시안 §4).
+   화면은 쪽 폭 전체를 가르는 선을 쓰는데, 종이에서는 그 선이 지면을 자른다. */
+.album-renderer--print .story-block {
+  margin: var(--pr-story-gap) 0 0;
+  padding: var(--pr-gutter) 0 0;
+  border-top: 0;
+  background: none;
+  position: relative;
+}
+
+.album-renderer--print .story-block::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* 한 열 폭(39mm). 지면을 가르지 않고 시작만 알린다. */
+  width: var(--pr-col);
+  height: 0.6mm;
+  background: var(--c-accent);
 }
 
 /* 사진 자리는 남는 높이를 전부 쓴다(§9). ★ 다만 **칸이 크다고 프레임이 늘어나지는
@@ -166,10 +213,14 @@
   max-width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 4mm;
-  border: 1px solid var(--c-border);
-  border-radius: 2mm;
-  background: var(--c-surface);
+  /* ★ **화면 카드를 걷어낸다** (시안 §1 · 2026-08-16).
+     둥근 모서리·테두리·그림자·배경색은 화면(스크랩북)의 것이다. 종이에서는 잉크다 —
+     사진 둘레에 선을 두르면 그 선이 인쇄된다. 표지만 예외로 배경색을 쓴다. */
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -193,33 +244,44 @@
   height: auto;
 }
 
-/* 장수별 사진 세로 상한 — **A4 기하에서 계산한 값**이다(재서 정한 것이 아니다).
+/* 장수별 사진 세로 상한 — **정사각 기하에서 계산한 값**이다(재서 정한 것이 아니다).
  *
  * 왜 상한이 필요한가: 프레임이 사진 크기에 맞춰 줄어드는 순간 프레임 높이가 auto 가
  * 되어 백분율(max-height: 100%)이 먹지 않는다. 상한이 없으면 세로 사진이 쪽을 넘는다.
  *
- * 계산 (A4 297mm, 위아래 여백 14/12mm → 본문 271mm):
- *   날짜 머리글 약 8mm + 아래 간격 6mm · 날짜 이야기 약 40mm
- *   프레임 껍데기 여백 4mm×2 + 사이 3mm + 캡션 두 줄 약 12.7mm ≈ 27mm
- *   두 칸 격자의 칸 폭 ≈ (182 − 6) ÷ 2 = 88mm → 가로 사진은 폭이 먼저 걸린다
- *   한 칸 사진 = (사진 자리 ÷ 줄수 − 칸 사이 6mm) − 27mm
+ * 계산 (사진 영역 174 × 154 · 거터 6 · 캡션대 14):
+ *     1장  154 − 14(캡션대)                     = 140mm
+ *     2장  (154 − 6) ÷ 2 = 74 → 74 − 14         =  60mm
+ *   3·4장  2×2 니까 2장과 같은 74 → 74 − 14     =  60mm
+ *   이야기가 함께 오는 쪽은 이야기 자리(--pr-story)를 먼저 뺀다.
  *
- * ★ 짧은 변 60mm 하한(I-4b-5)을 지키는 값이다 — 3:4 세로 사진 기준 상한 80mm 이면
- *   폭이 60mm 다. 그래서 이야기가 함께 오는 3·4장 쪽도 80mm 아래로 내리지 않는다. */
-/* ★ `--print-caption-extra` 는 캡션이 두 줄을 넘은 만큼이다(I-4g). 그만큼 사진을 낮춰
- *   프레임 전체 높이를 그대로 둔다 — 캡션을 자르지 않으면서 쪽도 넘지 않는다.
- *   값은 `printCaptionFit.ts` 가 A4 기하로 계산해 쪽마다 얹는다. 짧으면 0mm 다. */
-.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: calc(195mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: calc(130mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img { max-height: calc(100mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: calc(100mm - var(--print-caption-extra, 0mm)); }
+ * ★ 짧은 변 60mm 하한(I-4b-5)은 **여기서 지켜지지 않는다.** 4장 쪽의 3:4 세로 사진은
+ *   60mm 높이에서 폭이 45mm 다. 시안의 배치(칸이 사진을 정하고 넘치는 쪽을 자른다)로
+ *   가면 이 문제 자체가 없어진다 — **배치 6종은 다음 건**이다. 이 커밋은 지면이
+ *   정사각으로 서고 아무것도 넘치지 않는 데까지다.
+ *
+ * ★ `--print-caption-extra` 는 더 쓰지 않는다. 캡션이 두 줄 고정이라 늘어날 일이
+ *   없기 때문이다(위 캡션대 규칙). 계산 코드(printCaptionFit.ts)는 지우지 않고 둔다. */
+.album-renderer--print {
+  /* 이야기가 함께 들어가는 쪽에서 이야기가 먹는 높이(제목 + 3~6줄 + 사진과의 거리). */
+  --pr-story: 50mm;
+  /* 한 줄짜리 쪽 · 두 줄짜리 쪽의 칸 높이. */
+  --pr-row-1: var(--pr-photo-area);
+  --pr-row-2: calc((var(--pr-photo-area) - var(--pr-gutter)) / 2);
+  --pr-story-row-1: calc(var(--pr-photo-area) - var(--pr-story));
+  --pr-story-row-2: calc((var(--pr-photo-area) - var(--pr-story) - var(--pr-gutter)) / 2);
+}
 
-/* 날짜 이야기가 함께 들어가는 쪽 — 이야기가 차지하는 만큼만 낮춘다.
-   두 칸 격자 덕분에 4장 + 이야기도 한 쪽에 들어간다(I-4d-3). */
-.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: calc(165mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img { max-height: calc(110mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img { max-height: calc(80mm - var(--print-caption-extra, 0mm)); }
-.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: calc(80mm - var(--print-caption-extra, 0mm)); }
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-row-1) - var(--pr-caption)); }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-row-2) - var(--pr-caption)); }
+
+/* 날짜 이야기가 함께 들어가는 쪽 — 이야기가 차지하는 만큼만 낮춘다. */
+.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-story-row-1) - var(--pr-caption)); }
+.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img,
+.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img,
+.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-story-row-2) - var(--pr-caption)); }
 
 /* 🔴 캡션이 PDF 에 **한 글자도 안 찍히던** 자리다 (I-4e).
  *
@@ -247,6 +309,11 @@
   width: 0;
   min-width: 100%;
   box-sizing: border-box;
+  /* ★ 캡션대는 **높이가 고정이다**(시안 §1 · 2026-08-16). 캡션이 있으면 사진이 그만큼
+     줄어들고 그 자리가 캡션이 된다. 칸이 늘어나는 일은 없다 — 같은 행의 위·아래 선이
+     어긋나기 때문이다. 넘치는 글은 위 line-clamp 가 두 줄에서 자른다. */
+  height: var(--pr-caption);
+  overflow: hidden;
 }
 
 /* 🔴 인쇄에서 캡션이 **두 줄에서 잘리던** 자리다 (I-4g · §9).
@@ -260,14 +327,17 @@
  *
  * ★ 선택자를 네 겹으로 쓰는 이유: 화면 규칙(`--caption.--multi .__text`)이 세 겹이라
  *   같은 무게로는 파일 순서에 따라 이기고 질 수 있다. 순서에 기대지 않는다(§11). */
+/* ★ **뒤집힘 (2026-08-16 · 인쇄 판형).** 예전에는 인쇄에서 줄 수 제한을 없앴다
+   (I-4g — "인쇄는 자를 이유가 없다"). 정사각 판형은 **칸 높이가 고정**이라 그럴 수
+   없다: 캡션이 늘어나면 그 칸만 커져 같은 행의 위·아래 선이 어긋난다(시안 §1).
+   그래서 캡션은 **두 줄에서 자른다** — 칸이 늘어나는 일은 없다.
+   ★ 잘리는 것이 사용자가 쓴 글이라는 사실은 그대로다. 두 줄에 맞춰 쓰도록 안내하는
+     일은 화면 몫이고, 여기서는 종이의 줄을 지킨다. */
 .album-renderer--print .print-frame__caption .photo-memory-lines--caption .photo-memory-lines__text {
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: none;
-}
-
-.album-renderer--print .print-frame__caption .photo-memory-lines--caption .photo-memory-lines__line {
-  overflow: visible;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* 표지 로고 — 표지에서 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9 · I-4-2).
@@ -281,7 +351,7 @@
 /* 표지·브랜드 페이지도 정확히 한 장이다(§9 — 각각 독립 페이지). */
 .album-renderer--print .album-cover,
 .album-renderer--print .album-renderer__brand-page {
-  aspect-ratio: 210 / 297;
+  aspect-ratio: 1 / 1;
   box-sizing: border-box;
   margin: 0;
   overflow: hidden;
@@ -297,7 +367,7 @@
   align-items: center;
   justify-content: center;
   gap: 8mm;
-  padding: 20mm;
+  padding: var(--pr-inset);
   text-align: center;
 }
 
@@ -360,7 +430,7 @@
    (margin-top 2.5rem / 1.1rem)을 그대로 갖고 있어 아래로 밀렸던 것은 그대로 없앤다 —
    간격은 이 컨테이너의 gap 하나로 준다. */
 .album-renderer--print .print-closing {
-  aspect-ratio: 210 / 297;
+  aspect-ratio: 1 / 1;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -369,7 +439,7 @@
   justify-content: flex-start;
   gap: 8mm;
   margin: 0;
-  padding: 20mm 14mm;
+  padding: var(--pr-inset);
   overflow: hidden;
   break-inside: avoid;
   page-break-inside: avoid;

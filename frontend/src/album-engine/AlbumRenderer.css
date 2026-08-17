@@ -158,13 +158,15 @@
 .album-renderer--screen .album-screen-photo-grid > .photo-block { position: relative; }
 .album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame { position: relative; }
 
+/* ★ 인쇄 지면은 **정사각 206×206mm**(재단 200 + bleed 3)이다 — 2026-08-16.
+   값은 styles/tokens.css 의 --pr-* 한 곳에서 읽는다. */
 .album-renderer--print {
   background: var(--c-surface);
-  width: 210mm;
-  max-width: 210mm;
+  width: var(--pr-page);
+  max-width: var(--pr-page);
   margin: 0 auto;
-  /* ★ 루트에 여백을 두지 않는다. 여백이 있으면 페이지 단위(aspect-ratio 210/297)의
-     기준 폭이 줄어 한 장이 A4 보다 짧아지고, 그만큼씩 밀려 모든 장이 경계에 걸친다
+  /* ★ 루트에 여백을 두지 않는다. 여백이 있으면 페이지 단위(aspect-ratio 1/1)의
+     기준 폭이 줄어 한 장이 지면보다 짧아지고, 그만큼씩 밀려 모든 장이 경계에 걸친다
      — 실측에서 973px(정상 1123px)이 나왔다. 여백은 각 장 안에서 준다. */
   padding: 0;
   box-sizing: border-box;
@@ -324,7 +326,9 @@
 
 @media print {
   @page {
-    size: A4 portrait;
+    /* ★ 여기만 값을 그대로 적는다 — `@page` 는 문서 트리 밖이라 --pr-page 를 못 읽는다.
+       206mm = 재단 200 + bleed 3 × 2 (tokens.css). */
+    size: 206mm 206mm;
     margin: 0;
   }
 
@@ -338,8 +342,9 @@
   }
 
   .album-renderer--print {
-    width: 210mm;
-    padding: 14mm;
+    width: var(--pr-page);
+    /* 여백은 각 장 안에서 준다(위 주석) — 루트에 주면 지면이 밀린다. */
+    padding: 0;
   }
 
   .photo-block,

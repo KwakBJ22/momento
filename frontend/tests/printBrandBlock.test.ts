@@ -84,16 +84,20 @@ test("★ 화면 렌더는 건드리지 않는다 — 두 줄은 인쇄에만 �
   await React.act(async () => { root.unmount(); });
 });
 
-test("영문·주소는 12px · 본문 보조색 · 줄간격 1.5 · 가운데", () => {
-  assert.match(printCss, /--print-brand-id: 12px;/);
+test("영문·주소는 9pt · 본문 보조색 · 줄간격 1.5 · 가운데", () => {
+  // ★ 2026-08-16 — 인쇄 글자 크기를 pt 로 적는다(종이의 단위다). 12px = 9pt, 크기는 같다.
+  assert.match(printCss, /--print-brand-id: 9pt;/);
   const line = rule(".album-renderer--print .album-renderer__brand-url");
   assert.match(line, /font-size: var\(--print-brand-id\)/);
   assert.match(line, /color: var\(--c-text-soft\)/);
   assert.match(line, /line-height: 1\.5/);
   assert.match(rule(".album-renderer--print .album-renderer__brand-id"), /text-align: center/);
-  // 로고(29px)보다 작다 — 로고가 주인공이다.
-  const logo = Number(printCss.match(/--print-brand-logo:\s*(\d+)px/)![1]);
-  assert.ok(12 < logo);
+  // 로고(22pt)보다 작다 — 로고가 주인공이다. (크기 단위는 pt 다 · 2026-08-16)
+  const logo = Number(printCss.match(/--print-brand-logo:\s*([\d.]+)pt/)![1]);
+  const id = Number(printCss.match(/--print-brand-id:\s*([\d.]+)pt/)![1]);
+  assert.ok(id < logo);
+  // ★ 8pt 아래로 내려가지 않는다 — 40대 이후 타깃이라 그 아래는 안 읽힌다.
+  assert.ok(id >= 8, `가장 작은 글자가 8pt 아래다: ${id}pt`);
 });
 
 // --- 4f-1 자리가 있으면 같은 쪽 ---
@@ -137,7 +141,8 @@ test("같은 쪽에 올 때는 쪽 **아래**에 붙는다 (본문 바로 뒤가
 
 test("★ 제 쪽으로 갈 때의 모양은 지금 그대로다 (쪽 가운데 · 한 장)", () => {
   // 한 장 크기 규칙과 가운데 정렬이 그대로 남아 있다.
-  assert.match(printCss, /\.album-renderer--print \.album-cover,\s*\r?\n\.album-renderer--print \.album-renderer__brand-page \{[\s\S]{0,120}aspect-ratio: 210 \/ 297/);
+  // ★ 2026-08-16 — 지면이 정사각(206×206)이 됐다. `한 장짜리`라는 규칙은 그대로다.
+  assert.match(printCss, /\.album-renderer--print \.album-cover,\s*\r?\n\.album-renderer--print \.album-renderer__brand-page \{[\s\S]{0,160}aspect-ratio: 1 \/ 1/);
   const blocks = printCss.split(".album-renderer--print .album-renderer__brand-page {").slice(1)
     .map((chunk) => chunk.slice(0, chunk.indexOf("}")));
   assert.ok(blocks.some((block) => /justify-content: center/.test(block) && /align-items: center/.test(block)));

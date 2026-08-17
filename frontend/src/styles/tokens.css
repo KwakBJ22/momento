@@ -189,3 +189,45 @@
 .album-renderer--screen.album-renderer--paper-white { --c-bg: #fffdfb; }
 .album-renderer--screen.album-renderer--paper-cream { --c-bg: #fdfaf3; }
 .album-renderer--screen.album-renderer--paper-gray { --c-bg: #f7f7f6; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   인쇄 판형 — **200×200mm 정사각 하나** (docs/mockups/print-layout.html · 2026-08-16)
+ *
+ * PO 결정: A4 를 버리고 정사각 하나로 간다. 무료/유료는 판형이 아니라 화질과
+ * 브랜드 요소로 가른다(유료화_기준 §3).
+ *
+ * ★ **mm 값을 CSS 에 직접 적지 않는다.** 값은 여기 한 곳이다.
+ *   (딱 한 곳 예외: `@page { size: ... }` — 문서 트리 밖이라 변수를 못 읽는다.)
+ *
+ *     재단 200×200 · 작업 206×206(사방 bleed 3) · 여백은 재단선에서 13
+ *     안전 영역 174×174 — **글자는 반드시 이 안**
+ *     4열 × 39mm · 거터 6mm  (39×4 + 6×3 = 174)
+ *     날짜 머리글대 14mm + 아래 6mm → 사진 영역 174 × 154
+ *     300dpi 기준 200mm = 2362px
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --pr-trim: 200mm;
+  --pr-bleed: 3mm;
+  --pr-margin: 13mm;
+  --pr-gutter: 6mm;
+  --pr-col: 39mm;
+  /* 캡션대 — 칸 높이는 고정이고, 캡션이 있으면 사진이 이만큼 줄어든다(시안 §1). */
+  --pr-caption: 14mm;
+
+  /* 아래는 위 값에서 나온 것이다. 따로 정하지 않는다. */
+  /* 작업 지면 206mm = 재단 200 + bleed 3 × 2. */
+  --pr-page: calc(var(--pr-trim) + var(--pr-bleed) * 2);
+  /* 지면 가장자리에서 안전 영역까지 = bleed 3 + 여백 13. */
+  --pr-inset: calc(var(--pr-bleed) + var(--pr-margin));
+  /* 안전 영역 174 = 200 − 13 × 2. */
+  --pr-safe: calc(var(--pr-trim) - var(--pr-margin) * 2);
+  /* 날짜 머리글대 높이 + 그 아래 여백. */
+  --pr-head: 14mm;
+  --pr-head-gap: var(--pr-gutter);
+  /* 사진 영역 154 = 174 − (14 + 6). */
+  --pr-photo-area: calc(var(--pr-safe) - var(--pr-head) - var(--pr-head-gap));
+  /* 글줄 폭 — 3열(39×3 + 6×2). 이보다 넓으면 안 읽힌다(시안 §4). */
+  --pr-measure: calc(var(--pr-col) * 3 + var(--pr-gutter) * 2);
+  /* 사진과 이야기 사이(시안 §4). */
+  --pr-story-gap: 14mm;
+}

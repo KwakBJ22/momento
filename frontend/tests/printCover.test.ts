@@ -96,17 +96,26 @@ test("★ 표지 사진을 자르지 않는다 — 상자가 아니라 사진에
   assert.match(hero, /flex: 0 1 auto/);
   // 상한은 사진에, mm 로. 백분율은 부모 높이가 확정되지 않아 통하지 않는다.
   const img = rule(css, ".album-cover__hero-img");
-  assert.match(img, /max-height: 175mm/);
+  // ★ 2026-08-16 — 지면이 A4 297mm 에서 정사각 200mm 로 바뀌어 상한도 함께 내려왔다
+  //   (175 → 100mm). 자르지 않고 **사진에 상한을 준다**는 규칙은 그대로다.
+  assert.match(img, /max-height: 100mm/);
   assert.match(img, /max-width: 100%/);
   assert.equal(/object-fit/.test(img), false, "html2canvas 는 object-fit 을 무시한다");
 });
 
-test("★ 표지 사진에도 본문과 같은 프레임이 있다", () => {
+test("★ 뒤집힘 — 인쇄에는 사진 프레임(카드)이 없다 (2026-08-16 · 정사각 판형)", () => {
+  // ★ 예전에는 표지와 본문이 **같은 카드**(테두리 1px · 둥근 모서리 2mm · 흰 바탕 ·
+  //   여백 4mm)를 썼다. 종이에서는 그 선과 면이 그대로 잉크로 찍힌다 —
+  //   시안 §1 "사진 둥근 모서리·테두리·그림자 → 인쇄에서는 직각·선 없음".
+  //   표지에서 예외인 것은 **배경색**뿐이다(표지 6종은 다음 건).
+  //   두 자리가 **같아야 한다**는 규칙은 그대로다 — 이제 둘 다 카드가 없다.
   const hero = rule(css, ".album-cover__hero");
   const frame = rule(printCss, ".album-renderer--print .print-frame");
-  for (const property of ["border: 1px solid var(--c-border)", "border-radius: 2mm", "background: var(--c-surface)", "padding: 4mm"]) {
-    assert.match(hero, new RegExp(property.replace(/[()*+?.\\^$|[\]]/g, "\\$&")), `표지 프레임에 없다: ${property}`);
-    assert.match(frame, new RegExp(property.replace(/[()*+?.\\^$|[\]]/g, "\\$&")), `본문 프레임에 없다: ${property}`);
+  for (const [name, block] of [["표지", hero], ["본문", frame]] as const) {
+    assert.match(block, /border: 0/, `${name} 프레임에 테두리가 남았다`);
+    assert.match(block, /border-radius: 0/, `${name} 프레임이 둥글다`);
+    assert.equal(/background: var\(--c-surface\)/.test(block), false, `${name} 프레임에 면이 남았다`);
+    assert.match(block, /padding: 0/, `${name} 프레임에 카드 여백이 남았다`);
   }
 });
 

@@ -36,10 +36,11 @@ test("★ 로고를 실제로 키운다 — rem 고정값이라 부모 font-size
 });
 
 test("★ 이 쪽 로고가 표지보다 크다 — 브랜드를 보여주는 쪽이다(§9)", () => {
-  const size = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*(\\d+)px`))![1]);
+  // ★ 2026-08-16 — 인쇄 글자 크기 단위가 pt 다(판형이 정사각으로 바뀌었다).
+  const size = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*([\\d.]+)pt`))![1]);
   const brandPage = size("--print-brand-logo");
   const cover = size("--print-cover-logo");
-  assert.ok(brandPage > cover, `${brandPage}px 가 표지 ${cover}px 보다 커야 한다`);
+  assert.ok(brandPage > cover, `${brandPage}pt 가 표지 ${cover}pt 보다 커야 한다`);
 });
 
 test("★ 둘째 줄 앞의 공백 — 문자열이 아니라 가운데 정렬 때문이었다", () => {
@@ -63,8 +64,9 @@ test("내용이 페이지 가운데에 있다", () => {
   assert.ok(blocks.some((block) => /justify-content: center/.test(block) && /align-items: center/.test(block)),
     "가운데 정렬 규칙이 없다");
   // 한 장 크기 규칙도 그대로 있다(§9 — 독립 페이지).
-  assert.ok(blocks.some((block) => /aspect-ratio: 210 \/ 297/.test(block))
-    || /\.album-cover,[\s\S]{0,80}brand-page \{[\s\S]{0,120}aspect-ratio: 210 \/ 297/.test(printCss),
+  // ★ 2026-08-16 — 지면이 정사각(206×206)이다. `독립 한 장`이라는 규칙은 그대로다.
+  assert.ok(blocks.some((block) => /aspect-ratio: 1 \/ 1/.test(block))
+    || /\.album-cover,[\s\S]{0,80}brand-page \{[\s\S]{0,160}aspect-ratio: 1 \/ 1/.test(printCss),
     "한 장 크기 규칙이 없다");
 });
 

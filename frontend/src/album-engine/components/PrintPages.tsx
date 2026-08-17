@@ -4,7 +4,9 @@ import ChapterHeader from "../blocks/ChapterHeader";
 import StoryBlock from "../blocks/StoryBlock";
 import PhotoMemoryLines from "./PhotoMemoryLines";
 import { buildPhotoCaptionSegments } from "./photoCaptionSegments";
-import { printCaptionExtraMm, printCaptionNeedsOwnPage } from "./printCaptionFit";
+// ★ 캡션 높이 계산(printCaptionExtraMm)은 정사각 판형에서 쓰지 않는다 — 캡션대가
+//   14mm 고정이라 늘어날 것이 없다. 그 계산은 printCaptionFit.ts 에 그대로 둔다.
+import { printCaptionNeedsOwnPage } from "./printCaptionFit";
 import type { BuiltAlbum } from "../buildAlbum";
 import type { EnginePhoto } from "../types";
 import "./PrintPages.css";
@@ -106,14 +108,18 @@ export function paginateChapterPhotos<T>(
 }
 
 /**
- * 그 쪽의 사진 상한에서 뺄 높이 (I-4g). 뺄 것이 없으면 아무것도 얹지 않는다 —
- * 캡션이 짧은 쪽의 모양은 지금 그대로다.
+ * 그 쪽의 사진 상한에서 뺄 높이 (I-4g).
+ *
+ * ★ **2026-08-16 부터 늘 0이다.** 정사각 판형은 캡션대 높이가 14mm 로 고정이고
+ *   캡션이 두 줄에서 잘리므로(PrintPages.css) 늘어날 높이가 없다. A4 시절 계산
+ *   (printCaptionFit.ts)은 **지우지 않고 둔다** — 정사각이 제대로 나오는 것을 본 뒤에
+ *   정리한다(PO 결정: A4 코드를 먼저 지우지 않는다).
  */
 function printCaptionExtraStyle(photos: EnginePhoto[]): CSSProperties | undefined {
-  const extraMm = printCaptionExtraMm(photos);
-  if (!(extraMm > 0)) return undefined;
-  return { "--print-caption-extra": `${extraMm.toFixed(2)}mm` } as CSSProperties;
+  void photos;
+  return undefined;
 }
+
 
 function PhotoFrame({ photo }: { photo: EnginePhoto }) {
   const segments = buildPhotoCaptionSegments(photo);

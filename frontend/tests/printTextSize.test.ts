@@ -16,31 +16,45 @@ const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages
 const coverCss = readFileSync(new URL("../src/album-engine/components/AlbumCover.css", import.meta.url), "utf8");
 const epilogueCss = readFileSync(new URL("../src/album-engine/components/AlbumEpilogue.css", import.meta.url), "utf8");
 
-/** 큐 4-5 표 그대로. 왼쪽이 변수 이름, 오른쪽이 표의 px 값. */
-const QUEUE_TABLE: Array<[string, string]> = [
-  ["--print-cover-title", "37px"],
-  ["--print-cover-logo", "23px"],
-  ["--print-cover-period", "16px"],
-  ["--print-date-heading", "17px"],
-  ["--print-caption", "15px"],
-  ["--print-story-title", "16px"],
-  ["--print-story-body", "15px"],
-  ["--print-epilogue-title", "20px"],
-  ["--print-epilogue-body", "15px"],
-  ["--print-contributors", "14px"],
-  ["--print-brand-logo", "29px"],
-  ["--print-brand-line", "16px"],
+/**
+ * ★ 2026-08-16 — 인쇄 판형이 정사각 200×200mm 하나가 되면서 **단위를 pt 로 옮겼다.**
+ *   종이에서 크기를 말하는 단위는 pt 다. px 은 지면 폭(210mm)에 매인 값이라 판형이
+ *   바뀌면 자리마다 다시 환산해야 했다. 표는 PrintPages.css 머리말에 있다.
+ *   지키는 것은 그대로다: **값은 한 곳** · 계층이 뒤집히지 않음 · 8pt 하한.
+ */
+const PRINT_TYPE_TABLE: Array<[string, string]> = [
+  ["--print-cover-title", "28pt"],
+  ["--print-cover-logo", "17pt"],
+  ["--print-cover-period", "12pt"],
+  ["--print-date-heading", "11pt"],
+  ["--print-caption", "9pt"],
+  ["--print-story-title", "12pt"],
+  ["--print-story-body", "9.5pt"],
+  ["--print-epilogue-title", "15pt"],
+  ["--print-epilogue-body", "9.5pt"],
+  ["--print-contributors", "10.5pt"],
+  ["--print-brand-logo", "22pt"],
+  ["--print-brand-line", "12pt"],
 ];
 
-test("★ 큐 4-5 표의 값이 그대로 들어 있다", () => {
-  for (const [name, value] of QUEUE_TABLE) {
+test("★ 인쇄 글자 표의 값이 그대로 들어 있다", () => {
+  for (const [name, value] of PRINT_TYPE_TABLE) {
     assert.match(printCss, new RegExp(`${name}:\\s*${value};`), `${name} 이 표와 다르다`);
   }
 });
 
-test("★ 줄간격은 본문 1.6 · 제목 1.3 이다", () => {
+test("★ 8pt 아래로 내려가지 않는다 — 40대 이후 타깃의 하한", () => {
+  const sizes = [...printCss.matchAll(/--print-[a-z-]+:\s*([\d.]+)pt;/g)].map((match) => Number(match[1]));
+  assert.ok(sizes.length >= PRINT_TYPE_TABLE.length, "pt 로 적힌 값이 표보다 적다");
+  const smallest = Math.min(...sizes);
+  assert.ok(smallest >= 8, `가장 작은 글자가 ${smallest}pt 다`);
+});
+
+test("★ 줄간격은 본문 1.6 · 제목 1.3 · 이야기 1.75 다", () => {
   assert.match(printCss, /--print-leading-body:\s*1\.6;/);
   assert.match(printCss, /--print-leading-title:\s*1\.3;/);
+  // ★ 2026-08-16 — 이야기 본문만 1.75 다(시안 §4). 손에 들고 읽는 글이라 더 넉넉하다.
+  assert.match(printCss, /--print-leading-story:\s*1\.75;/);
 });
 
 test("★ 값은 인쇄 CSS 한 곳에만 둔다 — 자리마다 숫자를 흩지 않는다", () => {
@@ -57,14 +71,16 @@ test("★ 값은 인쇄 CSS 한 곳에만 둔다 — 자리마다 숫자를 흩�
   assert.match(epilogueCss, /font-size: var\(--print-epilogue-body\)/);
 });
 
-test("★ 예전 값이 남아 있지 않다 (실측으로 정하던 mm·pt)", () => {
-  assert.equal(epilogueCss.includes("font-size: 11pt"), false);
+test("★ 크기를 자리마다 흩지 않는다 — 숫자는 변수 선언에만 있다", () => {
+  // ★ 2026-08-16 — 예전에는 `pt 로 적힌 값` 자체를 금지했다(그때는 px 이 기준이었다).
+  //   이제 기준이 pt 라, 금지할 것은 **자리에 직접 적힌 숫자**다. mm 는 여전히 안 쓴다.
+  assert.equal(epilogueCss.includes("font-size: 11pt"), false, "자리에 숫자를 직접 적었다");
   assert.equal(/font-size:\s*[\d.]+mm/.test(printCss), false);
   assert.equal(/font-size:\s*[\d.]+mm/.test(coverCss), false);
 });
 
 test("계층이 뒤집히지 않는다 — 글이 사진을 이기면 안 된다(§6)", () => {
-  const value = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*(\\d+)px`))![1]);
+  const value = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*([\\d.]+)pt`))![1]);
   // 표지 제목 > 브랜드 로고 > 표지 로고 > 우리의 이야기 제목 > 날짜 머리글 > 캡션
   assert.ok(value("--print-cover-title") > value("--print-brand-logo"));
   assert.ok(value("--print-brand-logo") > value("--print-cover-logo"));

@@ -6,7 +6,7 @@ import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
 import { currentUserAgent, isInAppWebView, isIosWebKit } from "./webview";
 import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
-import { PDF_CANVAS_SCALE, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
+import { PDF_CANVAS_SCALE, PRINT_PAGE_ASPECT, PRINT_PAGE_MM, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
   albumId: string;
@@ -46,7 +46,7 @@ function logPdf(event: string, detail: Record<string, unknown> = {}): void {
 }
 
 /**
- * AlbumRenderer(print) DOM을 A4 PDF로 변환한다.
+ * AlbumRenderer(print) DOM을 정사각(206×206mm) PDF로 변환한다.
  * album_version 캐시가 있으면 서버 URL을 우선 반환한다.
  */
 export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDelivery> {
@@ -107,7 +107,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   host.style.position = "fixed";
   host.style.left = "-10000px";
   host.style.top = "0";
-  host.style.width = "210mm";
+  // 인쇄 지면과 같은 폭이다(작업 규격 206mm = 재단 200 + bleed 3 × 2).
+  host.style.width = `${PRINT_PAGE_MM}mm`;
   host.style.background = "#faf7f4";
   host.setAttribute("aria-hidden", "true");
   document.body.appendChild(host);
@@ -178,7 +179,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
           backgroundColor: "#faf7f4",
           logging: false,
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        // ★ A4 가 아니다 — 정사각 206×206mm 한 판형이다(PO 결정 2026-08-16).
+        jsPDF: { unit: "mm", format: [PRINT_PAGE_MM, PRINT_PAGE_MM], orientation: "portrait" },
         // html2pdf 의 pagebreak.avoid 는 이 레이아웃에서 안 통한다: getBoundingClientRect 가
         // 컨테이너 오프셋만큼 어긋나고(소스에 // TODO 로 남아있음), grid 아이템 앞에 패딩 div 를
         // 끼우면 grid 가 깨진다. 그래서 위에서 우리가 직접 margin 으로 페이지에 맞춰 두고,
@@ -210,8 +212,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
  * blocks grid too.
  */
 export function alignBlocksToPrintPages(element: HTMLElement): void {
-  // Margin [0,0,0,0] + a 210mm-wide host: one page is (297/210) × width in source px.
-  const pageHeightPx = element.getBoundingClientRect().width * (297 / 210);
+  // Margin [0,0,0,0] + a 206mm-wide host: one page is PRINT_PAGE_ASPECT × width in source px.
+  const pageHeightPx = element.getBoundingClientRect().width * PRINT_PAGE_ASPECT;
   if (!(pageHeightPx > 0)) return;
   // 열람용 PDF 의 페이지 단위(§9). 표지·본문 한 장·끝 글·브랜드 페이지가 각각 정확히
     // A4 한 장(aspect-ratio 210/297)이라, 이 보정은 반올림으로 생기는 어긋남만 밀어 준다.
