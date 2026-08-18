@@ -260,6 +260,8 @@ def save_album_record(
     cover_photo_id: str | None = None,
     result_bucket: str | None = None,
     creation_status: str = "active",
+    skin: str | None = None,
+    paper: str | None = None,
 ) -> dict[str, Any]:
     record = {
         "id": album_id,
@@ -287,6 +289,12 @@ def save_album_record(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+    # 앨범 모양 · 종이 색 — 고른 것이 있을 때만 넣는다(2026-08-18). 안 골랐으면 칸을
+    # 아예 쓰지 않아 예전과 똑같은 insert 다: null 이면 카테고리 추천이 걸린다.
+    if skin:
+        record["skin"] = skin
+    if paper:
+        record["paper"] = paper
     try:
         client.table("albums").insert(record).execute()
         return record

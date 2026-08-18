@@ -123,3 +123,18 @@ export function noPhotosAddedNotice(rejectedVideos: number, hasOtherRejects: boo
   parts.push(rejectedVideos > 0 || hasOtherRejects ? "사진 파일을 선택해주세요." : "사진을 선택해주세요.");
   return parts.join(" ");
 }
+
+/**
+ * `앨범 만들기` 를 눌렀을 때 **앨범 모양을 먼저 물을 것인가** (2026-08-18 PO).
+ *
+ * 모양 고르는 자리는 이미 있었지만 더보기 시트 안에만 있어서, 앨범을 다 만든 뒤에야
+ * 발견됐다 — 대부분 있는 줄도 모르고 지나갔다. 만들기 흐름에 **한 번** 세운다.
+ *
+ * ★ 한 번만 뜬다. 만들기가 실패해서 다시 눌렀을 때 또 물으면 고른 것을 다시 고르게
+ *   하는 셈이다 — 그때는 이미 고른 값이 기억돼 있다.
+ * ★ **닫기로 그냥 닫은 것은 물어본 것이 아니다.** 만들기를 취소한 것이므로 다음에
+ *   다시 누르면 또 뜬다 — 뒤로 가는 길을 막지 않는다.
+ */
+export function asksAppearanceBeforeCreate(alreadyAsked: boolean): boolean {
+  return !alreadyAsked;
+}

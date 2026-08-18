@@ -17,6 +17,10 @@
    0.9rem(14.4px) 같은 값은 4의 배수 밖이라 시트마다 미묘하게 달라 보였다. */
 .album-inline-action__body { flex: 1 1 auto; overflow-y: auto; padding: var(--s-4) 20px var(--s-6); display: grid; gap: var(--s-3); }
 .album-inline-action__error { justify-content: flex-start; }
+/* 붙박이 바닥 — 머리와 같은 이유로 **스크롤 밖**에 둔다(2026-08-18). 고르는 것이 길면
+   기본 버튼이 접힌 아래로 내려가, 다 고르고도 어디를 눌러야 할지 안 보였다.
+   이 자리를 쓰는 시트만 그린다(없으면 예전 그대로 머리 + 몸 둘이다). */
+.album-inline-action__footer { flex: 0 0 auto; padding: var(--s-3) 20px calc(var(--s-4) + env(safe-area-inset-bottom)); border-top: 1px solid var(--c-border-strong); background: var(--c-surface); }
 @media (max-width: 768px) { .album-inline-action { right: 0; bottom: 0; left: 0; width: 100%; max-height: calc(100dvh - var(--nav-height) - env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; } }
 /* 좁은 화면도 같은 20px 이다(시안이 390px 모바일 기준이다). */
 

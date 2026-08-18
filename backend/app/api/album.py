@@ -45,6 +45,8 @@ from app.models.schemas import (
     ALBUM_PAPER_VALUES,
     ALBUM_SKIN_VALUES,
     AlbumSettingsUpdate,
+    normalize_album_paper,
+    normalize_album_skin,
     StoryInputResponse,
     StoryInputUpdate,
     StoryRegenerateResponse,
@@ -468,6 +470,8 @@ async def upload_album(
     file_meta: str = Form("[]", description='[{"last_modified": 1710000000000}, ...] File.lastModified'),
     cover_photo_order: int = Form(-1),
     dropped_video_count: int = Form(0, description="프런트에서 걸러진 동영상 수(수요 계측용)"),
+    skin: str = Form("", description="앨범 모양. 비면 카테고리 추천이 걸린다"),
+    paper: str = Form("", description="종이 색. 비면 white"),
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
 ) -> AlbumUploadResponse:
     request_started = time.perf_counter()
@@ -522,6 +526,12 @@ async def upload_album(
     else:
         album_template_type = album_template_type or normalize_template_type(None)
         layout = layout_for_template_type(album_template_type)
+
+    # 만들기 전에 고른 앨범 모양·종이 색(2026-08-18). 목록 밖이면 **빈 값**이다 —
+    # 400 을 내지 않는다(겉모습 때문에 앨범을 못 만들면 안 된다). 빈 값이면 칸을
+    # 비워 두고, 화면은 지금처럼 카테고리 추천을 건다(lib/albumSkin).
+    album_skin = normalize_album_skin(skin)
+    album_paper = normalize_album_paper(paper)
 
     title = title.strip() or "우리의 모임"
     # date Form은 하위 호환용으로만 받고, 커버 날짜는 EXIF taken_at으로 덮어쓴다.
@@ -714,6 +724,7 @@ async def upload_album(
             narrative="", epilogue="", chapter_stories={}, photo_paths=photo_paths, photo_meta=photo_meta,
             result_path="", result_bucket=settings.supabase_private_storage_bucket, creation_status="processing",
             category=album_category, template_type=album_template_type, cover_photo_id=cover_photo_id,
+            skin=album_skin, paper=album_paper,
         )
         album_saved = True
         _log_upload_stage("album_db_insert", "completed", album_id=album_id)

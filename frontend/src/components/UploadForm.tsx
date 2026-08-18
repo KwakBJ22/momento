@@ -12,7 +12,9 @@ import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
-import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton, TOTAL_OVER_NOTICE, uploadingLabel } from "../lib/uploadFormView";
+import AlbumAppearancePicker from "./AlbumAppearancePicker";
+import { resolveAlbumSkin, type AlbumPaper, type AlbumSkin } from "../lib/albumSkin";
+import { asksAppearanceBeforeCreate, droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton, TOTAL_OVER_NOTICE, uploadingLabel } from "../lib/uploadFormView";
 import "./UploadForm.css";
 import { userFacingError } from "../lib/userFacingError";
 
@@ -56,6 +58,13 @@ function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: strin
 export default function UploadForm({ category, photosNeedReselect = false, onPhotoCountChange, onSuccess }: UploadFormProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
+  // 앨범 모양 · 종이 색 — **시트가 뜨는 순간 이미 골라져 있다.** 추천 규칙은
+  // lib/albumSkin 하나다(여기서 새로 정하지 않는다). 아무것도 안 고르고
+  // `이대로 만들기` 를 눌러도 이 값이 그대로 실려 간다.
+  const [appearance, setAppearance] = useState<{ skin: AlbumSkin; paper: AlbumPaper }>(() => resolveAlbumSkin({ category }));
+  // 물어본 적이 있는가 — `이대로 만들기` 를 누른 때만 참이다(닫기는 취소다).
+  const [appearanceAsked, setAppearanceAsked] = useState(false);
+  const [showsAppearanceSheet, setShowsAppearanceSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
   // Progress of the current preparation batch, shown in the existing count slot.
@@ -346,6 +355,9 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
         longitude: photo.gps?.longitude ?? null,
       }))));
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
+      // 만들기 전에 고른 모양. 서버가 목록으로 한 번 더 거른다 — 밖이면 빈 값이다(§10).
+      formData.append("skin", appearance.skin);
+      formData.append("paper", appearance.paper);
       // Demand signal only: how many videos the user tried to add (all filtered out).
       formData.append("dropped_video_count", String(droppedVideoCountRef.current));
       const operationId = operationIdRef.current || crypto.randomUUID();
@@ -390,6 +402,29 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
   };
 
   const cancelUpload = () => abortRef.current?.abort();
+
+  /**
+   * `앨범 만들기` 를 눌렀을 때 — **모양을 한 번 묻고** 만든다(2026-08-18 PO).
+   *
+   * ★ 새 페이지를 만들지 않는다(§7). 이미 있는 시트 껍데기 안에서 끝난다.
+   * ★ 닫기로 닫으면 만들기가 **진행되지 않는다.** 취소한 것이므로 물어본 것으로도
+   *   치지 않는다 — 다시 누르면 또 뜬다.
+   */
+  const requestCreate = () => {
+    if (asksAppearanceBeforeCreate(appearanceAsked)) {
+      setShowsAppearanceSheet(true);
+      return;
+    }
+    void createAlbum();
+  };
+
+  const closeAppearanceSheet = () => setShowsAppearanceSheet(false);
+
+  const confirmAppearance = () => {
+    setAppearanceAsked(true);
+    setShowsAppearanceSheet(false);
+    void createAlbum();
+  };
 
   const hasPhotos = photos.length > 0;
 
@@ -440,13 +475,41 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       ) : null}
       <PhotoCommentList photos={photos} onCommentChange={updatePhotoComment} onRemove={removePhoto} onPreviewBroken={repairPreview} coverPhotoId={coverPhotoId} onCoverChange={setCoverPhotoId} />
       {showsSubmitButton(photos.length) ? (
-        <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={() => void createAlbum()}>
+        <button type="button" className="upload-form__submit" disabled={isSubmitting || isPreparing || !photos.length} onClick={requestCreate}>
           {isSubmitting ? "앨범 만드는 중..." : "앨범 만들기"}
         </button>
       ) : null}
       {notice && <p className="notice notice--info upload-form__notice" aria-live="polite">{notice}</p>}
       {error && <p className="notice notice--error upload-form__error" role="alert">{error}</p>}
       {error && photos.length > 0 && <button type="button" className="upload-form__retry" onClick={() => void createAlbum()}>다시 시도</button>}
+      {/* 앨범 모양을 한 번 고르는 자리. 껍데기(album-sheet-dim · album-inline-action)와
+          몸(AlbumAppearancePicker)은 **이미 있는 것을 그대로** 쓴다 — 새로 만든 것은
+          부르는 자리뿐이다. `저장` 버튼을 두지 않는다: 고르면 바로 반영된다(§7). */}
+      {showsAppearanceSheet ? (
+        <>
+          <div className="album-sheet-dim" aria-hidden="true" onClick={closeAppearanceSheet} />
+          <section className="album-inline-action" role="dialog" aria-modal="true" aria-label="어떤 모양으로 만들까요?">
+            <div className="album-inline-action__header">
+              <h2>어떤 모양으로 만들까요?</h2>
+              <button type="button" onClick={closeAppearanceSheet}>닫기</button>
+            </div>
+            <div className="album-inline-action__body">
+              <AlbumAppearancePicker
+                skin={appearance.skin}
+                paper={appearance.paper}
+                category={category}
+                onPick={(next) => setAppearance((current) => ({ ...current, ...next }))}
+              />
+            </div>
+            {/* 손가락이 가는 자리 — **접힌 아래로 내려가면 안 된다.** 고를 것이 아홉 개라
+                몸 안에 두면 넓은 화면에서 시트 밖으로 밀려났다(실측). 머리와 같이
+                스크롤 밖에 붙인다. */}
+            <div className="album-inline-action__footer">
+              <button type="button" className="gallery-btn" onClick={confirmAppearance}>이대로 만들기</button>
+            </div>
+          </section>
+        </>
+      ) : null}
       {progressStep !== null && (
         <div className="upload-progress" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="upload-progress-title" aria-describedby="upload-progress-copy">
           <section className="upload-progress__card">
