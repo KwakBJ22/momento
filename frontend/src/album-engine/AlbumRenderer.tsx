@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
@@ -7,6 +7,7 @@ import AlbumContributors from "./components/AlbumContributors";
 import AlbumEpilogue from "./components/AlbumEpilogue";
 import PhotoWithMemories from "./components/PhotoWithMemories";
 import { PhotoCommentEditProvider, type PhotoCommentEditState } from "./components/PhotoCommentEditContext";
+import { PhotoMemoryWriteProvider, type PhotoMemoryWriteState } from "./components/PhotoMemoryWriteContext";
 import { DateStoryEditProvider, type DateStoryEditState } from "./components/DateStoryEditContext";
 import { PlaceEditProvider, type PlaceEditState } from "./components/PlaceEditContext";
 import { isDateStoryEligible } from "../lib/storyRules";
@@ -17,6 +18,7 @@ import StoryBlock from "./blocks/StoryBlock";
 import { buildAlbum, ensureOrientation, type BuiltAlbum } from "./buildAlbum";
 import type { EnginePhoto, LocationSource } from "./types";
 import { selectAlbumPhotoUrl } from "../lib/imageUrls";
+import { albumSkinClassNames, resolveAlbumSkin } from "../lib/albumSkin";
 import { waitForAlbumAssets } from "./waitForAlbumAssets";
 // ★ 엔진이 **자기 색을 스스로 싣는다**(I-4b-1). 엔진 CSS 는 --c-surface · --c-border ·
 // --c-brand 를 쓰는데, 예전에는 그 정의를 앱 진입점(main.tsx)이 실어 준다고 **기대만**
@@ -29,6 +31,8 @@ import "../styles/tokens.css";
 import "../styles/notice.css";
 import "../styles/loading.css";
 import "./AlbumRenderer.css";
+// 앨범 모양 6종의 **배치 규칙**. 모든 선택자가 `--screen` 안에 있어 인쇄에는 못 샌다.
+import "./AlbumSkins.css";
 import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
@@ -54,10 +58,15 @@ export interface AlbumRendererProps {
   onReady?: () => void;
   onEditEpilogue?: () => void;
   photoCommentEdit?: PhotoCommentEditState | null;
+  /** 사진 밑에서 바로 한마디를 쓴다. 넘기지 않으면 예전처럼 하단 네비 흐름으로 간다. */
+  photoMemoryWrite?: PhotoMemoryWriteState | null;
   dateStoryEdit?: DateStoryEditState | null;
   /** 날짜 줄의 장소 고치기 — 주최자에게만 온다. 인쇄에는 넘기지 않는다. */
   placeEdit?: PlaceEditState | null;
   livingAppendPages?: LivingAppendPage[];
+  /** 앨범 모양 · 종이 색 (albums.skin · albums.paper). 없으면 카테고리 추천이 걸린다. */
+  skin?: string | null;
+  paper?: string | null;
   className?: string;
 }
 
@@ -107,6 +116,26 @@ async function resolveDimensions(photo: EnginePhoto): Promise<EnginePhoto> {
 }
 
 /**
+ * 인쇄에 쓰기에 **모자라는 사진을 센다** — 고치는 것이 아니라 재는 것이다(2026-08-16).
+ *
+ * 200mm @300dpi = 2362px 가 필요하다. 그런데 올릴 때 긴 변을 2560px 로 줄이므로
+ * (optimizeImageFile 의 MAX_EDGE — §9, 임의로 바꾸지 않는다) 세로 사진을 정사각 칸에
+ * 넣으면 짧은 변이 1920px = 244dpi 다.
+ *
+ * ★ 이번에는 **숫자만 모은다.** MAX_EDGE 를 얼마나 올려야 하는지 알아야 정할 수 있다.
+ *   화면에는 아무것도 내지 않는다 — 사용자가 할 수 있는 일이 없다.
+ */
+const PRINT_NEEDED_SHORT_SIDE_PX = 2362;
+
+function logLowResForPrint(photos: EnginePhoto[]): void {
+  for (const photo of photos) {
+    const shortSide = Math.min(photo.width ?? 0, photo.height ?? 0);
+    if (!shortSide || shortSide >= PRINT_NEEDED_SHORT_SIDE_PX) continue;
+    console.warn(`[print] event=print_photo_low_res photo_id=${photo.id} short_side=${shortSide} need=${PRINT_NEEDED_SHORT_SIDE_PX}`);
+  }
+}
+
+/**
  * 앨범 결과 / 공유 / PDF 공통 렌더러
  */
 export default function AlbumRenderer({
@@ -126,20 +155,28 @@ export default function AlbumRenderer({
   onReady,
   onEditEpilogue,
   photoCommentEdit = null,
+  photoMemoryWrite = null,
   dateStoryEdit = null,
   placeEdit = null,
   livingAppendPages = [],
+  skin = null,
+  paper = null,
   className = "",
 }: AlbumRendererProps) {
   const [album, setAlbum] = useState<BuiltAlbum | null>(null);
   const blockRefs = useRef<Array<HTMLElement | null>>([]);
-  // ★ 열람용 PDF 는 **display(WebP)** 를 쓴다(§9). 원본은 인쇄용(200×200mm)의 몫이고
-  // 그것은 나중이다. 지금 원본을 쓰면 파일만 무거워지고 A4 화면 보기에는 차이가 없다.
-  // 크기 재기(resolveDimensions)는 인쇄 레이아웃에 필요하므로 print 에서만 계속 한다 —
-  // 예전에는 이 둘이 한 플래그였고, 그래서 화질까지 원본으로 끌려갔다.
+  // ★ 인쇄는 **원본**을 쓴다 (2026-08-16 · 판형이 200×200mm 정사각이 되면서).
+  //   전에는 display(WebP 1280px)를 썼다 — A4 열람용에서는 차이가 없었지만 종이에서는
+  //   그대로 보인다. 크기 재기(resolveDimensions)도 인쇄 레이아웃에 필요하므로 같이 한다.
   const measurePhotos = mode === "print";
   const epilogueText = (epilogue ?? "").trim();
   const [newAppendPageIds, setNewAppendPageIds] = useState<Set<string>>(new Set());
+  // ★ 앨범 모양·종이 색은 **루트 클래스 둘**로만 전달한다(§9 — 재마운트를 늘리지 않는다).
+  //   무엇을 쓸지 정하는 규칙은 lib/albumSkin 한 곳에 있다. 여기서 다시 세지 않는다.
+  const shellClass = useMemo(() => {
+    const resolved = resolveAlbumSkin({ skin, paper, category });
+    return albumSkinClassNames(resolved.skin, resolved.paper);
+  }, [skin, paper, category]);
 
   useEffect(() => {
     let active = true;
@@ -149,13 +186,14 @@ export default function AlbumRenderer({
         active = false;
       };
     }
-    const base = photos.map((photo) => toEnginePhoto(photo, false));
+    const base = photos.map((photo) => toEnginePhoto(photo, measurePhotos));
     // The web album can render safely with the metadata it has. Preloading every
     // legacy image just to discover dimensions delayed the entire first screen.
     // Print keeps the dimension pass so PDF layout retains its existing quality.
     const prepared = measurePhotos ? Promise.all(base.map(resolveDimensions)) : Promise.resolve(base);
     void prepared.then((resolved) => {
       if (!active) return;
+      if (measurePhotos) logLowResForPrint(resolved);
       const built = buildAlbum(resolved, {
         title,
         epilogue: epilogueText || null,
@@ -349,11 +387,17 @@ export default function AlbumRenderer({
           kind={chapter.kind}
           photoCount={chapter.photos.length}
           variant="date-only"
-          repeatsDate={chapterIndex > 0 && album?.chapters[chapterIndex - 1]?.date === chapter.date}
+          repeatsDate={chapterIndex > 0 && Boolean(chapter.date)
+            && album?.chapters[chapterIndex - 1]?.date === chapter.date}
+          repeatsMonth={chapterIndex > 0 && Boolean(chapter.date)
+            && album?.chapters[chapterIndex - 1]?.date?.slice(0, 7) === chapter.date?.slice(0, 7)}
           placeKey={storyKey}
           placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
-        <div className="album-screen-photo-grid">
+        {/* ★ `--photo-total` 은 `한 장씩 크게` 모양의 `1 / N` 이 쓰는 값이다.
+            그 날짜 묶음의 장수일 뿐 새 데이터가 아니고, 세는 것은 CSS 카운터가 한다 —
+            모양별 분기 코드를 만들지 않으려고 값만 늘 실어 둔다(다른 모양은 안 쓴다). */}
+        <div className="album-screen-photo-grid" style={{ "--photo-total": chapter.photos.length } as CSSProperties}>
           {chapter.photos.map((photo, photoIndex) => (
             <PhotoWithMemories
               key={photo.id}
@@ -382,14 +426,16 @@ export default function AlbumRenderer({
     if (livingAppendPages.length) {
       return (
         <AlbumRenderModeProvider mode={mode}>
-        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+        <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()} data-album-renderer="">
           <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+          <PhotoMemoryWriteProvider value={photoMemoryWrite ?? null}>
             <div className="album-renderer__body">
               <AlbumEpilogue epilogue={epilogueText} templateType={templateType} onEdit={onEditEpilogue} />
               <AlbumContributors names={contributorNames} />
               {livingPages}
               {brandFooter}
             </div>
+          </PhotoMemoryWriteProvider>
           </PhotoCommentEditProvider>
         </div>
         </AlbumRenderModeProvider>
@@ -397,26 +443,26 @@ export default function AlbumRenderer({
     }
     if (!fallbackImageUrl) {
       return mode === "screen" ? (
-        <div className={`album-renderer album-renderer--${mode} ${className}`.trim()} data-album-renderer="">
+        <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()} data-album-renderer="">
           <p className="album-renderer__empty">사진을 추가해 새 앨범을 만들어보세요.</p>
         </div>
       ) : null;
     }
     return (
-      <div className={`album-renderer album-renderer--${mode} ${className}`.trim()}>
+      <div className={`album-renderer album-renderer--${mode} ${shellClass} ${className}`.trim()}>
         <img src={fallbackImageUrl} alt={title || "앨범"} className="album-renderer__fallback-image" />
       </div>
     );
   }
 
   if (!album) {
-    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading loading-shimmer ${className}`.trim()} aria-busy="true" />;
+    return <div className={`album-renderer album-renderer--${mode} album-renderer--loading loading-shimmer ${shellClass} ${className}`.trim()} aria-busy="true" />;
   }
 
   return (
     <AlbumRenderModeProvider mode={mode}>
     <div
-      className={`album-renderer album-renderer--${mode} album-renderer--${album.layout.kind.toLowerCase()} ${className}`.trim()}
+      className={`album-renderer album-renderer--${mode} album-renderer--${album.layout.kind.toLowerCase()} ${shellClass} ${className}`.trim()}
       data-layout-engine={album.layout.layoutEngineVersion}
       data-template-type={album.layout.templateType}
       data-chapter-count={album.chapters.length}
@@ -433,6 +479,7 @@ export default function AlbumRenderer({
       ) : null}
 
       <PhotoCommentEditProvider value={photoCommentEdit ?? null}>
+          <PhotoMemoryWriteProvider value={photoMemoryWrite ?? null}>
         <DateStoryEditProvider value={dateStoryEdit ?? null}>
         <PlaceEditProvider value={placeEdit ?? null}>
         <div className="album-renderer__body">
@@ -521,7 +568,8 @@ export default function AlbumRenderer({
         </div>
         </PlaceEditProvider>
         </DateStoryEditProvider>
-      </PhotoCommentEditProvider>
+      </PhotoMemoryWriteProvider>
+          </PhotoCommentEditProvider>
     </div>
     </AlbumRenderModeProvider>
   );

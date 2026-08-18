@@ -164,11 +164,33 @@ export type MyAlbum = {
   share_token?: string | null;
 };
 
-export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[] }> {
+export async function getMyAlbums(): Promise<{ albums: MyAlbum[]; participating: MyAlbum[]; bookmarked: MyAlbum[]; archived: MyAlbum[] }> {
   const response = await authenticatedFetch("/api/albums/mine", { cache: "no-store" });
   if (!response.ok) throw new Error(await parseError(response));
-  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[]; bookmarked?: MyAlbum[] };
-  return { albums: data.albums ?? [], participating: data.participating ?? [], bookmarked: data.bookmarked ?? [] };
+  const data = (await response.json()) as { albums: MyAlbum[]; participating?: MyAlbum[]; bookmarked?: MyAlbum[]; archived?: MyAlbum[] };
+  return {
+    albums: data.albums ?? [],
+    participating: data.participating ?? [],
+    bookmarked: data.bookmarked ?? [],
+    // 보관함(2026-08-17). 옛 응답에는 없다 — 없으면 빈 목록이고 화면은 그 줄을 안 그린다.
+    archived: data.archived ?? [],
+  };
+}
+
+/**
+ * 지우지 않고 **감춰 둔다** (2026-08-17 · 시안 delete-sheet 1b 의 되돌릴 길).
+ *
+ * ★ 바뀌는 것은 앨범의 상태 한 칸이다. 사진·한마디는 그대로 있다 —
+ *   그래야 `언제든 다시 꺼낼 수 있어요` 가 참말이 된다. 판정은 서버가 한다(주최자만).
+ */
+export async function archiveAlbum(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/archive`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function unarchiveAlbum(albumId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/unarchive`, { method: "POST" });
+  if (!response.ok) throw new Error(await parseError(response));
 }
 
 /**
@@ -193,8 +215,34 @@ export async function removeAlbumBookmark(albumId: string): Promise<void> {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+/** 지우기 전에 **무엇이 사라지는지** — 지우려고 누른 그 순간에만 부른다(목록에 넣지 않는다). */
+export interface AlbumDeletePreview {
+  photo_count: number;
+  memory_count: number;
+  contributor_count: number;
+  /** display(WebP) 자산 최대 3장. 원본이 아니다(§9). */
+  preview_photo_urls: string[];
+}
+
+export async function getAlbumDeletePreview(albumId: string): Promise<AlbumDeletePreview> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/delete-preview`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumDeletePreview;
+}
+
 export async function deleteAlbum(albumId: string): Promise<void> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+/**
+ * 앨범에서 사진 한 장을 뺀다 — **이미 있던 주소**를 부른다(§10 · 새 API 를 만들지 않는다).
+ *
+ * ★ 권한 검사도 Storage 파일 정리도 서버가 한다. 화면은 보여줄지만 정한다.
+ * ★ 앨범을 다시 만들지 않는다. 그 사진만 빠지고 캡션·한마디·이야기는 그대로다.
+ */
+export async function removeAlbumPhoto(albumId: string, photoId: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/albums/${albumId}/media/${photoId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));
 }
 
@@ -233,6 +281,25 @@ export async function patchAlbumTitle(albumId: string, title: string): Promise<A
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as AlbumResult;
+}
+
+/**
+ * 앨범 모양 · 종이 색을 고친다 — **기존 PATCH 를 넓혀 쓴다**(§10 · 새 주소를 만들지 않는다).
+ *
+ * ★ 넘긴 것만 고친다. 맺음말(narrative)은 넣지 않으므로 건드리지 않는다.
+ * ★ 허용값 검사와 권한 판정은 **백엔드**가 한다. 여기서 다시 막지 않는다.
+ */
+export async function patchAlbumAppearance(
+  albumId: string,
+  next: { skin?: string; paper?: string },
+): Promise<AlbumResult> {
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(next),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as AlbumResult;
@@ -389,6 +456,8 @@ export async function updateAlbumPhotoLocation(
     latitude?: number | null;
     longitude?: number | null;
     location_source?: "exif" | "user" | "ai_estimated" | "unknown";
+    /** 촬영일 — **넣은 것만** 고친다. 날짜는 주최자만 고칠 수 있고 서버가 그것을 본다. */
+    taken_at?: string;
   },
 ): Promise<import("../types").AlbumPhoto> {
   const response = await authenticatedFetch(`/api/albums/${albumId}/photos/${photoId}/location`, {
@@ -399,10 +468,34 @@ export async function updateAlbumPhotoLocation(
       latitude: payload.latitude ?? null,
       longitude: payload.longitude ?? null,
       location_source: payload.location_source ?? "user",
+      // 안 넣으면 아예 보내지 않는다 — 서버가 `없으면 건드리지 않는다` 로 읽는다.
+      ...(payload.taken_at ? { taken_at: payload.taken_at } : {}),
     }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as import("../types").AlbumPhoto;
+}
+
+/**
+ * `실물 앨범으로 받아보기` 를 누른 사람을 센다 — **파는 것이 아니라 재는 것**이다.
+ *
+ * ★ 결제도 배송지도 연락처도 없다. 여기서 연락처를 받지 않는다(§5) — 그 자리는
+ *   `다른 곳에는 쓰지 않아요` 라고 적어 둔 자리다.
+ * ★ 같은 사람이 두 번 눌러도 **한 번만** 센다. 그 판정은 서버가 한다(§10) —
+ *   화면은 눌렸다는 사실만 기억해서 다시 묻지 않는다.
+ * ★ 실패해도 화면을 되돌리지 않는다. 재는 값 하나 때문에 방금 남긴 마음을
+ *   `안 됐어요` 로 만들지 않는다 — 부르는 쪽이 조용히 삼킨다.
+ */
+export async function recordPrintIntent(albumId: string): Promise<void> {
+  // 로그인하지 않은 참여자도 사람 단위로 세려면 방문자 토큰이 필요하다(getPublicShare 와 같다).
+  const headers: Record<string, string> = {};
+  const visitor = getVisitorToken();
+  if (visitor) headers["X-Woorialbum-Visitor"] = visitor;
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/print-intent`, {
+    method: "POST",
+    headers,
+  });
+  if (!response.ok) throw new Error(await parseError(response));
 }
 
 export async function getPublicShare(token: string, edition?: number | null): Promise<import("../types").PublicShareAlbum> {
@@ -427,7 +520,8 @@ export async function getPublicShare(token: string, edition?: number | null): Pr
 }
 
 export async function updateAlbumCoverPhoto(albumId: string, photoId: string): Promise<{ cover_photo_id: string | null; cover_image_url: string | null }> {
-  const response = await authenticatedFetch(`/api/albums/${albumId}/cover-photo`, {
+  // 게스트 주최자도 자기 앨범의 표지를 고른다(§1) — 토큰을 함께 보내는 길로 부른다.
+  const response = await albumOwnerFetch(albumId, `/api/albums/${albumId}/cover-photo`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ photo_id: photoId }),
@@ -436,14 +530,22 @@ export async function updateAlbumCoverPhoto(albumId: string, photoId: string): P
   return response.json() as Promise<{ cover_photo_id: string | null; cover_image_url: string | null }>;
 }
 
-export async function startPublicContribution(token: string, guestId: string | null, displayName: string) {
+/**
+ * 이름을 적고 참여 세션을 만든다.
+ *
+ * ★ `intent` 는 **무엇을 하려고 이름을 적는가**다(PO 2026-08-16 · `인쇄되는 것만 잠근다`).
+ *   `memory` 면 감상 링크에서도, 확정된 앨범에서도 받아 준다 — 한마디는 인쇄되지 않는다.
+ *   그때 서버는 그 사람을 **참여자로 만들지 않는다**(이름만 받는다 · 화면_기준 §1).
+ *   넘기지 않으면 예전 그대로 사진이다.
+ */
+export async function startPublicContribution(token: string, guestId: string | null, displayName: string, intent: "photo" | "memory" = "photo") {
   const session = await getSession();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
   const response = await fetch(`${API_BASE}/api/public/shares/${encodeURIComponent(token)}/contribute`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ guest_id: guestId, display_name: displayName }),
+    body: JSON.stringify({ guest_id: guestId, display_name: displayName, intent }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<{ album_id: string; contributor_id: string; guest_id: string | null; display_name: string }>;

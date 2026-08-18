@@ -56,17 +56,18 @@ test("표지와 브랜드 페이지가 각각 독립 페이지다", async () => 
   const view = await renderPrint([photo("p1", "2026-08-01")]);
   const cover = view.container.querySelector(".album-cover");
   const brand = view.container.querySelector(".album-renderer__brand-page");
-  assert.ok(cover, "표지가 있어야 한다");
-  assert.ok(brand, "브랜드 페이지가 있어야 한다");
+  assert.equal(cover !== null, true, "표지가 있어야 한다");
+  assert.equal(brand !== null, true, "브랜드 페이지가 있어야 한다");
   // 예전에는 본문 끝에 작게 붙는 footer 였다 — 독립 section 으로 바꿨다.
-  assert.equal(view.container.querySelector(".album-renderer__brand-footer"), null);
+  assert.equal(view.container.querySelector(".album-renderer__brand-footer") === null, true);
 
   const css = read("album-engine/components/PrintPages.css");
-  // 한 덩어리가 정확히 A4 한 장이라, 표지 아래에 본문이 붙을 자리가 없다.
+  // 한 덩어리가 정확히 한 장이라, 표지 아래에 본문이 붙을 자리가 없다.
   for (const selector of [".album-cover", ".album-renderer__brand-page", ".print-page", ".print-closing"]) {
     assert.ok(css.includes(selector), `${selector} 가 페이지 규칙에 있어야 한다`);
   }
-  assert.equal((css.match(/aspect-ratio: 210 \/ 297/g) || []).length, 3, "표지·브랜드 / 본문 / 끝 글");
+  // ★ 2026-08-16 — 지면이 정사각(206×206)이 됐다. 셋이 각각 한 장이라는 규칙은 그대로다.
+  assert.equal((css.match(/aspect-ratio: 1 \/ 1/g) || []).length, 3, "표지·브랜드 / 본문 / 끝 글");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -89,17 +90,17 @@ test("★ 날짜 머리글과 그 날 첫 사진이 같은 페이지에 있다",
   const view = await renderPrint(photos);
   const pages = Array.from(view.container.querySelectorAll(".print-page"));
   const first = pages[0];
-  assert.ok(first.querySelector(".chapter-header"), "첫 장에 머리글이 있다");
-  assert.ok(first.querySelector(".print-frame"), "머리글만 앞 장에 남지 않는다");
+  assert.equal(first.querySelector(".chapter-header") !== null, true, "첫 장에 머리글이 있다");
+  assert.equal(first.querySelector(".print-frame") !== null, true, "머리글만 앞 장에 남지 않는다");
   // 이어지는 장에는 머리글을 다시 붙이지 않는다.
-  assert.equal(pages[1].querySelector(".chapter-header"), null);
+  assert.equal(pages[1].querySelector(".chapter-header") === null, true);
   await view.React.act(async () => { view.root.unmount(); });
 });
 
 test("사진과 캡션이 하나의 프레임 안에 있다", async () => {
   const view = await renderPrint([photo("p1", "2026-08-01", "그날 바람이 좋았다.")]);
   const frame = view.container.querySelector(".print-frame")!;
-  assert.ok(frame.querySelector("img"), "프레임 안에 사진");
+  assert.equal(frame.querySelector("img") !== null, true, "프레임 안에 사진");
   assert.match(frame.textContent || "", /그날 바람이 좋았다\./, "프레임 안에 캡션");
   await view.React.act(async () => { view.root.unmount(); });
 });
@@ -108,7 +109,7 @@ test("★ 화면(웹·공유)에는 사진 프레임이 없다", async () => {
   const view = await renderPrint([photo("p1", "2026-08-01", "캡션")], { mode: "screen" });
   assert.equal(view.container.querySelectorAll(".print-frame").length, 0);
   assert.equal(view.container.querySelectorAll(".print-page").length, 0);
-  assert.equal(view.container.querySelector(".album-cover"), null, "화면에는 표지가 없다");
+  assert.equal(view.container.querySelector(".album-cover") === null, true, "화면에는 표지가 없다");
   // 프레임 CSS 도 인쇄 모드에서만 걸린다.
   const css = read("album-engine/components/PrintPages.css");
   for (const line of css.split("\n").filter((l) => l.includes(".print-frame") && l.includes("{"))) {
@@ -117,11 +118,14 @@ test("★ 화면(웹·공유)에는 사진 프레임이 없다", async () => {
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("★ 열람용은 display(WebP) 를 쓴다 — 원본이 아니다", async () => {
+test("★ 뒤집힘 — 인쇄는 **원본**을 쓴다 (2026-08-16 · 정사각 판형)", async () => {
+  // ★ 예전 규칙: 열람용 PDF 는 display(WebP 1280px). A4 화면 보기에서는 차이가 없었다.
+  //   판형이 종이(200×200mm @300dpi = 2362px)가 되면서 그 차이가 그대로 보인다.
+  //   ★ 그래도 모자란다 — 원본 긴 변이 2560px 이라 세로 사진은 짧은 변이 1920px 이다.
+  //     모자라는 사진은 print_photo_low_res 로 **센다**(AlbumRenderer). 고치지 않는다.
   const view = await renderPrint([photo("p1", "2026-08-01")]);
   const src = view.container.querySelector(".print-frame img")!.getAttribute("src") || "";
-  assert.match(src, /-display\.webp$/, "display 를 써야 한다");
-  assert.equal(src.includes("-original"), false, "원본은 인쇄용(200×200mm)의 몫이다");
+  assert.match(src, /-original/, "인쇄는 원본을 써야 한다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
@@ -141,8 +145,8 @@ test("★ PDF 안의 브랜드는 로고 조합이다 (검은 글자 단독 표�
   const brand = view.container.querySelector(".album-renderer__brand-page")!;
   // 로고 조합: `우리`(진한 글자색) + `앨범`(브랜드색) — BrandMark 가 두 조각으로 그린다.
   const mark = brand.querySelector(".brand-mark");
-  assert.ok(mark, "브랜드 페이지에 로고가 있어야 한다");
-  assert.ok(mark!.querySelector("b") && mark!.querySelector("i"), "두 색 조각으로 그린다");
+  assert.equal(mark !== null, true, "브랜드 페이지에 로고가 있어야 한다");
+  assert.equal(mark!.querySelector("b") !== null && mark!.querySelector("i") !== null, true, "두 색 조각으로 그린다");
   // 서비스 이름을 글자로만 적은 자리가 없다.
   const renderer = read("album-engine/AlbumRenderer.tsx");
   const code = renderer.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -153,4 +157,54 @@ test("★ PDF 안의 브랜드는 로고 조합이다 (검은 글자 단독 표�
 test("페이지 나눔이 새 단위를 본다", () => {
   const pdf = read("lib/exportPdf.tsx");
   assert.match(pdf, /const selector = "\.album-cover, \.print-page, \.print-closing, \.album-living-page, \.album-renderer__brand-page"/);
+});
+
+/**
+ * ★ 주최자가 반영하지 않은 사진은 **인쇄에 넣지 않는다** (PO 결정 2026-08-15 · A안).
+ *
+ * 사진은 주최자가 반영해야 앨범에 들어간다(17차). 화면에는 `새로 더해진` 자리와
+ * `앨범을 만든 분이 나중에…` 한 줄이 있어 "아직 정리 전"이 보이지만, **종이에는 그
+ * 맥락이 없다.** 주최자가 못 본 사진이 책 뒤에 붙어 나가고 종이는 되돌릴 수 없다.
+ *
+ * 문턱은 **렌더러가 아니라 PDF 를 만드는 자리**에 있다 — `mode === "print"` 갈래를
+ * 렌더러 안에 늘리지 않는다(§9). 그래서 두 쪽을 같이 잰다.
+ */
+const LIVING_PAGE = [{
+  id: "page-1", type: "append_page", created_at: "2026-08-02T00:00:00Z",
+  photos: [photo("p9", "2026-08-02", "나중에 올린 사진")],
+  memories: [{ id: "mem-1", author_name: "둘째", content: "늦었지만 한마디", created_at: "2026-08-02T00:00:00Z" }],
+}];
+
+test("★ 인쇄에는 `새로 더해진` 자리가 오지 않는다 — 종이는 되돌릴 수 없다", async () => {
+  // ① PDF 를 만드는 자리가 빈 배열을 넘긴다 — 화면 값을 그대로 흘려보내지 않는다.
+  const pdf = read("lib/exportPdf.tsx");
+  assert.match(pdf, /livingAppendPages=\{\[\]\}/, "화면 값이 그대로 인쇄로 간다");
+  assert.equal(pdf.includes("livingAppendPages={input.livingAppendPages}"), false, "인쇄로 넘기는 자리가 남았다");
+  // ② 그렇게 넘겼을 때 인쇄 렌더에 그 자리가 하나도 없다.
+  const view = await renderPrint([photo("p1", "2026-08-01")], { livingAppendPages: [] });
+  assert.equal(view.container.querySelectorAll(".album-living-page").length, 0);
+  // 본문은 그대로 인쇄된다 — 통째로 지운 것이 아니다.
+  assert.equal(view.container.querySelectorAll(".print-frame").length, 1);
+  assert.match(view.container.textContent || "", /좋은 날이었다\./, "`우리의 이야기` 가 사라졌다");
+  await view.React.act(async () => { view.root.unmount(); });
+});
+
+test("★ 화면에는 그대로 나온다 — 인쇄만 막았지 화면까지 지우지 않았다", async () => {
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: AlbumRenderer } = await import("../src/album-engine/AlbumRenderer");
+  const container = document.getElementById("root")!;
+  container.innerHTML = "";
+  const root = createRoot(container);
+  await React.act(async () => {
+    root.render(React.createElement(AlbumRenderer, {
+      photos: [photo("p1", "2026-08-01")], title: "우리 여행", epilogue: "좋은 날이었다.",
+      albumId: "album-1", mode: "screen", livingAppendPages: LIVING_PAGE,
+    } as never));
+  });
+  await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+  assert.equal(container.querySelectorAll(".album-living-page").length, 1, "화면에서도 사라졌다");
+  assert.equal(container.querySelectorAll(".album-living-page__photos img").length, 1, "사진이 안 그려진다");
+  assert.match(container.textContent || "", /늦었지만 한마디/, "그 자리의 글이 사라졌다");
+  await React.act(async () => { root.unmount(); });
 });

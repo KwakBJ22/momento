@@ -4,18 +4,24 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 
-import { BRAND_VALUE_SECTIONS, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE } from "../src/lib/brand";
+import { BRAND_USE_CASES, BRAND_USE_LABEL, BRAND_VALUE_CARDS, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE } from "../src/lib/brand";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
 const read = (p: string) => readFileSync(path.join(SRC, p), "utf8");
 
 /**
- * `우리앨범이란` — 가치 소개 (2026-08-13 PO 판단).
+ * `우리앨범 소개` — 가치 소개 (2026-08-13 PO 판단 · 2026-08-16 구조 변경).
  *
- * 세 가지를 고정한다. 셋 다 대화에서 실제로 갈렸던 지점이라 적어 둔다.
+ * ★ **2 + 2 위계로 바뀌었다**(2026-08-16 · 시안 1a). 예전에는 아이콘 + 제목 + 본문이
+ *   **네 번 반복**이라 넷이 전부 같은 무게로 읽혔고, 그대로 스크롤로 지나갔다.
+ *     앞 2칸  **왜 쓰나** — 흰 카드에 제목 · 그림 · 본문
+ *     뒤 2칸  **누가 쓰나** — 작은 아이콘 + 제목 + 한 줄, 2열
+ *   그래서 `BRAND_VALUE_SECTIONS`(네 칸)이 `BRAND_VALUE_CARDS`(2) +
+ *   `BRAND_USE_CASES`(2)로 갈렸다. 아래 검사도 그 구조로 바꿔 적었다.
+ *
+ * 나머지 셋은 그대로다. 셋 다 대화에서 실제로 갈렸던 지점이라 적어 둔다.
  *  1) **메뉴로 만들지 않는다.** 초대 링크로 들어온 사람은 로그인 전이라 네비가 안 보인다.
- *     정작 `인스타랑 뭐가 다르냐` 고 묻는 사람에게 안 닿는다.
- *  2) **문구는 한 곳에만 있다.** 자리가 섋이라, 화면마다 글을 쓰면 곧 서로 달라진다.
+ *  2) **문구는 한 곳에만 있다.** 자리가 셋이라, 화면마다 글을 쓰면 곧 서로 달라진다.
  *  3) **제목에 부정어를 쓰지 않고, 업계 말을 쓰지 않는다.**
  */
 
@@ -24,29 +30,55 @@ test("문구는 lib/brand.ts 한 곳에만 있다 (화면이 제 글을 따로 �
     assert.equal(read(file).includes(BRAND_VALUE_TITLE), false, `${file} 이 제목을 직접 들고 있다`);
     assert.equal(read(file).includes(BRAND_VALUE_SHORT), false, `${file} 이 짧은 판을 직접 들고 있다`);
   }
-  assert.match(read("components/BrandValue.tsx"), /BRAND_VALUE_SECTIONS, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE/);
+  const component = read("components/BrandValue.tsx");
+  for (const card of BRAND_VALUE_CARDS) {
+    assert.equal(component.includes(card.body), false, "화면이 본문을 직접 들고 있다");
+  }
+  for (const use of BRAND_USE_CASES) {
+    assert.equal(component.includes(use.body), false, "화면이 본문을 직접 들고 있다");
+  }
+  assert.match(component, /BRAND_USE_CASES, BRAND_USE_LABEL, BRAND_VALUE_CARDS, BRAND_VALUE_LABEL, BRAND_VALUE_SHORT, BRAND_VALUE_TITLE/);
 });
 
 test("제목에 부정어를 쓰지 않는다 · 업계 말을 쓰지 않는다", () => {
   assert.doesNotMatch(BRAND_VALUE_TITLE, /아니에요|아닙니다|아니라/);
-  const all = [BRAND_VALUE_TITLE, BRAND_VALUE_SHORT, ...BRAND_VALUE_SECTIONS.flatMap((s) => [s.title, s.body])].join(" ");
+  const all = [
+    BRAND_VALUE_TITLE, BRAND_VALUE_SHORT, BRAND_USE_LABEL,
+    ...BRAND_VALUE_CARDS.flatMap((card) => [card.title, card.body]),
+    ...BRAND_USE_CASES.flatMap((use) => [use.title, use.body]),
+  ].join(" ");
   // §8 — 사용자에게 기술을 내보이지 않는다. `피드` 는 일반인이 쓰지 않는 말이다.
   for (const word of ["피드", "AI", "GPT", "인공지능", "플랫폼", "아카이브"]) {
     assert.equal(all.includes(word), false, `문구에 ${word} 가 들어 있다`);
   }
 });
 
-test("첫 줄은 겪은 일로 열고, 곧바로 함께로 넘어간다 (저장 서비스와 갈리는 자리)", () => {
-  assert.match(BRAND_VALUE_SECTIONS[0].body, /못 찾/);
-  assert.match(BRAND_VALUE_SECTIONS[1].body, /같이 있었던 사람들과/);
-  // 네 칸이다: 쌓인 사진 → 우리의 앨범 → 부모님 → 아이. 순서가 곧 설득의 순서다.
-  assert.equal(BRAND_VALUE_SECTIONS.length, 4);
-  for (const section of BRAND_VALUE_SECTIONS) {
-    assert.match(section.icon, /^\/about-[a-z]+\.png$/, `${section.title} 의 아이콘 경로`);
-    assert.ok(section.body.length > 40, `${section.title} 의 본문이 너무 짧다`);
+test("★ 앞 2칸은 **왜 쓰나** — 겪은 일로 열고 곧바로 함께로 넘어간다", () => {
+  assert.equal(BRAND_VALUE_CARDS.length, 2, "앞 칸이 둘이 아니다");
+  // 첫 칸: 사진이 쌓였는데 못 찾는다 → 날짜로 묶인다.
+  assert.match(BRAND_VALUE_CARDS[0].body, /찾아 헤매지/);
+  assert.match(BRAND_VALUE_CARDS[0].title, /날짜와 위치대로/);
+  // 둘째 칸: 저장 서비스와 갈라지는 자리다.
+  assert.match(BRAND_VALUE_CARDS[1].body, /같이 있었던 사람들과/);
+  // 제목은 두 줄이고, 둘째 칸은 `앨범` 만 브랜드색이다(로고 조합 · §9).
+  for (const card of BRAND_VALUE_CARDS) {
+    assert.match(card.title, /\n/, `${card.title} 이 한 줄이다`);
   }
+  assert.equal(BRAND_VALUE_CARDS[1].titleBrand, "앨범");
   // 짧은 판도 `함께` 를 잃지 않는다 — 이 줄 하나만 보는 사람이 가장 많다.
   assert.match(BRAND_VALUE_SHORT, /같이 있었던 사람들과/);
+});
+
+test("★ 뒤 2칸은 **누가 쓰나** — 앞 칸과 무게가 다르다", () => {
+  assert.equal(BRAND_USE_CASES.length, 2);
+  assert.deepEqual(BRAND_USE_CASES.map((use) => use.title), ["부모님 회고 앨범", "아이 성장 앨범"]);
+  for (const use of BRAND_USE_CASES) {
+    // 아이콘은 3a6a00e 에서 들어온 그 파일이다.
+    assert.match(use.icon, /^\/use-[a-z]+\.webp$/, `${use.title} 의 아이콘 경로`);
+    // 한 줄이다 — 앞 카드처럼 길면 무게가 같아진다.
+    assert.ok(use.body.length <= 40, `${use.title} 의 한 줄이 너무 길다`);
+  }
+  assert.equal(BRAND_USE_LABEL, "이런 앨범을 많이 만들어요");
 });
 
 test("★ 세 자리에 놓인다 — 첫 화면(로그인 전) · 공유 화면 맨 아래 · 푸터 시트", () => {
@@ -72,11 +104,106 @@ test("★ 하단 메뉴에는 넣지 않는다 (전역 네비는 행동만 놓�
   }
 });
 
-test("글만 두지 않는다 — 브랜드 아이콘 한 장을 함께 낸다", () => {
+test("★ 소개의 그림은 **실제 사진**이다 (시안)", () => {
+  // ★ 2026-08-16 에 뒤집혔다. 그 전날 `선과 면으로 그린 모양` 으로 바꿨는데,
+  //   그건 **앨범 모양 견본**(AlbumAppearancePicker)의 규칙이었다 —
+  //   소개는 무엇이 되는지 보여 주는 자리라 시안이 실제 사진을 쓴다.
+  //   선과 면으로 그리는 것은 견본뿐이다.
   const c = read("components/BrandValue.tsx");
-  assert.match(c, /src="\/about-together\.png"/);
-  // 장식이므로 낭독기에는 읽히지 않는다. alt 에 설명을 넣으면 글이 두 번 읽힌다.
-  assert.match(c, /alt=""/);
-  // 칸마다 한 장씩이다. 그림을 겹쳐 넣지 않는다.
-  assert.equal((c.match(/<img/g) || []).length, 2, "짧은 판 하나 + 네 칸을 그리는 하나");
+  assert.match(c, /function SortArt\(\)/);
+  assert.match(c, /function TogetherArt\(\)/);
+  // 사진은 히어로와 **같은 세 장**이다 — 새 파일을 늘리지 않는다.
+  assert.match(c, /const ART_SHOTS = \["\/hero-mom\.webp", "\/hero-dad\.webp", "\/hero-me\.webp"\];/);
+  // 더미 3장 · 앨범 그리드 4장 · 둘째 칸 1장 · 라벨 심벌 · 뒤 2칸 아이콘 · 짧은 판.
+  assert.equal((c.match(/<img/g) || []).length, 6);
+  // 장식이므로 낭독기에는 읽히지 않는다.
+  assert.equal((c.match(/alt=""/g) || []).length, 6);
+  assert.equal((c.match(/aria-hidden="true"/g) || []).length, 2, "그림 둘 다 장식으로 표시해야 한다");
+  // 잘리는 자리를 정해 네 칸이 같아 보이지 않게 한다.
+  assert.match(read("components/BrandValue.css"), /object-position: 70% 50%/);
+});
+
+test("★ 견본은 그대로 선과 면이다 — 두 규칙이 섞이지 않는다", () => {
+  const picker = read("components/AlbumAppearancePicker.tsx");
+  assert.equal(picker.includes("<img"), false, "앨범 모양 견본에 사진이 들어갔다");
+  assert.match(picker, /선과 면으로 그린 모양/);
+});
+
+test("★ 소개 구역에 hex 를 직접 쓰지 않는다 — 값은 토큰 한 곳이다 (§8)", () => {
+  const css = read("components/BrandValue.css");
+  const found = css.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+  assert.deepEqual(found, [], `소개 CSS 에 hex 가 있다: ${found.join(" ")}`);
+  assert.equal(/#[0-9a-fA-F]{3,8}\b/.test(read("components/BrandValue.tsx")), false, "소개 코드에 hex 가 있다");
+  // 새로 더한 값은 tokens.css 에 이름이 있다.
+  const tokens = read("styles/tokens.css");
+  for (const name of ["--c-about-bg", "--c-about-line", "--c-about-tray", "--c-about-tile", "--c-about-mine", "--c-about-theirs"]) {
+    assert.match(tokens, new RegExp(`${name}: #`), `${name} 이 없다`);
+  }
+});
+
+test("★ 위와 갈리는 자리다 — 배경과 선으로 가른다", () => {
+  const css = read("components/BrandValue.css");
+  const root = css.slice(css.indexOf(".brand-value {"), css.indexOf("}", css.indexOf(".brand-value {")));
+  assert.match(root, /background: var\(--c-about-bg\)/);
+  assert.match(root, /border-top: 1px solid var\(--c-about-line\)/);
+  // ★ 2026-08-17 뒤집음(§10-2). 예전에는 `padding: 30px 22px 34px` + `max-width: 34rem` 이었다.
+  //   max-width 를 이 요소에 걸면 **배경과 위의 선까지** 가운데 좁은 띠가 되어,
+  //   `하는 곳 / 읽는 곳` 을 가르는 경계가 사라졌다(PO 지적). 배경은 화면 끝까지 가고,
+  //   글줄 폭은 좌우 padding 이 잡는다.
+  assert.match(root, /padding: 30px max\(22px, calc\(\(100% - 34rem\) \/ 2\)\) 34px/);
+  assert.equal(root.includes("max-width"), false, "배경에 폭 제한이 다시 걸렸다");
+  // 시트에서는 그 둘을 뺀다 — 이미 제목 줄과 경계가 있다.
+  // ★ 2026-08-17 추가 — 배경 띠가 화면 끝에 닿지 않던 것(PO `디자인 html 과 다르다`).
+  //   원인은 이 요소가 아니라 부모였다: `.app` 이 좌우 `--page-padding-x`(20px)를 갖는다.
+  //   실측 화면 500 / 띠 440. `--full` 만 그 여백을 음수로 되돌려 끝까지 간다.
+  //   숫자를 여기 다시 적지 않는다 — 부모가 쓰는 변수를 그대로 읽어야 한쪽만 안 바뀐다.
+  const full = css.slice(css.indexOf(".brand-value--full {"), css.indexOf("}", css.indexOf(".brand-value--full {")));
+  assert.match(full, /margin-left: calc\(var\(--page-padding-x, 20px\) \* -1\)/);
+  assert.match(full, /margin-right: calc\(var\(--page-padding-x, 20px\) \* -1\)/);
+
+  // ★ 그림 안 네 칸은 **정사각**이다(시안). 높이를 12px 로 묶으면 사진이 띠가 된다.
+  const grid = css.slice(css.indexOf(".brand-value__book-grid img {"), css.indexOf("}", css.indexOf(".brand-value__book-grid img {")));
+  assert.match(grid, /aspect-ratio: 1/);
+  assert.equal(grid.includes("height: 12px"), false, "네 칸이 다시 띠가 됐다");
+
+  const sheet = css.slice(css.indexOf(".brand-value--sheet {"), css.indexOf("}", css.indexOf(".brand-value--sheet {")));
+  assert.match(sheet, /border-top: 0/);
+  assert.match(sheet, /background: none/);
+});
+
+/**
+ * 🔴 소개 아이콘 두 개가 시안과 다르다 (PO 2026-08-17 —
+ *    `부모님 회고 앨범, 아이 성장 앨범 옆의 아이콘도 달라`).
+ *
+ * webp 로 만들 때 **투명 배경이 사라져서**, `#FFF1F0` 둥근 칸 안에 네모난 어두운
+ * 덩어리가 앉아 있었다(불투명 100% · 평균색 #924041). 시안은 배경이 비고 선만 있는
+ * 브랜드 코럴 그림이다.
+ *
+ * ★ 여기서 지키는 것은 **알파 채널이 있는가** 하나다. 다시 납작하게 구우면 잡힌다.
+ *   색·크기까지 고정하지 않는다 — 그림은 바뀔 수 있고, 배경이 차 있으면 안 되는 것이
+ *   이 결함의 본질이다.
+ * ★ 파일 이름을 여기 적지 않는다. `BRAND_USE_CASES` 가 가리키는 것을 따라간다 —
+ *   그래야 아이콘을 갈아 끼워도 검사가 낡지 않는다.
+ */
+function webpHasAlpha(bytes: Buffer): boolean {
+  assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF", "webp 가 아니다");
+  assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP", "webp 가 아니다");
+  const chunk = bytes.subarray(12, 16).toString("ascii");
+  // 무손실(VP8L)은 머리 비트 하나로 알파를 말한다. 5바이트 서명 뒤 28번째 비트다.
+  if (chunk === "VP8L") {
+    assert.equal(bytes[20], 0x2f, "VP8L 서명이 아니다");
+    return Boolean((bytes.readUInt32LE(21) >>> 28) & 1);
+  }
+  // 확장(VP8X)은 플래그 바이트에 알파 비트가 있다.
+  if (chunk === "VP8X") return Boolean(bytes[20] & 0x10);
+  // 손실(VP8)은 별도 ALPH 조각이 있어야 투명하다 — 없으면 납작한 그림이다.
+  return bytes.subarray(0, 512).toString("latin1").includes("ALPH");
+}
+
+test("★ 소개 아이콘은 배경이 비어 있다 — 둥근 칸 안에 네모가 앉지 않는다", () => {
+  const publicDir = fileURLToPath(new URL("../public/", import.meta.url));
+  for (const useCase of BRAND_USE_CASES) {
+    const bytes = readFileSync(path.join(publicDir, useCase.icon.replace(/^\//, "")));
+    assert.equal(webpHasAlpha(bytes), true, `${useCase.icon}: 투명 배경이 없다(다시 납작해졌다)`);
+  }
 });

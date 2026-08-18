@@ -361,7 +361,9 @@ def get_album_record(client: Client, album_id: str) -> dict[str, Any] | None:
 ALBUM_DETAIL_LIGHT_COLUMNS = (
     "id,meeting_type,category,template,template_type,title,event_date,"
     "epilogue,narrative,chapter_stories,result_path,cover_photo_id,created_at,"
-    "album_version,living_latest_edition_previous,living_append_pages"
+    "album_version,living_latest_edition_previous,living_append_pages,"
+    # 앨범 모양 · 종이 색. 짧은 글자 둘이라 가벼운 조회에 실어도 부담이 없다.
+    "skin,paper"
 )
 
 
@@ -477,6 +479,9 @@ def list_owned_album_list_records(client: Client, profile_id: str, *, limit: int
         client.table("albums")
         .select(columns)
         .eq("owner_id", profile_id)
+        # ★ 보관한 앨범은 목록에서 뺀다(2026-08-17). **지운 것이 아니다** — 아래
+        #   list_archived_album_list_records 가 같은 조건으로 그것만 모은다.
+        .neq("status", "archived")
         .is_("deleted_at", "null")
         .order("updated_at", desc=True)
         .order("created_at", desc=True)
@@ -520,7 +525,33 @@ def list_participating_album_list_records(
     result = (
         client.table("albums")
         .select(columns)
+        # ★ 주최자가 보관한 앨범은 **참여자 목록에서도** 빠진다(2026-08-17).
+        #   한쪽에만 남으면 같은 앨범이 사람마다 다르게 보인다.
+        .neq("status", "archived")
         .in_("id", participating_ids)
+        .is_("deleted_at", "null")
+        .order("updated_at", desc=True)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
+def list_archived_album_list_records(client: Client, profile_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    """보관함 — **주최자 자기 것만**이다 (2026-08-17).
+
+    ★ `status='archived'` 한 칸이 전부다. 사진·한마디·Storage 는 그대로 있다.
+      지운 것이 아니라 목록에서만 감춘 것이다.
+    ★ 판정 근거는 위 `list_owned_album_list_records` 와 같다(owner_id 하나).
+      두 목록이 같은 근거를 봐야 앨범이 둘 중 한 곳에는 반드시 있다.
+    """
+    columns = "id, title, created_at, updated_at, result_path, cover_photo_id, album_version, living_latest_edition_previous, status"
+    result = (
+        client.table("albums")
+        .select(columns)
+        .eq("owner_id", profile_id)
+        .eq("status", "archived")
         .is_("deleted_at", "null")
         .order("updated_at", desc=True)
         .order("created_at", desc=True)

@@ -1,74 +1,305 @@
-/* `우리앨범이란` 소개. 읽을거리라 행동(버튼)보다 조용해야 한다.
-   제목에만 보조색(--c-accent, 딥 틸)을 쓴다. 본문은 보조 본문 색 그대로다.
-   ★ 카드·테두리·그림자·배경을 두지 않는다 — 칸을 가르는 것은 여백뿐이다. */
+/* `우리앨범 소개` — 시안 1a (2026-08-16).
+   ★ **2 + 2 위계다.** 예전에는 넷이 같은 무게라 전부 같게 읽히고 스크롤로 지나갔다.
+     앞 2칸은 흰 카드(왜 쓰나), 뒤 2칸은 작은 2열(누가 쓰나).
+   ★ 이 구역은 `하는 곳`(위)과 갈리는 자리다 — 배경과 위의 선이 그 경계다.
+   ★ hex 를 여기 적지 않는다(§8). 값은 tokens.css 한 곳에 있다. */
+/* ★ 2026-08-17 PO — `디자인에 없는 박스를 치고 그 안에 넣어놓으니까 너무 작다`.
+   max-width 를 이 요소에 걸면 **배경과 위의 선까지** 가운데 좁은 띠가 되어,
+   `하는 곳(위) / 읽는 곳(아래)` 을 가르는 경계가 사라진다. 시안(landing-v2)에서
+   소개 구역은 화면 폭을 끝까지 쓰고 안쪽 여백만 22px 이다.
+   넓은 화면에서 글줄이 길어지는 것은 **좌우 padding 으로** 잡는다 — 배경은 끝까지 간다. */
 .brand-value {
-  margin: var(--s-8) auto 0;
-  max-width: 34rem;
-  padding: var(--s-6) 2px 0;
-  border-top: 1px solid var(--c-border);
+  margin: var(--s-8) 0 0;
+  padding: 30px max(22px, calc((100% - 34rem) / 2)) 34px;
+  border-top: 1px solid var(--c-about-line);
+  background: var(--c-about-bg);
   text-align: left;
 }
 
-.brand-value__item + .brand-value__item {
-  margin-top: var(--s-6);
-}
-
-/* 아이콘은 제목 **옆**이다. 제목이 두 줄이 되어도 아이콘 옆에 그대로 붙는다. */
-.brand-value__head {
+/* 라벨 — 로고 조합이다(§9). `우리` 는 조용하고 `앨범` 만 브랜드색이다. */
+.brand-value__label {
   display: flex;
-  align-items: flex-start;
-  gap: var(--s-3);
-  margin: 0 0 var(--s-2);
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.02em;
 }
 
-.brand-value__mark {
+.brand-value__symbol {
   flex: none;
-  width: 40px;
-  height: auto;
-  margin-top: 1px;
+  width: 16px;
+  height: 16px;
+}
+
+.brand-value__label-word span { color: var(--c-text-muted); }
+.brand-value__label-word b { color: var(--c-brand); font-weight: inherit; }
+.brand-value__label-tail { color: var(--c-text-subtle); }
+
+/* --- 앞 2칸 : 왜 쓰나 --- */
+
+.brand-value__card {
+  box-sizing: border-box;
+  padding: 18px 18px 20px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 18px;
+  background: var(--c-surface);
+}
+
+.brand-value__card + .brand-value__card {
+  margin-top: 12px;
 }
 
 .brand-value__title {
-  font-size: var(--t-lg);
+  margin: 0;
+  color: var(--c-text);
+  font-size: 16.5px;
   font-weight: var(--w-bold);
-  line-height: var(--lh-tight);
-  color: var(--c-accent);
+  line-height: 1.45;
 }
+
+/* 제목 안의 한 조각만 브랜드색 — 로고 조합과 같은 방식이다. */
+.brand-value__title b { color: var(--c-brand); font-weight: inherit; }
 
 .brand-value__copy {
   margin: 0;
-  font-size: var(--t-sm);
-  line-height: var(--lh-base);
   color: var(--c-text-soft);
+  font-size: 13.5px;
+  line-height: 1.65;
 }
 
-/* 시트 안에서는 이미 제목 줄과 경계가 있다 — 위의 선과 여백을 뺀다. */
+/* --- 카드 안의 그림 (시안대로 **실제 사진**을 쓴다 · 2026-08-16) --- */
+
+.brand-value__art {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  /* 시안 값 그대로 — gap 10 · 위 16 아래 14.
+     ★ 높이를 66px 으로 **묶지 않는다**. 묶으면 오른쪽 네 칸이 12px 짜리 띠로 눌려
+     사진이 사진으로 안 보였다(PO 지적 2026-08-17). 시안의 네 칸은 정사각이다.
+     두 상자가 함께 늘도록 stretch 로 두고, 하한만 66px 으로 지킨다. */
+  align-items: stretch;
+  gap: 10px;
+  margin: 16px 0 14px;
+}
+
+/* 왼쪽 — 흩어진 사진 더미. */
+.brand-value__pile {
+  position: relative;
+  min-height: 66px;
+  border-radius: 12px;
+  background: var(--c-about-tray);
+  overflow: hidden;
+}
+
+.brand-value__pile-shot {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  background: var(--c-surface);
+  box-shadow: var(--sh-tile);
+  object-fit: cover;
+}
+
+.brand-value__pile-shot:nth-child(1) { left: 14px; top: 6px; transform: rotate(-9deg); }
+.brand-value__pile-shot:nth-child(2) { left: 44px; top: 18px; transform: rotate(7deg); }
+.brand-value__pile-shot:nth-child(3) { left: 76px; top: 8px; transform: rotate(-4deg); }
+
+.brand-value__pile-count {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  left: 0;
+  color: var(--c-text-subtle);
+  font-size: 9.5px;
+  text-align: center;
+}
+
+.brand-value__arrow {
+  color: var(--c-brand);
+  font-size: 15px;
+}
+
+/* 오른쪽 — 날짜로 묶인 한 권. */
+.brand-value__book {
+  box-sizing: border-box;
+  display: grid;
+  align-content: space-between;
+  gap: 3px;
+  min-height: 66px;
+  padding: 8px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 12px;
+  background: var(--c-surface);
+}
+
+.brand-value__book-month {
+  color: var(--c-text-subtle);
+  font-size: 9px;
+}
+
+.brand-value__book-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.brand-value__book-grid img {
+  width: 100%;
+  /* ★ 정사각이다(시안). 12px 고정이면 사진이 띠가 된다. */
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 3px;
+  background: var(--c-about-tile);
+  object-fit: cover;
+  /* 같은 사진이라도 잘리는 자리가 다르면 네 칸이 다르게 보인다(시안). */
+  object-position: 70% 50%;
+}
+
+/* 둘째 칸 — 사진 한 장에 두 사람의 말이 붙는다. */
+.brand-value__art--together {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--c-bg-soft);
+}
+
+.brand-value__together-shot {
+  flex: none;
+  width: 62px;
+  height: 62px;
+  border-radius: 10px;
+  background: var(--c-about-tile);
+  object-fit: cover;
+}
+
+.brand-value__bubbles {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.brand-value__bubble {
+  padding: 5px 9px;
+  border-radius: 4px 10px 10px 10px;
+  color: var(--c-text);
+  font-size: 11.5px;
+}
+
+.brand-value__bubble--mine { background: var(--c-about-mine); }
+.brand-value__bubble--theirs { margin-left: 14px; background: var(--c-about-theirs); }
+
+/* --- 뒤 2칸 : 누가 쓰나 --- */
+
+.brand-value__use-label {
+  margin: 22px 0 10px;
+  color: var(--c-text-subtle);
+  font-size: 11.5px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.1em;
+}
+
+.brand-value__uses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brand-value__use {
+  box-sizing: border-box;
+  display: grid;
+  gap: 6px;
+  padding: 14px 13px 15px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 16px;
+  background: var(--c-surface);
+}
+
+.brand-value__use-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--c-brand-soft);
+}
+
+.brand-value__use-icon img { width: 22px; height: 22px; }
+
+.brand-value__use-title {
+  color: var(--c-text);
+  font-size: 14px;
+  font-weight: var(--w-bold);
+}
+
+.brand-value__use-copy {
+  color: var(--c-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* ★ 2026-08-17 PO — `디자인 html 과 다르다`. 배경 띠가 화면 끝에 닿지 않고 있었다.
+   원인은 이 파일이 아니라 **부모**다: `.app` 이 `padding: 0 var(--page-padding-x)`(20px)를
+   갖고 있어서 소개 구역이 좌우 20px 씩 안쪽에서 시작했다(실측: 화면 500 / 띠 440).
+   시안(landing-v2 `② 소개`)에서 이 구역은 프레임 **끝까지** 가고 안쪽 여백만 22px 이다.
+   그 20px 을 음수 여백으로 되돌린다 — 부모의 값을 그대로 읽으므로 한쪽만 바뀌지 않는다.
+   ★ `--full` 에만 건다. 시트는 시트가 폭을 정한다. */
+.brand-value--full {
+  margin-right: calc(var(--page-padding-x, 20px) * -1);
+  margin-left: calc(var(--page-padding-x, 20px) * -1);
+}
+
+/* 시트 안에서는 이미 제목 줄과 경계가 있다 — 위의 선과 배경을 뺀다.
+   ★ 위에서 padding 을 max() 로 잡았으므로 여기서 0 으로 되돌린다 — 시트는 시트가 폭을 정한다. */
 .brand-value--sheet {
   margin-top: 0;
-  padding-top: 0;
+  padding: 0;
   border-top: 0;
+  background: none;
 }
 
-/* 짧은 판: 아이콘이 왼쪽, 글이 오른쪽. 이미 앨범을 다 본 사람이라 두 줄이면 된다. */
+/* 짧은 판: 아이콘이 왼쪽, 글이 오른쪽. 이미 앨범을 다 본 사람이라 두 줄이면 된다.
+   ★ 이 판은 2026-08-16 에 바뀌지 않았다 — 공유 화면 맨 아래 그대로다. */
 .brand-value--short {
   display: grid;
   grid-template-columns: 40px 1fr;
   column-gap: var(--s-3);
   align-items: start;
+  padding: var(--s-6) 2px 0;
+  border-top: 1px solid var(--c-border);
+  background: none;
 }
 
 .brand-value--short .brand-value__mark {
+  flex: none;
   grid-row: 1 / span 2;
+  width: 40px;
+  height: auto;
   margin-top: 2px;
 }
 
 .brand-value--short .brand-value__title {
   display: block;
   margin: 0 0 6px;
+  color: var(--c-accent);
   font-size: var(--t-base);
+  line-height: var(--lh-tight);
 }
 
 .brand-value--short .brand-value__title,
 .brand-value--short .brand-value__copy {
   grid-column: 2;
+}
+
+.brand-value--short .brand-value__copy {
+  font-size: var(--t-sm);
+  line-height: var(--lh-base);
 }

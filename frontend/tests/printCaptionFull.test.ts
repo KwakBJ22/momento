@@ -59,18 +59,21 @@ test("★ 인쇄 렌더의 캡션이 **원문 그대로**다 (잘린 문자열�
   assert.equal(view.captions[0], LONG, "캡션이 원문과 다르다 — 어디선가 잘렸다");
 });
 
-test("★ 인쇄 CSS 에 줄 수 제한이 없다", () => {
+test("★ 뒤집힘 — 인쇄 캡션은 **두 줄에서 자른다** (2026-08-16 · 정사각 판형)", () => {
+  // ★ 예전 규칙: "인쇄는 자를 이유가 없다"(I-4g). 정사각 판형은 **칸 높이가 고정**이라
+  //   그럴 수 없다 — 캡션이 늘어나면 그 칸만 커져 같은 행의 위·아래 선이 어긋난다
+  //   (시안 §1 "칸이 늘어나는 일은 없습니다").
+  //   대신 캡션대 자리를 14mm 고정으로 **미리 비워 둔다**. 글이 반쪽 남는 것은
+  //   그대로 아픈 자리라, 두 줄에 맞춰 쓰도록 돕는 일은 화면 몫으로 남는다.
   const rules = printCss.replace(/\/\*[\s\S]*?\*\//g, "");
-  // 자르는 쪽 값이 인쇄에 남아 있으면 안 된다.
-  assert.equal(/-webkit-line-clamp:\s*\d/.test(rules), false, "인쇄에 줄 수 제한이 있다");
-  // 캡션 글에 높이 상한을 걸어 자르는 것도 같은 일이다.
-  assert.equal(/photo-memory-lines__text[^{]*\{[^}]*max-height/.test(rules), false, "캡션에 높이 상한이 있다");
-  // 자르는 규칙을 **끄는** 자리는 있어야 한다.
   const at = rules.indexOf(".album-renderer--print .print-frame__caption .photo-memory-lines--caption .photo-memory-lines__text {");
-  assert.notEqual(at, -1, "인쇄에서 줄 수 제한을 끄는 규칙이 없다");
+  assert.notEqual(at, -1, "인쇄 캡션 규칙이 없다");
   const rule = rules.slice(at, rules.indexOf("}", at));
-  assert.match(rule, /display: block/);
-  assert.match(rule, /overflow: visible/);
+  assert.match(rule, /-webkit-line-clamp: 2/);
+  assert.match(rule, /overflow: hidden/);
+  // 캡션대는 높이가 고정이다 — 그래야 사진 시작선이 쪽마다 같다.
+  const band = rules.slice(rules.indexOf(".album-renderer--print .print-frame__caption {"));
+  assert.match(band.slice(0, band.indexOf("}")), /height: var\(--pr-caption\)/);
 });
 
 test("★ 화면은 그대로 두 줄 + `…` 다", () => {
@@ -91,14 +94,14 @@ test("★ 화면 렌더에는 이 인쇄 규칙이 닿지 않는다", () => {
 
 // --- 길어진 만큼 사진을 낮춘다 (넘치게 두지 않는다) ---
 
-test("★ 캡션이 두 줄을 넘으면 그만큼 사진 상한을 낮춘다", async () => {
-  const short = await renderPrint([photo("p1", "짧다")]);
-  assert.equal(short.pages[0].style.getPropertyValue("--print-caption-extra"), "", "짧은 캡션 쪽은 지금 그대로여야 한다");
-
-  const long = await renderPrint([photo("p1", LONG)]);
-  const extra = long.pages[0].style.getPropertyValue("--print-caption-extra");
-  assert.match(extra, /^\d+(\.\d+)?mm$/, `쪽에 낮출 높이가 없다: ${extra}`);
-  assert.ok(Number.parseFloat(extra) > 0);
+test("★ 뒤집힘 — 캡션이 길어도 사진 상한을 낮추지 않는다 (캡션대가 고정이라)", async () => {
+  // ★ 예전에는 늘어난 캡션만큼 사진을 낮췄다(--print-caption-extra · I-4g).
+  //   정사각 판형은 캡션대가 14mm 고정이라 늘어날 것이 없다 — 낮출 것도 없다.
+  //   계산 코드(printCaptionFit.ts)는 지우지 않고 둔다(A4 를 먼저 지우지 않는다).
+  for (const caption of ["짧다", LONG]) {
+    const view = await renderPrint([photo("p1", caption)]);
+    assert.equal(view.pages[0].style.getPropertyValue("--print-caption-extra"), "", "사진 상한을 또 낮춘다");
+  }
 });
 
 test("★ 낮추는 높이는 늘어난 캡션 높이와 같다 — 프레임 높이가 그대로라 쪽을 넘지 않는다", async () => {

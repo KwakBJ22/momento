@@ -47,20 +47,21 @@
 .story-block__edit-btn::before {
   content: "";
   position: absolute;
+  box-sizing: border-box;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--c-border);
+  border: 0;
   border-radius: 50%;
-  background: var(--c-surface);
+  background: var(--c-accent-soft);
 }
 
 .story-block__edit-btn > * {
   position: relative;
 }
 
+/* 기본이 이미 accent-soft 라 hover 는 테두리만 남긴다 — 그래야 두 상태가 갈린다. */
 .story-block__edit-btn:hover::before {
-  background: var(--c-accent-soft);
-  border-color: var(--c-accent);
+  border: 1px solid var(--c-accent);
 }
 
 .story-block__input {

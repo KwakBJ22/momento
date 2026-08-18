@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CAPTION_MAX_LENGTH } from "../lib/albumLimits";
 
 import { showsPhotoList } from "../lib/uploadFormView";
 import type { PhotoItem } from "../types";
@@ -53,8 +54,15 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, on
                   loading="lazy"
                   decoding="async"
                   onError={() => {
-                    if (photo.previewRetried) setBrokenIds((current) => (current.includes(photo.id) ? current : [...current, photo.id]));
-                    else onPreviewBroken(photo.id);
+                    // ★ K-10 계측 (2026-08-15). 실기기에서만 나는 증상이라 검사로는 못 잡는다.
+                    //   화면에는 아무것도 내지 않는다 — 콘솔에만 남긴다.
+                    //   `preview-failed` 만 있고 `repair` 가 없으면 다시 만들기가 안 도는 것이고,
+                    //   `repair-failed` 까지 찍히면 다시 만든 주소도 죽은 것이다(메모리 압박).
+                    console.warn("[K-10] preview-failed", { index, retried: photo.previewRetried });
+                    if (photo.previewRetried) {
+                      console.warn("[K-10] repair-failed", { index });
+                      setBrokenIds((current) => (current.includes(photo.id) ? current : [...current, photo.id]));
+                    } else onPreviewBroken(photo.id);
                   }}
                 />
               )}
@@ -78,7 +86,7 @@ export default function PhotoCommentList({ photos, onCommentChange, onRemove, on
             <textarea
               className="photo-comments__input"
               rows={3}
-              maxLength={300}
+              maxLength={CAPTION_MAX_LENGTH}
               value={photo.story}
               placeholder={COMMENT_PLACEHOLDER}
               aria-label={`사진 ${index + 1} 한 줄`}

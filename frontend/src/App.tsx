@@ -407,7 +407,9 @@ function App() {
     !user && hasGuestAlbumToken(albumId) ? content : requiresLogin(content);
   const startGuestClaim = (albumId: string) => { setPendingGuestClaim(albumId); openLogin("guest-save"); };
 
-  if (isAuthCallbackPage()) return <div className="app"><main className="app__main"><AuthCallback /></main></div>;
+  // ★ 로그인 마무리도 **같은 헤더**를 쓴다(§3). 헤더가 없어서 화면이 갈리는
+  //   느낌이 났다 — 0.5초 스쳐 가는 자리라 더 그렇게 읽혔다.
+  if (isAuthCallbackPage()) return <div className="app app--auth-callback"><AppHeader /><main className="app__main"><AuthCallback /></main></div>;
 
   // The login modal must render on every surface (share page included), not only
   // on Landing. It is a fixed full-screen overlay, so rendering it at the app root

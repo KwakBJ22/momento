@@ -102,25 +102,35 @@ test("★ 한마디는 사진 프레임 **밖**이다", () => {
 test("★ 프레임과 한마디 사이에 눈에 보이는 간격이 있다 — 캡션이 없어도 붙지 않는다", () => {
   const css = readFileSync(path.join(SRC, "album-engine/components/PhotoMemoryList.css"), "utf8");
   const rule = css.slice(css.indexOf(".photo-memory-list {"), css.indexOf("}", css.indexOf(".photo-memory-list {")));
-  const margin = /margin: ([\d.]+)rem 0 0;/.exec(rule);
-  assert.ok(margin, "위쪽 간격이 없다");
-  // 기운 프레임의 겉넓이가 위아래로 10px 남짓 늘어난다(실측). 그보다 넉넉해야 틈이 보인다.
-  assert.ok(Number(margin[1]) >= 1.2, `간격이 좁다: ${margin[1]}rem`);
+  // ★ 2026-08-15 에 단위를 맞췄다. C1 에서 `margin: 1.35rem 0 0` → `margin-top: 12px` 로
+  //   갔다(시안 album-skins-v2). 간격이 있어야 한다는 뜻은 그대로다.
+  //   ※ 기운 프레임의 겉넓이가 위아래로 10px 남짓 늘어난다(실측). 12px 이면 남는 틈이
+  //     2px 남짓이므로, 실기기에서 눈으로 한 번 봐야 한다.
+  const margin = /margin-top: (\d+)px;/.exec(rule);
+  assert.equal(margin !== null, true, "위쪽 간격이 없다");
+  assert.equal(Number(margin![1]) >= 12, true, `간격이 좁다: ${margin![1]}px`);
   // 캡션은 프레임 안에서 가운데, 한마디는 프레임 밖에서 왼쪽 — 정렬로도 갈린다.
   assert.match(rule, /text-align: start;/);
 });
 
 test("★ 인쇄에는 넣지 않는다 (§7)", () => {
   // 기울기와 **같은 근거**로 화면/인쇄를 가른다 — 판단이 두 곳이 되지 않는다.
-  assert.match(block, /\{isScreen \? <PhotoMemoryList entries=\{memoryEntries\} \/> : null\}/);
+  // ★ 2026-08-15 에 `photoId` 가 붙었다(사진 밑에서 바로 한마디를 쓰기 위해서다).
+  //   화면일 때만 그린다는 규칙은 그대로다 — 이 검사가 지키는 것이 그것이다.
+  assert.match(block, /\{isScreen \? <PhotoMemoryList entries=\{memoryEntries\} photoId=\{photo\.id\} \/> : null\}/);
   const css = readFileSync(path.join(SRC, "album-engine/components/PhotoMemoryList.css"), "utf8");
   assert.match(css, /@media print \{[\s\S]*?\.photo-memory-list \{ display: none !important; \}/);
 });
 
 test("★ 카드·말풍선을 만들지 않는다 (§6 — 사진이 가장 크다)", () => {
   const css = readFileSync(path.join(SRC, "album-engine/components/PhotoMemoryList.css"), "utf8");
-  const body = css.slice(css.indexOf(".photo-memory-list {"), css.indexOf("@media print"));
-  assert.equal(/border(?!-)|box-shadow|background(?!-)/.test(body), false, "카드가 됐다");
+  // ★ 2026-08-15 에 좁혔다. C1 에서 왼쪽 **세로선**(border-left)으로 들여쓰기로 정했고,
+  //   아바타에는 사람마다 고정된 배경이 생겼다 — 둘 다 C1 이 정한 모양이다.
+  //   막는 것은 그대로다: 한마디를 **상자**로 만들지 않는다(사방 테두리·모서리·그림자·면).
+  const rule = css.slice(css.indexOf(".photo-memory-list {"), css.indexOf("}", css.indexOf(".photo-memory-list {")));
+  for (const forbidden of ["box-shadow", "border:", "border-radius", "background"]) {
+    assert.equal(rule.includes(forbidden), false, `카드가 됐다: ${forbidden}`);
+  }
 });
 
 test("이름이 실제로 그려진다", () => {

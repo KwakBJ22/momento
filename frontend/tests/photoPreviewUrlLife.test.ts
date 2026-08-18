@@ -83,8 +83,10 @@ test("★ 개발용 대체 문구가 화면에 나오지 않는다", () => {
 test("★ 주소가 죽었으면 회색 자리를 둔다", () => {
   assert.match(list, /\{brokenIds\.includes\(photo\.id\) \? \(\s*\n\s*<div className="photo-comments__image photo-comments__image--blank" \/>/);
   // 첫 번째 실패는 다시 만들어 보고, 두 번째 실패에서만 회색 자리로 간다.
-  assert.match(list, /if \(photo\.previewRetried\) setBrokenIds\(/);
-  assert.match(list, /else onPreviewBroken\(photo\.id\);/);
+  // ★ 2026-08-15 에 K-10 계측(console.warn) 이 사이에 들어와 갈래가 블록이 됐다.
+  //   보는 규칙은 그대로다 — 다시 만들어 본 뒤에만 회색 자리로 간다.
+  assert.match(list, /if \(photo\.previewRetried\) \{[\s\S]*?setBrokenIds\(/);
+  assert.match(list, /\} else onPreviewBroken\(photo\.id\);/);
   const css = readFileSync(path.join(SRC, "components/PhotoCommentList.css"), "utf8");
   assert.match(css, /\.photo-comments__image--blank \{[\s\S]*?background: var\(--c-border\);/);
 });

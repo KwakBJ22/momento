@@ -58,7 +58,7 @@ async function renderScreen(actionPanel: unknown) {
 test("★ 이미 참여한 앨범을 다시 열면 그 자리가 없다", async () => {
   // 참여자에게 넘어가는 값이 `null` 이면 aside 자체가 만들어지지 않는다.
   const rendered = await renderScreen(null);
-  assert.equal(rendered.box, null, "빈 상자가 다시 그려진다");
+  assert.equal(rendered.box === null, true, "빈 상자가 다시 그려진다");
   await rendered.cleanup();
 });
 
@@ -66,7 +66,7 @@ test("★ 빈 조각(<></>)을 넘기면 껍데기가 생긴다 — 이것이 �
   const React = (await import("react")).default;
   const rendered = await renderScreen(React.createElement(React.Fragment, null, null));
   // 이 검사는 "빈 조각은 안전하지 않다"를 못 박아 둔다 — 다시 그렇게 쓰면 안 된다.
-  assert.ok(rendered.box, "빈 조각이 더 이상 껍데기를 만들지 않는다면 이 검사를 지워도 된다");
+  assert.equal(rendered.box !== null, true, "빈 조각이 더 이상 껍데기를 만들지 않는다면 이 검사를 지워도 된다");
   assert.equal(rendered.box!.children.length, 0);
   await rendered.cleanup();
 });
@@ -76,7 +76,7 @@ test("★ 주최자에게는 패널이 정상으로 보인다 — 자리를 통�
   const rendered = await renderScreen(
     React.createElement("div", { className: "collab-panel" }, "참여 현황"),
   );
-  assert.ok(rendered.box, "주최자 패널 자리가 사라졌다");
+  assert.equal(rendered.box !== null, true, "주최자 패널 자리가 사라졌다");
   assert.equal(rendered.box!.children.length, 1);
   assert.match(rendered.box!.textContent || "", /참여 현황/);
   await rendered.cleanup();

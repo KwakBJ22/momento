@@ -16,12 +16,21 @@ import test from "node:test";
 
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
-/** 연필 네 자리 — 파일 · 선택자 · 색. */
+/**
+ * ★ 원과 연필은 **한 벌**이다 (2026-08-15 PO).
+ *   "펜슬 색상과 원의 색상이 달라서 어색하다" — 원이 회색 계열(--c-border/--c-surface),
+ *   연필이 보조색이라 한 버튼의 두 부분이 남남이었다. **원을 연필 쪽으로 당겼다**:
+ *   테두리를 없애고 배경을 연필과 같은 계열의 연한 면으로 둔다. 연필이 하는 일
+ *   (고칠 수 있다)이 보조색이 맡은 뜻이라, 회색 쪽으로 당기면 뜻이 흐려진다.
+ *   지름 32px · 누름 영역 44px · ::before 로 그리는 방식은 그대로다.
+ */
+
+/** 연필 네 자리 — 파일 · 선택자 · 색 · 원의 면. */
 const PENCILS = [
-  { file: "album-engine/blocks/StoryBlock.css", selector: ".story-block__edit-btn", color: "--c-accent" },
-  { file: "album-engine/components/AlbumEpilogue.css", selector: ".album-epilogue__edit", color: "--c-accent" },
-  { file: "album-engine/components/PhotoMemoryLines.css", selector: ".photo-memory-lines__edit-btn", color: "--c-accent" },
-  { file: "components/AlbumScreenHeader.css", selector: ".album-screen-header__edit", color: "--c-brand-text" },
+  { file: "album-engine/blocks/StoryBlock.css", selector: ".story-block__edit-btn", color: "--c-accent", disc: "--c-accent-soft" },
+  { file: "album-engine/components/AlbumEpilogue.css", selector: ".album-epilogue__edit", color: "--c-accent", disc: "--c-accent-soft" },
+  { file: "album-engine/components/PhotoMemoryLines.css", selector: ".photo-memory-lines__edit-btn", color: "--c-accent", disc: "--c-accent-soft" },
+  { file: "components/AlbumScreenHeader.css", selector: ".album-screen-header__edit", color: "--c-brand-text", disc: "--c-brand-soft" },
 ];
 
 function rule(css: string, selector: string): string {
@@ -32,7 +41,17 @@ function rule(css: string, selector: string): string {
 
 test("★ 네 자리 모두 44px 이상 누를 수 있다", () => {
   for (const { file, selector } of PENCILS) {
-    const body = rule(read(file), selector);
+    const css = read(file);
+    const body = rule(css, selector);
+    // ★ 2026-08-16 — 캡션 연필은 **자리 32px + 누름 영역 ::after 44px** 로 바뀌었다.
+    //   `min-height: 44px` 이 캡션 줄 높이를 밀어 올려 연필이 사진 위로 솟았기 때문이다.
+    //   지키는 규칙(손가락이 닿는 넓이 44px)은 그대로다 — 재는 자리만 옮겼다.
+    const viaAfter = css.includes(`${selector}::after`)
+      && /width: var\(--tap-min\)[\s\S]*?height: var\(--tap-min\)/.test(rule(css, `${selector}::after`));
+    if (viaAfter) {
+      assert.match(body, /width: 32px/, `${selector}: 보이는 크기가 32px 이 아니다`);
+      continue;
+    }
     assert.match(body, /min-width: var\(--tap-min\)/, `${selector}: 누르는 폭이 44px 이 아니다`);
     assert.match(body, /min-height: var\(--tap-min\)/, `${selector}: 누르는 높이가 44px 이 아니다`);
   }
@@ -43,9 +62,19 @@ test("★ 네 자리 모두 ::before 로 32px 동그라미를 그린다", () => 
     const before = rule(read(file), `${selector}::before`);
     assert.match(before, /width: 32px/, `${selector}: 원이 32px 이 아니다`);
     assert.match(before, /height: 32px/);
-    assert.match(before, /border: 1px solid var\(--c-border\)/, `${selector}: 테두리가 다르다`);
+    assert.match(before, /border: 0/, `${selector}: 원에 테두리가 남았다`);
     assert.match(before, /border-radius: 50%/, `${selector}: 동그라미가 아니다`);
-    assert.match(before, /background: var\(--c-surface\)/);
+  }
+});
+
+test("★ 원의 면은 연필과 같은 계열이다 — 한 벌로 읽힌다 (2026-08-15 PO)", () => {
+  for (const { file, selector, disc } of PENCILS) {
+    const before = rule(read(file), `${selector}::before`);
+    assert.match(before, new RegExp(`background: var\\(${disc}\\)`), `${selector}: 원이 연필과 다른 계열이다`);
+    // 회색 계열로 되돌아가면 여기서 잡힌다.
+    assert.equal(before.includes("var(--c-surface)"), false, `${selector}: 원이 회색 면으로 돌아갔다`);
+    // 테두리가 없으니 hover 에서 1px 이 생긴다 — 지름이 흔들리지 않게 border-box 로 잡는다.
+    assert.match(before, /box-sizing: border-box/, `${selector}: hover 에서 원이 2px 커진다`);
   }
 });
 

@@ -96,7 +96,10 @@ test("공유 화면 시트의 역할별 노출은 §5 표 그대로", () => {
   // PDF 실패를 조용히 삼키지 않는다(§11) — 앨범 상세와 같은 문구 모듈.
   assert.match(share, /setPdfNotice\(pdfFailureMessage\(error\)\)/);
   // I-3: 진행·결과 표시는 **시트 밖**이다 — 시트를 닫아도 남는다(앨범 상세와 같은 것).
-  assert.match(share, /<AlbumPdfStatus working=\{isExportingPdf\} notice=\{pdfNotice\}/);
+  // ★ 2026-08-16 — 태그가 여러 줄이 됐다(인쇄 관심 prop). 보는 것은 그대로다.
+  assert.match(share, /<AlbumPdfStatus[\s\S]{0,200}?notice=\{pdfNotice\}/);
+  // 그 인쇄 관심 자리에도 구경꾼은 없다 — 자기 앨범인 사람에게만 묻는다.
+  assert.match(share, /printIntent=\{role !== "visitor"/);
 });
 
 // B-1 (§5) — 공유하기는 목적이 다른 두 링크를 갈라 보낸다. 발급도 갈라져 있다(A-7).

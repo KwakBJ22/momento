@@ -56,41 +56,48 @@ function uninstallDom(): void {
   delete g.ImageBitmap; delete g.HTMLImageElement;
 }
 
-const { prepareUploadAndPreview } = await import("../src/lib/optimizeImageFile");
+const { makePreviewBlob, optimizeImageFile } = await import("../src/lib/optimizeImageFile");
 
-test("one decode yields a 2560px upload file and an 800px preview blob", async () => {
+/**
+ * ★ 2026-08-16 — 한 번 디코드해서 **둘 다** 만들던 길(prepareUploadAndPreview)이 없어졌다.
+ *   고르는 자리는 미리보기만, 제출하는 자리는 올릴 파일만 만든다. 두 자리가 갈렸으므로
+ *   함수도 갈렸다 — 쓰지 않는 옛 길을 남겨 두면 다음 사람이 그것을 고친다.
+ *   여기서 지키던 것(800 미리보기 · 2560 업로드 파일 · 사진을 잃지 않는다)은 그대로다.
+ */
+test("고르는 자리는 800 미리보기 하나, 제출하는 자리는 2560 파일 하나", async () => {
   canvases.length = 0;
   installDom();
   try {
     const file = { size: 4_000_000, name: "photo.jpg", type: "image/jpeg" } as unknown as File;
-    const { file: uploadFile, previewBlob } = await prepareUploadAndPreview(file);
-
+    const previewBlob = await makePreviewBlob(file);
     assert.ok(previewBlob, "a preview blob is produced");
-    assert.equal(canvases.length, 2, "exactly two canvases: upload then preview");
-    // Upload canvas long edge = 2560, preview canvas long edge = 800.
-    assert.equal(Math.max(canvases[0].peakW, canvases[0].peakH), 2560);
-    assert.equal(Math.max(canvases[1].peakW, canvases[1].peakH), 800);
+    assert.equal(canvases.length, 1, "고르는 자리에서 캔버스는 하나다");
+    assert.equal(Math.max(canvases[0].peakW, canvases[0].peakH), 800);
+
+    const uploadFile = await optimizeImageFile(file);
     assert.ok(uploadFile);
+    assert.equal(canvases.length, 2);
+    assert.equal(Math.max(canvases[1].peakW, canvases[1].peakH), 2560);
   } finally {
     uninstallDom();
   }
 });
 
-test("decode failure falls back to the original file with no preview (no photo dropped)", async () => {
+test("decode failure loses no photo — no preview, and the original is uploaded", async () => {
   uninstallDom(); // no DOM → decode throws
   const file = { size: 3_000_000, name: "weird.jpg", type: "image/jpeg" } as unknown as File;
-  const { file: out, previewBlob } = await prepareUploadAndPreview(file);
-  assert.equal(out, file);
-  assert.equal(previewBlob, null);
+  assert.equal(await makePreviewBlob(file), null);
+  const { prepareForUpload } = await import("../src/lib/optimizeImageFile");
+  assert.equal(await prepareForUpload(file), file);
 });
 
 test("HEIC and GIF pass through as the original with no preview", async () => {
   uninstallDom();
+  const { prepareForUpload } = await import("../src/lib/optimizeImageFile");
   for (const [name, type] of [["IMG_0001.heic", "image/heic"], ["anim.gif", "image/gif"]] as const) {
     const file = { size: 2_000_000, name, type } as unknown as File;
-    const { file: out, previewBlob } = await prepareUploadAndPreview(file);
-    assert.equal(out, file, `${name} returned unchanged`);
-    assert.equal(previewBlob, null, `${name} has no preview`);
+    assert.equal(await prepareForUpload(file), file, `${name} returned unchanged`);
+    assert.equal(await makePreviewBlob(file), null, `${name} has no preview`);
   }
 });
 
@@ -99,15 +106,19 @@ test("HEIC and GIF pass through as the original with no preview", async () => {
 const uploadForm = readFileSync(new URL("../src/components/UploadForm.tsx", import.meta.url), "utf8");
 const photoList = readFileSync(new URL("../src/components/PhotoCommentList.tsx", import.meta.url), "utf8");
 
-test("UploadForm builds previewUrl from previewBlob, falling back to the upload file", () => {
-  assert.match(uploadForm, /prepareUploadAndPreview\(file\)/);
+test("UploadForm builds previewUrl from previewBlob, falling back to the original file", () => {
+  // ★ 2026-08-16 — 고르는 자리에서는 **미리보기 하나만** 만든다. 올릴 파일(2560)은
+  //   `앨범 만들기` 로 미뤘다. 화면에 붙는 것이 800 이라는 규칙(K-10)은 그대로이고,
+  //   못 만들었을 때 원본으로 되돌아가는 갈래도 그대로다(GIF·HEIC·디코드 실패).
+  assert.match(uploadForm, /const previewBlob = await makePreviewBlob\(file\);/);
+  assert.equal(uploadForm.includes("prepareUploadAndPreview"), false, "무거운 변환이 고르는 자리에 남았다");
   // ★ K-10 에서 한 단계 늘었다 — 만든 덩어리를 `previewSource` 로 함께 들고 있는다.
   //   깨진 주소를 파일을 다시 읽지 않고 한 번 되살리려는 것이다. 고르는 규칙은 그대로다.
   assert.match(uploadForm, /const previewSource = previewBlob \?\? file;/);
   assert.match(uploadForm, /previewUrl: URL\.createObjectURL\(previewSource\), previewSource,/);
   // ★ 인자가 하나 늘었다 (2026-08-13): EXIF 위치(gps). 미리보기를 만드는 규칙
   //   (previewBlob 우선, 없으면 업로드 파일)은 그대로다.
-  assert.match(uploadForm, /createPhotoItem\(prepared, previewBlob, capturedAt, gps\)/);
+  assert.match(uploadForm, /createPhotoItem\(original, previewBlob, capturedAt, gps\)/);
 });
 
 test("PhotoCommentList decodes previews lazily and asynchronously", () => {

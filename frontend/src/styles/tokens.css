@@ -30,6 +30,15 @@
      시안(docs/mockups)의 --hairline 은 #f0e4e1(분홍)인데, 선에서 붉은 기를 뺀다는
      우리 결정을 지켜 같은 밝기의 중성값으로 둔다(R-B 차 6). */
   --c-hairline: #e9e5e3;
+  /* 눌린 면 — 시안(delete-sheet 1b)의 #F4EFEE. `그만두기` 버튼 바탕과 `+N` 칸이 쓴다.
+     --c-bg-soft(#f7f5f3)보다 한 톤 진해서 흰 시트 위에서 **버튼으로 읽힌다**.
+     ★ 새로 만든 값은 이것 하나다. 나머지 색(#A3231F·#2D2D2D·#7D716F)은
+       --c-danger · --c-text · --c-text-muted 로 이미 있었다. */
+  --c-surface-pressed: #f4efee;
+  /* 되돌릴 길 블록의 선 두 겹 — 시안(delete-sheet 1b)의 #EDE3E2 · #E0D4D2.
+     --c-border(#d6d1ce)보다 연하고 따뜻해서 `권하는 자리`로 읽힌다(경고가 아니다). */
+  --c-keep-line: #ede3e2;
+  --c-keep-button-line: #e0d4d2;
 
   /* ---- 색: 글자 (배경 --c-bg 기준) ---- */
   --c-text: #2d2d2d;           /* 본문·제목        13.57:1 */
@@ -113,4 +122,121 @@
 
   /* ---- 터치 타깃 ---- */
   --tap-min: 44px;
+
+  /* ---- 첫 화면 히어로 (시안 1a) ----
+   * ★ 모이는 선은 **브랜드 계열의 연한 선**이다. `--c-hairline`(회색)로 두면
+   *   그림이 회색 배경에 묻혀 "모인다"는 뜻 자체가 안 보인다(2026-08-16 실측).
+   * ★ 세 사람의 색이 **서로 달라야** `각자 올린 것`이 보인다. 같은 색이면
+   *   그냥 사진 3장이다. 화면에 hex 를 직접 적지 않는다(§8) — 값은 여기 하나다. */
+  --c-hairline-brand: #f2cfcd;
+  --c-hero-dad: #e4edea;
+  --c-hero-dad-text: #5a7a6c;
+  --c-hero-mom: #ffe0e0;
+  --c-hero-mom-text: #e85555;
+  --c-hero-me: #ede6f2;
+  --c-hero-me-text: #6e5e80;
+  /* 히어로 앨범 카드의 그림자 — 시안 값. --sh-lg(0 18px 44px)보다 얕다. */
+  --sh-card: 0 10px 26px rgba(45, 45, 45, 0.08);
+
+  /* ---- 소개 구역 (시안 1a) ----
+   * `하는 곳`(위)과 `읽는 곳`(아래)을 배경으로 가른다. 값은 여기 하나다(§8). */
+  --c-about-bg: #fbf8f7;      /* 소개 구역 바탕 */
+  --c-about-line: #f2eceb;    /* 그 위의 가는 선 */
+  --c-about-tray: #f5f1f0;    /* 그림 안의 바닥(흩어진 사진 더미) */
+  --c-about-tile: #f0e9e8;    /* 그림 안의 사진 한 칸 */
+  --c-about-mine: #fff0ef;    /* `나만 아는 이야기` 말풍선 */
+  --c-about-theirs: #efebe9;  /* `친구만 아는 이야기` 말풍선 */
+  --sh-tile: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================
+   앨범 모양 6종의 강조색 (시안 docs/mockups/album-skins-v2.html)
+
+   ★ 색만 여기 있다. **배치 규칙은 AlbumSkins.css** 에 있고 화면에만 걸린다.
+     색 두 변수는 루트에 얹으므로 **인쇄에도 따라간다** — PDF 에서 갈리는 것은
+     이야기 제목 색과 표지 강조선 둘뿐이다.
+   ★ `--c-accent-soft` 는 **배경 전용**이다. 글자색으로 쓰지 않는다.
+   ★ 본문 CSS 는 계속 var(--c-accent) / var(--c-accent-soft) 만 참조한다 —
+     모양 이름을 아는 선택자를 본문에 만들지 않는다.
+   ★ :root 의 기본값(#1f6b6b)은 그대로 둔다. 앨범 밖 화면이 그것을 쓴다.
+   ============================================================ */
+
+.album-renderer--skin-basic {
+  --c-accent: #3f5b7a;
+  --c-accent-soft: #eef2f7;
+}
+
+.album-renderer--skin-scrapbook {
+  --c-accent: #8a2c2c;
+  --c-accent-soft: #fff0f0;
+}
+
+.album-renderer--skin-airy {
+  --c-accent: #9a3d63;
+  --c-accent-soft: #fdf0f4;
+}
+
+.album-renderer--skin-grid {
+  --c-accent: #7a5a1f;
+  --c-accent-soft: #faf3e4;
+}
+
+.album-renderer--skin-magazine {
+  --c-accent: #1f6b6b;
+  --c-accent-soft: #e9f2f1;
+}
+
+.album-renderer--skin-single {
+  --c-accent: #6b4a2f;
+  --c-accent-soft: #f7f0e9;
+}
+
+/* ---- 종이 색 3종 — 모양과 **분리**한다 ----
+   배경을 모양에 묶으면 같은 사진이 모양마다 달라 보인다. 그래서 나눈다.
+   ★ 덮는 것은 --c-bg 하나뿐이다. 사진이 놓이는 흰 마운트(--c-surface)는 그대로다.
+   ★ **인쇄는 항상 흰 종이다** — 아래 규칙은 화면에만 건다(잉크를 쓰지 않는다). */
+.album-renderer--screen.album-renderer--paper-white { --c-bg: #fffdfb; }
+.album-renderer--screen.album-renderer--paper-cream { --c-bg: #fdfaf3; }
+.album-renderer--screen.album-renderer--paper-gray { --c-bg: #f7f7f6; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   인쇄 판형 — **200×200mm 정사각 하나** (docs/mockups/print-layout.html · 2026-08-16)
+ *
+ * PO 결정: A4 를 버리고 정사각 하나로 간다. 무료/유료는 판형이 아니라 화질과
+ * 브랜드 요소로 가른다(유료화_기준 §3).
+ *
+ * ★ **mm 값을 CSS 에 직접 적지 않는다.** 값은 여기 한 곳이다.
+ *   (딱 한 곳 예외: `@page { size: ... }` — 문서 트리 밖이라 변수를 못 읽는다.)
+ *
+ *     재단 200×200 · 작업 206×206(사방 bleed 3) · 여백은 재단선에서 13
+ *     안전 영역 174×174 — **글자는 반드시 이 안**
+ *     4열 × 39mm · 거터 6mm  (39×4 + 6×3 = 174)
+ *     날짜 머리글대 14mm + 아래 6mm → 사진 영역 174 × 154
+ *     300dpi 기준 200mm = 2362px
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --pr-trim: 200mm;
+  --pr-bleed: 3mm;
+  --pr-margin: 13mm;
+  --pr-gutter: 6mm;
+  --pr-col: 39mm;
+  /* 캡션대 — 칸 높이는 고정이고, 캡션이 있으면 사진이 이만큼 줄어든다(시안 §1). */
+  --pr-caption: 14mm;
+
+  /* 아래는 위 값에서 나온 것이다. 따로 정하지 않는다. */
+  /* 작업 지면 206mm = 재단 200 + bleed 3 × 2. */
+  --pr-page: calc(var(--pr-trim) + var(--pr-bleed) * 2);
+  /* 지면 가장자리에서 안전 영역까지 = bleed 3 + 여백 13. */
+  --pr-inset: calc(var(--pr-bleed) + var(--pr-margin));
+  /* 안전 영역 174 = 200 − 13 × 2. */
+  --pr-safe: calc(var(--pr-trim) - var(--pr-margin) * 2);
+  /* 날짜 머리글대 높이 + 그 아래 여백. */
+  --pr-head: 14mm;
+  --pr-head-gap: var(--pr-gutter);
+  /* 사진 영역 154 = 174 − (14 + 6). */
+  --pr-photo-area: calc(var(--pr-safe) - var(--pr-head) - var(--pr-head-gap));
+  /* 글줄 폭 — 3열(39×3 + 6×2). 이보다 넓으면 안 읽힌다(시안 §4). */
+  --pr-measure: calc(var(--pr-col) * 3 + var(--pr-gutter) * 2);
+  /* 사진과 이야기 사이(시안 §4). */
+  --pr-story-gap: 14mm;
 }

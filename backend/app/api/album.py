@@ -19,6 +19,7 @@ from app.models.schemas import (
     CurrentEditionSummary,
     MyAlbumListItem,
     MyAlbumsResponse,
+    AlbumDeletePreviewResponse,
     AlbumPdfUrlResponse,
     AlbumMediaSummary,
     AlbumMediaUploadResponse,
@@ -41,7 +42,9 @@ from app.models.schemas import (
     AlbumGenerationPreviewItem,
     AlbumGenerationPreviewResponse,
     MeetingType,
-    NarrativeUpdate,
+    ALBUM_PAPER_VALUES,
+    ALBUM_SKIN_VALUES,
+    AlbumSettingsUpdate,
     StoryInputResponse,
     StoryInputUpdate,
     StoryRegenerateResponse,
@@ -89,6 +92,7 @@ from app.services.supabase import (
     list_album_photo_cover_records,
     list_album_photo_list_summaries,
     list_owned_album_cover_records,
+    list_archived_album_list_records,
     list_owned_album_list_records,
     list_participating_album_list_records,
     get_signed_url,
@@ -110,7 +114,7 @@ from app.services.supabase import (
     upload_result_image,
 )
 from app.services.image_upload_service import parse_captured_at, parse_coordinate, process_upload, validate_upload_limits
-from app.services.place_name_service import resolve_city_name_cached
+from app.services.place_name_service import resolve_place_for_upload
 from app.services.album_generation_service import (
     create_generation_job,
     generation_status,
@@ -156,6 +160,7 @@ from app.services.collaboration_service import (
     get_cached_pdf_path,
     get_cached_pdf_bucket,
     list_photo_memories,
+    pending_contribution_rules,
     set_cached_pdf_path,
     unpack_edition_snapshot,
 )
@@ -169,7 +174,13 @@ router = APIRouter(prefix="/api", tags=["album"])
 # 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
 #   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
 PDF_RENDERER_VERSION = 3
+# 저장된 `새로 더해진` 페이지가 아직 하나도 없을 때, 계산해서 세우는 한 장의 id.
+# ★ 값이 고정이어야 한다 — 화면이 이 id 로 `NEW` 표시를 기억한다(sessionStorage).
+_PENDING_APPEND_PAGE_ID = "pending-contributions"
 logger = logging.getLogger(__name__)
+
+#: 지우기 시트에 미리 보여줄 사진 수 (시안 1b — 세 장 + `+N` 칸).
+DELETE_PREVIEW_PHOTOS = 3
 
 _VALID_MEETING_TYPES = set(get_args(MeetingType))
 _VALID_TEMPLATES = set(get_args(TemplateType))
@@ -657,18 +668,14 @@ async def upload_album(
                 # ``uploading`` would make the retry path incorrectly treat
                 # it as absent before derivatives are created.
                 # ★ 좌표는 **저장하지 않는다** (PO 판단 2026-08-13). 집 주소가 드러나는
-                #   값이고 앨범은 여럿이 본다. 시·군 이름으로 바꾼 뒤 버린다.
+                #   값이고 앨범은 여럿이 본다. 시·군·구 이름으로 바꾼 뒤 버린다(2026-08-15 · 구까지).
                 #   지명을 못 얻으면(키 없음·카카오 실패·좌표 없음) 장소 없이 그냥 간다.
                 "status": ALBUM_PHOTO_READY, "taken_at": taken_at_iso,
                 "latitude": None, "longitude": None,
-                "location_name": (place_name := resolve_city_name_cached(
-                    # ★ getattr 이다. 이 설정 값이 없어도 **업로드는 통과해야 한다** —
-                    #   place_name_service 가 약속한 것이 그것이다("사진 업로드가 지명
-                    #   하나 때문에 실패하면 안 된다"). 직접 읽었더니 값이 없는 설정에서
-                    #   AttributeError 로 500 이 났다.
-                    processed.latitude, processed.longitude, getattr(settings, "kakao_rest_api_key", ""),
-                )),
-                "location_source": "exif" if place_name else "unknown",
+                # 판정은 place_name_service 한 곳에 있다 — 저장하는 자리가 셋이라 각자
+                # 적으면 갈린다(실제로 갈렸다). 여기서는 그 결과를 넣기만 한다.
+                "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+                "location_source": place[1],
                 "orientation": processed.orientation, "width": processed.width or None, "height": processed.height or None,
             })
             if int(entry["upload_order"]) == cover_photo_order:
@@ -685,7 +692,7 @@ async def upload_album(
                 "metadata": {"source": "album_photos", "datetime_original": processed.datetime_original,
                              "create_date": processed.create_date, "upload_order": entry["upload_order"],
                              "day_group_count": len(_day_groups),
-                             "location_source": "exif" if place_name else "unknown"},
+                             "location_source": place[1]},
             })
         originals_uploaded_at = time.perf_counter()
         _log_upload_stage(
@@ -862,14 +869,12 @@ async def upload_album(
                     "legacy_author_label": story["user"] or None,
                     "status": ALBUM_PHOTO_READY,
                     "taken_at": taken_at_iso,
-                    "latitude": processed.latitude,
-                    "longitude": processed.longitude,
-                    "location_name": None,
-                    "location_source": (
-                        "exif"
-                        if processed.latitude is not None and processed.longitude is not None
-                        else "unknown"
-                    ),
+                    # ★ 좌표는 **저장하지 않는다**(PO 판단 2026-08-13). 이 자리는 그 규칙이
+                    #   빠져 있어 좌표를 그대로 넣고 이름은 null 로 박았다 — 위 자리와 같게 맞춘다.
+                    "latitude": None,
+                    "longitude": None,
+                    "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+                    "location_source": place[1],
                     "orientation": processed.orientation,
                     "width": processed.width or None,
                     "height": processed.height or None,
@@ -891,8 +896,9 @@ async def upload_album(
                     "sort_order": sort_order,
                     "processing_status": "ready",
                     "taken_at": taken_at_iso,
-                    "latitude": processed.latitude,
-                    "longitude": processed.longitude,
+                    # 원본 기록에도 좌표를 남기지 않는다 — 위와 같은 이유다.
+                    "latitude": None,
+                    "longitude": None,
                     "orientation": processed.orientation,
                     "metadata": {
                         "source": "album_photos",
@@ -900,11 +906,7 @@ async def upload_album(
                         "create_date": processed.create_date,
                         "upload_order": entry["upload_order"],
                         "day_group_count": len(_day_groups),
-                        "location_source": (
-                            "exif"
-                            if processed.latitude is not None and processed.longitude is not None
-                            else "unknown"
-                        ),
+                        "location_source": place[1],
                     },
                 }
             )
@@ -1298,6 +1300,15 @@ def update_photo_location(
         access=access,
     )
 
+    # ★ 촬영일은 **앨범의 뼈대**다 — 바뀌면 묶음이 다시 갈리고 이야기가 따라 움직인다.
+    #   그래서 장소와 달리 **주최자만** 고친다(§7). 프런트가 연필을 감추는 것과 별개로
+    #   여기서 막는다(§10).
+    if body.taken_at is not None:
+        require_album_edit_settings(access)
+        if body.taken_at.year < 1900:
+            raise HTTPException(status_code=400, detail="1900년 이후 날짜만 넣을 수 있어요.")
+        # 앞날은 막지 않는다 — 기기 시계가 틀린 사진이 있고, 그건 사용자가 알아서 고친다.
+
     name = (body.location_name or "").strip() or None
     payload: dict[str, Any] = {
         "location_name": name,
@@ -1309,6 +1320,8 @@ def update_photo_location(
         payload["longitude"] = body.longitude
     if not name and body.latitude is None and body.longitude is None:
         payload["location_source"] = "unknown"
+    if body.taken_at is not None:
+        payload["taken_at"] = body.taken_at.isoformat()
 
     updated = (
         client.table("album_photos")
@@ -1546,6 +1559,13 @@ def delete_media(
     deleted = soft_delete_album_photo_with_references(client, album_id, media_id) if photo_rows else delete_album_media_record(client, album_id, media_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="미디어를 찾을 수 없습니다.")
+    # ★ 표지로 쓰던 사진을 뺐으면 표지를 옮긴다 — 표지가 **빈 자리**가 되면 안 된다.
+    #   남은 사진의 첫 장으로 가고, 남은 것이 없으면 비운다(사진 0장 앨범도 막지 않는다).
+    #   앨범을 다시 만들지는 않는다 — 캡션·한마디·이야기는 그대로다.
+    if str(album.get("cover_photo_id") or "") == str(media_id):
+        remaining = get_album_photo_records(client, album_id)
+        next_cover = str(remaining[0]["id"]) if remaining else None
+        client.table("albums").update({"cover_photo_id": next_cover}).eq("id", album_id).execute()
     try:
         StorageService.for_supabase(client, settings).delete(settings.supabase_private_storage_bucket, sorted(paths))
     except Exception as exc:
@@ -1778,6 +1798,9 @@ def _detail_from_record(
         category=record.get("category"),
         template=record.get("template", "B"),
         template_type=normalize_template_type(record.get("template_type")),
+        # 고르지 않았으면 null 이다 — 화면이 카테고리 추천으로 채운다(규칙은 프런트 한 곳).
+        skin=record.get("skin"),
+        paper=record.get("paper"),
         title=record.get("title", "우리의 모임"),
         date=record.get("event_date", ""),
         narrative=epilogue,
@@ -1830,6 +1853,60 @@ def _record_to_detail_light(
     )
 
 
+def _pending_append_ids(
+    album: dict[str, Any],
+    contributors: list[dict[str, Any]],
+    document: dict[str, Any] | None,
+    photos: list[dict[str, Any]],
+    memories: list[dict[str, Any]],
+    page_photo_ids: set[str],
+    page_memory_ids: set[str],
+) -> tuple[list[str], list[str], str | None]:
+    """저장된 페이지에 아직 안 적힌 참여를 **공유 화면과 같은 자로** 다시 센다.
+
+    ★ OPEN_ITEMS §2-1. 앨범 화면은 저장된 `living_append_pages` 만 읽었다. 그런데
+      한마디만 올라오면 그 페이지의 `photo_ids` 가 비어서(dev 실측 2026-08-15),
+      문서 이후에 더해진 사진은 본문에도 없고 이 페이지에도 없어 **어디에도** 안 보였다.
+
+    ★ K-24 를 지킨다 — 한마디를 사진과 같은 잣대로 거르지 않는다. 사진이 어디든
+      그려지면 한마디는 그 사진 밑에 그대로 나오므로 여기서 다시 세지 않는다.
+      **사진이 아직 안 그려지는 한마디만** 이 자리로 온다. 그래야 어디에도 안 보이는
+      글이 생기지 않고, 같은 글이 두 곳에 겹치지도 않는다.
+
+    Returns: (더할 사진 id, 더할 한마디 id, 가장 최근 참여 시각)
+    """
+    rules = pending_contribution_rules(album, contributors)
+    # 본문에 그려지는 사진 — album_photos 엔드포인트의 `visible_photos` 와 같은 조건이다.
+    body_photo_ids = album_document_photo_ids(document)
+
+    def drawn_in_body(photo_id: str) -> bool:
+        return not body_photo_ids or photo_id in body_photo_ids
+
+    pending_photos = [
+        photo for photo in photos
+        if rules.is_pending_photo(photo)
+        and not drawn_in_body(str(photo["id"]))
+        and str(photo["id"]) not in page_photo_ids
+    ]
+    drawn_photo_ids = page_photo_ids | {str(photo["id"]) for photo in pending_photos}
+    pending_memories = [
+        memory for memory in memories
+        if rules.is_pending_memory(memory)
+        and str(memory.get("id") or "") not in page_memory_ids
+        and not drawn_in_body(str(memory.get("photo_id") or ""))
+        and str(memory.get("photo_id") or "") not in drawn_photo_ids
+    ]
+    newest = max(
+        (str(item.get("created_at") or "") for item in (*pending_photos, *pending_memories)),
+        default="",
+    )
+    return (
+        [str(photo["id"]) for photo in pending_photos],
+        [str(memory["id"]) for memory in pending_memories],
+        newest or None,
+    )
+
+
 def _signed_living_append_pages(
     client: Any,
     settings: Settings,
@@ -1837,9 +1914,7 @@ def _signed_living_append_pages(
     album_id: str,
     edition: int | None,
 ) -> list[dict[str, Any]]:
-    _, append_pages = _edition_document_and_pages(record, edition)
-    if not append_pages:
-        return []
+    document, append_pages = _edition_document_and_pages(record, edition)
     photo_ids: list[str] = []
     memory_ids: set[str] = set()
     for page in append_pages:
@@ -1847,12 +1922,56 @@ def _signed_living_append_pages(
             continue
         photo_ids.extend(str(photo_id) for photo_id in (page.get("photo_ids") or []))
         memory_ids.update(str(memory_id) for memory_id in (page.get("memory_ids") or []))
+
+    # 이전 판(edition)을 볼 때는 다시 세지 않는다 — 공유 화면과 **같은 조건**이다.
+    all_memories: list[dict[str, Any]] | None = None
+    if edition is None:
+        # ★ 가벼운 record 에는 `album_json` 도 `applied_contribution_*` 도 없다.
+        #   본문에 무엇이 그려지는지 알아야 `어디에도 안 보이는` 것을 가릴 수 있어
+        #   여기서 전체 행을 한 번 읽는다.
+        full = get_album_record(client, album_id) or record
+        document = full.get("album_json") if isinstance(full.get("album_json"), dict) else document
+        all_memories = list_photo_memories(client, album_id)
+        extra_photo_ids, extra_memory_ids, newest_at = _pending_append_ids(
+            full,
+            list_contributors(client, album_id),
+            document,
+            get_album_photo_records(client, album_id),
+            all_memories,
+            set(photo_ids),
+            memory_ids,
+        )
+        if extra_photo_ids or extra_memory_ids:
+            # ★ 맨 뒤다. 본문에 끼워 넣지 않는다(PO 결정 A안 · 17차) — 앨범을 자동으로
+            #   다시 만들지 않는다. 페이지가 이미 있으면 **마지막 장에 쌓는다**
+            #   (apply_selected_contributions 와 같은 방식). 없을 때만 한 장을 세운다.
+            last = append_pages[-1] if append_pages and isinstance(append_pages[-1], dict) else None
+            if last is not None:
+                append_pages = [
+                    *append_pages[:-1],
+                    {
+                        **last,
+                        "photo_ids": [*(last.get("photo_ids") or []), *extra_photo_ids],
+                        "memory_ids": [*(last.get("memory_ids") or []), *extra_memory_ids],
+                    },
+                ]
+            else:
+                append_pages = [{
+                    "id": _PENDING_APPEND_PAGE_ID,
+                    "type": "append_page",
+                    "created_at": newest_at,
+                    "photo_ids": extra_photo_ids,
+                    "memory_ids": extra_memory_ids,
+                }]
+            photo_ids.extend(extra_photo_ids)
+            memory_ids.update(extra_memory_ids)
+
+    if not append_pages:
+        return []
     photos = get_album_photo_records_by_ids(client, album_id, photo_ids)
-    memories = [
-        memory
-        for memory in list_photo_memories(client, album_id)
-        if str(memory.get("id") or "") in memory_ids
-    ] if memory_ids else []
+    # 한마디는 **전부** 넘긴다 — 이 페이지에 그려지는 사진 밑에 그 사진의 한마디가
+    # 그대로 붙어야 한다(K-24). 페이지 목록에 오르는 것은 memory_ids 뿐이다.
+    memories = all_memories if all_memories is not None else list_photo_memories(client, album_id)
     signed_urls = _batch_signed_urls_for_photos(client, settings, photos)
     return _living_append_payload(client, settings, append_pages, photos, memories, signed_urls=signed_urls)
 
@@ -1913,6 +2032,11 @@ async def get_my_albums(
     bookmark_photo_rows = await asyncio.to_thread(
         list_album_photo_list_summaries, client, [str(record["id"]) for record in bookmark_records]
     )
+    # 보관함 — 지우지 않고 감춰 둔 자기 앨범(2026-08-17). 위 목록에서는 빠져 있다.
+    archived_records = list_archived_album_list_records(client, authenticated_user_id, limit=20)
+    archived_photo_rows = await asyncio.to_thread(
+        list_album_photo_list_summaries, client, [str(record["id"]) for record in archived_records]
+    )
     payload = MyAlbumsResponse(
         bookmarked=[
             item.model_copy(update={"share_token": bookmark_tokens.get(str(item.album_id))})
@@ -1932,6 +2056,12 @@ async def get_my_albums(
             client,
             settings,
             _my_album_list_items(client, settings, participating_records, {}, participating_photo_rows),
+        ),
+        archived=_attach_my_album_cover_urls(
+            client,
+            settings,
+            authenticated_user_id,
+            _my_album_list_items(client, settings, archived_records, {}, archived_photo_rows),
         ),
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -2029,7 +2159,11 @@ async def get_album(
         "can_edit": access.is_album_owner,
         # ★ 화면이 묻는 것은 "지금 더할 수 있는가" 다 — 자격만이 아니라 앨범이
         # 열려 있는지까지 본다(J-8). 참여가 끝나면 참여자는 구경꾼 화면을 본다.
-        "can_contribute": access.can_add_contribution,
+        # 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 결정 2026-08-16).
+        # can_contribute 는 예전 이름이라 사진 쪽 뜻으로 그대로 둔다.
+        "can_contribute": access.can_add_photo,
+        "can_add_photo": access.can_add_photo,
+        "can_add_memory": access.can_add_memory,
         "contribution_block_reason": album_contribution_block_reason(record),
         "can_delete": access.can_delete_album,
         # 본문에 인쇄되는 값이라 역할과 무관하게 모두에게 내려간다(§6).
@@ -2143,18 +2277,81 @@ async def get_album_living_append_pages(
     return LivingAppendPagesResponse(living_append_pages=pages)
 
 
+@router.post("/albums/{album_id}/print-intent", status_code=status.HTTP_204_NO_CONTENT)
+def record_print_intent(
+    album_id: str,
+    x_woorialbum_visitor: str | None = Header(default=None),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
+) -> Response:
+    """`실물 앨범으로 받아보기` 를 누른 사람을 센다 — **파는 것이 아니라 재는 것**이다.
+
+    ★ 인쇄는 1순위 수익원인데 지금은 아무 데서도 안 내보인다. 시범운영이 끝나도
+      `사람들이 돈을 낼까` 에 대한 데이터가 0 이 된다(제품_방향 §7 · 유료화_기준 §7).
+      결제도 배송도 연락처도 여기 없다. 관심을 남길 뿐이다.
+
+    ★ 새 테이블을 만들지 않는다 — analytics_events 에 `print_intent` 로 남긴다.
+      그 이름은 migration 20260816090000 로 허용 목록에 먼저 넣었다(§3③).
+
+    ★ **같은 사람이 같은 앨범에서 두 번 눌러도 한 번만 센다.** 수요를 재는 값이라
+      한 사람이 여러 번 누르면 수가 부풀어 판단이 틀어진다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    # ★ 주최자와 참여자만이다. **구경꾼은 이 자리를 보지도 못하고, 세지도 않는다** —
+    #   구경만 한 사람의 관심은 `내 앨범을 인쇄해 갖고 싶다` 와 다른 값이라 섞으면
+    #   수요가 부풀어 보인다. 화면이 감추는 것과 별개로 여기서도 막는다(§10).
+    #   `can_contribute` 는 **자격**이라 참여가 끝난 뒤에도 참이다 — 그게 맞다.
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
+    require_album_read(access)
+    if not access.can_contribute:
+        raise HTTPException(status_code=403, detail="이 앨범을 함께 만든 분만 남길 수 있어요.")
+
+    visitor_key = resolve_visitor_key(authenticated_user_id, x_woorialbum_visitor)
+    if visitor_key:
+        already = (
+            client.table("analytics_events")
+            .select("id")
+            .eq("event_name", "print_intent")
+            .eq("album_id", album_id)
+            .eq("visitor_key", visitor_key)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if already:
+            # 이미 센 사람이다. 화면은 그대로 `알려드릴게요` 를 보여 준다.
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    log_event(
+        client, "print_intent", album_id=album_id, visitor_key=visitor_key,
+        metadata={
+            "photo_count": count_ready_album_photos(client, album_id),
+            # 주최자인지 참여자인지 — 누가 갖고 싶어 하는지가 값의 절반이다.
+            "source": "owner" if access.can_edit_settings else "contributor",
+        },
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch("/albums/{album_id}/cover-photo", response_model=AlbumCoverPhotoResponse)
 def update_album_cover_photo(
     album_id: str,
     body: AlbumCoverPhotoUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumCoverPhotoResponse:
     settings = get_settings()
     client = get_supabase_client(settings)
     album = get_album_record(client, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, album, authenticated_user_id)
+    # 게스트 주최자도 표지를 고른다 — 같은 자기 앨범이다(§1).
+    access = _actor_album_access(client, album, authenticated_user_id, guest_token)
     require_album_edit_settings(access)
 
     photos = get_album_photo_records(client, album_id)
@@ -2167,7 +2364,7 @@ def update_album_cover_photo(
         raise HTTPException(status_code=400, detail="앨범에 반영된 사진만 대표사진으로 선택할 수 있습니다.")
     selected_id = requested or (str(photos[0]["id"]) if photos else None)
     client.table("albums").update({"cover_photo_id": selected_id}).eq("id", album_id).execute()
-    log_event(client, "cover_photo_changed", album_id=album_id, metadata={"owner_id": authenticated_user_id})
+    log_event(client, "cover_photo_changed", album_id=album_id, metadata={"owner_id": authenticated_user_id})  # 게스트면 None 이다
     updated_album = {**album, "cover_photo_id": selected_id}
     cover_photo_id, cover_image_url = _cover_image_url(client, settings, updated_album, photos)
     return AlbumCoverPhotoResponse(
@@ -2179,21 +2376,55 @@ def update_album_cover_photo(
 @router.patch("/albums/{album_id}", response_model=AlbumDetailResponse)
 def patch_album(
     album_id: str,
-    body: NarrativeUpdate,
-    authenticated_user_id: str = Depends(require_authenticated_user),
+    body: AlbumSettingsUpdate,
+    authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
+    guest_token: str | None = _GUEST_TOKEN_HEADER,
 ) -> AlbumDetailResponse:
-    """Legacy: updates epilogue only (owner)."""
+    """앨범 설정 — **넘긴 것만** 고친다.
+
+    ★ 새 주소를 만들지 않고 이 자리를 넓혔다(§10). 예전 계약(맺음말만 고치기)은
+      그대로다 — `narrative` 를 넣지 않으면 맺음말을 건드리지 않는다.
+    ★ 권한은 고치는 것마다 다르다. 맺음말은 글 권한, 모양·종이는 설정 권한이다.
+      **프런트가 아니라 여기서** 가른다(§10).
+    """
     settings = get_settings()
     client = get_supabase_client(settings)
     record = get_album_record(client, album_id)
     if not record:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
-    access = get_album_access(client, record, authenticated_user_id)
-    require_album_owner_story(access)
+    # ★ **게스트 주최자는 주최자와 권한이 같다**(화면_기준 §1 · 2026-08-16 고침).
+    #   예전에는 로그인을 요구해서, 게스트로 만든 자기 앨범인데 설정을 못 고쳤다.
+    #   판정은 다른 엔드포인트가 쓰는 그 함수 하나다 — 새 판정을 만들지 않는다.
+    access = _actor_album_access(client, record, authenticated_user_id, guest_token)
 
-    epilogue = body.narrative.strip()
-    updated = update_album_narrative(client, album_id, epilogue)
-    return _record_to_detail(updated or {**record, "epilogue": epilogue, "narrative": epilogue}, settings, client)
+    updated = record
+    if body.narrative is not None:
+        require_album_owner_story(access)
+        epilogue = body.narrative.strip()
+        updated = update_album_narrative(client, album_id, epilogue) or {
+            **updated, "epilogue": epilogue, "narrative": epilogue,
+        }
+
+    # 앨범 모양 · 종이 색 — 허용값은 DB 제약과 같은 목록이다. 밖이면 400 이다.
+    appearance: dict[str, Any] = {}
+    if body.skin is not None:
+        if body.skin not in ALBUM_SKIN_VALUES:
+            raise HTTPException(status_code=400, detail="고를 수 없는 앨범 모양입니다.")
+        appearance["skin"] = body.skin
+    if body.paper is not None:
+        if body.paper not in ALBUM_PAPER_VALUES:
+            raise HTTPException(status_code=400, detail="고를 수 없는 종이 색입니다.")
+        appearance["paper"] = body.paper
+    if appearance:
+        require_album_edit_settings(access)
+        client.table("albums").update(appearance).eq("id", album_id).execute()
+        updated = {**updated, **appearance}
+        # ★ 이벤트를 남기지 않는다. 허용된 이름 목록(analytics_events CHECK)에 없는 이름을
+        #   쓰면 **조용히 버려진다**. 이름을 늘리려면 migration 이 필요하고, 이번 축이 아니다.
+
+    if body.narrative is None and not appearance:
+        raise HTTPException(status_code=400, detail="바꿀 내용이 없습니다.")
+    return _record_to_detail(updated, settings, client)
 
 
 @router.patch("/albums/{album_id}/epilogue", response_model=AlbumDetailResponse)
@@ -2483,6 +2714,96 @@ async def upload_album_pdf(
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)
+
+
+def _require_album_owner_for_archive(client, album_id: str, authenticated_user_id: str) -> dict:
+    """보관·꺼내기의 문 — **지우기와 같은 검사**다(§10). 새 판정을 만들지 않는다."""
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_delete(access)
+    if not access.is_album_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to archive this album.")
+    return record
+
+
+@router.post("/albums/{album_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
+def archive_album(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """앨범을 **지우지 않고 감춘다** (2026-08-17 · 시안 delete-sheet 1b 의 되돌릴 길).
+
+    ★ 바뀌는 것은 `albums.status` **한 칸**이다. 사진·한마디·Storage 는 아무것도
+      건드리지 않는다 — 그래야 `언제든 다시 꺼낼 수 있어요` 가 참말이 된다.
+    ★ `archived` 는 CHECK 에 이미 있는 값이다(20260712160000). migration 이 없다.
+    ★ 주최자만이다. 삭제와 같은 문을 쓴다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    _require_album_owner_for_archive(client, album_id, authenticated_user_id)
+    client.table("albums").update({"status": "archived"}).eq("id", album_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/albums/{album_id}/unarchive", status_code=status.HTTP_204_NO_CONTENT)
+def unarchive_album(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> Response:
+    """보관함에서 다시 꺼낸다 — 위와 같은 자리에서 status 한 칸만 되돌린다."""
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    _require_album_owner_for_archive(client, album_id, authenticated_user_id)
+    client.table("albums").update({"status": "active"}).eq("id", album_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/albums/{album_id}/delete-preview", response_model=AlbumDeletePreviewResponse)
+def get_album_delete_preview(
+    album_id: str,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AlbumDeletePreviewResponse:
+    """지우기 전에 **무엇이 사라지는지** 보여줄 값 (시안 1b · 2026-08-17).
+
+    지금 시트는 `제목 · 한 줄 · 버튼 둘`뿐이라 무엇이 사라지는지 보이지 않는다.
+    되돌릴 수 없는 일이므로 잃는 것을 눈과 숫자로 보여 준다.
+
+    ★ 권한은 **지우기와 똑같다** — 이미 있는 검사를 그대로 쓴다(§10).
+      미리 보는 것도 남의 앨범 속을 보는 일이다. 새 판정을 만들지 않는다.
+    ★ 세는 규칙도 이미 있는 것 하나씩이다: 사진은 count_ready_album_photos,
+      한마디는 list_photo_memories, 함께한 사람은 count_active_contributors
+      (`함께 만든 사람` 이름 줄과 **같은 규칙**이다 — 두 곳이 갈리면 안 된다).
+    ★ 썸네일은 display 자산이다. 원본은 인쇄의 몫이다(§9).
+    ★ 목록 API 에 넣지 않는다 — 지우려고 누른 그 순간에만 부른다.
+    """
+    settings = get_settings()
+    client = get_supabase_client(settings)
+    record = get_album_record(client, album_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
+    access = get_album_access(client, record, authenticated_user_id)
+    require_album_delete(access)
+    if not access.is_album_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this album.")
+
+    photos = get_album_photo_records(client, album_id)
+    preview_urls = [
+        get_signed_url(
+            client,
+            str(photo.get("display_bucket") or photo["storage_bucket"]),
+            str(photo.get("display_path") or photo["storage_path"]),
+            settings.signed_url_ttl_seconds,
+        )
+        for photo in sorted(photos, key=lambda row: row.get("sort_order") or 0)[:DELETE_PREVIEW_PHOTOS]
+    ]
+    return AlbumDeletePreviewResponse(
+        photo_count=count_ready_album_photos(client, album_id),
+        memory_count=len(list_photo_memories(client, album_id)),
+        contributor_count=count_active_contributors(client, album_id),
+        preview_photo_urls=[url for url in preview_urls if url],
+    )
 
 
 @router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)

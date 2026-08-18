@@ -69,8 +69,15 @@ test("★ 글자가 보조색이 된 상자는 배경도 보조색이다", () =>
   //   글자만 보조색이라 "겉도는" 문제 자체가 생기지 않는다. 남은 보조색 면은
   //   연필 동그라미(hover)뿐이고, 그것은 여전히 배경·테두리가 한 계열이다.
   //   이 검사가 지키는 규칙(보조색 글자를 회색 면 위에 두지 않는다)은 그대로다.
+  // ★ 2026-08-15 PO — "펜슬 색상과 원의 색상이 달라서 어색하다". 원을 연필 쪽으로
+  //   당겼다. 예전에는 hover 에서만 accent-soft 면이 생겼는데(배경+테두리 한 줄),
+  //   이제 **기본부터** 면이 accent-soft 이고 hover 는 테두리만 더한다.
+  //   두 상태 다 회색 면이 아니다 — 이 검사가 지키는 규칙은 그대로다.
   const story = read("album-engine/blocks/StoryBlock.css");
-  assert.match(story, /background: var\(--c-accent-soft\);\s*\n\s*border-color: var\(--c-accent\);/);
+  const disc = story.slice(story.indexOf(".story-block__edit-btn::before {"), story.indexOf("}", story.indexOf(".story-block__edit-btn::before {")));
+  assert.match(disc, /background: var\(--c-accent-soft\);/);
+  assert.equal(disc.includes("var(--c-surface)"), false, "연필 원이 회색 면으로 돌아갔다");
+  assert.match(story, /:hover::before \{\s*\n\s*border: 1px solid var\(--c-accent\);/);
   const title = story.slice(story.indexOf(".story-block__title {"), story.indexOf("}", story.indexOf(".story-block__title {")));
   assert.match(title, /color: var\(--c-accent\)/);
   assert.equal(title.includes("background"), false, "보조색 글자 뒤에 면이 생겼다");
@@ -120,10 +127,15 @@ test("★ 손대지 않기로 한 것들이 그대로다", () => {
     assert.ok(tokens.includes(line), `토큰이 바뀌었다: ${line}`);
   }
   // 선택/눌림 6곳은 여전히 브랜드색이다(2-2단계에서 정한 자리).
+  // ★ 2026-08-15 PO — 여기에 한 자리가 더해져 7이다. 제목 자리 연필의 동그라미
+  //   (.album-screen-header__edit::before)가 회색 면에서 brand-soft 로 바뀌었다.
+  //   제목 자리는 색 계열이 브랜드색이라, 연필과 원을 한 벌로 맞추면 그 면이 된다.
+  // ★ 2026-08-16 — 여덟째. 소개 구역 뒤 2칸의 아이콘 자리(.brand-value__use-icon)다.
+  //   시안이 그 자리에 브랜드 계열의 연한 면을 쓴다.
   const selected = cssFiles()
     .map((file) => (readFileSync(file, "utf8").match(/background: var\(--c-brand-soft\)/g) || []).length)
     .reduce((sum, n) => sum + n, 0);
-  assert.equal(selected, 6, "선택/눌림 자리가 늘거나 줄었다");
+  assert.equal(selected, 8, "선택/눌림 자리가 늘거나 줄었다");
   // ★ 뒤집힌 항목 (2026-08-13 · PO: "디자인에는 없어"). 사진의 흰 상자
   //   (padding + 테두리 + 배경 + 그림자)를 통째로 없앴다 — 시안의 `.photo` 는
   //   border-radius·overflow·width 뿐이다. 그래서 잴 테두리 자체가 없다.
@@ -195,7 +207,9 @@ test("★ 내 앨범의 `삭제` 는 빨간 글씨가 아니다 — 막는 것�
   // 확인 단계는 그대로다 — 색을 낮춘 대신 시트를 없애면 안 된다.
   const list = readFileSync(path.join(SRC, "components/MyAlbums.tsx"), "utf8");
   assert.match(list, /\{pendingDelete \? \(/);
-  assert.match(list, /<ConfirmSheet/);
+  // ★ 2026-08-17 — 그 자리는 사라질 것을 보여주는 전용 시트가 됐다(시안 1b).
+  //   **묻는 단계가 그대로 있다**는 것이 이 검사가 지키는 것이고, 그것은 그대로다.
+  assert.match(list, /<AlbumDeleteSheet/);
 });
 
 test("죽은 값 onTop 이 코드에 남아 있지 않다", () => {

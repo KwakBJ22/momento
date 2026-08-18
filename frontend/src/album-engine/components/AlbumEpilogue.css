@@ -37,11 +37,12 @@
 .album-epilogue__edit::before {
   content: "";
   position: absolute;
+  box-sizing: border-box;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--c-border);
+  border: 0;
   border-radius: 50%;
-  background: var(--c-surface);
+  background: var(--c-accent-soft);
 }
 
 .album-epilogue__edit > * {

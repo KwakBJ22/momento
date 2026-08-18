@@ -3,6 +3,7 @@ import { AlbumRenderer } from "../album-engine";
 import AlbumScreen from "./AlbumScreen";
 import AlbumShareSheet from "./AlbumShareSheet";
 import AlbumPdfStatus from "./AlbumPdfStatus";
+import PrintIntentCta from "./PrintIntentCta";
 import {
   createAlbumShareLink,
   getAlbum,
@@ -247,7 +248,7 @@ export default function AlbumResultView({
         {isStagePhotosLoading ? <p className="album-result__subtitle">앨범을 준비하는 중...</p> : stagePhotosError ? (
           <div className="notice notice--error album-result__error" role="alert"><p>{stagePhotosError}</p><button type="button" className="btn btn--secondary" onClick={() => setPhotoLoadAttempt((value) => value + 1)}>다시 시도</button></div>
         ) : (
-          <AlbumRenderer contributorNames={result.contributor_names ?? []} photos={stagePhotos} title={albumTitle} epilogue={isEditing ? "" : epilogue} coverDateLabel={result.date} chapterStories={chapterStories} category={result.category} templateType={result.template_type} albumId={result.album_id} coverPhotoId={result.cover_photo_id} livingAppendPages={result.living_append_pages} mode="screen" onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined} photoCommentEdit={{ canEditPhoto: () => canEditStories, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: () => { void handleSavePhotoComment(); } }} />
+          <AlbumRenderer contributorNames={result.contributor_names ?? []} photos={stagePhotos} title={albumTitle} epilogue={isEditing ? "" : epilogue} coverDateLabel={result.date} chapterStories={chapterStories} category={result.category} templateType={result.template_type} albumId={result.album_id} coverPhotoId={result.cover_photo_id} skin={result.skin} paper={result.paper} livingAppendPages={result.living_append_pages} mode="screen" onEditEpilogue={canEditStories && hasEpilogue ? () => setIsEditing(true) : undefined} photoCommentEdit={{ canEditPhoto: () => canEditStories, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: () => { void handleSavePhotoComment(); } }} />
         )}
       </div>
       {isEditing ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleToggleEdit()} disabled={isPersisting}>{isPersisting ? "저장 중..." : "완료"}</button></div><p className="album-result__placeholder">{EDIT_HINT}</p><textarea className="album-result__editor" value={epilogue} onChange={(event) => setEpilogue(event.target.value)} rows={6} maxLength={800} placeholder={EDIT_HINT} autoFocus /></section> : null}
@@ -287,7 +288,15 @@ export default function AlbumResultView({
   return <>
     <AlbumScreen title={albumTitle} canEditTitle={canEditStories} onSaveTitle={handleSaveTitle} headerSupplement={result.edition_is_latest && result.edition_previous !== null && result.edition_previous !== undefined ? <p className="album-result__subtitle"><a href={`/album/${result.album_id}?edition=${result.edition_previous}`}>이전 앨범 보기</a></p> : null} body={albumBody} actionPanel={resultActions} bottomNavigation={{ onAddPhoto: onReset, onAddMemory: openAddMemory, onShare: () => setShareOpen(true), onCreateAlbum: onReset, canAddMemory: canEditStories }} />
     {/* ★ 시트를 닫아도 남는다(I-3) — 앨범 상세와 같은 표시를 쓴다. */}
-    <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
+    {/* ★ 앨범이 막 완성된 자리에서도 묻는다 (PO 결정 2026-08-18). 파는 것이 아니라
+        재는 것이다 — 실물 인쇄를 붙일 곳이 아직 정해지지 않았지만, 곧 붙일 것이라
+        그때까지 수요가 쌓여 있어야 한다(유료화_기준 §7). 주최자에게만이다. */}
+    <AlbumPdfStatus
+      working={isExportingPdf}
+      notice={pdfNotice}
+      printIntent={isOwner ? <PrintIntentCta albumId={result.album_id} variant="notice" /> : null}
+      onDismiss={() => setPdfNotice(null)}
+    />
     {shareOpen && isOwner ? (
       <AlbumShareSheet
         albumId={result.album_id}

@@ -59,7 +59,9 @@ test("★ 프레임 폭이 사진 폭 + 여백이다 — 칸 폭을 따라가지
   assert.match(rule(".album-renderer--print .print-page__photos"), /justify-items: center/);
   const frame = rule(".album-renderer--print .print-frame");
   assert.match(frame, /width: fit-content/);
-  assert.match(frame, /padding: 4mm/);
+  // ★ 2026-08-16 — 프레임의 카드 여백(4mm)을 걷어냈다. 종이에서는 카드가 아니라
+  //   사진 자체가 놓인다(시안 §1). 폭이 사진을 따라간다는 규칙은 그대로다.
+  assert.match(frame, /padding: 0/);
   // 캡션이 프레임 폭을 정하면 긴 캡션 한 줄이 프레임을 쪽 폭까지 늘린다.
   const caption = rule(".album-renderer--print .print-frame__caption");
   assert.match(caption, /width: 0/);
@@ -84,7 +86,8 @@ test("캡션은 사진 바로 아래 3mm 그대로다", () => {
   const frame = rule(".album-renderer--print .print-frame");
   assert.match(frame, /justify-content: flex-start/);
   assert.match(frame, /gap: 3mm/);
-  assert.match(frame, /padding: 4mm/);
+  // ★ 2026-08-16 — 카드 여백을 걷어냈다(위 주석과 같은 이유).
+  assert.match(frame, /padding: 0/);
   assert.match(rule(".album-renderer--print .print-frame__photo"), /flex: 0 1 auto/);
 });
 

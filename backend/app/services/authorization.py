@@ -77,7 +77,7 @@ class AlbumAccess:
 
         앨범이 지금 참여를 받고 있는지는 보지 않는다. 주최자는 참여를 마친 뒤에도
         캡션을 고칠 수 있어야 한다(§7 — 인쇄되는 것만 주최자가 고친다).
-        **더할 수 있는가**는 아래 ``can_add_contribution`` 이다.
+        **더할 수 있는가**는 아래 ``can_add_photo`` · ``can_add_memory`` 다.
         """
         if self.is_legacy_owner:
             return True
@@ -86,19 +86,36 @@ class AlbumAccess:
         return self.album_role in ALBUM_CONTRIBUTE_ROLES
 
     @property
-    def can_add_contribution(self) -> bool:
-        """**지금 사진·한마디를 더할 수 있는가** — 자격 + 앨범이 열려 있는가.
+    def can_add_photo(self) -> bool:
+        """**지금 사진을 더할 수 있는가** — 자격 + 앨범이 열려 있는가.
 
-        ★ 화면이 읽는 것은 이 값이다(J-8 · §1·§11). 참여가 끝나면 백엔드는
-        **주최자를 포함해 아무도** 더하지 못하게 막는데(collaboration_service
-        .require_contributor · api/collaboration.py), ``can_contribute`` 는 역할만
-        보고 있어서 화면에는 버튼이 그대로 남았다 — 누르면 403 이었다.
-        같은 사실을 두 곳에서 따로 계산한 결과다.
+        ★ 2026-08-16 에 `can_add_contribution` 에서 이름이 갈렸다. 예전에는 사진과
+        한마디를 **한 값**으로 묶었는데, 그 둘은 잠기는 때가 다르다.
+        한 이름이 두 가지를 가리키면 다음 사람이 섞는다.
 
-        공유 링크 경로는 이미 ``share_service.contribution_block_reason`` 이 같은
-        판정을 하고 있었다. 두 경로가 갈라져 있던 것을 여기서 맞춘다.
+        ★ 화면이 읽는 것은 이 값이다(J-8 · §1·§11). 참여가 끝나면 백엔드가 사진을
+        막는데(collaboration_service.require_contributor · api/collaboration.py),
+        ``can_contribute`` 는 역할만 보고 있어서 화면에는 버튼이 그대로 남았고
+        누르면 403 이었다 — 같은 사실을 두 곳에서 따로 계산한 결과다.
         """
         return self.can_contribute and not self.collaboration_closed
+
+    @property
+    def can_add_memory(self) -> bool:
+        """**지금 한마디를 남길 수 있는가** — 이 앨범을 볼 수 있으면 참이다.
+
+        ★ 잣대는 하나다: **인쇄되는 것만 잠근다** (PO 결정 2026-08-16).
+          한마디는 종이에 들어가지 않는다(C1). 그러니 앨범이 확정된 뒤에도,
+          구경꾼에게도 열려 있다.
+
+        ★ 참여 종료는 **앨범을 확정하는 것**이지 관계를 닫는 것이 아니다 —
+          `관계는 끝나지 않고, 앨범은 완성된다`(제품_방향 §5).
+          예전에는 확정과 함께 한마디까지 막혀서 그 뜻과 정반대였다.
+
+        ★ 구경꾼도 참이다. 같은 사람이 `우리가 남긴 말`은 앨범 맨 아래에서 쓸 수 있었다 —
+          막는 효과는 없고 불편만 남았다. 그리고 그 링크는 **주최자가 보라고 보낸 것**이다.
+        """
+        return self.can_read_private
 
     @property
     def can_delete_album(self) -> bool:

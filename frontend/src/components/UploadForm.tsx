@@ -5,14 +5,14 @@ import { CREATION_PROGRESS_TICK_MS, easeTowardTarget } from "../lib/creationProg
 import { createId } from "../lib/id";
 import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
 import { currentUserAgent } from "../lib/webview";
-import { fitsWithinUploadTotal, formatUploadSize, MAX_ORIGINAL_IMAGE_BYTES, prepareUploadAndPreview } from "../lib/optimizeImageFile";
+import { fitsWithinUploadTotal, makePreviewBlob, MAX_ORIGINAL_IMAGE_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
 import { extractOriginalCaptureDate, extractOriginalGps, type ExifGps } from "../lib/exifCaptureDate";
 import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
 import PhotoCommentList from "./PhotoCommentList";
-import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton } from "../lib/uploadFormView";
+import { droppedFileNotices, noPhotosAddedNotice, pickButtonLabel, preparingLabel, showsEmptyState, showsSelectionCount, showsSubmitButton, TOTAL_OVER_NOTICE, uploadingLabel } from "../lib/uploadFormView";
 import "./UploadForm.css";
 import { userFacingError } from "../lib/userFacingError";
 
@@ -38,8 +38,15 @@ interface UploadFormProps {
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
 const PHOTO_ACCEPT = imageAcceptFor(currentUserAgent());
 
+/**
+ * 고른 사진 한 장. **`file` 은 원본이다** (2026-08-16).
+ *
+ * 예전에는 여기 들어오는 것이 이미 2560 으로 줄인 파일이었다 — 그래서 고르는 자리에서
+ * 기다렸다. 이제 원본을 그대로 들고 있다가 `앨범 만들기` 를 누를 때 변환한다.
+ * 화면에 붙는 것은 여전히 800 미리보기다(K-10).
+ */
 function createPhotoItem(file: File, previewBlob: Blob | null, capturedAt: string | null, gps: ExifGps | null): PhotoItem {
-  // Prefer the small 800px preview; fall back to the upload file when it is null
+  // Prefer the small 800px preview; fall back to the original when it is null
   // (GIF / HEIC / decode failure), preserving the current behavior.
   const previewSource = previewBlob ?? file;
   // ★ 덩어리를 함께 들고 있는다 — 주소가 죽었을 때 파일을 다시 읽지 않고 되살리려고다(K-10).
@@ -63,6 +70,10 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
   const [notice, setNotice] = useState<string | null>(photosNeedReselect ? "사진을 다시 골라주세요." : null);
   const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<number | null>(null);
+  // `앨범 만들기` 를 누른 뒤 사진을 변환하는 동안의 진행(만드는 중 화면에 한 줄).
+  const [uploadPrepare, setUploadPrepare] = useState<{ done: number; total: number } | null>(null);
+  // 이미 변환한 파일. `다시 시도` 에서 같은 일을 두 번 하지 않는다.
+  const preparedFilesRef = useRef<Map<string, File>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
   const operationIdRef = useRef<string | null>(null);
   const photosRef = useRef<PhotoItem[]>([]);
@@ -110,7 +121,6 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
   // (there is no other frontend->backend event path). See createAlbum.
   const droppedVideoCountRef = useRef(0);
   const templateType = recommendedTemplateType(category);
-  const totalUploadBytes = photos.reduce((total, photo) => total + photo.file.size, 0);
 
   const addFiles = useCallback(async (files: FileList | File[] | null) => {
     if (isPreparing) return;
@@ -132,7 +142,6 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
     setNotice(null);
     setPreparingProgress({ done: 0, total: limited.length });
     const failures: string[] = [];
-    let nextTotal = totalUploadBytes;
     let settledCount = 0;
     try {
       // Prepare up to PREPARE_CONCURRENCY photos at once for speed, but deliver the
@@ -153,7 +162,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
           } catch (cause) {
             console.warn("Capture date extraction failed", { cause, fileName: file.name });
           }
-          // ★ 장소도 **여기서** 읽는다. 바로 아래 prepareUploadAndPreview 가 canvas 로
+          // ★ 장소도 **여기서** 읽는다. 바로 아래 미리보기를 만들 때 canvas 가
           //   다시 그리면서 EXIF 를 통째로 지우기 때문이다 — 촬영일과 같은 이유다.
           //   서버는 이 좌표를 시·군 이름으로 바꾼 뒤 버린다(좌표는 저장하지 않는다).
           //   실패해도 사진을 버리지 않는다. 장소가 안 붙을 뿐이다.
@@ -163,16 +172,17 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
           } catch (cause) {
             console.warn("Location extraction failed", { cause, fileName: file.name });
           }
-          // One decode yields both the upload file and a small preview blob.
-          // Optimization failure falls back to the original file so no photo is lost.
-          const { file: prepared, previewBlob } = await prepareUploadAndPreview(file);
+          // ★ 여기서는 **미리보기 하나만** 만든다(2026-08-16). 올릴 파일(2560)은
+          //   `앨범 만들기` 를 누를 때 만든다 — 기다림을 없애는 게 아니라 기다려도
+          //   되는 자리로 옮기는 것이다. 실패해도 사진을 잃지 않는다(미리보기만 없다).
+          const previewBlob = await makePreviewBlob(file);
           // Yield a frame so decode/canvas buffers can be reclaimed AND the counter
           // paints before the next one starts — relieves the memory spike that
           // restarts the Android tab and keeps the progress visible without a scroll.
           // ★ 그리기를 기다리되 무한정은 아니다: 화면이 숨겨지면 프레임이 오지 않아
           // 여기서 준비가 통째로 멈춘다(F-3). lib/yieldToPaint 참고.
           await yieldToPaint();
-          return { prepared, previewBlob, capturedAt, gps };
+          return { file, previewBlob, capturedAt, gps };
         },
         (result) => {
           // Input order: append photos so the album keeps the user's selected order.
@@ -183,14 +193,11 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
             }
             return;
           }
-          const { prepared, previewBlob, capturedAt, gps } = result.value;
-          // Over the total cap: block only this photo; keep everything already chosen.
-          if (!fitsWithinUploadTotal(nextTotal, prepared.size)) {
-            failures.push("사진이 많아 한 번에 담기 어려워요. 20장 정도로 나눠서 앨범을 만들어 보세요.");
-            return;
-          }
-          const item = createPhotoItem(prepared, previewBlob, capturedAt, gps);
-          nextTotal += prepared.size;
+          const { file: original, previewBlob, capturedAt, gps } = result.value;
+          // ★ 총 용량 판정은 **제출할 때** 한다(2026-08-16). 여기서는 아직 변환 전이라
+          //   잴 것이 원본 크기뿐이고, 그것으로 막으면 실제로는 담기는 사진을 막는다.
+          //   고르는 화면의 숫자는 원본 크기로 어림잡은 값이다.
+          const item = createPhotoItem(original, previewBlob, capturedAt, gps);
           setPhotos((previous) => [...previous, item]);
           setCoverPhotoId((current) => current || item.id);
         },
@@ -213,7 +220,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       setIsPreparing(false);
       setPreparingProgress(null);
     }
-  }, [isPreparing, photos.length, totalUploadBytes]);
+  }, [isPreparing, photos.length]);
 
   const removePhoto = (id: string) => {
     setPhotos((previous) => {
@@ -234,6 +241,10 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
    *   깨짐→다시 만듦 이 끝없이 돈다).
    */
   const repairPreview = (id: string) => {
+    // ★ K-10 계측 (2026-08-15) — 고치는 것이 아니라 **재는** 줄이다. 화면에는 아무것도
+    //   내지 않는다. 세는 자리는 여기 하나이므로 상태 갱신 **밖**에서 남긴다
+    //   (updater 안에 두면 React 가 두 번 부를 때 두 번 찍힌다).
+    console.warn("[K-10] repair", { index: photosRef.current.findIndex((photo) => photo.id === id) });
     setPhotos((previous) => previous.map((photo) => {
       if (photo.id !== id || photo.previewRetried) return photo;
       URL.revokeObjectURL(photo.previewUrl);
@@ -253,6 +264,45 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
     void addFiles(selected);
   };
 
+  /**
+   * 고른 사진을 올릴 파일로 바꾼다 — 긴 변 2560(§9 · MAX_EDGE 는 바꾸지 않는다).
+   *
+   * ★ 실패해도 사진을 잃지 않는다: 변환이 안 되면 원본을 올린다(서버가 다시 굽는다).
+   * ★ 한 번 바꾼 것은 기억한다 — `다시 시도` 가 같은 일을 반복하지 않는다.
+   */
+  const prepareChosenPhotos = async (chosen: PhotoItem[]): Promise<File[]> => {
+    setUploadPrepare({ done: 0, total: chosen.length });
+    let done = 0;
+    const results: File[] = [];
+    await runOrderedPool(
+      chosen,
+      PREPARE_CONCURRENCY,
+      async (photo) => {
+        const cached = preparedFilesRef.current.get(photo.id);
+        if (cached) return cached;
+        let prepared: File;
+        try {
+          prepared = await prepareForUpload(photo.file);
+        } catch {
+          prepared = photo.file; // 사진을 버리지 않는다.
+        }
+        preparedFilesRef.current.set(photo.id, prepared);
+        // 숫자가 화면에 닿게 한 프레임 내준다(고르는 자리와 같은 이유).
+        await yieldToPaint();
+        return prepared;
+      },
+      (result) => {
+        const photo = chosen[results.length];
+        results.push(result.ok ? result.value : photo.file);
+      },
+      () => {
+        done += 1;
+        setUploadPrepare({ done, total: chosen.length });
+      },
+    );
+    return results;
+  };
+
   const createAlbum = async () => {
     if (isPreparing || isSubmitting || uploadInFlightRef.current) return;
     if (!photos.length) {
@@ -270,8 +320,19 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
     abortRef.current = controller;
     const timeoutTimer = window.setTimeout(() => controller.abort("timeout"), UPLOAD_TIMEOUT_MS);
     try {
+      // ★ 무거운 변환(긴 변 2560)이 **여기**로 옮겨 왔다(2026-08-16). 고르는 자리에서는
+      //   미리보기만 만든다. 이 자리에는 이미 `만드는 중` 화면이 있어 사용자가 기다림을
+      //   예상한다 — 기다림을 없앤 것이 아니라 기다려도 되는 자리로 옮긴 것이다.
+      //   동시 2장 상한은 그대로다(메모리 회귀 위험 구간).
+      const uploadFiles = await prepareChosenPhotos(photos);
+      // 총 용량 판정은 **변환한 뒤**다. 넘치면 그 자리에서 우리 말로 알린다(§11).
+      const totalBytes = uploadFiles.reduce((sum, file) => sum + file.size, 0);
+      if (!fitsWithinUploadTotal(0, totalBytes)) {
+        setNotice(TOTAL_OVER_NOTICE);
+        return;
+      }
       const formData = new FormData();
-      photos.forEach((photo) => formData.append("photos", photo.file, photo.file.name || "photo.jpg"));
+      uploadFiles.forEach((file) => formData.append("photos", file, file.name || "photo.jpg"));
       const stories: StoryPayload[] = photos.map((photo, order) => ({ order, user: "", text: photo.story.trim() }));
       formData.append("stories", JSON.stringify(stories));
       formData.append("category", category);
@@ -324,6 +385,7 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       uploadInFlightRef.current = false;
       setIsSubmitting(false);
       setProgressStep(null);
+      setUploadPrepare(null);
     }
   };
 
@@ -354,8 +416,12 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
             <p className="notice notice--info drop-zone__hint">한 번에 {MAX_PHOTOS}장까지 담을 수 있어요. 앨범을 만든 뒤에 더 추가할 수 있어요.</p>
           </div>
         ) : null}
+        {/* ★ 용량을 쓰지 않는다 (PO 결정 2026-08-18). 무거운 변환을 `앨범 만들기` 로
+            미루면서 이 숫자가 **원본 합계**가 됐다 — 실제로 올라가는 것은 긴 변 2560 으로
+            줄인 파일이라 한참 작은데, 화면에는 상한(40MB)보다 큰 수가 뜰 수 있었다.
+            장수는 사용자가 쓰는 값이고, 용량은 그렇지 않다. */}
         {showsSelectionCount(photos.length) && !isPreparing ? (
-          <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong> · {formatUploadSize(totalUploadBytes)}</p>
+          <p className="upload-form__count" aria-live="polite">{MAX_PHOTOS}장 중 <strong className="upload-form__count-strong">{photos.length}장</strong></p>
         ) : null}
       </section>
       {/* Direct child of .upload-form (not the picker section) so position:sticky stays
@@ -387,6 +453,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
             <div className="upload-progress__character" aria-hidden="true"><span className="upload-progress__glow" /><span className="upload-progress__star" /><span className="upload-progress__spark upload-progress__spark--a" /><span className="upload-progress__spark upload-progress__spark--b" /><span className="upload-progress__spark upload-progress__spark--c" /></div>
             <h2 id="upload-progress-title">우리의 이야기를 만들고 있어요</h2>
             <p id="upload-progress-copy">사진에 남긴 한 줄을 차곡차곡 모으는 중이에요.</p>
+            {/* ★ 시간이 이쪽으로 옮겨 왔다 — 지금 무슨 일이 도는지 말해 준다. */}
+            {uploadPrepare ? <p className="upload-progress__photos" aria-live="polite">{uploadingLabel(uploadPrepare)}</p> : null}
             <div className="upload-progress__bar" role="progressbar" aria-label="앨범 생성 중" aria-valuetext="진행 중"><span /></div>
             <button type="button" className="upload-progress__cancel" onClick={cancelUpload}>그만하기</button>
           </section>

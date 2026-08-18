@@ -23,6 +23,9 @@ class _ListQuery:
     def select(self, *_args): return self
     def or_(self, *_args): return self
     def eq(self, *_args): return self
+    # ★ 2026-08-17 — 보관함이 생기면서 목록 조회가 `.neq("status", "archived")` 를 쓴다.
+    #   대역에도 같은 자리를 둔다(값은 걸러 보지 않는다 — 이 검사가 보는 것은 순서다).
+    def neq(self, *_args): return self
     def is_(self, *_args): return self
     def in_(self, *_args): return self
     def order(self, *_args, **_kwargs): return self

@@ -20,6 +20,12 @@ export interface PhotoCommentEditState {
   cancelEdit: () => void;
   setDraft: (value: string) => void;
   saveEdit: (photoId: string) => void;
+  /** 이 사진을 앨범에서 뺄 수 있는가. 판정 근거는 **서버가 내려준 값**이다 —
+   *  주최자(can_edit)면 모든 사진, 참여자면 자기가 올린 사진(is_mine)만.
+   *  구경꾼에게는 이 함수 자체가 오지 않는다(부르는 쪽이 null 을 넘긴다). */
+  canRemovePhoto?: (photoId: string) => boolean;
+  /** 빼기를 청한다 — 되돌릴 수 없으므로 부르는 쪽이 한 번 묻는다(ConfirmSheet). */
+  requestRemove?: (photoId: string) => void;
 }
 
 const PhotoCommentEditContext = createContext<PhotoCommentEditState | null>(null);

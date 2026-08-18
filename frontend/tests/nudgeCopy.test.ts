@@ -7,7 +7,9 @@ import test from "node:test";
 /**
  * 유도 문구 두 가지 (SCREEN_SPEC §9).
  *
- * ① 아직 아무 말도 적지 않은 사진이 N장 있어요. / 한 줄만 적어도 앨범이 훨씬 풍성해져요.
+ * ① 설명이 없는 사진이 N장 있어요. / 한 줄만 적어도 앨범이 훨씬 풍성해져요.
+ *    ★ 2026-08-15 PO 로 윗줄을 바꿨다(`아직 아무 말도 적지 않은 사진이 N장 있어요.`).
+ *      아랫줄과 `채우러 가기` 는 그대로다.
  *    ★ 이 안내는 **캡션**에 대한 것이다. `한마디`(§7 의 다른 계층)도 `캡션`(외래어)도
  *      문구에 쓰지 않는다.
  *    ★ **내가 올린 사진 중 빈 것만** 센다. 캡션은 자기가 올린 사진에만 쓰므로,
@@ -32,11 +34,12 @@ function sourceFiles(dir = SRC): string[] {
 const notice = view.slice(view.indexOf("const myEmptyCaptionPhotos"), view.indexOf("const guestSaveCard"));
 
 test("① 문구가 §9 그대로다", () => {
-  assert.match(notice, /아직 아무 말도 적지 않은 사진이 \{myEmptyCaptionPhotos\.length\}장 있어요\./);
+  assert.match(notice, /설명이 없는 사진이 \{myEmptyCaptionPhotos\.length\}장 있어요\./);
   assert.match(notice, /한 줄만 적어도 앨범이 훨씬 풍성해져요\./);
   assert.match(notice, />채우러 가기</);
   // 옛 문구가 남아 있지 않다.
   assert.doesNotMatch(view, /장에 아직 한마디가 없어요/);
+  assert.doesNotMatch(view, /아직 아무 말도 적지 않은 사진이/);
 });
 
 test("① `한마디`·`캡션` 이라는 말을 안내 문구에 쓰지 않는다", () => {

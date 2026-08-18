@@ -26,12 +26,25 @@ MEETING_TYPE_LABELS: dict[str, str] = {
 TemplateType = Literal["A", "B", "C"]
 
 
+#: 캡션 글자 상한 — **종이에 다 나오는 만큼**이다 (PO 결정 2026-08-18).
+#:
+#: 정사각 판형(200×200mm)은 칸 높이가 고정이라 캡션이 두 줄에서 잘린다. 캡션은
+#: 인쇄까지 가는 유일한 사용자 글이라, 자르는 대신 **처음부터 두 줄까지만** 쓰게 한다.
+#: 가장 좁은 칸(4장 쪽 84mm)에서 한 줄 24자 → 두 줄 48자.
+#: ★ 화면과 같은 값이다 — frontend/src/lib/albumLimits.ts 의 CAPTION_MAX_LENGTH.
+#: ★ **읽기에는 걸지 않는다.** 상한을 낮추기 전에 저장된 긴 캡션은 그대로 보이고
+#:   그대로 인쇄된다(두 줄까지). 고쳐 저장할 때만 줄여 달라고 한다.
+CAPTION_MAX_LENGTH = 48
+
+
 class PhotoStoryInput(BaseModel):
     """사진 한 장에 대한 설명(스토리)."""
 
     order: int = Field(ge=0, lt=30, description="업로드 슬롯 순서 (0부터 연속)")
     user: str = Field(default="", max_length=30, description="작성자 이름(선택)")
-    text: str = Field(min_length=1, max_length=300, description="사진 설명 스토리")
+    #: 업로드 화면에서 사진마다 쓰는 캡션이다 — 위 PhotoCaptionUpdate 와 같은 글이라
+    #: 같은 상한을 쓴다(값은 아래 CAPTION_MAX_LENGTH 한 곳).
+    text: str = Field(min_length=1, max_length=CAPTION_MAX_LENGTH, description="사진 설명 스토리")
 
 
 class AlbumPhotoCommentItem(BaseModel):
@@ -69,10 +82,18 @@ class AlbumPhotoUrlResponse(BaseModel):
 
 
 class AlbumPhotoLocationUpdate(BaseModel):
+    """날짜 줄에서 고치는 것 — **장소와 촬영일**이다 (2026-08-16).
+
+    ★ 주소는 `/location` 그대로다. 고치는 자리가 화면에서 한 줄이므로 서버도 한 자리로
+      둔다 — 새 주소를 만들지 않는다(§10). `taken_at` 을 넣지 않으면 날짜는 건드리지 않는다.
+    """
+
     location_name: str | None = Field(default=None, max_length=120)
     latitude: float | None = None
     longitude: float | None = None
     location_source: Literal["exif", "user", "ai_estimated", "unknown"] = "user"
+    # 촬영일 — 넣은 것만 고친다. 날짜는 **앨범의 뼈대**라 주최자만 고칠 수 있다(§7).
+    taken_at: datetime | None = None
 
 
 class AlbumCoverPhotoUpdate(BaseModel):
@@ -160,6 +181,10 @@ class AlbumDetailResponse(BaseModel):
     category: str | None = None
     template: str
     template_type: str | None = None
+    # 주최자가 고른 앨범 모양 · 종이 색. 고르지 않았으면 null 이고, 화면이
+    # 카테고리 추천으로 채운다(lib/albumSkin — 규칙은 프런트 한 곳에 있다).
+    skin: str | None = None
+    paper: str | None = None
     title: str
     date: str
     narrative: str
@@ -182,6 +207,11 @@ class AlbumDetailResponse(BaseModel):
     # (프런트는 이 값으로 버튼만 감춘다 — 실제 차단은 각 API의 백엔드 검사가 한다.)
     can_edit: bool = False
     can_contribute: bool = False
+    # ★ 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 결정 2026-08-16).
+    #   사진은 참여가 끝나면 잠기고, 한마디는 이 앨범을 볼 수 있으면 남길 수 있다.
+    #   화면은 이 두 값만 읽는다. 역할로 다시 추측하지 않는다(§11).
+    can_add_photo: bool = False
+    can_add_memory: bool = False
     can_delete: bool = False
     # 더할 수 없을 때 **왜 그런지 한 줄**. 버튼만 사라지면 고장으로 보인다(J-8 · §11).
     # 링크 경로(/s/)와 같은 함수가 만든다 — 판정은 한 곳이다(§1).
@@ -226,6 +256,24 @@ class MyAlbumsResponse(BaseModel):
     # 담아둔 앨범(§1 9차) — 구경하다가 계정에 담아 둔 것. 권한이 아니라 목록일 뿐이다.
     # 위 두 칸에 이미 있는 앨범은 여기서 뺀다(같은 앨범이 두 칸에 뜨지 않는다).
     bookmarked: list[MyAlbumListItem] = Field(default_factory=list)
+    # 보관함(2026-08-17) — 지우지 않고 감춰 둔 **자기 앨범**. status 한 칸이 전부이고
+    # 사진·한마디는 그대로 있다. 더하기만 한 칸이라 옛 화면은 그대로 돈다.
+    archived: list[MyAlbumListItem] = Field(default_factory=list)
+
+
+class AlbumDeletePreviewResponse(BaseModel):
+    """앨범을 지우기 전에 **무엇이 사라지는지** 보여줄 값 (2026-08-17 · 시안 1b).
+
+    ★ 목록 API 에 넣지 않는다. 첫 화면이 무거워진다 — 지우려고 누른 그 순간에만 부른다.
+    ★ 썸네일은 **display 자산**이다. 원본은 인쇄의 몫이고, 시트에 원본을 내리면
+      64px 자리에 몇 MB 를 받는다(§9).
+    """
+
+    photo_count: int
+    memory_count: int
+    contributor_count: int
+    #: 최대 3장. 화면이 흑백으로 눌러 `사라짐` 을 미리 보여준다.
+    preview_photo_urls: list[str] = []
 
 
 class AlbumPdfUrlResponse(BaseModel):
@@ -238,6 +286,25 @@ class NarrativeUpdate(BaseModel):
     """Deprecated: updates epilogue (우리의 이야기). Prefer EpilogueUpdate."""
 
     narrative: str = Field(default="", max_length=800)
+
+
+# 앨범 모양 · 종이 색 — DB 제약(albums_skin_check · albums_paper_check)과 같은 목록이다.
+# ★ 지키는 것은 서버다. 프런트가 막는 것은 편의일 뿐이다(§10).
+ALBUM_SKIN_VALUES = ("basic", "scrapbook", "airy", "grid", "magazine", "single")
+ALBUM_PAPER_VALUES = ("white", "cream", "gray")
+
+
+class AlbumSettingsUpdate(BaseModel):
+    """PATCH /albums/{id} — **넘긴 것만** 고친다.
+
+    ★ `narrative`(맺음말)는 예전 계약 그대로다. 넣지 않으면 건드리지 않는다.
+    ★ 값 검사는 라우터에서 한다 — 허용값 밖은 400 으로, 우리 말로 돌려준다.
+      (Literal 로 두면 422 가 나가고 문구를 우리가 못 고른다.)
+    """
+
+    narrative: str | None = Field(default=None, max_length=800)
+    skin: str | None = Field(default=None, max_length=32)
+    paper: str | None = Field(default=None, max_length=32)
 
 
 class EpilogueUpdate(BaseModel):
@@ -328,6 +395,10 @@ class PublicShareAlbumResponse(BaseModel):
     date: str = ""
     category: str | None = None
     template_type: str | None = None
+    # 구경꾼도 **주최자가 고른 모양**으로 본다. 고르지 않았으면 null 이고,
+    # 화면이 카테고리 추천으로 채운다 — 앨범 화면과 같은 규칙이다.
+    skin: str | None = None
+    paper: str | None = None
     media: list[PublicMediaItem]
     photos: list[AlbumPhotoUrlResponse] = Field(default_factory=list)
     photo_count: int = 0
@@ -350,6 +421,9 @@ class PublicShareAlbumResponse(BaseModel):
     # 이 링크로 들어온 사람이 사진·코멘트를 남길 수 있는가(참여자) 없는가(구경꾼).
     # 백엔드 판정(contribution_block_reason)과 같은 값이다 — 화면이 따로 추측하지 않는다.
     can_contribute: bool = True
+    # 인쇄되는 것만 잠근다 — 사진은 링크 종류·참여 종료에 걸리고, 한마디는 늘 열려 있다.
+    can_add_photo: bool = True
+    can_add_memory: bool = True
     # 로그인한 사람이 이 앨범을 **이미 담아 뒀는가**(§1 9차). 담기는 켜고 끄는 것이라
     # 화면이 지금 상태를 알아야 한다. 비로그인이면 항상 False 다.
     viewer_bookmarked: bool = False
@@ -441,7 +515,7 @@ class AlbumPhotoUrlsResponse(BaseModel):
 class PhotoCaptionUpdate(BaseModel):
     """캡션(①) 저장 요청 — album_photos.caption. 코멘트(photo_memories)와 다르다."""
 
-    caption: str | None = Field(default=None, max_length=300)
+    caption: str | None = Field(default=None, max_length=CAPTION_MAX_LENGTH)
 
 
 class PhotoCaptionResponse(BaseModel):

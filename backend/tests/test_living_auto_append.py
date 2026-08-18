@@ -16,6 +16,7 @@ from app.services.collaboration_service import (
     _merge_ids,
     apply_selected_contributions,
     auto_append_contribution,
+    pending_contribution_rules,
 )
 
 BASELINE = "2026-01-01T00:00:00+00:00"
@@ -234,28 +235,30 @@ class SharePendingGoesEmptyTest(unittest.TestCase):
       그 창에 올라온 사진이 화면에서 사라진다.
     """
 
-    def test_함수는_그대로_있다(self) -> None:
+    def test_판정은_한_곳에_있고_두_화면이_같이_쓴다(self) -> None:
+        """★ 2026-08-15 에 옮겼다. 예전에는 share.py 안에만 있어서, 앨범 화면은
+        저장된 페이지만 읽었다 — 문서 뒤에 더해진 사진이 앨범 화면에서만 사라졌다
+        (OPEN_ITEMS §2-1). 지운 것이 아니라 collaboration_service 로 **옮겼다.**
+        """
         import pathlib
-        source = (pathlib.Path(__file__).resolve().parents[1] / "app" / "api" / "share.py").read_text(encoding="utf-8")
-        self.assertIn("def is_pending_photo(", source)
-        self.assertIn("def is_pending_memory(", source)
+        root = pathlib.Path(__file__).resolve().parents[1] / "app"
+        service = (root / "services" / "collaboration_service.py").read_text(encoding="utf-8")
+        self.assertIn("def is_pending_photo(", service)
+        self.assertIn("def is_pending_memory(", service)
+        for caller in ("api/share.py", "api/album.py"):
+            source = (root / caller).read_text(encoding="utf-8")
+            self.assertIn("pending_contribution_rules", source, f"{caller} 가 다른 자를 쓴다")
 
     def test_붙고_나면_대기로_잡히지_않는다(self) -> None:
         """applied_contribution_*_ids 에 들어가면 pending 조건에서 빠진다."""
-        applied_photo_ids = {"photo-1"}
-        owner_ids = {OWNER}
-
-        def is_pending_photo(photo):
-            contributor_id = str(photo.get("uploaded_by_contributor_id") or "")
-            return (
-                bool(contributor_id)
-                and contributor_id not in owner_ids
-                and str(photo.get("created_at") or "") > BASELINE
-                and str(photo.get("id")) not in applied_photo_ids
-            )
-
-        self.assertFalse(is_pending_photo(photo_row("photo-1")), "붙었는데 아직 대기로 잡힌다")
-        self.assertTrue(is_pending_photo(photo_row("photo-2")), "아직 안 붙은 것은 대기여야 한다")
+        rules = pending_contribution_rules(
+            album(applied_contribution_photo_ids=["photo-1"]),
+            [{"id": OWNER, "role": "owner"}, {"id": GUEST, "role": "contributor"}],
+        )
+        self.assertFalse(rules.is_pending_photo(photo_row("photo-1")), "붙었는데 아직 대기로 잡힌다")
+        self.assertTrue(rules.is_pending_photo(photo_row("photo-2")), "아직 안 붙은 것은 대기여야 한다")
+        self.assertFalse(rules.is_pending_photo(photo_row("photo-3", by=OWNER)), "주최자 사진은 대기가 아니다")
+        self.assertFalse(rules.is_pending_photo(photo_row("photo-4", created=BASELINE)), "문서보다 먼저 온 것은 대기가 아니다")
 
     def test_대기가_비어도_화면에_그릴_사진은_그대로다(self) -> None:
         """pending 이 비면 전부 shared 로 간다 — 사라지지 않는다."""

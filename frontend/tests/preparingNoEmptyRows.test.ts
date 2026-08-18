@@ -92,7 +92,7 @@ test("준비가 끝난 것만 목록에 들어간다 — 실패한 사진은 자
   // 성공했을 때에만 한 장이 는다.
   // ★ 인자가 하나 늘었다 (2026-08-13): EXIF 위치(gps). 이 검사가 지키는 규칙
   //   (준비가 끝난 것만 목록에 들어간다)은 그대로다.
-  assert.match(deliverBlock, /const item = createPhotoItem\(prepared, previewBlob, capturedAt, gps\);/);
+  assert.match(deliverBlock, /const item = createPhotoItem\(original, previewBlob, capturedAt, gps\);/);
   assert.match(deliverBlock, /setPhotos\(\(previous\) => \[\.\.\.previous, item\]\);/);
 });
 

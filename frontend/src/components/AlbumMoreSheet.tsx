@@ -1,6 +1,9 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import AlbumAppearancePicker from "./AlbumAppearancePicker";
+import PrintIntentCta from "./PrintIntentCta";
+import type { AlbumPaper, AlbumSkin } from "../lib/albumSkin";
 
 /**
  * 헤더 `⋯` 더보기 시트 — 앨범 상세와 공유 앨범이 **같은 것을 쓴다**(SCREEN_SPEC §5).
@@ -23,6 +26,13 @@ export interface AlbumMoreSheetProps {
   albumId: string;
   /** 표지 사진 바꾸기 — 주최자만. 넘기지 않으면 행이 없다. */
   onChangeCover?: () => void;
+  /** 앨범 모양 바꾸기 — 주최자만. 넘기지 않으면 **행 자체가 없다**(참여자·구경꾼).
+   *  누르면 이 시트의 **몸만** 바뀐다 — 새 페이지도, 겹쳐 뜨는 새 시트도 만들지 않는다(§11). */
+  appearance?: { skin: AlbumSkin; paper: AlbumPaper; category?: string | null };
+  onChangeAppearance?: (next: { skin?: AlbumSkin; paper?: AlbumPaper }) => void;
+  /** 저장이 실패했을 때 **우리 말**로 온다. 서버 문구를 그대로 내지 않는다(§11). */
+  appearanceError?: string | null;
+  isSavingAppearance?: boolean;
   /** 앨범 다시 구성하기 — 주최자만. 새로 더해진 것까지 넣어 앨범을 다시 짠다.
    *  ★ 새로 더해진 것을 **담는** 버튼이 아니다. 담기는 이미 자동으로 끝나 있다
    *    (올라오는 즉시 마지막 페이지에 붙는다). 이건 사진 배치와 이야기를 다시
@@ -32,6 +42,10 @@ export interface AlbumMoreSheetProps {
   /** 파일로 저장하기(PDF). 넘기지 않으면 행이 없다. */
   onExportPdf?: () => void;
   isExportingPdf?: boolean;
+  /** `실물 앨범으로 받아보기` 를 이 시트에 둘지 — **주최자와 참여자만** 참이다.
+   *  구경꾼에게는 없다(파는 것이 아니라 재는 것이라 자기 앨범인 사람에게만 묻는다).
+   *  자리는 `파일로 저장하기(PDF)` **바로 아래**다 — 같은 물음(이 앨범을 갖고 싶다)이다. */
+  canAskPrintIntent?: boolean;
   /** 이 앨범 지우기 — 되돌릴 수 없으므로 맨 아래(§5). */
   onDeleteAlbum?: () => void;
   isDeleting?: boolean;
@@ -45,10 +59,44 @@ export interface AlbumMoreSheetProps {
 
 export default function AlbumMoreSheet({
   onClose, accountSheet, canEdit, canDelete, photoCount, contributorCount, albumId,
-  onChangeCover, onRebuildEdition, isRebuilding = false, onExportPdf, isExportingPdf = false, onDeleteAlbum, isDeleting = false,
+  onChangeCover, appearance, onChangeAppearance, appearanceError = null, isSavingAppearance = false,
+  onRebuildEdition, isRebuilding = false, onExportPdf, isExportingPdf = false, canAskPrintIntent = false, onDeleteAlbum, isDeleting = false,
   showAbsentNotice = false, onLogout, onWithdraw,
 }: AlbumMoreSheetProps) {
   const openParticipants = () => window.location.assign(`/album/${albumId}/participants`);
+  // 같은 껍데기 안에서 몸만 바뀐다 — 시트를 겹쳐 열지 않는다(§11).
+  const [view, setView] = useState<"menu" | "appearance">("menu");
+  const showAppearance = canEdit && Boolean(appearance && onChangeAppearance);
+
+  if (view === "appearance" && appearance && onChangeAppearance) {
+    return (
+      <section className="album-inline-action album-more-sheet" aria-label="앨범 모양">
+        {/* ★ `닫기` 가 있어야 고른 뒤 앨범으로 바로 돌아간다(2026-08-16 PO).
+            고른 것은 이미 저장돼 있는데(저장 버튼이 없다) 시트가 남아 있으면
+            `뒤로` → `닫기` 로 두 번 눌러야 앨범이 보였다.
+            `뒤로` 는 그대로 둔다 — 메뉴로 돌아가고 싶은 사람이 있다.
+            고른 순간 자동으로 닫지 않는다: 여러 개를 눌러 보며 고르는 자리다. */}
+        <div className="album-inline-action__header">
+          <h2>앨범 모양</h2>
+          <div className="album-more-sheet__header-actions">
+            <button type="button" onClick={() => setView("menu")}>뒤로</button>
+            <button type="button" onClick={onClose}>닫기</button>
+          </div>
+        </div>
+        <div className="album-inline-action__body">
+          <AlbumAppearancePicker
+            skin={appearance.skin}
+            paper={appearance.paper}
+            category={appearance.category}
+            onPick={onChangeAppearance}
+            error={appearanceError}
+            isSaving={isSavingAppearance}
+          />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="album-inline-action album-more-sheet" aria-label="더보기">
       <div className="album-inline-action__header"><h2>더보기</h2><button type="button" onClick={onClose}>닫기</button></div>
@@ -57,6 +105,8 @@ export default function AlbumMoreSheet({
         {accountSheet}
         {/* 목업 화면 3 그대로: 60px 목록 행 + 보조 라벨. 제목 고치기는 없다(인라인 수정과 중복). */}
         {canEdit && photoCount && onChangeCover ? <button type="button" className="album-more-sheet__row" onClick={() => { onClose(); onChangeCover(); }}><span>표지 사진 바꾸기</span></button> : null}
+        {/* ★ 앨범 모양 — 표지 바로 아래다. 시트를 닫지 않는다: 같은 자리에서 몸만 바뀐다. */}
+        {showAppearance ? <button type="button" className="album-more-sheet__row" onClick={() => setView("appearance")}><span>앨범 모양 바꾸기</span><em>사진 담는 모양과 종이 색</em></button> : null}
         {/* 소유자 "함께 만든 사람" / 참여자 "함께한 사람"(목업 3a) — 인원 수 출처가 다르다.
             이미 있는 참여자 목록 페이지로 간다(§5: 있는 것을 없애라는 뜻이 아니다). */}
         {contributorCount !== null
@@ -70,6 +120,8 @@ export default function AlbumMoreSheet({
             {/* 예약 슬롯(4a·③): 지금은 숫자 사실만 — 어떤 것도 예고하지 않는다. */}
             <p className="album-more-sheet__slot">이 앨범 사진 {photoCount}장 · 한 파일 {PDF_PHOTO_SAFE_LIMIT}장</p></>
           : <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { onClose(); onExportPdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button>) : null}
+        {/* PDF 바로 아래다 — 화면으로 보다가 `종이로도 받고 싶다`가 이어지는 자리다. */}
+        {canAskPrintIntent ? <PrintIntentCta albumId={albumId} variant="sheet" /> : null}
         {/* ★ `새 앨범 만들기` 는 여기 없다 (PO 2026-08-13). 하단 네비의 `앨범 만들기` 와
             **같은 곳으로 가는 칸**이었다 — 같은 일이 두 자리에 있으면 둘이 다른 줄 안다(§4). */}
         {showAbsentNotice ? <div className="album-more-sheet__absent"><h3>여기에 없는 것</h3><p>제목·표지 바꾸기, 공유하기, 앨범 지우기는 <b>앨범을 만든 사람</b>만 할 수 있어요. 내가 더한 사진과 한마디는 내가 지울 수 있어요.</p></div> : null}

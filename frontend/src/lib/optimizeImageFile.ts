@@ -39,6 +39,83 @@ async function decodeImage(file: File): Promise<CanvasImageSource> {
   }
 }
 
+/**
+ * 파일 **앞부분만** 읽어 원본 크기를 알아낸다 — 미리보기를 작게 디코드하기 위해서다.
+ *
+ * ★ 왜 필요한가: createImageBitmap 에 resize 를 주면 4000×3000 비트맵(48MB)을
+ *   아예 만들지 않는다. 그런데 비율을 지키려면 **어느 변이 긴지**를 먼저 알아야 한다.
+ *   그것 때문에 원본을 통째로 디코드하면 아낀 것이 없다.
+ * ★ 파일 전체를 읽지 않는다(EXIF 를 읽는 자리와 같은 이유 — exifCaptureDate.ts).
+ * ★ 모르면 null 이다. 그러면 부르는 쪽이 **지금 경로 그대로** 돈다. 짐작하지 않는다.
+ */
+const SIZE_HEAD_BYTES = 128 * 1024;
+
+function readJpegSize(view: DataView): { width: number; height: number } | null {
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  let offset = 2;
+  while (offset + 4 <= view.byteLength) {
+    // 0xFF 채움 바이트는 건너뛴다.
+    if (view.getUint8(offset) !== 0xff) return null;
+    let marker = view.getUint8(offset + 1);
+    while (marker === 0xff && offset + 2 < view.byteLength) {
+      offset += 1;
+      marker = view.getUint8(offset + 1);
+    }
+    // 길이가 없는 표식(재시작·EOI 따위)은 두 바이트만 차지한다.
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+      offset += 2;
+      continue;
+    }
+    const length = view.getUint16(offset + 2);
+    // SOF0~SOF15 (0xC4 DHT · 0xC8 JPG · 0xCC DAC 는 크기가 아니다).
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      if (offset + 9 > view.byteLength) return null;
+      return { height: view.getUint16(offset + 5), width: view.getUint16(offset + 7) };
+    }
+    if (length < 2) return null;
+    offset += 2 + length;
+  }
+  return null;
+}
+
+function readPngSize(view: DataView): { width: number; height: number } | null {
+  if (view.byteLength < 24) return null;
+  if (view.getUint32(0) !== 0x89504e47 || view.getUint32(4) !== 0x0d0a1a0a) return null;
+  return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+async function probeImageSize(file: File): Promise<{ width: number; height: number } | null> {
+  try {
+    const head = file.slice(0, Math.min(SIZE_HEAD_BYTES, file.size));
+    const view = new DataView(await head.arrayBuffer());
+    const size = readJpegSize(view) || readPngSize(view);
+    return size && size.width > 0 && size.height > 0 ? size : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 미리보기용 **작은** 디코드. 800 기준으로 바로 줄여서 받는다.
+ *
+ * ★ 한쪽 변만 준다 — 둘 다 주면 늘어난 비율로 찌그러진다. 한쪽만 주면 브라우저가
+ *   비율을 지키고, EXIF 회전이 어느 순서로 적용되든 찌그러지지 않는다.
+ * ★ 원본이 이미 작으면 늘리지 않는다(scale ≥ 1 이면 그냥 디코드한다).
+ * ★ createImageBitmap 이 없거나 크기를 못 읽으면 null 이다 — 부르는 쪽이 지금 경로로 간다.
+ */
+async function decodeSmallForPreview(file: File): Promise<CanvasImageSource | null> {
+  if (!("createImageBitmap" in window)) return null;
+  const size = await probeImageSize(file);
+  if (!size) return null;
+  const longEdge = Math.max(size.width, size.height);
+  const options: ImageBitmapOptions = { imageOrientation: "from-image", resizeQuality: "high" };
+  if (longEdge > PREVIEW_MAX_EDGE) {
+    if (size.width >= size.height) options.resizeWidth = PREVIEW_MAX_EDGE;
+    else options.resizeHeight = PREVIEW_MAX_EDGE;
+  }
+  return createImageBitmap(file, options);
+}
+
 function imageSize(image: CanvasImageSource): { width: number; height: number } {
   if (image instanceof HTMLImageElement) return { width: image.naturalWidth, height: image.naturalHeight };
   const sizedImage = image as ImageBitmap;
@@ -116,46 +193,34 @@ export async function optimizeImageFile(file: File): Promise<File> {
   }
 }
 
-/** Upload file + small preview blob from ONE decode (avoids a second full decode). */
-async function optimizeWithPreview(file: File): Promise<{ file: File; previewBlob: Blob | null }> {
-  // GIF is kept as-is (animation); its own file is used as the preview.
-  if (isGif(file)) return { file, previewBlob: null };
+/**
+ * 고르는 순간 화면에 붙일 **미리보기 하나**만 만든다 — 올릴 파일은 만들지 않는다.
+ *
+ * 예전에는 고르는 자리에서 `2560 축소 → 인코딩(올릴 파일) → 800 축소 → 인코딩` 을
+ * 다 끝낸 뒤에야 사진이 떴다. 화면에 필요 없는 일을 먼저 끝낸 것이다 —
+ * 카메라 원본이면 거기서 대부분의 시간이 갔다. 무거운 쪽은 `앨범 만들기` 로 미룬다.
+ *
+ * ★ **원본을 화면에 그대로 띄우지 않는다**(K-10 — 안드로이드 탭이 죽던 원인).
+ *   여기서 만드는 것은 언제나 긴 변 800 이다. 순서만 바꾼 것이지 규칙은 그대로다.
+ * ★ 못 만들면 null 이다. 사진을 버리지 않는다 — 미리보기만 없다(GIF·HEIC·디코드 실패).
+ */
+export async function makePreviewBlob(file: File): Promise<Blob | null> {
+  // GIF 는 움직임을 지키려고 그대로 둔다(부르는 쪽이 파일 자체를 미리보기로 쓴다).
+  if (isGif(file)) return null;
   let image: CanvasImageSource;
   try {
-    image = await decodeImage(file);
-  } catch (error) {
-    // HEIC decode unsupported → original goes to the server path, no preview.
-    if (/\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type)) return { file, previewBlob: null };
-    throw error;
+    image = (await decodeSmallForPreview(file)) ?? (await decodeImage(file));
+  } catch {
+    return null;
   }
   try {
     const { width, height } = imageSize(image);
-    if (!width || !height) throw new Error("Image dimensions are unavailable.");
-    // Upload first, then preview — each canvas is released before the next.
-    const uploadFile = await encodeUploadFromImage(image, width, height, file);
-    let previewBlob: Blob | null = null;
-    try {
-      previewBlob = await encodePreviewFromImage(image, width, height);
-    } catch {
-      previewBlob = null; // preview is best-effort; the upload file already succeeded
-    }
-    return { file: uploadFile, previewBlob };
+    if (!width || !height) return null;
+    return await encodePreviewFromImage(image, width, height);
+  } catch {
+    return null;
   } finally {
     if (image instanceof ImageBitmap) image.close();
-  }
-}
-
-/**
- * Like prepareForUpload, but also returns a small preview blob decoded from the
- * SAME bitmap. Never drops a photo: on any failure the original file is used for
- * upload and previewBlob is null (caller falls back to the upload file for preview).
- */
-export async function prepareUploadAndPreview(file: File): Promise<{ file: File; previewBlob: Blob | null }> {
-  try {
-    return await optimizeWithPreview(file);
-  } catch (cause) {
-    if (file.size <= MAX_ORIGINAL_IMAGE_BYTES) return { file, previewBlob: null };
-    throw cause;
   }
 }
 

@@ -31,6 +31,40 @@ body {
   background-image: none;
 }
 
+/* 로그인 마무리 화면만 앱 기본 배경(--c-bg)이다. 흰 면이 깔리면 오는 화면과
+   가는 화면 사이에서 한 번 번쩍인다 — 0.5초 스쳐 가는 자리라 그것만 남는다. */
+.app.app--auth-callback,
+.app.app--auth-callback .app__main {
+  background: var(--c-bg);
+}
+
+/* 가운데 로고 + 한 줄 + 로딩 표시. 상자·테두리를 두지 않는다 — 카드가 아니다. */
+.auth-callback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 22vh 0 0;
+  text-align: center;
+}
+
+/* 헤더 로고와 같은 조합이다(§9) — `우리`(글자색) + `앨범`(브랜드색). */
+.auth-callback__brand { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.auth-callback__brand b { color: var(--c-text); font-weight: inherit; }
+.auth-callback__brand i { color: var(--c-brand); font-style: normal; }
+
+.auth-callback__text {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: 0.9375rem;
+}
+
+/* 움직임·색·0.3초 지연은 styles/loading.css 가 준다. 여기서는 크기만 정한다. */
+.auth-callback__bar {
+  width: 132px;
+  height: 6px;
+}
+
 /* Visually hide file inputs without display:none / hidden (iOS picker stability) */
 .file-input-mobile {
   position: absolute;
@@ -322,6 +356,12 @@ body {
 .my-albums__unbookmark { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--c-text-muted); font-size: var(--t-xs); font-weight: 700; cursor: pointer; }
 .my-albums__unbookmark:disabled { opacity: 0.6; cursor: wait; }
 .my-albums__card--skeleton { pointer-events: none; }
+/* 보관함(2026-08-17) — 목록 맨 아래 접힌 줄 하나. 누르면 **그 자리에서** 펼친다.
+   ★ 눈에 띄면 안 된다. 감춰 둔 것을 찾는 자리이지 권하는 자리가 아니다. */
+.my-albums__archive-toggle { width: 100%; min-height: var(--tap-min); margin-top: var(--s-4); padding: 0; border: 0; border-top: 1px solid var(--c-hairline); background: none; color: var(--c-text-muted); font: inherit; font-size: var(--t-xs); font-weight: 700; text-align: left; cursor: pointer; }
+/* 넣자마자 뜨는 한 줄 — `되돌리기` 가 그 줄 안에 있다. 사라지는 토스트가 아니다. */
+.my-albums__archived-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.my-albums__archived-undo { min-height: var(--tap-min); padding: 0 var(--s-2); border: 0; background: none; color: var(--c-brand-text); font: inherit; font-weight: 700; cursor: pointer; }
 /* 자리표시자의 색·움직임은 styles/loading.css 의 .loading-shimmer 가 준다(I-6b).
    전에는 그라디언트 세 지점이 전부 --c-brand-soft 라 **움직여도 아무것도 안 보였다.** */
 .my-albums__skeleton-line { height: 0.72rem; margin-top: 0.45rem; }
@@ -399,9 +439,10 @@ body {
   margin: 0;
   max-width: 16em;
   color: var(--c-text);
-  font-size: clamp(1.45rem, 5.8vw, 1.9rem);
+  /* 시안 1a: 25px · 1.38. clamp 를 두면 폭에 따라 아래 여백까지 흔들린다. */
+  font-size: 25px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.38;
   letter-spacing: -0.04em;
   word-break: keep-all;
 }
@@ -409,8 +450,193 @@ body {
 .landing__copy {
   margin: 0.65rem 0 0;
   color: var(--c-text-muted);
-  font-size: 0.95rem;
+  font-size: 13.5px;   /* 시안 1a */
   line-height: 1.45;
+}
+
+
+/* ─── 첫 화면 히어로: 각자 올린 사진이 한 권으로 (시안 1a · 2026-08-14) ───
+   ★ 시안의 색은 전부 토큰으로 옮겼다 — 화면 CSS 에 hex 를 직접 적지 않는다.
+     강조는 --c-accent, 본문 글자는 --c-text, 보조 글자는 --c-text-muted,
+     실선·구분선은 --c-hairline 이다.
+   ★ 손글씨 폰트(Gowun Dodum)는 쓰지 않는다. 첫 화면에 폰트를 새로 받으면
+     카카오 웹뷰에서 그만큼 늦게 뜬다. */
+.landing-hero {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(100%, 340px);
+  margin: var(--s-4) 0 0;
+}
+
+.landing-hero__stage {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.landing-hero__shots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-hero__shot { display: grid; justify-items: center; gap: 5px; min-width: 0; }
+
+/* 흰 프레임 — 인화지의 흰 가장자리다. 기울기와 한 세트로 "붙여 놓은 사진"이 된다. */
+.landing-hero__frame {
+  display: block;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 11px;
+  background: var(--c-surface);
+  /* 시안 0 6px 14px rgba(45,45,45,.08) — 토큰 --sh-md 가 사실상 같은 값이다. */
+  box-shadow: var(--sh-md);
+}
+
+.landing-hero__shot:nth-child(1) .landing-hero__frame { transform: rotate(-3.5deg); }
+.landing-hero__shot:nth-child(2) .landing-hero__frame { transform: rotate(1.5deg); }
+.landing-hero__shot:nth-child(3) .landing-hero__frame { transform: rotate(4deg); }
+
+.landing-hero__frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 7px;
+}
+
+.landing-hero__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-text-muted);
+  font-size: 11px;
+}
+
+.landing-hero__avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c-hairline);
+  color: var(--c-text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* ★ 세 사람이 **서로 다른 색**이어야 `각자 올린 것`이 보인다(시안 1a).
+   같은 색이면 그냥 사진 3장이다. 값은 tokens.css 한 곳에 있다. */
+.landing-hero__avatar--dad { background: var(--c-hero-dad); color: var(--c-hero-dad-text); }
+.landing-hero__avatar--mom { background: var(--c-hero-mom); color: var(--c-hero-mom-text); }
+.landing-hero__avatar--me { background: var(--c-hero-me); color: var(--c-hero-me-text); }
+
+/* 세 칸에서 아래 카드로 모인다 — 세로 점선 셋. */
+/* ★ 세 칸에서 한 권으로 **모이는** 선 (시안 1a · 2026-08-16).
+   예전에는 세로 점선 셋이었다 — 나란히 내려갈 뿐 모이지 않아 뜻이 사라졌다.
+   색은 브랜드 계열의 연한 선이다. 회색(--c-hairline)으로 두면 배경에 묻힌다. */
+.landing-hero__flow {
+  display: block;
+  margin: 2px 0 -2px;
+}
+
+.landing-hero__flow path {
+  fill: none;
+  stroke: var(--c-hairline-brand);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 3 4;
+}
+
+/* 앨범 카드와 그 **뒤에 겹친 한 장**. 한 장이 아니라 쌓인 한 권으로 읽히게 한다. */
+.landing-hero__book {
+  position: relative;
+  width: 100%;
+}
+
+.landing-hero__book-back {
+  position: absolute;
+  inset: 10px 10px -6px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 16px;
+  background: var(--c-surface);
+  transform: rotate(-1.4deg);
+}
+
+.landing-hero__album {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 14px;
+  background: var(--c-surface);
+  box-shadow: var(--sh-card);
+  text-align: left;
+}
+
+.landing-hero__album-title { margin: 0; color: var(--c-text); font-size: 15px; font-weight: 700; }
+.landing-hero__album-meta { margin: 2px 0 8px; color: var(--c-text-muted); font-size: 11px; }
+
+.landing-hero__album-shots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.landing-hero__album-shots img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.landing-hero__notes {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-hero__notes li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: var(--c-bg-soft);
+  color: var(--c-text);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.landing-hero__caption {
+  margin: 0;
+  color: var(--c-text-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* 본인이 여닫는 자리다 — 닫히는 배너가 아니다. 선택은 localStorage 에 남는다. */
+.landing-hero__toggle {
+  min-height: var(--tap-min);
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 /* 내 앨범 표지 띠 — 로그인한 사람에게만, 앨범이 있을 때만 그려진다.
@@ -619,13 +845,8 @@ body {
     padding-bottom: 1.25rem;
   }
 
-  .landing__title {
-    font-size: 1.95rem;
-  }
-
   .landing__copy {
     margin-top: 0.75rem;
-    font-size: 1rem;
   }
 
   .landing__categories {

@@ -68,7 +68,13 @@ test("참여하려면 이름을 적고 시작한다 — 그 길은 그대로다"
   assert.match(body, /const next = contributionPanelAction\(contributionSession, action\);/);
   assert.match(src, /참여자명을 알려주세요/);
   // 이름을 적고 누르면 그때 참여가 시작된다(게스트·계정 같은 경로).
-  assert.match(body, /const result = await startPublicContribution\(token, authenticatedUser \? null : contributionGuestId\(\), displayName\);/);
+  // ★ 2026-08-16 에 인자가 하나 늘었다 — **무엇을 하려고 이름을 적는가**(intent).
+  //   한마디면 감상 링크·확정된 앨범에서도 받아 주고, 그 사람을 참여자로 만들지 않는다
+  //   (`인쇄되는 것만 잠근다` · 화면_기준 §1). 이름을 받는 길 자체는 그대로다.
+  // ★ 2026-08-16 — 사진 밑 한마디가 이 흐름을 거치지 않게 됐다(그 자리에서 끝난다).
+  //   그래서 무엇을 하려는지는 **이름 묻는 자리 자신**(nameAction)이 말한다.
+  //   이름을 받는 길 자체는 그대로다.
+  assert.match(body, /await startPublicContribution\(\s*token,\s*authenticatedUser \? null : contributionGuestId\(\),\s*displayName,\s*nameAction === "memory" \? "memory" : "photo",\s*\);/);
   assert.match(body, /if \(\(!nameAction && !authenticatedUser\) \|\| !displayName\) \{/);
 });
 

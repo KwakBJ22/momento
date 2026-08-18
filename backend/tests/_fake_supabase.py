@@ -83,6 +83,13 @@ class _Query:
         self._filters.append(("eq", col, val))
         return self
 
+    def neq(self, col, val):
+        # ★ 2026-08-17 — 진짜 클라이언트에는 있는데 대역에만 없었다. 보관함이
+        #   `.neq("status", "archived")` 를 쓰면서 필요해졌다. 없는 칸은 다른 값으로 본다
+        #   (보관하지 않은 앨범의 status 가 비어 있어도 목록에 남아야 한다).
+        self._filters.append(("neq", col, val))
+        return self
+
     def is_(self, col, val):
         self._filters.append(("eq", col, None if val == "null" else val))
         return self
@@ -114,6 +121,9 @@ class _Query:
         for op, col, val in self._filters:
             if op == "eq":
                 if row.get(col) != val:
+                    return False
+            elif op == "neq":
+                if row.get(col) == val:
                     return False
             elif op == "in":
                 if row.get(col) not in val:

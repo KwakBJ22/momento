@@ -11,11 +11,12 @@ import { pdfFailureMessage, pdfSuccessMessage } from "../lib/pdfNotice";
 import AlbumPdfStatus from "./AlbumPdfStatus";
 import AlbumGuestbook from "./AlbumGuestbook";
 import AlbumMoreSheet from "./AlbumMoreSheet";
+import PrintIntentCta from "./PrintIntentCta";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { useContactCloseGuard } from "../lib/useContactCloseGuard";
 import { bookmarkTroubleMessage, runAfterLogin } from "../lib/albumTrouble";
 import { clearPendingBookmark, readPendingBookmark, setPendingBookmark } from "../lib/guestAlbum";
-import { getPublicShare, loadCollabSession, saveCollabSession, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
+import { createPhotoMemory, getPublicShare, loadCollabSession, saveCollabSession, saveSharedAlbumBookmark, startPublicContribution, submitShareReaction, type CollabSession } from "../lib/api";
 import { REACTIONS, getReactionSessionKey, markReactionPressed, readPressedReactions, type ReactionCode } from "../lib/shareReactions";
 import type { GuestbookItem } from "../types";
 import { createId } from "../lib/id";
@@ -121,6 +122,9 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   // 역할은 링크의 종류가 정한다 — 백엔드가 내려준 능력만 본다(SCREEN_SPEC §1).
   // 값이 없으면(구버전 응답) 보수적으로 구경꾼으로 본다: 할 수 없는 것을 보여주는 쪽이 더 나쁘다.
   const canContribute = album?.can_contribute === true;
+  // ★ 한마디는 **인쇄되지 않으므로** 잠기지 않는다(PO 2026-08-16 · `인쇄되는 것만 잠근다`).
+  //   감상 링크로 온 구경꾼도, 확정된 앨범에서도 남길 수 있다. 판정은 서버가 한다.
+  const canAddMemory = album?.can_add_memory === true;
   // ★ 역할 판정은 lib/albumRole 한 곳이다(§1 · H-1). 화면이 따로 추측하지 않는다 —
   // 링크 종류가 아니라 서버가 내려준 능력 플래그로 갈린다.
   const role = resolveAlbumRole(album);
@@ -148,6 +152,14 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   const [pressedReactions, setPressedReactions] = useState<Set<ReactionCode>>(new Set());
   const reactionSessionRef = useRef<string>("");
   const [guestbook, setGuestbook] = useState<GuestbookItem[]>([]);
+  // 사진 밑에서 바로 한마디 쓰기 — 앨범 화면(27fa413)과 **같은 통로**를 쓴다.
+  // ★ 초대받아 처음 온 사람은 대개 이 화면으로 들어온다. 쓸 수 있는 사람에게
+  //   길이 닿아야 한다(§7 권한표 · 구경꾼이 쓸 수 있는 글은 한마디와 `우리가 남긴 말`).
+  const [memoryPhotoId, setMemoryPhotoId] = useState<string | null>(null);
+  const [memoryDraft, setMemoryDraft] = useState("");
+  const [savingMemoryPhotoId, setSavingMemoryPhotoId] = useState<string | null>(null);
+  const [memoryWriteError, setMemoryWriteError] = useState<string | null>(null);
+  /** 이름을 받고 나서 열어 줄 사진 — 이름 묻는 자리는 이 화면에 이미 있는 그것 하나다. */
   const photos = useMemo(() => mapSharePhotos(album?.photos), [album?.photos]);
 
   useEffect(() => {
@@ -261,11 +273,21 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
     }
     setIsStartingContribution(true);
     try {
-      const result = await startPublicContribution(token, authenticatedUser ? null : contributionGuestId(), displayName);
+      // ★ 무엇을 하려고 이름을 적는지 함께 보낸다. 한마디면 감상 링크·확정된 앨범에서도
+      //   받아 주고, 그 사람을 **참여자로 만들지 않는다**(이름만 받는다 · §1).
+      const result = await startPublicContribution(
+        token,
+        authenticatedUser ? null : contributionGuestId(),
+        displayName,
+        nameAction === "memory" ? "memory" : "photo",
+      );
       const session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
       saveCollabSession(session);
       setContributionAlbumId(result.album_id);
       setContributionSession(session);
+      // ★ 2026-08-16 — `사진 밑에서 시작한 한마디면 그 사진으로 돌아간다` 는 우회로를
+      //   걷어냈다. 이제 사진 밑 한마디는 이 흐름으로 오지 않는다(그 자리에서 끝난다).
+      //   이 자리는 하단 네비·딥링크로 들어온 길 하나만 맡는다.
       setContributionAction(nameAction ?? requestedContribution);
       setNameAction(null);
       if (authenticatedUser) authDebug("ROUTE_CONTRIBUTOR", { source: "publicShare", routeRole: "participant", reason: "account_contributor_ready", albumId: result.album_id, userId: authenticatedUser.id });
@@ -274,6 +296,70 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
       setContributionError(userFacingError(cause, "참여를 시작하지 못했어요."));
     } finally {
       setIsStartingContribution(false);
+    }
+  };
+
+  /**
+   * 사진 밑에서 **바로** 한마디를 남긴다 — 앨범 화면과 같은 규칙이다(27fa413 · 2026-08-16 고침).
+   *
+   * ★ **이름을 몰라도 여기서 연다.** 예전에는 그때만 이름 묻는 자리(nameAction)로 빠져서,
+   *   처음 누른 사람은 시트를 보고 그다음부터는 인라인이 됐다 — 같은 기능이 두 화면으로
+   *   갈렸다. 이제 이름 칸이 **같은 자리**에 하나 더 설 뿐이다(§11).
+   * ★ 이름을 받는 일 자체는 그대로다(§1 — 참여자가 되는 것은 사용자가 정한다).
+   *   적지 않으면 남길 수 없고, 적어서 `남기기` 를 눌러야 시작된다.
+   * ★ 새 API 를 만들지 않는다 — 지금 쓰는 startPublicContribution · createPhotoMemory 다.
+   * ★ 실패해도 쓴 글을 지우지 않는다(§11).
+   */
+  const startMemoryHere = (photoId: string) => {
+    setMemoryWriteError(null);
+    setMemoryDraft("");
+    setMemoryPhotoId(photoId);
+  };
+
+  const saveMemoryHere = async (photoId: string) => {
+    const text = memoryDraft.trim();
+    if (!text || !album) return;
+    setSavingMemoryPhotoId(photoId);
+    setMemoryWriteError(null);
+    try {
+      // 이름을 아직 모르면 여기서 받은 이름으로 시작한다 — 이 화면이 이미 쓰는 그 API 다.
+      // ★ 무엇을 하려는지(`memory`)를 함께 보낸다. 한마디를 썼다고 참여자로 만들지
+      //   않는다 — 이름만 받는다(48489b7 · §1).
+      let session = contributionSession;
+      if (!session) {
+        const displayName = (authenticatedUser?.displayName || participantName).trim();
+        if (!displayName) {
+          setMemoryWriteError("이름을 적어 주세요.");
+          setSavingMemoryPhotoId(null);
+          return;
+        }
+        const result = await startPublicContribution(
+          token,
+          authenticatedUser ? null : contributionGuestId(),
+          displayName,
+          "memory",
+        );
+        session = { albumId: result.album_id, contributorId: result.contributor_id, guestId: result.guest_id, displayName: result.display_name };
+        saveCollabSession(session);
+        setContributionAlbumId(result.album_id);
+        setContributionSession(session);
+      }
+      await createPhotoMemory(album.album_id, photoId, session, text);
+      // 그 사진 밑 목록에만 더한다 — 앨범을 다시 읽지 않는다(§9).
+      setAlbum((current) => current ? {
+        ...current,
+        photos: (current.photos || []).map((photo) => (
+          photo.id === photoId
+            ? { ...photo, comments: [...(photo.comments ?? []), { author: session.displayName || null, text }] }
+            : photo
+        )),
+      } : current);
+      setMemoryPhotoId(null);
+      setMemoryDraft("");
+    } catch {
+      setMemoryWriteError("한마디를 남기지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setSavingMemoryPhotoId(null);
     }
   };
 
@@ -391,7 +477,7 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
   );
   const publicBody = (
     <>
-      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} livingAppendPages={album.living_append_pages} mode="screen" onReady={onAlbumRendererReady} /></div>
+      <div className="album-result__stage"><AlbumRenderer contributorNames={album.contributor_names ?? []} photos={photos} title={album.title} epilogue={epilogue} coverDateLabel={album.date} chapterStories={album.chapter_stories} category={album.category} templateType={album.template_type} albumId={album.album_id} coverPhotoId={album.cover_photo_id} skin={album.skin} paper={album.paper} livingAppendPages={album.living_append_pages} mode="screen" photoMemoryWrite={{ canWrite: () => requestedEdition === null && canAddMemory, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, needsName: !contributionSession && !authenticatedUser, nameDraft: participantName, setNameDraft: setParticipantName, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} onReady={onAlbumRendererReady} /></div>
       <section className="public-share__reactions" aria-label="이 앨범에 마음 남기기">
         {REACTIONS.map((r) => {
           const isPressed = pressedReactions.has(r.code);
@@ -422,6 +508,8 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
           albumId={albumId || ""}
           onExportPdf={role === "contributor" ? () => { void handleSharePdf(); } : undefined}
           isExportingPdf={isExportingPdf}
+          // 함께 만든 사람에게만 묻는다 — 구경꾼은 자기 앨범이 아니다.
+          canAskPrintIntent={role !== "visitor" && Boolean(albumId)}
           showAbsentNotice={role === "contributor"}
           // ★ 로그인했으면 **자기 계정을 다루는 줄**은 역할과 무관하게 보인다
           // (K-7c · §5 22차). 예전에는 `role === "contributor"` 로 걸어서, 담아두기로
@@ -433,7 +521,12 @@ export default function PublicShareView({ token, initialAlbum, authenticatedUser
         />
       ) : null}
       {/* 앨범 상세와 같은 표시를 쓴다(I-3) — 시트를 닫아도 남는다. */}
-      <AlbumPdfStatus working={isExportingPdf} notice={pdfNotice} onDismiss={() => setPdfNotice(null)} />
+      <AlbumPdfStatus
+        working={isExportingPdf}
+        notice={pdfNotice}
+        printIntent={role !== "visitor" && albumId ? <PrintIntentCta albumId={albumId} variant="notice" /> : null}
+        onDismiss={() => setPdfNotice(null)}
+      />
       {/* ③ 방명록 — 공용 컴포넌트(AlbumGuestbook). 앨범 상세와 같은 구현을 쓴다.
           구역 안의 버튼은 `여기에 남기기` 다 — 사진에 다는 `이 사진에 한마디` 와
           성격이 달라 이름을 나눴다(§4·§7). */}

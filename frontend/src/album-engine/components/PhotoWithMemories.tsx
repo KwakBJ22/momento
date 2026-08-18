@@ -90,7 +90,7 @@ export default function PhotoWithMemories({
       </div>
       {/* ★ 한마디는 프레임 **밖**이고 **인쇄되지 않는다**(§7). 그래서 화면일 때만 그린다.
           기울기와 같은 자리에서 화면/인쇄를 가른다 — 판단 근거를 둘로 만들지 않는다. */}
-      {isScreen ? <PhotoMemoryList entries={memoryEntries} /> : null}
+      {isScreen ? <PhotoMemoryList entries={memoryEntries} photoId={photo.id} /> : null}
     </div>
   );
 }

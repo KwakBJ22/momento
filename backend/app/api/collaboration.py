@@ -65,6 +65,7 @@ from app.services.collaboration_service import (
     update_photo_memory,
 )
 from app.services.image_upload_service import process_upload
+from app.services.place_name_service import resolve_place_for_upload
 from app.services.storage_service import StorageService
 from app.services.membership import get_album_access
 from app.services.supabase import (
@@ -782,14 +783,14 @@ def contribute_upload_photos(
             "height": processed.height or None,
             "orientation": processed.orientation,
             "taken_at": processed.taken_at.isoformat() if processed.taken_at else None,
-            "latitude": processed.latitude,
-            "longitude": processed.longitude,
-            "location_name": None,
-            "location_source": (
-                "exif"
-                if processed.latitude is not None and processed.longitude is not None
-                else "unknown"
-            ),
+            # ★ 좌표는 **저장하지 않는다**(PO 판단 2026-08-13). 집 주소가 드러나는 값이고
+            #   앨범은 여럿이 본다. 시·군·구 이름으로 바꾼 뒤 버린다(2026-08-15 · 구까지).
+            #   이 자리는 그 규칙이 빠져 있어 좌표를 그대로 넣고 이름은 null 로 박았다 —
+            #   앨범을 만들 때와 **같은 함수**를 부른다(판정이 셋으로 갈리지 않게).
+            "latitude": None,
+            "longitude": None,
+            "location_name": (place := resolve_place_for_upload(processed.latitude, processed.longitude, settings))[0],
+            "location_source": place[1],
             "created_at": created_at,
         }
         save_album_photo_records(client, [record])
@@ -863,12 +864,15 @@ def create_memory(
     if not album:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
 
+    # ★ 한마디는 인쇄되지 않는다 — 앨범이 확정된 뒤에도, 이름만 받은 사람에게도 열려 있다
+    #   (PO 결정 2026-08-16 · `인쇄되는 것만 잠근다`).
     contributor = require_contributor(
         client,
         album_id,
         contributor_id=str(body.contributor_id) if body.contributor_id else None,
         guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
         user_id=user_id,
+        for_memory=True,
     )
     memory = create_photo_memory(
         client, album_id=album_id, photo_id=photo_id, contributor=contributor, comment=body.comment
@@ -918,12 +922,14 @@ def patch_memory(
             user_id=user_id,
         ) or {"id": "owner"}
     else:
+        # 고치는 것도 한마디다 — 남기는 것과 같은 잣대를 쓴다(인쇄되지 않는다).
         contributor = require_contributor(
             client,
             album_id,
             contributor_id=str(body.contributor_id) if body.contributor_id else None,
             guest_id=str(body.guest_id) if body.guest_id else _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
+            for_memory=True,
         )
 
     memory = update_photo_memory(
@@ -969,12 +975,14 @@ def remove_memory(
 
     contributor = None
     if not is_owner:
+        # 자기가 남긴 한마디를 지우는 것 — 같은 잣대다.
         contributor = require_contributor(
             client,
             album_id,
             contributor_id=contributor_id,
             guest_id=guest_id or _parse_uuid_header(x_woorialbum_guest_id),
             user_id=user_id,
+            for_memory=True,
         )
     delete_photo_memory(
         client, album_id=album_id, memory_id=memory_id, contributor=contributor, is_owner=is_owner

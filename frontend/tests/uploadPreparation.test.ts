@@ -34,6 +34,9 @@ test("the upload form reflects the count immediately by adding photos one at a t
   assert.doesNotMatch(src, /\.\.\.added\]/);
   // Each prepared photo is appended inside the loop.
   assert.match(src, /setPhotos\(\(previous\) => \[\.\.\.previous, item\]\)/);
-  // Preparation uses the loss-safe fallback path (now also returning a preview).
-  assert.match(src, /prepareUploadAndPreview\(file\)/);
+  // ★ 2026-08-16 — 고르는 자리에서 만드는 것은 **미리보기 하나뿐**이다. 올릴 파일
+  //   (긴 변 2560)은 `앨범 만들기` 를 누를 때 만든다. 사진을 잃지 않는 규칙은 그대로다:
+  //   미리보기를 못 만들면 null 이고, 변환이 실패하면 원본을 올린다.
+  assert.match(src, /const previewBlob = await makePreviewBlob\(file\);/);
+  assert.match(src, /const uploadFiles = await prepareChosenPhotos\(photos\);/);
 });

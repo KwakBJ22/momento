@@ -169,13 +169,16 @@
      32px 로 두기 위해서다. 40대 이후 타깃이라 손가락이 32px 을 못 맞춘다 —
      원을 버튼 크기로 만들면 둘 중 하나를 잃는다.
    ★ 색은 자리마다 다르다: 여기는 본문 계열이라 --c-accent. */
+/* ★ 2026-08-16 — 캡션 연필이 사진 위로 솟았다. 날짜 줄 연필에서 8월 15일에 고친 것과
+   **같은 자리**인데 여기만 안 고쳤다. 보이는 크기(32px)가 곧 자리 크기여야 줄에 맞는다.
+   누르는 44px 은 아래 `::after` 가 지킨다 — 자리를 밀지 않고 손가락만 넓힌다. */
 .photo-memory-lines__edit-btn {
   position: relative;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -183,23 +186,36 @@
   cursor: pointer;
 }
 
+/* 누르는 영역만 44px 로 넓힌다(40대 이후 타깃 — 손가락은 32px 을 못 맞춘다).
+   자리를 차지하지 않으므로 캡션 줄 높이가 그대로다. */
+.photo-memory-lines__edit-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  transform: translate(-50%, -50%);
+}
+
 .photo-memory-lines__edit-btn::before {
   content: "";
   position: absolute;
+  box-sizing: border-box;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--c-border);
+  border: 0;
   border-radius: 50%;
-  background: var(--c-surface);
+  background: var(--c-accent-soft);
 }
 
 .photo-memory-lines__edit-btn > * {
   position: relative;
 }
 
+/* 기본이 이미 accent-soft 라 hover 는 테두리만 남긴다 — 그래야 두 상태가 갈린다. */
 .photo-memory-lines__edit-btn:hover::before {
-  background: var(--c-accent-soft);
-  border-color: var(--c-accent);
+  border: 1px solid var(--c-accent);
 }
 
 .photo-memory-lines__editor-wrap {
@@ -208,6 +224,27 @@
 }
 
 .photo-memory-lines__error { margin: 0.4rem 0 0; font-size: 0.8rem; line-height: 1.4; }
+
+/* 이 사진 빼기 — **빨간 글자만**이다. 배경도 테두리도 채우지 않는다(§5).
+   되돌릴 수 없는 것이라 캡션·저장 버튼보다 **아래**에 둔다.
+   누르는 자리는 44px 하한을 지킨다(40대 이후 타깃). */
+.photo-memory-lines__remove {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin: 0.5rem 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-danger);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--w-medium);
+  text-align: center;
+  cursor: pointer;
+}
+
+.photo-memory-lines__remove:disabled { cursor: default; opacity: 0.6; }
 
 .photo-memory-lines__input {
   box-sizing: border-box;
@@ -253,10 +290,20 @@
 }
 
 /* 40+ 화면 가독성: 화면 모드에서만 캡션 14px 하한(인쇄 원본 유지). */
-.album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: clamp(0.875rem, 1.55vw, 0.9rem); }
+/* 시안 album-skins-v2: 캡션은 16px / weight 600 이다. 한마디(15px/400)와
+   **같은 크기·굵기를 쓰지 않는 것**이 두 계층을 가르는 절반이다. */
+.album-renderer--screen .photo-memory-lines--caption .photo-memory-lines__line { font-size: 16px; font-weight: 600; }
 .album-renderer--screen .photo-memory-lines__action { font-size: var(--t-xs); }
 
 /* 남의 캡션을 열기 전 확인 한 단계(SCREEN_SPEC §7). 경고색을 쓰지 않는다 —
    잘못을 지적하는 말이 아니라 한 번 묻는 말이다. */
 .photo-memory-lines__confirm { display: grid; gap: 8px; padding: 10px 0 2px; }
 .photo-memory-lines__confirm-text { margin: 0; color: var(--c-text-soft); font-size: var(--t-sm); line-height: 1.5; }
+
+/* 캡션 줄의 글자와 연필을 **같은 높이**로 맞춘다 — 화면에서만이다.
+   ★ 인쇄에는 연필이 없다. 선택자를 `--screen` 안에 두어 구조적으로 못 새게 한다(§11). */
+.album-renderer--screen .photo-memory-lines__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

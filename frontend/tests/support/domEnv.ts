@@ -11,6 +11,13 @@ import { JSDOM } from "jsdom";
  * 범위를 작게 유지한다: DOM 과 fetch 만 세운다. 실제 네트워크는 타지 않는다.
  */
 
+/**
+ * ★ 검사에 **DOM 요소를 그대로 넘기지 않는다.** 실패 메시지를 만들 때
+ *   node:assert 가 그 요소를 펼치는데, ownerDocument → window 로 이어져
+ *   메모리가 수 GB 로 튄다(2026-08-15 에 PO 컴퓨터가 여러 번 멈췄다).
+ *   `요소 !== null` 처럼 **불리언으로 바꿔서** 넘긴다.
+ */
+
 let registered = false;
 
 /** `.css` import 를 빈 모듈로 만드는 로더를 한 번만 등록한다.

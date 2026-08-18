@@ -62,8 +62,14 @@ test("★ 해가 바뀌는 앨범에서만, 그 해 첫 날짜에 연도를 붙�
 test("★ 화면 머리글은 그대로다 — 인쇄만 새 변형을 쓴다", async () => {
   // 화면은 예전 그대로: 달 줄 + 점 날짜 + 장수.
   const screen = await renderHeader({ date: "2018-11-18", dateRangeLabel: "2018.11.18", photoCount: 4, variant: "date-only" });
-  assert.equal(screen.text, "2018년 11월2018.11.18 (사진 4장)");
-  assert.equal(screen.lines, 2);
+  // ★ 2026-08-16 — 맨 앞의 `18` 은 `여백형` 이 쓰는 큰 숫자(일)다. 마크업은 6종 공통이라
+  //   늘 있고, 다른 모양에서는 CSS 가 감춘다(aria-hidden 이라 낭독기도 읽지 않는다).
+  //   이 검사가 지키는 것은 **화면 머리글이 달 줄 + 날짜 줄 그대로**라는 것이다.
+  // ★ 2026-08-17 — 여백형이 쓰는 한 줄(`월 · 지역 · 사진 N장`)이 마크업에 함께 들어왔다.
+  //   그것도 6종 공통이라 늘 있고 다른 모양에서는 CSS 가 감춘다(위와 같은 방식이다).
+  //   이 검사가 지키는 것은 그대로다: **화면 머리글이 달 줄 + 날짜 줄**이라는 것.
+  assert.equal(screen.text, "182018년 11월2018.11.18 (사진 4장)2018년 11월 · 사진 4장");
+  assert.equal(screen.lines, 3);
   // 그리고 화면은 실제로 date-only 를 넘긴다.
   assert.match(renderer, /photoCount=\{chapter\.photos\.length\}\s*variant="date-only"/);
   // 인쇄만 print-date 다. 장수를 아예 넘기지 않는다.

@@ -171,6 +171,10 @@ export interface AlbumResult {
   category?: AlbumCategory | string | null;
   template: TemplateType;
   template_type?: AlbumTemplateType | string | null;
+  /** 주최자가 고른 앨범 모양 · 종이 색. 고르지 않았으면 null 이고, 화면이
+   *  카테고리 추천으로 채운다(lib/albumSkin — 규칙은 한 곳에 있다). */
+  skin?: string | null;
+  paper?: string | null;
   title: string;
   date: string;
   /** @deprecated mirrors epilogue for legacy clients */
@@ -201,6 +205,10 @@ export interface AlbumResult {
   can_contribute?: boolean;
   /** 더할 수 없을 때 **왜 그런지 한 줄**(J-8). 백엔드가 판정한다 — 프런트가 추측하지 않는다. */
   contribution_block_reason?: string | null;
+  /** ★ 잣대는 하나다 — **인쇄되는 것만 잠근다**(PO 2026-08-16).
+   *  사진은 참여가 끝나면 잠기고, 한마디는 이 앨범을 볼 수 있으면 남길 수 있다. */
+  can_add_photo?: boolean;
+  can_add_memory?: boolean;
   can_delete?: boolean;
   /** 참여자 화면(3a) 전용 — 소유자/무관 사용자는 null. owner_display_name 은
    *  서버의 이메일 앞부분 판정을 통과한 값만 온다. */
@@ -288,6 +296,9 @@ export interface PublicShareAlbum {
   can_contribute?: boolean;
   /** 더할 수 없을 때 **왜 그런지 한 줄**(J-8). 백엔드가 판정한다 — 프런트가 추측하지 않는다. */
   contribution_block_reason?: string | null;
+  /** 인쇄되는 것만 잠근다 — 사진은 링크 종류·참여 종료에 걸리고, 한마디는 늘 열려 있다. */
+  can_add_photo?: boolean;
+  can_add_memory?: boolean;
   title: string;
   narrative: string;
   epilogue?: string | null;
@@ -300,6 +311,9 @@ export interface PublicShareAlbum {
   date?: string;
   category?: string | null;
   template_type?: string | null;
+  /** 구경꾼도 **주최자가 고른 모양**으로 본다 — 앨범 화면과 같은 값·같은 규칙이다. */
+  skin?: string | null;
+  paper?: string | null;
   photos?: AlbumPhoto[];
   photo_count?: number;
   photo_limit?: number;

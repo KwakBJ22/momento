@@ -59,13 +59,13 @@ async function renderHeader(placeEdit: Record<string, unknown> | null) {
 
 test("★ 참여자·구경꾼에게는 연필이 안 보인다", async () => {
   const none = await renderHeader(null);
-  assert.equal(none.pencil(), null, "권한 없이 연필이 보인다");
+  assert.equal(none.pencil() === null, true, "권한 없이 연필이 보인다");
   assert.match(none.text(), /제주 서귀포시/, "장소 자체는 보여야 한다");
   await none.cleanup();
 
   const reader = await renderHeader({ canEdit: false, editingKey: null, savingKey: null, draft: "",
     startEdit: () => {}, cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
-  assert.equal(reader.pencil(), null, "canEdit=false 인데 연필이 보인다");
+  assert.equal(reader.pencil() === null, true, "canEdit=false 인데 연필이 보인다");
   await reader.cleanup();
 });
 
@@ -75,7 +75,7 @@ test("★ 주최자에게는 연필이 보이고, 누르면 그 자리가 입력
     startEdit: (key: string, text: string) => { started.push([key, text]); },
     cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
   const pencil = owner.pencil();
-  assert.ok(pencil, "주최자인데 연필이 없다");
+  assert.equal(pencil != null, true, "주최자인데 연필이 없다");
   await owner.React.act(async () => { pencil!.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); });
   assert.deepEqual(started, [["2018-07-08", "제주 서귀포시"]], "지금 값이 담긴 채로 열려야 한다");
   await owner.cleanup();
@@ -83,8 +83,8 @@ test("★ 주최자에게는 연필이 보이고, 누르면 그 자리가 입력
   // 고치는 중이면 같은 자리에 입력칸이 있다 — 시트를 새로 열지 않는다.
   const editing = await renderHeader({ canEdit: true, editingKey: "2018-07-08", savingKey: null,
     draft: "제주 서귀포시", startEdit: () => {}, cancelEdit: () => {}, setDraft: () => {}, saveEdit: () => {} });
-  assert.ok(editing.input(), "그 자리에 입력칸이 없다");
-  assert.equal(editing.container.querySelector(".album-inline-action"), null, "새 시트를 열었다");
+  assert.equal(editing.input() != null, true, "그 자리에 입력칸이 없다");
+  assert.equal(editing.container.querySelector(".album-inline-action") === null, true, "새 시트를 열었다");
   await editing.cleanup();
 });
 
@@ -117,7 +117,9 @@ test("★ 새 API 를 만들지 않았다 — 이미 있던 PATCH 를 그대로 
 
 test("★ 실패하면 우리 말로 말한다 (§11)", () => {
   const fn = view.slice(view.indexOf("const handleSavePlace"), view.indexOf("const handleSaveTitle"));
-  assert.match(fn, /userFacingError\(cause, "장소를 저장하지 못했어요\. 다시 시도해 주세요\."\)/);
+  // ★ 2026-08-16 에 문구가 넓어졌다. 같은 자리에서 **날짜도** 고치므로
+  //   `장소를 저장하지 못했어요` 로는 무엇이 안 됐는지 어긋난다.
+  assert.match(fn, /userFacingError\(cause, "날짜와 장소를 저장하지 못했어요\. 다시 시도해 주세요\."\)/);
   assert.equal(fn.includes("setPlaceSaveError(cause"), false, "서버 문구가 화면으로 샌다");
 });
 
@@ -142,3 +144,17 @@ test("인쇄에는 장소 연필이 오지 않는다", () => {
 });
 
 void photo;
+
+test("★ 날짜 줄은 글줄이다 — flex 로 만들지 않는다 (2026-08-17)", () => {
+  // PO: `날짜와 옆의 지역이 줄이 안 맞아` · `지역이 2줄로 내려가면 더 이상해져`.
+  // flex 로 만들면 ① 날짜 뒤 `" · 지역"` 앞 공백이 잘리고(익명 항목),
+  // ② 두 줄이 될 때 날짜가 두 줄 덩어리 가운데로 내려간다(실측 9px 처짐).
+  const css = readFileSync(new URL("../src/album-engine/blocks/ChapterHeader.css", import.meta.url), "utf8");
+  const at = css.indexOf(".chapter-header--date-only .chapter-header__dayline {");
+  const rule = css.slice(at, css.indexOf("}", at));
+  assert.match(rule, /display: block/);
+  assert.match(rule, /text-align: center/);
+  assert.equal(rule.includes("display: flex"), false, "날짜 줄이 다시 flex 가 됐다");
+  assert.equal(rule.includes("align-items"), false, "글줄에 배치 정렬이 다시 붙었다");
+  assert.match(rule, /word-break: keep-all/);
+});

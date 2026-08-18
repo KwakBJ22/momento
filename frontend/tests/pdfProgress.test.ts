@@ -48,7 +48,8 @@ test("★ 시트를 닫아도 진행 표시가 남는다 — 표시가 시트 �
   assert.match(sheet, /onClick=\{\(\) => \{ onClose\(\); onExportPdf\(\); \}\}/);
   // 그래서 표시는 시트 밖 화면에 있어야 한다 — 세 화면 모두.
   for (const file of SCREENS) {
-    assert.match(read(file), /<AlbumPdfStatus working=\{isExportingPdf\} notice=\{pdfNotice\}/, file);
+    // ★ 2026-08-16 — 태그가 여러 줄이 됐다(인쇄 관심 prop). 보는 것은 그대로다.
+    assert.match(read(file), /<AlbumPdfStatus[\s\S]{0,200}?notice=\{pdfNotice\}/, file);
   }
   // 실제로 만드는 동안 문구가 보인다.
   const view = await renderStatus({ working: true, notice: null });

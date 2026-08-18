@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test:public-share": "tsx --test tests/publicShareFlow.test.ts",
-    "test:frontend": "tsx --test \"tests/**/*.test.ts\"",
+    "test:frontend": "tsx --test --test-concurrency=2 \"tests/**/*.test.ts\"",
     "test:smoke": "playwright test",
     "preview": "vite preview"
   },

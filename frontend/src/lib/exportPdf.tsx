@@ -6,7 +6,7 @@ import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
 import { currentUserAgent, isInAppWebView, isIosWebKit } from "./webview";
 import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
 import { pdfDownloadFilename } from "./pdfFilename";
-import { PDF_CANVAS_SCALE, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
+import { PDF_CANVAS_SCALE, PRINT_PAGE_ASPECT, PRINT_PAGE_MM, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
 
 export interface AlbumPdfInput {
   albumId: string;
@@ -19,6 +19,12 @@ export interface AlbumPdfInput {
   templateType?: AlbumTemplateType | string | null;
   chapterStories?: Record<string, string> | null;
   coverPhotoId?: string | null;
+  /** ★ 받기는 하지만 **인쇄에는 넣지 않는다** (PO 결정 2026-08-15 · A안).
+   *  화면에는 `새로 더해진` 자리와 `앨범을 만든 분이 나중에 한 번에 정리해서 앨범을
+   *  다시 만들어요` 한 줄이 있어 "아직 정리 전"이 보이지만, **종이에는 그 맥락이 없다.**
+   *  주최자가 못 본 사진이 책 뒤에 붙어 나가면 되돌릴 수 없다.
+   *  화면 쪽 값을 그대로 넘겨받는 자리를 남겨 두고, 인쇄로 나가는 문턱은 아래
+   *  `renderAlbumPdfBlob` 한 곳에서만 닫는다 — 화면/인쇄를 가르는 자리를 늘리지 않는다(§9). */
   livingAppendPages?: LivingAppendPage[];
   /** "함께 만든 사람" 한 줄 — PDF 에 들어간다(CLAUDE.md §6). ★ 넘기지 않으면 그 줄이
    *  통째로 빠진다. 실제로 그렇게 빠져 있었다: PDF 는 화면과 다른 AlbumRenderer 인스턴스를
@@ -40,7 +46,7 @@ function logPdf(event: string, detail: Record<string, unknown> = {}): void {
 }
 
 /**
- * AlbumRenderer(print) DOM을 A4 PDF로 변환한다.
+ * AlbumRenderer(print) DOM을 정사각(206×206mm) PDF로 변환한다.
  * album_version 캐시가 있으면 서버 URL을 우선 반환한다.
  */
 export async function downloadAlbumPdf(input: AlbumPdfInput): Promise<PdfDelivery> {
@@ -101,7 +107,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   host.style.position = "fixed";
   host.style.left = "-10000px";
   host.style.top = "0";
-  host.style.width = "210mm";
+  // 인쇄 지면과 같은 폭이다(작업 규격 206mm = 재단 200 + bleed 3 × 2).
+  host.style.width = `${PRINT_PAGE_MM}mm`;
   host.style.background = "#faf7f4";
   host.setAttribute("aria-hidden", "true");
   document.body.appendChild(host);
@@ -110,6 +117,13 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
   host.appendChild(mount);
 
   const root = createRoot(mount);
+  // ★ 인쇄에는 `새로 더해진` 자리를 넣지 않는다 (PO 결정 2026-08-15 · A안).
+  //   사진은 주최자가 반영해야 앨범에 들어간다. 화면에는 그 자리와 안내 한 줄이 있어
+  //   "아직 정리 전"이 보이지만 **종이에는 그 맥락이 없다** — 주최자가 못 본 사진이
+  //   책 뒤에 붙어 나가고, 종이는 되돌릴 수 없다.
+  //   그래서 `input.livingAppendPages` 를 **여기서 버린다.** 렌더러 안에
+  //   `mode === "print"` 갈래를 새로 만들지 않는다 — 화면/인쇄를 가르는 자리를
+  //   하나로 유지한다(§9). 서버 응답도 그대로다(화면이 쓰는 응답이다).
   root.render(
     <AlbumRenderer
       photos={input.photos}
@@ -121,7 +135,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
       chapterStories={input.chapterStories}
       albumId={input.albumId}
       coverPhotoId={input.coverPhotoId}
-      livingAppendPages={input.livingAppendPages}
+      livingAppendPages={[]}
       contributorNames={input.contributorNames ?? []}
       mode="print"
     />,
@@ -165,7 +179,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
           backgroundColor: "#faf7f4",
           logging: false,
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        // ★ A4 가 아니다 — 정사각 206×206mm 한 판형이다(PO 결정 2026-08-16).
+        jsPDF: { unit: "mm", format: [PRINT_PAGE_MM, PRINT_PAGE_MM], orientation: "portrait" },
         // html2pdf 의 pagebreak.avoid 는 이 레이아웃에서 안 통한다: getBoundingClientRect 가
         // 컨테이너 오프셋만큼 어긋나고(소스에 // TODO 로 남아있음), grid 아이템 앞에 패딩 div 를
         // 끼우면 grid 가 깨진다. 그래서 위에서 우리가 직접 margin 으로 페이지에 맞춰 두고,
@@ -197,8 +212,8 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
  * blocks grid too.
  */
 export function alignBlocksToPrintPages(element: HTMLElement): void {
-  // Margin [0,0,0,0] + a 210mm-wide host: one page is (297/210) × width in source px.
-  const pageHeightPx = element.getBoundingClientRect().width * (297 / 210);
+  // Margin [0,0,0,0] + a 206mm-wide host: one page is PRINT_PAGE_ASPECT × width in source px.
+  const pageHeightPx = element.getBoundingClientRect().width * PRINT_PAGE_ASPECT;
   if (!(pageHeightPx > 0)) return;
   // 열람용 PDF 의 페이지 단위(§9). 표지·본문 한 장·끝 글·브랜드 페이지가 각각 정확히
     // A4 한 장(aspect-ratio 210/297)이라, 이 보정은 반올림으로 생기는 어긋남만 밀어 준다.

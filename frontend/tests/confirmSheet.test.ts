@@ -32,10 +32,13 @@ test("소스에 window.confirm / alert / prompt 가 없다 (주석 제외)", () 
   assert.deepEqual(offenders, []);
 });
 
-test("여섯 곳이 모두 공용 확인 시트를 쓴다 — 새 컴포넌트를 여섯 벌 만들지 않았다", () => {
+test("묻는 자리는 모두 공용 확인 시트를 쓴다 — 새 컴포넌트를 여러 벌 만들지 않았다", () => {
+  // ★ 2026-08-17 — `내 앨범`의 지우기만 빠졌다(시안 delete-sheet 1b). 그 자리는
+  //   무엇이 사라지는지 **보여줘야** 해서 사진 띠와 숫자가 들어간다 — 공용 시트에
+  //   그것을 넣으면 나머지 다섯 자리가 함께 바뀐다. 그래서 그 하나만 따로 만들었다
+  //   (AlbumDeleteSheet). 공용 시트 자체는 손대지 않았다.
   const users = [
     "components/AlbumView.tsx",            // 앨범 지우기(되돌릴 수 없음 — 먼저 바꿨다)
-    "components/MyAlbums.tsx",             // 목록에서 앨범 지우기
     "components/ContributeWorkspace.tsx",  // 기억 지우기
     "components/AlbumMembersPanel.tsx",    // 참여자 내보내기
     "components/FamilyManagement.tsx",     // 가족 구성원 내보내기
@@ -45,6 +48,10 @@ test("여섯 곳이 모두 공용 확인 시트를 쓴다 — 새 컴포넌트�
     assert.match(read(file), /import ConfirmSheet from "\.\.?\/(\.\.\/)?ConfirmSheet"/, `${file}: 공용 시트 import`);
     assert.match(read(file), /<ConfirmSheet\b/, `${file}: 시트 렌더링`);
   }
+  // 그 하나도 **시트 뼈대는 공용**이다 — 새 틀을 만들지 않았다.
+  const deleteSheet = read("components/AlbumDeleteSheet.tsx");
+  assert.match(deleteSheet, /className="album-sheet-dim"/);
+  assert.match(deleteSheet, /className="album-inline-action album-delete-sheet"/);
 });
 
 test("확인 시트는 기존 시트 틀을 쓰고, 되돌릴 수 없는 것은 빨간 글자만", () => {

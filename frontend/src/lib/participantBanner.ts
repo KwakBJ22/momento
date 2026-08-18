@@ -19,6 +19,14 @@ export function roParticle(name: string): string {
   return jong === 0 || jong === 8 ? "로" : "으로";
 }
 
+/** 말 뒤 조사: 받침 있음 → "을", 없음 → "를". 비한글은 "를"(`기본형를` 이 아니라 `기본형을`
+ *  같은 어색함을 막는 자리는 여기 하나다 — 화면마다 따로 적지 않는다). */
+export function eulParticle(word: string): string {
+  const last = word.charCodeAt(word.length - 1);
+  if (last < 0xac00 || last > 0xd7a3) return "를";
+  return (last - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
 /** 앞칸: 소유자 이름을 쓸 수 있으면 "○○님이 만든 앨범에", 아니면 "'제목'에". */
 export function participantBannerLead(input: ParticipantBannerInput): string {
   const owner = (input.ownerName || "").trim();

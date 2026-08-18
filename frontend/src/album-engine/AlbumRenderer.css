@@ -74,11 +74,24 @@
       `사진마다 흰색 빼다가 있어야돼. 그거 있으면 보기 좋아져.`
       이건 상자가 아니라 **인화지의 흰 가장자리**다 — 기울기(±3°)와 한 세트로
       "사진을 붙여 놓은 것"으로 읽히게 한다. 액자 없이 사진만 기울면 잘못 올린 것처럼 보인다.
+   ③ 다시 넣은 것: 1px 테두리 (PO 2026-08-15 · dev 실기기).
+      "프레임이 전에는 잘 보였는데 지금은 거의 안 보이고 흐리다."
+      마운트가 흰색(--c-surface #ffffff)인데 본문 배경도 흰색(--c-bg #fffdfb)이라
+      경계가 없었다. ①에서 `앨범을 둘러싼 상자`를 걷어낼 때 **마운트의 테두리까지**
+      같이 지워진 것이 원인이다. 시안 v2(docs/mockups/album-skins-v2.html)의 값으로
+      되살린다.
+      ★ 처음에는 --c-border(#d6d1ce)로 넣었는데 흰 표면 대비 1.51:1 이라 여전히
+        안 보였다(PO 2026-08-15 두 번째 확인). --c-border-strong(#b5b0ac · 2.15:1)
+        으로 올린다. ①에서 뺀 것은 `테두리 + 진한 그림자(--sh-md)` **조합**이고,
+        지금 있는 것은 테두리뿐이다 — 그림자는 여전히 가장 약한 --sh-sm 이라
+        그때 문제였던 `카드 나열처럼 보이는` 모양이 되지 않는다.
+      ★ 되살린 것은 **사진 한 장을 감싼 마운트 한 겹**이다. 앨범 전체를 둘러싼
+        상자(.album-page__book)는 그대로 없다 — 그건 다시 만들지 않는다.
    그림자는 가장 약한 것(--sh-sm)만 남긴다. 종이 한 장이 살짝 떠 있는 정도다.
-   여백은 12px 이 아니라 8px 이다 — 사진이 가장 중요하다(§6). */
+   여백은 12px 이 아니라 7px 이다 — 사진이 가장 중요하다(§6). */
 .album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame {
-  padding: var(--s-2);
-  border: 0;
+  padding: 7px;
+  border: 1px solid var(--c-border-strong);
   border-radius: var(--r-sm);
   background: var(--c-surface);
   box-shadow: var(--sh-sm);
@@ -135,23 +148,27 @@
   line-height: 1.58;
 }
 
-.album-renderer--screen .album-screen-photo-grid .photo-memory-lines__edit-btn {
-  position: absolute;
-  right: 0.35rem;
-  bottom: 0.2rem;
-}
+/* ★ 2026-08-17 PO `캡션 수정펜슬 위치 잡아줘` — 연필을 줄 밖으로 띄우던 규칙을 뺐다.
+   예전에는 `position: absolute; right: 0.35rem; bottom: 0.2rem` 로 사진 프레임 오른쪽
+   아래에 붙였다. 그 뒤 연필은 캡션과 **같은 줄**(`.photo-memory-lines__row`,
+   `align-items: center`)로 들어왔는데 이 규칙만 남아서, 줄에서 빠진 연필이 글자
+   중심선보다 8px 위에 떴다(실측: 글자 cy 330 / 연필 cy 322).
+   자리를 띄우지 않아야 `align-items: center` 가 먹고 글자와 연필이 한 높이가 된다.
+   덮어쓰는 규칙을 되살리지 않는다 — 되살리면 같은 어긋남이 그대로 돌아온다. */
 
-/* 캡션 연필 버튼은 프레임 안에서 자리를 잡는다 — 블록 기준이면 한마디 위에 겹친다(K-23). */
+/* 프레임 기준 자리잡기는 남겨 둔다 — 다른 절대 배치(K-23)가 이 기준을 쓴다. */
 .album-renderer--screen .album-screen-photo-grid > .photo-block { position: relative; }
 .album-renderer--screen .album-screen-photo-grid > .photo-block > .photo-block__frame { position: relative; }
 
+/* ★ 인쇄 지면은 **정사각 206×206mm**(재단 200 + bleed 3)이다 — 2026-08-16.
+   값은 styles/tokens.css 의 --pr-* 한 곳에서 읽는다. */
 .album-renderer--print {
   background: var(--c-surface);
-  width: 210mm;
-  max-width: 210mm;
+  width: var(--pr-page);
+  max-width: var(--pr-page);
   margin: 0 auto;
-  /* ★ 루트에 여백을 두지 않는다. 여백이 있으면 페이지 단위(aspect-ratio 210/297)의
-     기준 폭이 줄어 한 장이 A4 보다 짧아지고, 그만큼씩 밀려 모든 장이 경계에 걸친다
+  /* ★ 루트에 여백을 두지 않는다. 여백이 있으면 페이지 단위(aspect-ratio 1/1)의
+     기준 폭이 줄어 한 장이 지면보다 짧아지고, 그만큼씩 밀려 모든 장이 경계에 걸친다
      — 실측에서 973px(정상 1123px)이 나왔다. 여백은 각 장 안에서 준다. */
   padding: 0;
   box-sizing: border-box;
@@ -311,7 +328,9 @@
 
 @media print {
   @page {
-    size: A4 portrait;
+    /* ★ 여기만 값을 그대로 적는다 — `@page` 는 문서 트리 밖이라 --pr-page 를 못 읽는다.
+       206mm = 재단 200 + bleed 3 × 2 (tokens.css). */
+    size: 206mm 206mm;
     margin: 0;
   }
 
@@ -325,8 +344,9 @@
   }
 
   .album-renderer--print {
-    width: 210mm;
-    padding: 14mm;
+    width: var(--pr-page);
+    /* 여백은 각 장 안에서 준다(위 주석) — 루트에 주면 지면이 밀린다. */
+    padding: 0;
   }
 
   .photo-block,

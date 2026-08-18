@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 RELATIONSHIP_OPTIONS = frozenset({"가족", "친구", "연인", "지인", "기타"})
 
+# `이름만 받은 사람` — 한마디를 남기려고 이름만 적은 구경꾼 (PO 결정 2026-08-16).
+#
+# ★ **참여자가 아니다.** 참여자가 되는 것은 사용자가 정하는 일이다(화면_기준 §1).
+#   그래서 `함께 만든 사람` 수·이름에 들어가지 않고, 사진도 올릴 수 없다.
+#   한마디는 인쇄되지 않으므로 남길 수 있다 — 잣대는 `인쇄되는 것만 잠근다` 하나다.
+VIEWER_CONTRIBUTOR_ROLE = "viewer"
+
 # A single login attributes at most this many guest contributions — bounds the bootstrap
 # payload and any surprising local state. Matches the frontend cap.
 CONTRIBUTION_ATTRIBUTION_LIMIT = 50
@@ -91,6 +98,65 @@ LIVING_APPEND_MEMORY_THRESHOLD = 5
 
 def contribution_baseline_at(album: dict[str, Any]) -> str:
     return str(album.get("last_collaboration_applied_at") or album.get("created_at") or "")
+
+
+class PendingContributionRules:
+    """`아직 반영 안 된 참여` 판정 — 공유 화면과 앨범 화면이 **같은 자를 쓴다**.
+
+    ★ 예전에는 이 판정이 share.py 안에만 있었다. 앨범 화면은 저장된
+      `living_append_pages` 만 읽어서, 앨범 문서가 만들어진 뒤에 더해진 사진이
+      앨범 화면에서만 사라졌다 (OPEN_ITEMS §2-1). 같은 일을 두 곳이 다른 방식으로
+      하면 언젠가 갈린다 — 규칙을 한 벌로 둔다(§13).
+
+    ★ baseline 은 `album.created_at` 이다. `contribution_baseline_at` 이 쓰는
+      `last_collaboration_applied_at` 이 아니다 — 공유 화면이 쓰던 값 그대로다.
+      (반영된 것은 applied_*_ids 로 걸러지므로 여기서 두 번 걸 필요가 없다.)
+    """
+
+    def __init__(
+        self,
+        *,
+        baseline: str,
+        owner_ids: set[str],
+        applied_photo_ids: set[str],
+        applied_memory_ids: set[str],
+    ) -> None:
+        self.baseline = baseline
+        self.owner_ids = owner_ids
+        self.applied_photo_ids = applied_photo_ids
+        self.applied_memory_ids = applied_memory_ids
+
+    def is_pending_photo(self, photo: dict[str, object]) -> bool:
+        contributor_id = str(photo.get("uploaded_by_contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in self.owner_ids
+            and str(photo.get("created_at") or "") > self.baseline
+            and str(photo.get("id")) not in self.applied_photo_ids
+        )
+
+    def is_pending_memory(self, memory: dict[str, object]) -> bool:
+        contributor_id = str(memory.get("contributor_id") or "")
+        return (
+            bool(contributor_id)
+            and
+            contributor_id not in self.owner_ids
+            and str(memory.get("created_at") or "") > self.baseline
+            and str(memory.get("id")) not in self.applied_memory_ids
+        )
+
+
+def pending_contribution_rules(
+    album: dict[str, Any], contributors: list[dict[str, Any]],
+) -> PendingContributionRules:
+    """앨범 한 건에 대한 판정 자를 만든다(순수 계산 — DB 를 다시 읽지 않는다)."""
+    return PendingContributionRules(
+        baseline=str(album.get("created_at") or ""),
+        owner_ids={str(row["id"]) for row in contributors if row.get("role") == "owner"},
+        applied_photo_ids={str(item) for item in (album.get("applied_contribution_photo_ids") or [])},
+        applied_memory_ids={str(item) for item in (album.get("applied_contribution_memory_ids") or [])},
+    )
 
 
 def count_new_contributions(
@@ -370,15 +436,20 @@ def count_active_contributors(client: Client, album_id: str) -> int:
     ★ 주최자를 포함한다. 이 앨범을 같이 만든 사람 전부가 "함께한 사람"이다.
     예전에는 앨범 상세·협업 현황·공유 응답이 각자 셌고 owner 포함 여부가 갈려서, 같은
     앨범인데 소유자 화면과 공유 화면의 수가 1 차이로 어긋났다.
+
+    ★ `이름만 받은 사람`(role='viewer')은 세지 않는다 — 한마디를 남기려고 이름만 적었을
+    뿐, 참여자가 된 것이 아니다(화면_기준 §1 · PO 결정 2026-08-16).
     """
     result = (
         client.table("album_contributors")
-        .select("id", count="exact")
+        .select("id,role")
         .eq("album_id", album_id)
         .eq("status", "active")
         .execute()
     )
-    return int(result.count or len(result.data or []))
+    # 거르는 것은 여기서 한다 — 한 앨범의 참여자는 열 명 남짓이라 값이 싸고,
+    # 조회 연산자에 기대지 않아 어디서 돌려도 같게 센다.
+    return sum(1 for row in (result.data or []) if str(row.get("role") or "") != VIEWER_CONTRIBUTOR_ROLE)
 
 
 def list_active_contributor_names(client: Client, album_id: str) -> list[str]:
@@ -391,14 +462,21 @@ def list_active_contributor_names(client: Client, album_id: str) -> list[str]:
     rows = resolve_contributor_names(
         client,
         (
-            client.table("album_contributors")
-            .select("user_id,display_name,joined_at")
-            .eq("album_id", album_id)
-            .eq("status", "active")
-            .order("joined_at")
-            .execute()
-            .data
-            or []
+            [
+                row
+                for row in (
+                    client.table("album_contributors")
+                    .select("user_id,display_name,joined_at,role")
+                    .eq("album_id", album_id)
+                    .eq("status", "active")
+                    .order("joined_at")
+                    .execute()
+                    .data
+                    or []
+                )
+                # 세는 규칙과 같다 — `이름만 받은 사람`은 이 줄에 오르지 않는다.
+                if str(row.get("role") or "") != VIEWER_CONTRIBUTOR_ROLE
+            ]
         ),
     )
     names: list[str] = []
@@ -431,7 +509,14 @@ def join_as_contributor(
     relationship: str | None,
     guest_id: str | None,
     user_id: str | None,
+    role: str = "contributor",
 ) -> dict[str, Any]:
+    """참여자 행을 만들거나 되살린다.
+
+    ★ ``role='viewer'`` 는 **이름만 받은 사람**이다 — 한마디를 남기려고 이름만 적은
+      구경꾼. 참여자가 아니므로 `함께 만든 사람` 에 들어가지 않고 인원 제한도 세지 않는다
+      (화면_기준 §1 — 참여자가 되는 것은 사용자가 정하는 일이다).
+    """
     album_id = str(album["id"])
     name = display_name.strip()
     if not name or len(name) > 40:
@@ -476,9 +561,11 @@ def join_as_contributor(
             ).eq("id", row["id"]).execute()
             return {**row, "display_name": name, "relationship": rel}
 
-    limit = int(album.get("contributor_limit") or 10)
-    if count_active_contributors(client, album_id) >= limit:
-        raise HTTPException(status_code=403, detail="참여 인원이 가득 찼어요.")
+    # 인원 제한은 **참여자**에게만 건다. 이름만 받은 사람은 세지 않는다.
+    if role != VIEWER_CONTRIBUTOR_ROLE:
+        limit = int(album.get("contributor_limit") or 10)
+        if count_active_contributors(client, album_id) >= limit:
+            raise HTTPException(status_code=403, detail="참여 인원이 가득 찼어요.")
 
     row = {
         "album_id": album_id,
@@ -486,7 +573,7 @@ def join_as_contributor(
         "guest_id": guest_id if not user_id else None,
         "display_name": name,
         "relationship": rel,
-        "role": "contributor",
+        "role": role,
         "status": "active",
     }
     inserted = client.table("album_contributors").insert(row).execute()
@@ -534,8 +621,14 @@ def require_contributor(
     contributor_id: str | None,
     guest_id: str | None,
     user_id: str | None,
+    for_memory: bool = False,
 ) -> dict[str, Any]:
-    """Resolve contributor from session identity — never trust role from client alone."""
+    """Resolve contributor from session identity — never trust role from client alone.
+
+    ★ ``for_memory`` 는 **인쇄되는 것만 잠근다**는 잣대다 (PO 결정 2026-08-16).
+      한마디는 종이에 들어가지 않으므로 앨범이 확정된 뒤에도, `이름만 받은 사람`
+      (role='viewer')에게도 열려 있다. 사진은 그대로 잠긴다.
+    """
     contributor = get_contributor(
         client,
         album_id,
@@ -553,6 +646,13 @@ def require_contributor(
         if user_id and contributor.get("user_id") and str(contributor["user_id"]) != str(user_id):
             if not guest_id or str(contributor.get("guest_id") or "") != str(guest_id):
                 raise HTTPException(status_code=403, detail="참여 세션이 일치하지 않아요.")
+    if for_memory:
+        # 한마디는 인쇄되지 않는다 — 확정 여부도, `이름만 받은 사람`인지도 보지 않는다.
+        return contributor
+    # 사진은 **초대받은 사람**의 몫이다. `이름만 받은 사람`(감상 링크에서 한마디만 남긴
+    # 사람)은 참여자가 아니다 — 그 구분을 여기서 지킨다(화면_기준 §1).
+    if str(contributor.get("role") or "") == VIEWER_CONTRIBUTOR_ROLE:
+        raise HTTPException(status_code=403, detail="사진은 함께 만들기 초대 링크에서 올릴 수 있어요.")
     album = client.table("albums").select("collaboration_status, collaboration_enabled").eq("id", album_id).limit(1).execute()
     status = (album.data or [{}])[0].get("collaboration_status")
     if status == "closed":

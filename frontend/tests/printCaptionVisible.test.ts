@@ -105,8 +105,11 @@ test("이름은 이미 이어져 있다 — caption 이 엔진의 comment 로 �
 });
 
 test("긴 캡션이 프레임 폭을 늘리지 않는다 (4d 에서 잠근 것 유지)", () => {
-  const at = printCss.indexOf(".album-renderer--print .print-frame__caption {");
-  const rule = printCss.slice(at, printCss.indexOf("}", at));
-  assert.match(rule, /width: 0/);
-  assert.match(rule, /min-width: 100%/);
+  // ★ 2026-08-16 — `.print-frame__caption` 규칙이 둘이 됐다(폭 잠금 + 캡션대 높이).
+  //   폭을 잠그는 쪽을 찾아 본다. 잠그는 규칙 자체는 그대로다.
+  const rules = printCss.split(".album-renderer--print .print-frame__caption {").slice(1)
+    .map((chunk) => chunk.slice(0, chunk.indexOf("}")));
+  assert.ok(rules.some((rule) => /width: 0/.test(rule) && /min-width: 100%/.test(rule)), "캡션이 프레임 폭을 늘린다");
+  // 캡션대 높이도 고정이다 — 칸이 늘어나지 않는다(정사각 판형).
+  assert.ok(rules.some((rule) => /height: var\(--pr-caption\)/.test(rule)), "캡션대 높이가 고정이 아니다");
 });

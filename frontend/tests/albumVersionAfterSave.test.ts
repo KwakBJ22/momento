@@ -94,9 +94,14 @@ test("★ PDF 는 화면이 들고 있는 **최신** 버전을 보낸다", () =>
   assert.equal(result.includes("albumVersion: result.album_version"), false, "다시 prop 을 읽는다");
 });
 
-test("★ 버전을 옮기는 자리가 네 곳 전부다 — 세는 것으로 잠근다", () => {
+test("★ 버전을 옮기는 자리가 여섯 곳 전부다 — 세는 것으로 잠근다", () => {
   // 앨범 상세: 제목·이야기·캡션·우리의 이야기 = 4
-  assert.equal((view.match(/withAlbumVersion\(/g) || []).length, 4);
+  // ★ 2026-08-15 에 다섯째가 생겼다 — **앨범 모양·종이 색**(주최자가 고른다).
+  //   이것도 앨범을 고치는 저장이라 버전이 올라간다. 안 옮기면 그다음 PDF 저장이 409 다.
+  // ★ 2026-08-16 에 여섯째가 생겼다 — 촬영일을 고칠 때 **이야기가 새 날짜로 따라간다.**
+  //   그것도 앨범을 고치는 저장이라 버전이 올라간다.
+  assert.equal((view.match(/withAlbumVersion\(/g) || []).length, 6);
+  assert.match(handler(view, "await patchAlbumAppearance("), /withAlbumVersion\(/);
   // 만든 직후: 제목·캡션·우리의 이야기(저장 두 자리) = 4. 정의 줄은 빼고 센다.
   //   (이 화면에는 날짜 이야기 편집이 없다)
   assert.equal((result.match(/rememberAlbumVersion\((updated|saved)\)/g) || []).length, 4);
