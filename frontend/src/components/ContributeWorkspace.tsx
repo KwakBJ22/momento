@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
+import { readUploadFileMeta } from "../lib/exifCaptureDate";
 import { currentUserAgent } from "../lib/webview";
 import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
@@ -263,7 +264,10 @@ export default function ContributeWorkspace({
     )));
     const startedAt = performance.now();
     try {
-      const result = await uploadContributePhotos(albumId, session, items.map((item) => item.file)) as {
+      // ★ 촬영일·좌표는 **원본에서** 읽어 함께 보낸다(2026-08-18). 앨범을 만들 때와
+      //   같은 함수·같은 모양이다. 못 읽어도 그 칸만 null 이고 사진은 그대로 올라간다.
+      const fileMeta = await Promise.all(items.map((item) => readUploadFileMeta(item.file)));
+      const result = await uploadContributePhotos(albumId, session, items.map((item) => item.file), fileMeta) as {
         photos?: WorkspacePhoto[];
         photo_count: number;
       };

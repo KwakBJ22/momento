@@ -1070,12 +1070,25 @@ export async function getContributeWorkspace(albumId: string, session: CollabSes
   return response.json();
 }
 
-export async function uploadContributePhotos(albumId: string, session: CollabSession, files: File[]) {
+/**
+ * 사진을 **더할 때**의 통로. 주최자의 `사진 추가`와 참여자가 더하는 자리가 같은 것을 쓴다.
+ *
+ * ★ 촬영일·좌표를 함께 보낸다(2026-08-18). 모양은 앨범을 만들 때와 **같은 `file_meta`**
+ *   다 — 서버가 두 가지 모양을 알게 하지 않는다. 순서는 `photos` 와 같다.
+ * ★ 못 읽었으면 그 자리를 null 로 둔다. **사진은 그대로 올라간다** — 지명이 안 붙을 뿐이다.
+ */
+export async function uploadContributePhotos(
+  albumId: string,
+  session: CollabSession,
+  files: File[],
+  fileMeta?: Array<{ captured_at: string | null; latitude: number | null; longitude: number | null }>,
+) {
   const form = new FormData();
   for (const file of files) {
     form.append("photos", file, file.name || "photo.jpg");
     form.append("file_created_ats", String(file.lastModified));
   }
+  form.append("file_meta", JSON.stringify(fileMeta ?? files.map(() => ({ captured_at: null, latitude: null, longitude: null }))));
   const response = await collaborationFetch(`/api/albums/${albumId}/contribute/photos`, {
     method: "POST",
     body: form,

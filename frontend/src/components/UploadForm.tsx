@@ -7,7 +7,7 @@ import { dedupeSelectedPhotos, FILE_INPUT_CLASS, filterImageFiles, imageAcceptFo
 import { currentUserAgent } from "../lib/webview";
 import { fitsWithinUploadTotal, makePreviewBlob, MAX_ORIGINAL_IMAGE_BYTES, prepareForUpload } from "../lib/optimizeImageFile";
 import { runOrderedPool } from "../lib/orderedPool";
-import { extractOriginalCaptureDate, extractOriginalGps, type ExifGps } from "../lib/exifCaptureDate";
+import { extractOriginalCaptureDate, extractOriginalGps, toUploadFileMeta, type ExifGps } from "../lib/exifCaptureDate";
 import { yieldToPaint } from "../lib/yieldToPaint";
 import type { AlbumCategory, PhotoItem, StoryPayload } from "../types";
 import { recommendedTemplateType, TEMPLATE_TYPE_TO_LAYOUT } from "../types";
@@ -349,11 +349,8 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       formData.append("template", TEMPLATE_TYPE_TO_LAYOUT[templateType]);
       formData.append("title", "우리의 추억");
       formData.append("description", "");
-      formData.append("file_meta", JSON.stringify(photos.map((photo) => ({
-        captured_at: photo.capturedAt,
-        latitude: photo.gps?.latitude ?? null,
-        longitude: photo.gps?.longitude ?? null,
-      }))));
+      // 모양은 사진을 더할 때와 **같은 함수**가 만든다 — 두 자리가 갈리지 않게.
+      formData.append("file_meta", JSON.stringify(photos.map((photo) => toUploadFileMeta(photo.capturedAt, photo.gps))));
       formData.append("cover_photo_order", String(Math.max(0, photos.findIndex((photo) => photo.id === coverPhotoId))));
       // 만들기 전에 고른 모양. 서버가 목록으로 한 번 더 거른다 — 밖이면 빈 값이다(§10).
       formData.append("skin", appearance.skin);

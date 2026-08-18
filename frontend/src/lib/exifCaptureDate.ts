@@ -170,3 +170,43 @@ export async function extractOriginalGps(file: File): Promise<ExifGps | null> {
   }
   return null;
 }
+
+/**
+ * 서버가 아는 **한 가지 모양** — `file_meta` 한 칸.
+ *
+ * ★ 앨범을 만들 때(UploadForm)와 사진을 더할 때(ContributeWorkspace)가 이것을 같이 쓴다.
+ *   자리마다 각자 적으면 갈린다 — 좌표 통로가 한 자리에만 있었던 것이 그 결과다
+ *   (2026-08-18). 칸 이름은 서버 파서(`parse_captured_at` · `parse_coordinate`)에 맞춘다.
+ */
+export interface UploadFileMeta {
+  captured_at: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/** 이미 읽어 둔 값을 그 모양으로 옮긴다. 읽는 일은 하지 않는다. */
+export function toUploadFileMeta(capturedAt: string | null, gps: ExifGps | null): UploadFileMeta {
+  return { captured_at: capturedAt, latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null };
+}
+
+/**
+ * 원본 파일에서 촬영일·좌표를 읽어 그 모양으로 만든다.
+ *
+ * ★ **사진을 버리지 않는다.** 어느 쪽이 실패해도 그 칸만 null 이고 사진은 그대로 올라간다 —
+ *   지명이 안 붙을 뿐이다. UploadForm 이 고를 때 하는 것과 같은 약속이다.
+ */
+export async function readUploadFileMeta(file: File): Promise<UploadFileMeta> {
+  let capturedAt: string | null = null;
+  try {
+    capturedAt = await extractOriginalCaptureDate(file);
+  } catch (cause) {
+    console.warn("Capture date extraction failed", { cause, fileName: file.name });
+  }
+  let gps: ExifGps | null = null;
+  try {
+    gps = await extractOriginalGps(file);
+  } catch (cause) {
+    console.warn("Location extraction failed", { cause, fileName: file.name });
+  }
+  return toUploadFileMeta(capturedAt, gps);
+}
