@@ -938,24 +938,31 @@ def build_album_document_from_records(
                 }
             )
     if undated:
-        if chapter_list:
-            chapter_list[-1]["photos"].extend(undated)
-        else:
-            place, source = _place_for(undated)
-            place_out = None if source == "unknown" else place
-            chapter_list.append(
-                {
-                    "date": None,
-                    "endDate": None,
-                    "title": place_out or "함께한 순간",
-                    "dayIndex": 1,
-                    "tripDay": None,
-                    "kind": "neutral",
-                    "place": place_out,
-                    "locationSource": source,
-                    "photos": undated,
-                }
-            )
+        # 촬영일이 없는 사진은 **제 묶음으로 맨 뒤에** 선다 (2026-08-19).
+        #
+        # ★ 예전에는 마지막 날짜 묶음에 **섞어 넣었다**(chapter_list[-1] 에 extend).
+        #   그러면 남의 날짜 아래로 들어가 그 날짜와 장소를 뒤집어쓰고, 날짜 없는
+        #   묶음이 사라져 화면에서 `날짜를 넣어 주세요` 를 그릴 자리도 없어진다.
+        #   아이폰 사파리가 EXIF 를 지우므로(2026-08-18) 이 갈래가 흔하다.
+        # ★ 화면 엔진(album-engine/engine/chapterGroup.ts)이 하는 것과 **같은 규칙**이다.
+        #   서버와 화면이 다르게 묶으면 앨범을 다시 만들 때마다 자리가 바뀐다.
+        # ★ 맨 뒤다. 이미 시간순으로 정리된 앞부분을 헤집지 않는다.
+        #   안에서는 들어온 차례(sort_order)를 그대로 지킨다.
+        place, source = _place_for(undated)
+        place_out = None if source == "unknown" else place
+        chapter_list.append(
+            {
+                "date": None,
+                "endDate": None,
+                "title": place_out or "함께한 순간",
+                "dayIndex": len(chapter_list) + 1,
+                "tripDay": None,
+                "kind": "neutral",
+                "place": place_out,
+                "locationSource": source,
+                "photos": undated,
+            }
+        )
 
     epilogue = str(album.get("epilogue") or album.get("narrative") or "").strip()
 

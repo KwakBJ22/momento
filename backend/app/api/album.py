@@ -1893,10 +1893,24 @@ def _pending_append_ids(
     def drawn_in_body(photo_id: str) -> bool:
         return not body_photo_ids or photo_id in body_photo_ids
 
+    # 🔴 **어디에도 안 그려지는 사진은 누가 올렸든 여기서 건진다** (2026-08-19).
+    #
+    #   예전에는 `rules.is_pending_photo` 를 걸었다. 그 자는 `새로 들어온 참여인가`
+    #   를 재는 것이라 **주최자가 올린 사진을 일부러 뺀다**(uploaded_by 가 주최자면
+    #   거짓). 그런데 이 자리가 묻는 것은 다른 질문이다 — `이 사진이 어디든 그려지는가`.
+    #   두 질문을 한 자로 재는 바람에, 앨범이 만들어진 뒤 **주최자가 더한 사진**은
+    #   본문(album_json)에도 없고 페이지에도 없어 **화면 어디에도 안 나왔다**
+    #   (dev 실측 2026-08-19: photo_count 는 7인데 볼 수 있는 것은 6장).
+    #   지운 적 없는 사진이 사라지는 것이라 CLAUDE.md §9 를 어긴다.
+    #
+    #   ★ 여기서 거르는 조건은 **둘뿐**이다: 본문에 없고, 페이지에도 없다.
+    #     올린 사람도, 언제 올렸는지도, 촬영일이 있는지도 보지 않는다.
+    #   ★ 겹치지 않는다 — 본문이나 페이지에 이미 있으면 애초에 여기 오지 않는다.
+    #   ★ 앨범을 다시 만들지 않아도 된다. 이 판정은 **읽을 때마다** 도므로 이미
+    #     만들어진 앨범도 다음 번에 열면 사진이 돌아온다.
     pending_photos = [
         photo for photo in photos
-        if rules.is_pending_photo(photo)
-        and not drawn_in_body(str(photo["id"]))
+        if not drawn_in_body(str(photo["id"]))
         and str(photo["id"]) not in page_photo_ids
     ]
     drawn_photo_ids = page_photo_ids | {str(photo["id"]) for photo in pending_photos}

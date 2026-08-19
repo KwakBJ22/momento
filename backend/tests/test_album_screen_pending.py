@@ -134,18 +134,47 @@ class NewPhotoShowsOnAlbumScreenTest(unittest.TestCase):
 
 
 class RulesWeMustNotBreakTest(unittest.TestCase):
-    def test_이미_반영된_사진은_다시_붙지_않는다(self) -> None:
-        record = album_row(applied_contribution_photo_ids=[NEW_PHOTO])
-        pages = run(record, photos=[photo(BODY_PHOTO, by=OWNER, created=BASELINE), photo(NEW_PHOTO)], memories=[])
-        self.assertEqual(pages, [], "반영이 끝난 사진을 또 `새로 더해진` 으로 그린다")
+    """★ 2026-08-19 — 이 자리의 **질문이 바뀌었다.**
 
-    def test_주최자가_올린_사진은_이_자리로_오지_않는다(self) -> None:
+    예전에는 `새로 들어온 참여인가`(pending_contribution_rules)를 물었다. 그 자는
+    주최자가 올린 사진과 이미 반영된 사진을 일부러 뺀다. 그런데 이 자리가 정말 묻는
+    것은 **`이 사진이 어디든 그려지는가`** 다 — 두 질문을 한 자로 재는 바람에,
+    앨범이 만들어진 뒤 **주최자가 더한 사진이 화면 어디에도 안 나왔다**
+    (dev 실측 2026-08-19 · CLAUDE.md §9 위반).
+
+    그래서 아래 두 검사를 뒤집는다. **지키려던 것(겹쳐 그리지 않는다)은 그대로 남기고**,
+    `누가 올렸나`로 거르던 부분만 걷어낸다.
+    """
+
+    def test_이미_그려지는_사진은_다시_붙지_않는다(self) -> None:
+        """겹치지 않는 근거는 `반영 표시`가 아니라 **이미 그려지는가**다.
+
+        ★ `applied_contribution_photo_ids` 에 적혀 있어도 본문에도 페이지에도 없으면
+          그 사진은 **어디에도 안 보인다.** 그때는 붙여야 한다 — 그것이 이번 결함이었다.
+        """
+        # 본문에 있다 → 안 붙는다
+        pages = run(album_row(), photos=[photo(BODY_PHOTO, by=OWNER, created=BASELINE)], memories=[])
+        self.assertEqual(pages, [], "본문에 있는 사진을 또 그린다")
+
+        # 페이지에 있다 → 안 붙는다(같은 사진이 두 번 서면 안 된다)
+        record = album_row(
+            applied_contribution_photo_ids=[NEW_PHOTO],
+            living_append_pages=[{"id": "page-1", "type": "append_page",
+                                  "photo_ids": [NEW_PHOTO], "memory_ids": []}],
+        )
+        pages = run(record, photos=[photo(BODY_PHOTO, by=OWNER, created=BASELINE), photo(NEW_PHOTO)], memories=[])
+        drawn = [p["id"] for page in pages for p in page["photos"]]
+        self.assertEqual(drawn, [NEW_PHOTO], "같은 사진이 두 번 그려진다")
+
+    def test_주최자가_올린_사진도_어디에도_없으면_이_자리로_온다(self) -> None:
+        """★ 이것이 사라지던 사진이다. 예전에는 `주최자 것`이라 빠졌다."""
         pages = run(
             album_row(),
             photos=[photo(BODY_PHOTO, by=OWNER, created=BASELINE), photo(OWNER_PHOTO, by=OWNER)],
             memories=[],
         )
-        self.assertEqual(pages, [], "주최자 사진이 `새로 더해진` 으로 갔다")
+        drawn = [p["id"] for page in pages for p in page["photos"]]
+        self.assertEqual(drawn, [OWNER_PHOTO], "주최자가 더한 사진이 어디에도 안 나온다")
 
     def test_이전_판을_볼_때는_다시_세지_않는다(self) -> None:
         """★ 공유 화면이 `edition is None` 일 때만 세는 것과 같은 조건이다."""
