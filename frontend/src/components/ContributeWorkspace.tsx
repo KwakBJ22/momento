@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { FILE_INPUT_CLASS, filterImageFiles, imageAcceptFor, limitSelectedPhotos, snapshotSelectedFiles } from "../lib/imageFile";
+import { createId } from "../lib/id";
 import { readUploadFileMeta } from "../lib/exifCaptureDate";
 import { currentUserAgent } from "../lib/webview";
 import type { PublicContributionItem } from "../types";
@@ -90,12 +91,8 @@ function debugTiming(label: string, startedAt: number): void {
   }
 }
 
-function localUploadId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+/** 화면 안에서만 쓰는 임시 id. 감싸는 일은 `lib/id` 하나가 한다(두 벌로 만들지 않는다). */
+const localUploadId = createId;
 
 function WorkspaceImage({ src, alt = "" }: { src: string; alt?: string }) {
   const startedAt = useRef(performance.now());

@@ -357,7 +357,9 @@ export default function UploadForm({ category, photosNeedReselect = false, onPho
       formData.append("paper", appearance.paper);
       // Demand signal only: how many videos the user tried to add (all filtered out).
       formData.append("dropped_video_count", String(droppedVideoCountRef.current));
-      const operationId = operationIdRef.current || crypto.randomUUID();
+      // ★ `crypto.randomUUID` 를 바로 부르지 않는다 — iOS 15.4 아래에서 여기서 죽었다.
+      //   대비값도 UUID 모양이어야 한다(서버가 이 값을 UUID 로 읽는다 · lib/id).
+      const operationId = operationIdRef.current || createId();
       operationIdRef.current = operationId;
       albumCreationTiming("UPLOAD_REQUEST_STARTED", { photo_count: photos.length });
       // Works logged-in or as a guest; a guest response's token is persisted by uploadAlbum.
