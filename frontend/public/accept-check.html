@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사진 고르기 방식 시험</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:16px/1.6 -apple-system,"Apple SD Gothic Neo",sans-serif;background:#fbf8f7;color:#2d2d2d;padding:18px;max-width:560px;margin:0 auto}
+h1{font-size:19px;font-weight:700;margin-bottom:6px}
+.sub{font-size:13.5px;color:#7d716f;margin-bottom:18px}
+label.pick{display:grid;place-items:center;width:100%;min-height:54px;border:1.5px solid #e0d4d2;border-radius:14px;background:#fff;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+label.pick small{display:block;font-size:11.5px;font-weight:400;color:#7d716f;margin-top:2px}
+input[type=file]{display:none}
+.card{background:#fff;border:1px solid #f0e9e8;border-radius:14px;padding:14px;margin:10px 0}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0;border-top:1px solid #f5f1f0}
+.row:first-child{border-top:0}
+.k{color:#7d716f;flex:0 0 auto}.v{font-weight:700;text-align:right;word-break:break-all}
+.ok{color:#1f6b6b}.no{color:#a3231f}
+.hit{background:#eef6f5;border-color:#1f6b6b}
+pre{white-space:pre-wrap;word-break:break-all;font:12px/1.5 ui-monospace,monospace;background:#3a3a3a;color:#fff;border-radius:10px;padding:10px;margin:10px 0}
+button{width:100%;min-height:50px;border:0;border-radius:12px;background:#ff6b6b;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+button.done{background:#1f6b6b}
+</style></head><body>
+<h1>사진 고르기 방식 시험</h1>
+<p class="sub">네 가지 방식으로 같은 사진을 골라 주세요. 어느 방식이 원본을 주는지 봅니다.<br>사진은 어디로도 올라가지 않습니다.</p>
+
+<label class="pick">① 지금 우리 방식<small>image/* 로 시작하는 긴 목록</small>
+<input type="file" data-n="① 지금 방식" accept="image/*,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"></label>
+
+<label class="pick">② image/* 만<small>가장 흔한 방식</small>
+<input type="file" data-n="② image/*" accept="image/*"></label>
+
+<label class="pick">③ 확장자만<small>MIME 없이 .heic .jpg 등만</small>
+<input type="file" data-n="③ 확장자만" accept=".jpg,.jpeg,.png,.webp,.heic,.heif"></label>
+
+<label class="pick">④ 아무 제한 없음<small>accept 속성 자체가 없음</small>
+<input type="file" data-n="④ 제한없음"></label>
+
+<div id="out"></div>
+<div class="card"><div style="font-size:14px;font-weight:700;color:#7d716f;margin-bottom:8px">이 내용을 복사해서 대화에 붙여넣어 주세요</div>
+<pre id="sum">아직 고른 사진이 없습니다</pre><button id="c">복사하기</button></div>
+
+<script>
+var lines = [];
+function hasExifAndGps(buf){
+  var dv = new DataView(buf);
+  var out = { jpeg:false, exif:false, date:false, gps:false };
+  if (dv.byteLength < 4) return out;
+  if (dv.getUint16(0) !== 0xFFD8) return out;
+  out.jpeg = true;
+  var off = 2;
+  while (off + 4 <= dv.byteLength) {
+    if (dv.getUint8(off) !== 0xFF) break;
+    var marker = dv.getUint8(off+1), len = dv.getUint16(off+2);
+    if (marker === 0xE1 && len >= 16) {
+      var tag = '';
+      for (var i=0;i<4;i++) tag += String.fromCharCode(dv.getUint8(off+4+i));
+      if (tag === 'Exif') {
+        out.exif = true;
+        var tiff = off+10, little = dv.getUint16(tiff) === 0x4949;
+        if (dv.getUint16(tiff+2, little) !== 42) return out;
+        var ifd0 = tiff + dv.getUint32(tiff+4, little);
+        if (ifd0+2 > dv.byteLength) return out;
+        var n = dv.getUint16(ifd0, little);
+        for (var j=0;j<n;j++){
+          var e = ifd0+2+j*12; if (e+12 > dv.byteLength) break;
+          var t = dv.getUint16(e, little);
+          if (t === 0x8825) out.gps = true;
+          if (t === 0x8769 || t === 0x9003 || t === 0x0132) out.date = true;
+        }
+        return out;
+      }
+    }
+    off += 2 + len;
+  }
+  return out;
+}
+function YN(b){ return b ? '<span class="ok">O</span>' : '<span class="no">X</span>'; }
+
+document.addEventListener('change', async function(ev){
+  var input = ev.target;
+  if (!input.files || !input.files.length) return;
+  var name = input.getAttribute('data-n');
+  var f = input.files[0];
+  var isHeic = /\.hei[cf]$/i.test(f.name) || /image\/hei[cf]/i.test(f.type);
+  var r = { jpeg:false, exif:false, date:false, gps:false };
+  if (!isHeic) { try { r = hasExifAndGps(await f.slice(0, 262144).arrayBuffer()); } catch(e){} }
+  var good = isHeic || (r.exif && r.date);
+  var box = document.createElement('div');
+  box.className = 'card' + (good ? ' hit' : '');
+  box.innerHTML =
+    '<div class="row"><span class="k">방식</span><span class="v">'+name+'</span></div>'
+    + '<div class="row"><span class="k">파일 이름</span><span class="v">'+f.name+'</span></div>'
+    + '<div class="row"><span class="k">형식</span><span class="v">'+(f.type||'(없음)')+'</span></div>'
+    + '<div class="row"><span class="k">크기</span><span class="v">'+(f.size/1024/1024).toFixed(2)+' MB</span></div>'
+    + '<div class="row"><span class="k">HEIC 원본</span><span class="v">'+YN(isHeic)+'</span></div>'
+    + (isHeic ? '' :
+        '<div class="row"><span class="k">EXIF</span><span class="v">'+YN(r.exif)+'</span></div>'
+      + '<div class="row"><span class="k">촬영일</span><span class="v">'+YN(r.date)+'</span></div>'
+      + '<div class="row"><span class="k">위치</span><span class="v">'+YN(r.gps)+'</span></div>')
+    + '<div class="row"><span class="k">판정</span><span class="v '+(good?'ok':'no')+'">'
+      + (isHeic ? 'HEIC 원본이 왔다 — 서버가 EXIF 를 읽을 수 있다'
+                : (r.date ? '변환됐지만 촬영일은 살아 있다' : '변환되며 촬영일이 사라졌다'))
+      + '</span></div>';
+  document.getElementById('out').appendChild(box);
+  lines.push(name + ' | ' + f.name + ' | ' + (f.type||'-') + ' | ' + (f.size/1024/1024).toFixed(2) + 'MB | HEIC=' + (isHeic?'O':'X')
+    + (isHeic ? '' : ' | EXIF=' + (r.exif?'O':'X') + ' 촬영일=' + (r.date?'O':'X') + ' 위치=' + (r.gps?'O':'X')));
+  document.getElementById('sum').textContent = lines.join('\n');
+  box.scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+document.getElementById('c').addEventListener('click', function(e){
+  var btn = e.currentTarget, text = lines.join('\n');
+  try { navigator.clipboard.writeText(text); }
+  catch(err){ var r=document.createRange(); r.selectNodeContents(document.getElementById('sum'));
+    var s=getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); }
+  btn.textContent = '복사했습니다 - 대화에 붙여넣어 주세요'; btn.classList.add('done');
+});
+</script></body></html>
