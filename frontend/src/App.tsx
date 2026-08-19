@@ -29,6 +29,7 @@ import type { AuthPanelReason } from "./lib/authPanelCopy";
 import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { readBootstrapCache, shouldCallBootstrap, writeBootstrapCache } from "./lib/bootstrapOnce";
+import { pageIsLeaving } from "./lib/pageLeaving";
 import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
 import type { WithdrawalSummary } from "./types";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
@@ -261,7 +262,13 @@ function App() {
         // Flag attributed contributor sessions so the next bootstrap doesn't resend them.
         if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
       })
-      .catch((error) => active && setBootstrapError(userFacingError(error, "인증을 확인하지 못했어요.")));
+      .catch((error) => {
+        // ★ 페이지가 떠나면서 끊긴 요청은 실패가 아니다 (2026-08-19). 서버 로그에는
+        //   200 인데 화면이 `다시 시도` 를 띄우던 것이 이 갈래다 — 어차피 사라질
+        //   화면이고, 새로 뜬 페이지가 처음부터 다시 부른다.
+        if (!active || pageIsLeaving()) return;
+        setBootstrapError(userFacingError(error, "인증을 확인하지 못했어요."));
+      });
     return () => { active = false; };
   }, [user?.id]);
 
@@ -557,7 +564,12 @@ function App() {
                 if (data.claimed_guest_ids.length) markContributionsAttributed(data.claimed_guest_ids);
                 setNeedsLegalConsent(false);
               })
-              .catch((error) => setConsentError(userFacingError(error, "동의를 저장하지 못했어요. 다시 시도해 주세요.")))
+              .catch((error) => {
+                // 떠나면서 끊긴 저장은 실패로 말하지 않는다 — 동의는 서버에 이미
+                // 닿았을 수 있고(로그의 200), 안 닿았어도 다음 화면이 다시 묻는다.
+                if (pageIsLeaving()) return;
+                setConsentError(userFacingError(error, "동의를 저장하지 못했어요. 다시 시도해 주세요."));
+              })
               .finally(() => setConsentBusy(false));
           }}
         >

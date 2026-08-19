@@ -40,8 +40,16 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
     NONE — a row already claimed by another user_id is never touched (no stealing). When the
     user already has an active contributor row for that album, the (album_id, user_id) unique
     index would conflict, so that guest row is SKIPPED (and logged) — their old participation
-    stays under the guest name rather than breaking. Returns (attributed_guest_ids,
-    attributed_album_count) for the caller's analytics.
+    stays under the guest name rather than breaking. Returns (settled_guest_ids,
+    attributed_album_count).
+
+    ★ 돌려주는 목록은 **끝난 guest id** 다 — 이번에 붙인 것 + **더 할 일이 없는 것**
+      (2026-08-19). 예전에는 붙인 것만 돌려줬는데, 화면은 이 목록으로 `다시 안 보내도
+      된다` 표시를 한다. 그래서 붙일 것이 없는 id(이미 붙었거나 · 충돌로 영영 못 붙거나 ·
+      참여 기록이 아예 없거나)는 표시가 안 돼 **화면을 옮길 때마다 다시 실려 왔고**,
+      bootstrap 이 분당 3~4번 찍혔다(Railway dev 08-19). 여기 오는 갈래는 전부
+      끝난 상태다 — 다시 보내도 결과가 달라지지 않는다.
+      (조회가 도중에 터지면 예외로 올라가 아무것도 표시되지 않는다 — 다음에 다시 온다.)
     """
     claimed: list[str] = []
     attributed_albums = 0
@@ -57,7 +65,6 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
             .data
             or []
         )
-        attributed_here = False
         for row in rows:
             album_id = str(row.get("album_id") or "")
             row_id = row.get("id")
@@ -81,9 +88,8 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
                 "user_id", "null"
             ).execute()
             attributed_albums += 1
-            attributed_here = True
-        if attributed_here:
-            claimed.append(str(guest_id))
+        # 붙였든, 붙일 것이 없었든 — 이 id 는 끝났다. 다시 보내게 두지 않는다.
+        claimed.append(str(guest_id))
     if skipped_conflicts:
         logger.info("contribution_attribution_conflicts_total count=%s", skipped_conflicts)
     return claimed, attributed_albums

@@ -838,6 +838,12 @@ export async function bootstrapAccount(
   contributorGuestIds: string[],
   legalAgreed = false,
 ): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[]; legal_agreed: boolean }> {
+  // ★ 같은 사람이 짧은 시간에 여러 번 부르지 않는다 (2026-08-19). 로그인에서 돌아오는
+  //   길에는 이 요청을 시작하는 자리가 둘이다(App 마운트 · 동의 시트). 둘이 같이 돌면
+  //   서버 로그에 bootstrap 이 분당 3~4번 찍혔다. 이미 도는 요청이 있으면 그것을 기다린다.
+  //   ★ 동의(legalAgreed)가 실린 쪽은 섞지 않는다 — 동의 없는 요청을 기다렸다가
+  //     동의가 안 실려 가면 안 된다. 키를 갈라 둔다.
+  return dedupeRequest(`auth-bootstrap:${legalAgreed ? "consent" : "plain"}`, async () => {
   const response = await authenticatedFetch("/api/auth/bootstrap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -860,6 +866,7 @@ export async function bootstrapAccount(
     // 옛 서버(이 필드를 모르는)에서는 true 로 본다 — 없다고 다시 묻지 않는다.
     legal_agreed: data?.legal_agreed !== false,
   };
+  });
 }
 
 function collabHeaders(session: CollabSession | null): HeadersInit {
