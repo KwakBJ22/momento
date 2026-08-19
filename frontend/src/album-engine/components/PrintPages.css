@@ -27,6 +27,16 @@
    사진이 가장 크다는 순서(§6)는 그대로다 — 글이 사진을 이기면 안 된다.
    ───────────────────────────────────────────────────────────────────────── */
 .album-renderer--print {
+  /* ── 활자 (시안 §6) ────────────────────────────────────────────────
+     본문·캡션은 명조 계열, 날짜·숫자는 라틴 세리프. 굵기는 가늘게 두고
+     **크기 차이로만** 위계를 만든다.
+     ★ **새 폰트를 싣지 않는다.** 웹폰트를 하나라도 걸면 카카오톡 웹뷰 첫 화면이
+       그만큼 늦어진다(§9). 기기에 이미 있는 것만 골라 쓴다 — 안드로이드는
+       본명조(Noto Serif KR), 아이폰은 애플명조가 잡힌다. 없으면 기본 serif 다.
+     ★ 이 두 값은 `--print` 안에만 있다. 화면은 예전 글꼴 그대로다. */
+  --print-mincho: "Noto Serif KR", "Apple SD Gothic Neo", "AppleMyungjo", "Nanum Myeongjo", serif;
+  --print-serif: "EB Garamond", "Times New Roman", Times, serif;
+
   --print-cover-title: 28pt;
   --print-cover-logo: 17pt;
   --print-cover-period: 12pt;
@@ -340,13 +350,14 @@
   overflow: hidden;
 }
 
-/* 표지 로고 — 표지에서 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9 · I-4-2).
-   ★ 크기를 여기서 따로 주는 이유: album-brand-mark 의 글자 크기는 화면 기준 rem 고정값
-   이라 부모의 font-size 를 물려받지 않는다. 인쇄에서만 다시 정한다.
-   크기는 위 표(23px = 17pt)다. */
-.album-renderer--print .album-cover__brand .album-brand-mark { gap: 2.5mm; margin: 0; }
-.album-renderer--print .album-cover__brand .album-brand-mark__icon { width: var(--print-cover-logo); height: var(--print-cover-logo); }
-.album-renderer--print .album-cover__brand .album-brand-mark__word { font-size: var(--print-cover-logo); }
+/* 표지 제목 크기 — **모양마다 다르다**(시안 §2). 값은 시안 px 을 pt 로 옮긴 것이다
+   (640px = 200mm 이므로 px × 0.8858 = pt). 새로 정한 값이 아니다. */
+.album-renderer--print.album-renderer--skin-basic { --print-cover-title: 27.5pt; }
+.album-renderer--print.album-renderer--skin-scrapbook { --print-cover-title: 33.7pt; }
+.album-renderer--print.album-renderer--skin-airy { --print-cover-title: 20.4pt; --print-cover-period: 12.4pt; }
+.album-renderer--print.album-renderer--skin-grid { --print-cover-title: 23.9pt; }
+.album-renderer--print.album-renderer--skin-magazine { --print-cover-title: 39pt; }
+.album-renderer--print.album-renderer--skin-single { --print-cover-title: 29.2pt; --print-cover-period: 13.3pt; }
 
 /* 표지·브랜드 페이지도 정확히 한 장이다(§9 — 각각 독립 페이지). */
 .album-renderer--print .album-cover,

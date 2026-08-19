@@ -1,7 +1,5 @@
 import "./AlbumCover.css";
-import BrandMark from "./BrandMark";
 import { formatCoverPeriodLabel } from "../buildAlbum";
-import { BRAND_NAME_KO } from "../../lib/brand";
 
 interface AlbumCoverProps {
   title: string;
@@ -12,15 +10,15 @@ interface AlbumCoverProps {
 }
 
 /**
- * 열람용 PDF 1쪽 — 표지 (SCREEN_SPEC §9).
+ * 열람용 PDF 1쪽 — **표지 6종** (시안 print-layout-v3 §2 `가. 색을 채운 판`).
  *
- * ★ 이름은 **글자가 아니라 로고 조합**으로 쓴다 — `우리`(진한 글자색) + `앨범`(브랜드색).
- *   표지는 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9). 예전에는 작고 어두운
- *   보통 글자였다.
- * ★ 표지 사진은 **페이지 안에 온전히** 들어온다. 예전에는 상자에 max-height 를 주고
- *   넘치는 부분을 잘라 냈다(overflow: hidden) — 세로 사진이 아래에서 잘렸다.
- *   §9 는 "사진은 자르지 않는다" 이므로 상자가 아니라 **사진에 상한**을 준다.
- * ★ 사진에도 본문과 같은 프레임을 준다 — 표지만 프레임이 없으면 따로 논다.
+ * ★ 마크업은 **6종이 같다.** 무엇을 어디에 둘지는 CSS 가 정한다 — 루트에 이미 붙어
+ *   있는 `album-renderer--skin-*` 하나로 갈린다(AlbumSkins 와 같은 방식). 모양 이름을
+ *   아는 분기 코드를 여기 만들지 않는다.
+ * ★ 표지는 **본문의 예외**다. 색을 재단 여유(bleed)까지 채운다 — 흰 테가 생기면
+ *   인쇄물이 싸구려로 보인다. 본문 지면은 어느 모양을 골라도 흰 종이다.
+ * ★ 사진은 **자르지 않는다.** 남는 자리는 색면이 받는다.
+ * ★ 브랜드 로고는 표지에 두지 않는다(시안). 이 서비스를 알리는 자리는 **마지막 장**이다.
  */
 export default function AlbumCover({
   title,
@@ -32,19 +30,23 @@ export default function AlbumCover({
   const period = formatCoverPeriodLabel(coverDateLabel);
   return (
     <section className="album-cover" aria-label="앨범 표지">
-      <div className="album-cover__brand"><BrandMark label={BRAND_NAME_KO} /></div>
-      <div className="album-cover__head">
+      {/* 사진 자리 — 모양마다 위·아래·전면으로 옮겨 간다. */}
+      <figure className="album-cover__hero">
+        {heroSrc ? (
+          <img src={heroSrc} alt={heroAlt || title} className="album-cover__hero-img" />
+        ) : null}
+      </figure>
+
+      {/* 글 자리 — 제목 · 기간 · 함께한 사람. 순서는 여섯 모양이 같고 배치만 갈린다. */}
+      <div className="album-cover__text">
+        {/* 짧은 선. 쓰는 모양(기본형·한 장씩 크게·격자형)에서만 CSS 가 보인다. */}
+        <span className="album-cover__rule" aria-hidden="true" />
         <h1 className="album-cover__title">{title}</h1>
         {period ? <p className="album-cover__period">{period}</p> : null}
+        {participants.length > 1 ? (
+          <p className="album-cover__people">{participants.join(" · ")}</p>
+        ) : null}
       </div>
-      {heroSrc ? (
-        <figure className="album-cover__hero">
-          <img src={heroSrc} alt={heroAlt || title} className="album-cover__hero-img" />
-        </figure>
-      ) : null}
-      {participants.length > 1 ? (
-        <p className="album-cover__people">{participants.join(" · ")}</p>
-      ) : null}
     </section>
   );
 }

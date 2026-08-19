@@ -102,7 +102,8 @@ test("각 자리가 자기 변수를 읽는다 (엉뚱한 변수를 쓰지 않�
   assert.match(rule(".album-renderer--print .album-epilogue__title"), /var\(--print-epilogue-title\)/);
   assert.match(rule(".album-renderer--print .album-contributors"), /var\(--print-contributors\)/);
   assert.match(rule(".album-renderer--print .chapter-header--print-date .chapter-header__dayline"), /var\(--print-date-heading\)/);
-  // 로고도 변수를 읽는다(표지·브랜드 쪽 각각).
-  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__word \{ font-size: var\(--print-cover-logo\); \}/);
+  // ★ 2026-08-19 — 표지에서 로고가 빠졌다(시안 §2). 이 서비스를 알리는 자리는
+  //   **마지막 장**이다. 그래서 표지 로고 줄은 더 볼 것이 없고, 브랜드 쪽만 본다.
+  //   표지 제목은 모양마다 크기가 달라 아래에서 따로 잠근다.
   assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
 });
