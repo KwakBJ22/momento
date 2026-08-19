@@ -3,6 +3,7 @@ import { getJoinPreview, joinCollaboration, saveCollabSession } from "../lib/api
 import { signIn, type AppUser } from "../services/authService";
 import { BRAND_NAME_KO_PARTS } from "../lib/brand";
 import LinkUnavailable from "./LinkUnavailable";
+import EmailAuthForm from "./EmailAuthForm";
 import "./JoinPage.css";
 import { userFacingError } from "../lib/userFacingError";
 
@@ -50,6 +51,8 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
   const [busy, setBusy] = useState(false);
   // 사용자가 이름을 직접 고쳤는가 — 고쳤으면 프로필 이름으로 덮지 않는다.
   const [nameTouched, setNameTouched] = useState(false);
+  /** 이메일 칸은 **눌러야** 열린다 — 카카오가 주 경로다(AuthPanel 과 같은 모양). */
+  const [showsEmail, setShowsEmail] = useState(false);
   const signedIn = Boolean(user);
 
   /**
@@ -195,6 +198,20 @@ export default function JoinPage({ token, user, authReady = true }: JoinPageProp
           <button type="button" className="join-page__kakao" disabled={!authReady} onClick={() => void onKakao()}>
             {authReady ? "카카오로 계속하기" : "잠시만 기다려 주세요"}
           </button>
+          {/* ★ 이메일은 **둘째 길**이다 (PO 2026-08-19). 카카오가 늘 위에 선다.
+              ★ 같은 자리에서 열린다 — 초대받은 사람을 다른 페이지로 보내지 않는다(§7).
+                로그인하면 이 초대 화면으로 그대로 돌아온다(K-7). */}
+          {showsEmail ? (
+            <EmailAuthForm
+              returnTo={`${window.location.pathname}${window.location.search}`}
+              onSignedIn={() => window.location.reload()}
+              onUseKakao={() => void onKakao()}
+            />
+          ) : (
+            <button type="button" className="join-page__email-open" onClick={() => setShowsEmail(true)}>
+              이메일로 계속하기
+            </button>
+          )}
         </>
       )}
     </section>

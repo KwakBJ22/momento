@@ -474,6 +474,25 @@ class GuestbookDeleteRequest(BaseModel):
     session_key: str = Field(min_length=16, max_length=200)
 
 
+class SignupProviderRequest(BaseModel):
+    """이 이메일이 **이미 쓰이고 있는가**, 쓰인다면 어디서 왔는가 (2026-08-19).
+
+    ★ **가입을 시도할 때만** 부른다. 로그인 실패는 화면이 한 문구로 끝낸다 —
+      거기서 갈라 쓰면 계정이 있는지 없는지가 새어 나간다.
+    ★ 그래도 이 자리는 그 사실을 알려 주는 자리다. 카카오로 가입한 사람에게
+      `카카오로 로그인` 을 권하려면 어느 쪽인지 알아야 하고, 모르면 새 계정을
+      만들려다 막히기만 한다(PO 결정 2026-08-19 · ④).
+    ★ 알려 주는 것은 **어느 길로 가입했는지 하나뿐**이다. 이름·사진·앨범은 주지 않는다.
+    """
+
+    email: str = Field(max_length=320)
+
+
+class SignupProviderResponse(BaseModel):
+    #: "kakao" · "email" · None(그 이메일로 만들어진 계정이 없다)
+    provider: str | None = None
+
+
 class AuthBootstrapRequest(BaseModel):
     # Guest contributor ids from the browser to attribute to this account on login.
     # Capped so a login never sends an unbounded payload.

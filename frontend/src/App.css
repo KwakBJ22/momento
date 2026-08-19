@@ -172,6 +172,84 @@ body {
   cursor: not-allowed;
 }
 
+/* 이메일 + 비밀번호 (2026-08-19). **카카오 아래**에 서는 둘째 길이다.
+   ★ 새 CSS 파일을 만들지 않는다 — 로그인 창의 옷은 여기 한 곳에 있다.
+   ★ 노란색을 쓰지 않는다. 카카오 버튼과 같은 무게로 보이면 주 경로가 흐려진다. */
+.auth-panel__or {
+  margin: var(--s-3) 0;
+  color: var(--c-text-soft);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.auth-panel__email-open {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: var(--w-bold);
+  cursor: pointer;
+}
+
+.email-auth { display: grid; gap: var(--s-2); margin-top: var(--s-3); text-align: left; }
+.email-auth__label { font-size: 0.875rem; font-weight: var(--w-bold); color: var(--c-text-soft); }
+.email-auth__input {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 1rem;
+}
+.email-auth__submit {
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-top: var(--s-2);
+  border: 0;
+  border-radius: var(--r-md);
+  /* 주 버튼 기준값과 같은 색을 쓴다 — `--c-brand` 는 글자를 얹기에 대비가 모자란다. */
+  background: var(--c-brand-action);
+  color: var(--c-surface);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: var(--w-bold);
+  cursor: pointer;
+}
+.email-auth__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+/* 이미 카카오로 가입된 이메일일 때만 나온다 — 막지 않고 길을 알려 주는 자리다. */
+.email-auth__kakao {
+  width: 100%;
+  min-height: var(--tap-min);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--c-kakao);
+  color: var(--c-kakao-text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: var(--w-bold);
+  cursor: pointer;
+}
+.email-auth__links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-2); }
+.email-auth__link {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-brand-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: var(--w-bold);
+  cursor: pointer;
+}
+
 /* 색·글머리는 styles/notice.css 가 준다(I-5b). 여기서는 배치만 남긴다. */
 .auth-panel__notice {
   text-align: center;

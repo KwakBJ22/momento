@@ -1064,6 +1064,28 @@ export async function closeCollaborationAlbum(albumId: string) {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+/**
+ * 가입하려는 이메일이 **이미 쓰이고 있는지** 묻는다 (2026-08-19 · ④).
+ *
+ * ★ **가입할 때만** 부른다. 로그인 실패는 한 문구로 끝낸다(계정이 있는지 새어 나가지
+ *   않게 — lib/emailAuth 의 SIGN_IN_FAILED).
+ * ★ 실패하면 `null` 이다. 안내 하나 때문에 가입을 막지 않는다.
+ */
+export async function getSignupProvider(email: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/signup-provider`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { provider?: string | null };
+    return data.provider ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getContributeWorkspace(albumId: string, session: CollabSession) {
   const response = await collaborationFetch(`/api/albums/${albumId}/contribute/workspace`, {}, session);
   if (!response.ok) throw new Error(await parseError(response));

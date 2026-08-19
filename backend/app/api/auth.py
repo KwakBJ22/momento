@@ -9,6 +9,8 @@ from app.models.schemas import (
     AuthBootstrapResponse,
     ProfileContactRequest,
     ProfileContactResponse,
+    SignupProviderRequest,
+    SignupProviderResponse,
     WithdrawalSummaryResponse,
 )
 from app.services.account_service import count_withdrawal_impact, delete_account
@@ -65,6 +67,40 @@ def bootstrap_auth_user(
         # 이번에 동의를 실어 보냈으면 위에서 기록했으므로 다시 읽지 않는다.
         legal_agreed=True if (body and body.legal_agreed) else has_legal_consent(client, authenticated_user_id),
     )
+
+
+@router.post("/signup-provider", response_model=SignupProviderResponse)
+def read_signup_provider(body: SignupProviderRequest) -> SignupProviderResponse:
+    """가입하려는 이메일이 **이미 쓰이고 있는지** 알려 준다 (2026-08-19 · ④).
+
+    ★ 로그인이 필요 없다 — 가입하려는 사람은 아직 계정이 없다.
+    ★ 돌려주는 것은 **어느 길로 가입했는지 하나뿐**이다. 이름·사진·앨범은 주지 않는다.
+    ★ 이 자리는 그 이메일로 만든 계정이 있는지를 알려 주는 자리다. 그것이 목적이다 —
+      카카오로 가입한 사람에게 `카카오로 로그인` 을 권하려면 어느 쪽인지 알아야 한다.
+      **로그인 실패 문구는 이것과 무관하게 하나다**(화면이 그렇게 한다).
+    ★ 조회가 실패해도 400/500 을 내지 않는다. 모르면 `None` 이고, 화면은 그냥
+      가입을 이어 간다 — 안내 하나 때문에 가입이 막히면 안 된다.
+    """
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        return SignupProviderResponse(provider=None)
+    try:
+        client = get_supabase_client()
+        rows = (
+            client.table("profiles")
+            .select("primary_provider")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001 - 안내 하나 때문에 가입을 막지 않는다
+        logger.warning("signup_provider_lookup_failed error_type=%s", type(exc).__name__)
+        return SignupProviderResponse(provider=None)
+    if not rows:
+        return SignupProviderResponse(provider=None)
+    provider = (rows[0].get("primary_provider") or "").strip().lower()
+    # 카카오가 아닌 소셜(네이버 등)도 `카카오로 로그인` 을 권하면 안 된다 — 아는 것만 말한다.
+    return SignupProviderResponse(provider=provider or None)
 
 
 @router.get("/contact", response_model=ProfileContactResponse)

@@ -83,7 +83,9 @@ test("개인정보처리방침 두 문서의 항목이 일치한다", () => {
     assert.ok(html.includes(line), `privacy.html: ${line}`);
   }
   // 절 번호가 두 문서에서 같게 밀렸다.
-  for (const heading of ["1.2 이용자가 직접 입력하는 연락처 (선택)", "1.3 서비스 이용 과정에서 수집", "1.6 브라우저 저장소"]) {
+  // ★ 2026-08-19 — `1.2 이메일 회원가입 시 수집` 이 앞에 들어오면서 뒤가 한 칸씩 밀렸다.
+  //   이 검사가 지키는 것은 **두 문서가 같이 움직이는가**이지 번호 자체가 아니다.
+  for (const heading of ["1.3 이용자가 직접 입력하는 연락처 (선택)", "1.4 서비스 이용 과정에서 수집", "1.7 브라우저 저장소"]) {
     assert.ok(md.includes(`### ${heading}`), `md: ${heading}`);
     assert.ok(html.includes(`<h3>${heading}`), `html: ${heading}`);
   }
