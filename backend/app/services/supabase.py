@@ -9,6 +9,7 @@ from supabase import Client, create_client
 
 from app.config import Settings, get_settings
 from app.models.album_photo_status import ALBUM_PHOTO_DELETED, ALBUM_PHOTO_READY
+from app.services.http_retry import install_retry_on_supabase
 from app.services.image_upload_service import ProcessedPhoto
 from app.services.media_upload_service import ProcessedMedia
 from app.services.storage_service import (
@@ -49,8 +50,15 @@ def _cached_supabase_client(url: str, service_role_key: str) -> Client:
     client instead of taking this one.
 
     The cache key is url + key, so dev and production never share an entry.
+
+    ★ 연결을 계속 쓰는 대신, **끊긴 연결을 한 번 다시 시도**하는 것을 여기서 끼운다
+      (services/http_retry.py). 저쪽이 조용히 닫아 둔 연결을 다시 쓰다가 500 이
+      사용자에게 그대로 나간 적이 있다(2026-08-19). 자리마다 붙이지 않고
+      **연결을 만드는 이 한 곳**에서 건다.
     """
-    return create_client(url, service_role_key)
+    client = create_client(url, service_role_key)
+    install_retry_on_supabase(client)
+    return client
 
 
 def get_supabase_client(settings: Settings | None = None) -> Client:
