@@ -77,11 +77,16 @@ test("★ 날짜와 장소를 **한 자리에서** 고친다 — 연필은 하�
   await idle.cleanup();
 });
 
-test("★ 날짜가 없는 묶음에는 주최자에게만 `날짜 넣기` 가 있다 (회귀 ⑥)", async () => {
+// ★ 2026-08-18 PO — 말이 `날짜 넣기` 에서 `날짜를 넣어 주세요` 로 바뀌었다.
+//   날짜가 없으면 화면이 **그 사실을 말해야** 한다. 예전 말은 버튼 이름일 뿐이라,
+//   비어 있는 까닭을 모르는 사람에게는 아무것도 알려 주지 않았다.
+test("★ 날짜가 없는 묶음에는 주최자에게만 날짜를 넣을 자리가 있다 (회귀 ⑥)", async () => {
   const noDate = { date: null, dateRangeLabel: null, place: null, photoCount: 0, placeKey: "0" };
   const owner = await renderHeader({ ...EDITING, editingKey: null }, noDate);
   assert.equal(owner.addDate(), 1, "주최자인데 넣을 자리가 없다");
-  assert.match(owner.text(), /날짜 넣기/);
+  assert.match(owner.text(), /날짜를 넣어 주세요/);
+  // `아이폰이라서` 같은 기술적 설명을 쓰지 않는다(§8).
+  assert.equal(/아이폰|EXIF|사파리/.test(owner.text()), false);
   await owner.cleanup();
 
   // 참여자·구경꾼에게는 아무것도 없다 — 빈 줄도 남기지 않는다.
@@ -93,13 +98,13 @@ test("★ 날짜가 없는 묶음에는 주최자에게만 `날짜 넣기` 가 �
   }
 });
 
-test("★ `날짜 넣기` 를 누르면 그 자리가 입력칸이 된다 — 새 시트가 아니다", async () => {
+test("★ 그 말을 누르면 그 자리가 입력칸이 된다 — 새 시트가 아니다", async () => {
   const started: Array<[string, string]> = [];
   const owner = await renderHeader(
     { ...EDITING, editingKey: null, startEdit: (key: string, text: string) => { started.push([key, text]); } },
     { date: null, dateRangeLabel: null, place: null, photoCount: 0, placeKey: "0" },
   );
-  await owner.click("날짜 넣기");
+  await owner.click("날짜를 넣어 주세요");
   assert.deepEqual(started, [["0", ""]]);
   assert.equal(owner.container.querySelectorAll(".album-inline-action").length, 0, "새 시트를 열었다");
   await owner.cleanup();
@@ -130,7 +135,12 @@ test("★ 날짜를 **바꿀 때만** 묻는다 — 장소만 고칠 때는 안 
   const request = view.slice(view.indexOf("const requestSavePlace ="), view.indexOf("const handleSaveTitle"));
   assert.match(request, /if \(parsed && parsed !== placeKey\) \{[\s\S]*?setPendingDateMove\(/);
   // 형식이 아니면 우리 말로 알리고 보내지 않는다.
-  assert.match(request, /setPlaceSaveError\("날짜는 2018\.07\.08 처럼 적어 주세요\."\);/);
+  // ★ 2026-08-18 — 문구를 여기 적어 두지 않는다. 무엇이 잘못됐는지는 `lib/dateDraft`
+  //   하나가 정하고(월·일·없는 날·앞날이 각각 다른 말이다), 이 자리는 **그것을 쓰는지**만
+  //   본다. 예전에는 `날짜는 2018.07.08 처럼 적어 주세요.` 한 마디를 여기 박아 두었는데,
+  //   그 말 자체가 아이폰에서 칠 수 없는 형식을 요구하던 것이라 같이 죽었다.
+  assert.match(request, /setPlaceSaveError\(dateDraftProblem\(dateDraft\)/);
+  assert.match(request, /isEmptyDateDraft\(dateDraft\)/);
   // 묻는 것은 시트다 — window.confirm 을 쓰지 않는다.
   assert.equal(/window\.confirm\s*\(/.test(view), false);
   const sheet = view.slice(view.indexOf("{pendingDateMove ? ("), view.indexOf("{/* 사진 빼기"));

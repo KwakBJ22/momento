@@ -217,28 +217,23 @@ function buildDayClusters(photos: EnginePhoto[]): DayCluster[] {
     clusters.push(...splitSameDayByPlace(key, dated.get(key) ?? []));
   }
 
-  if (!clusters.length) {
-    const { place, locationSource } = resolvePlaceLabel(undated);
-    return [
-      {
-        date: "",
-        photos: [...undated],
-        place,
-        locationSource,
-        centroid: photoCentroid(undated),
-      },
-    ];
-  }
-
+  // 촬영일이 없는 사진은 **제 묶음으로 맨 뒤에** 선다 (2026-08-18 PO).
+  //
+  // ★ 예전에는 마지막 날짜 묶음에 **섞어 넣었다.** 그래서 아이폰으로 올린 사진(사파리가
+  //   EXIF 를 지운다)이 남의 날짜 아래로 들어갔고, 그 날짜의 장소까지 뒤집어썼다.
+  //   더 나쁜 것은 **날짜를 넣을 자리가 사라진 것**이다 — 날짜 없는 묶음이 없으니
+  //   `날짜를 넣어 주세요` 가 그려지지 않았다.
+  // ★ 맨 뒤다. 이미 시간순으로 정리된 앞부분을 헤집지 않는다.
+  // ★ 안에서는 **고른 순서**(sort_order)를 지킨다 — 들어온 차례 그대로 담는다.
   if (undated.length) {
-    const last = clusters[clusters.length - 1];
-    last.photos = [...last.photos, ...undated];
-    last.centroid = photoCentroid(last.photos);
-    if (!last.place) {
-      const resolved = resolvePlaceLabel(undated);
-      last.place = resolved.place;
-      last.locationSource = resolved.locationSource;
-    }
+    const { place, locationSource } = resolvePlaceLabel(undated);
+    clusters.push({
+      date: "",
+      photos: [...undated],
+      place,
+      locationSource,
+      centroid: photoCentroid(undated),
+    });
   }
 
   return clusters;
@@ -306,7 +301,9 @@ export function groupPhotosIntoChapterBuckets(photos: EnginePhoto[]): ChapterBuc
       cluster.place &&
       prev.place.toLowerCase() !== cluster.place.toLowerCase() &&
       (!prev.centroid || !cluster.centroid);
-    const continuous = gap >= 0 && gap < DAY_GAP_SPLIT_DAYS && !placeFar && !nameConflict;
+    // ★ 날짜가 없는 묶음은 어느 여행에도 붙지 않는다 — 이어졌는지 잴 날짜가 없다.
+    const continuous = Boolean(prev.date) && Boolean(cluster.date)
+      && gap >= 0 && gap < DAY_GAP_SPLIT_DAYS && !placeFar && !nameConflict;
     if (continuous) {
       trip.clusters.push(cluster);
     } else {
