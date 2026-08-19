@@ -300,19 +300,14 @@
 
 /* ============================================================
    6) 한 장씩 크게 — 마운트 없음 · 좌우 여백 0 · 화면 폭 꽉 · 직각 ·
-      간격 30px · 날짜 알약 칩 · 캡션 18px + `1 / N` · 이야기 블록도 폭 꽉
-      ★ `1 / N` 은 그 날짜 묶음 안 순번이다. 세는 것은 CSS 카운터가 한다 —
-        전체 장수만 격자가 `--photo-total` 로 알려 준다(새 데이터가 아니다).
+      간격 30px · 날짜 알약 칩 · 캡션 18px · 이야기 블록도 폭 꽉
+      ★ 사진 아래 `1 / 9` 번호는 **없앴다**(PO 2026-08-19). 앨범은 포토북이지
+        목록이 아니다 — 번호는 세는 느낌을 준다. 사진 수는 날짜 줄에 이미 있다.
    ============================================================ */
 .album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid {
   grid-template-columns: minmax(0, 1fr);
   gap: 30px;
   padding-inline: 0;
-  counter-reset: album-photo 0 album-photo-total var(--photo-total, 0);
-}
-
-.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block {
-  counter-increment: album-photo;
 }
 
 .album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block > .photo-block__frame {
@@ -343,15 +338,6 @@
 .album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid .photo-memory-lines--caption .photo-memory-lines__line {
   font-size: 18px;
   text-align: start;
-}
-
-.album-renderer--screen.album-renderer--skin-single .album-screen-photo-grid > .photo-block > .photo-block__frame::after {
-  content: counter(album-photo) " / " counter(album-photo-total);
-  display: block;
-  padding: 8px 20px 0;
-  color: var(--c-text-muted);
-  font-size: 14px;
-  font-weight: var(--w-medium);
 }
 
 /* 한마디도 좌우 20px 안으로 — 사진만 폭을 꽉 채운다. */

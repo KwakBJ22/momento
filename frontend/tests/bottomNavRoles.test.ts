@@ -41,10 +41,26 @@ async function renderNav(variant: Variant) {
   return { count: buttons.length, labels, text };
 }
 
-test("주최자 3칸 — 사진 추가 / 한마디 쓰기 / 공유하기", async () => {
+// ★ 2026-08-19 PO — `한마디를 사진 아래서 바로 눌러서 작성하니까 하단 메뉴의
+//   한마디쓰기는 삭제. 대신 내 앨범 메뉴 추가`.
+//   같은 일로 가는 칸을 둘 두면 사용자는 둘이 다른 줄 안다.
+test("주최자 3칸 — 사진 추가 / 내 앨범 / 공유하기", async () => {
   const nav = await renderNav("default");
   assert.equal(nav.count, 3);
-  assert.deepEqual(nav.labels, ["사진 추가", "한마디 쓰기", "공유하기"]);
+  assert.deepEqual(nav.labels, ["사진 추가", "내 앨범", "공유하기"]);
+  // 주최자 네비에는 한마디 칸이 없다 — 그 길은 사진 아래에 있다.
+  assert.equal(nav.text.includes("한마디"), false);
+});
+
+test("★ 참여자·구경꾼 화면은 그대로다 — 한마디 칸을 뺀 것은 주최자뿐이다 (회귀)", async () => {
+  // 그쪽은 한마디가 주 행동이고, 사진 아래 길을 못 찾을 수 있다.
+  const contributor = await renderNav("contributor");
+  assert.equal(contributor.labels[0], "한마디 쓰기", "참여자에게서 한마디가 사라졌다");
+  assert.equal(contributor.text.includes("내 앨범 만들기".slice(0, 2)), true);
+
+  const visitor = await renderNav("visitor");
+  assert.equal(visitor.count, 1);
+  assert.equal(visitor.text.includes("한마디"), false, "구경꾼에게 없던 것이 생겼다");
 });
 
 test("참여자 3칸 — 한마디 쓰기 / 사진 추가 / 내 앨범 만들기", async () => {

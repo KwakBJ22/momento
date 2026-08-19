@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
@@ -394,10 +394,10 @@ export default function AlbumRenderer({
           placeKey={storyKey}
           placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
-        {/* ★ `--photo-total` 은 `한 장씩 크게` 모양의 `1 / N` 이 쓰는 값이다.
-            그 날짜 묶음의 장수일 뿐 새 데이터가 아니고, 세는 것은 CSS 카운터가 한다 —
-            모양별 분기 코드를 만들지 않으려고 값만 늘 실어 둔다(다른 모양은 안 쓴다). */}
-        <div className="album-screen-photo-grid" style={{ "--photo-total": chapter.photos.length } as CSSProperties}>
+        {/* ★ 예전에는 `--photo-total` 을 실어 `한 장씩 크게` 모양이 사진 아래에
+            `1 / 9` 를 그렸다. **없앴다**(PO 2026-08-19) — 앨범은 포토북이지 목록이
+            아니다. 세는 값이 필요 없어졌으므로 실어 보내지도 않는다. */}
+        <div className="album-screen-photo-grid">
           {chapter.photos.map((photo, photoIndex) => (
             <PhotoWithMemories
               key={photo.id}
