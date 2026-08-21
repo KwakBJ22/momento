@@ -65,13 +65,19 @@ test("★ 사진 세로 상한은 **지면 기하에서 나온 값**이다 — �
   const img = rule(".album-renderer--print .print-frame__photo img");
   assert.match(img, /max-width: 100%/);
   assert.equal(/max-height:\s*100%/.test(img), false, "백분율 상한은 통하지 않는다");
-  for (const count of [1, 2, 3, 4]) {
+  // ★ 2026-08-19 — 상한이 **시안 값**으로 바뀌었다(§4: 1장 128 · 2장 118 · 3장 100/43 ·
+  //   4·6장 58mm). 그대로 쓰면 이야기가 함께 오는 쪽에서 지면을 넘으므로 `min()` 으로
+  //   **남는 자리와 견준다** — 둘 중 작은 쪽을 쓴다. 상한이 있어야 한다는 규칙은 그대로다.
+  for (const count of [1, 2, 3, 4, 6]) {
     assert.match(
       printCss,
-      new RegExp(`\\.print-page\\[data-photo-count="${count}"\\] \\.print-frame__photo img[^{]*\\{ max-height: calc\\(var\\(--pr-(story-)?row-\\d\\) - var\\(--pr-caption\\)\\); \\}`),
+      new RegExp(`\\[data-photo-count="${count}"\\][^{]*\\.print-frame__photo img[^{]*\\{ max-height: min\\(`),
       `${count}장 상한이 없다`,
     );
   }
+  // 남는 자리는 캡션대와 캡션 간격을 **둘 다** 뺀 값이다(빼먹으면 머리 있는 쪽이 넘친다).
+  assert.match(printCss, /--pr-fit-1: calc\(var\(--pr-avail\) - var\(--pr-caption\) - var\(--pr-cap-gap\)\)/);
+  assert.match(printCss, /--pr-fit-2: calc\(\(var\(--pr-avail\) - var\(--pr-gutter\)\) \/ 2 - var\(--pr-caption\) - var\(--pr-cap-gap\)\)/);
   // 캡션대만큼 늘 뺀다 — 칸 높이는 고정이고 캡션이 그 자리를 쓴다.
   // (주석은 뺀다. 없어진 규칙을 **적어 둔** 줄까지 걸리면 그 사정을 적을 수 없다.)
   const rules = printCss.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -82,26 +88,28 @@ test("★ 날짜 이야기가 같은 쪽에 있으면 상한이 더 낮다 (네 
   // 4d-3 뒤로 이야기는 1~4장 어느 쪽에나 함께 들어간다 — 그만큼 상한이 낮다.
   // ★ 2026-08-16 — 값이 아니라 **어느 토큰을 읽는지**로 본다. 이야기 쪽 토큰은
   //   사진 영역에서 --pr-story 를 먼저 빼고 계산한다(tokens 정의가 그것을 보장한다).
-  for (const count of [1, 2, 3, 4]) {
-    const withStory = new RegExp(`\\[data-has-story\\]\\[data-photo-count="${count}"\\] \\.print-frame__photo img`);
-    assert.match(printCss, withStory, `${count}장: 이야기 쪽 규칙이 없다`);
-  }
-  const storyRow = printCss.match(/--pr-story-row-2:\s*([^;]+);/)![1];
-  assert.match(storyRow, /var\(--pr-story\)/, "이야기 쪽 칸이 이야기 자리를 빼지 않는다");
+  // ★ 2026-08-19 — 장수마다 규칙을 따로 두지 않는다. 이야기가 있는 쪽은 **쓸 수 있는
+  //   세로(--pr-avail)를 한 번만** 줄이고, 장수별 상한이 그 값과 min() 으로 견준다.
+  //   규칙이 한 곳이라 장수가 늘어도 빠뜨릴 자리가 없다(예전에는 장수마다 있었다).
+  assert.match(printCss, /\[data-has-story\][^{]*\{\s*--pr-avail: calc\(var\(--pr-photo-area\) - var\(--pr-story\)\)/);
+  // 이야기가 없는 쪽은 사진 영역 그대로다.
+  assert.match(printCss, /--pr-avail: var\(--pr-photo-area\);/);
   // ★ 뒤집힘 — 예전에는 여기서 `짧은 변 60mm 하한`(I-4b-5)을 함께 지켰다. 정사각 지면은
   //   사진 영역이 154mm 라 4장 쪽에서 그 하한이 성립하지 않는다. 하한은 **배치 6종**
   //   (칸이 사진을 정하고 넘치는 쪽을 자른다)에서 다시 세운다 — 다음 건이다.
 });
 
-test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", async () => {
-  assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 4;/);
+// ★ 2026-08-19 — 시안 §4 의 배치가 **6장까지** 있어 한 쪽에 담는 수가 4 → 6 이 됐다.
+//   지키려던 것(한 쪽이 담는 수에 **상한이 있다** · 사진이 빠지지 않는다)은 그대로다.
+test("한 쪽에 사진 7장 이상이 오지 않는다 (상한은 그대로 있다 — §9)", async () => {
+  assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 6;/);
   // ★ 글자가 아니라 **결과**를 본다 — 나누는 코드가 바뀌어도 계약은 그대로여야 한다.
   const { paginateChapterPhotos } = await import("../src/album-engine/components/PrintPages");
   for (const total of [1, 4, 5, 9, 13]) {
     const photos = Array.from({ length: total }, (_, index) => index);
     for (const hasStory of [false, true]) {
       for (const page of paginateChapterPhotos(photos, hasStory)) {
-        assert.ok(page.length <= 4, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
+        assert.ok(page.length <= 6, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
       }
     }
   }

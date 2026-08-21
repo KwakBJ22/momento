@@ -190,8 +190,15 @@
   justify-items: center;
 }
 
-/* 칸 나눔은 **장수로 정한다**(I-4d-2). 세로로 쌓지 않는다 —
-   1장은 한 칸, 2·3·4장은 두 칸. 3장은 위에 둘, 아래 한 장을 가운데. */
+/* 칸 나눔은 **장수로 정한다**(시안 §4 `본문 배치`).
+       1장   한 칸
+       2장   두 칸 (나란히)
+       3장   두 칸 — **왼쪽 하나 크게 · 오른쪽 둘 작게**
+       4장   두 칸 × 두 줄
+       5·6장 세 칸
+   ★ 3장이 뒤집혔다(2026-08-19). 예전에는 `위에 둘, 아래 한 장을 가운데` 였는데
+     시안은 왼쪽에 큰 사진 하나를 세우고 오른쪽에 작은 둘을 쌓는다. 마크업은 그대로
+     두고 첫 칸이 두 줄을 차지하게 한다 — 칸을 묶는 새 요소를 만들지 않는다. */
 .album-renderer--print .print-page[data-photo-count="1"] .print-page__photos {
   grid-template-columns: 1fr;
 }
@@ -200,8 +207,16 @@
 .album-renderer--print .print-page[data-photo-count="4"] .print-page__photos {
   grid-template-columns: 1fr 1fr;
 }
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame:last-child {
-  grid-column: 1 / -1;
+.album-renderer--print .print-page[data-photo-count="5"] .print-page__photos,
+.album-renderer--print .print-page[data-photo-count="6"] .print-page__photos {
+  grid-template-columns: repeat(3, 1fr);
+}
+/* 3장 — 왼쪽 큰 한 장이 두 줄을 차지하고, 오른쪽에 작은 둘이 쌓인다. */
+.album-renderer--print .print-page[data-photo-count="3"] .print-page__photos {
+  grid-template-rows: auto auto;
+}
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:first-child {
+  grid-row: 1 / span 2;
 }
 
 /* 사진과 캡션을 하나의 프레임 안에 — 캡션이 그 사진에 딸린 말임이 보여야 한다(§9).
@@ -215,7 +230,11 @@
   justify-content: flex-start;
   align-items: center;
   align-self: start;
-  gap: 3mm;
+  /* ★ 사진과 캡션 사이 — **시안 값 9px = 2.8mm** 다(3mm 에서 내려왔다).
+     캡션이 사진에서 떨어져 `다음 사진 것처럼` 보였다(PO). 실측으로 재 보니 이 간격
+     3mm 에 더해, 화면용 여백(.photo-memory-lines--caption 의 margin-top: 10px
+     ≈ 2.65mm)이 인쇄까지 따라와 **5.64mm** 였다. 아래에서 그 여백을 0 으로 둔다. */
+  gap: var(--pr-cap-gap);
   min-height: 0;
   /* ★ 가로도 사진 폭 + 여백 4mm 다(I-4d-1). 칸 폭을 따라가지 않는다.
      캡션이 프레임 폭을 정하지 않도록 아래에서 width: 0 + min-width: 100% 로 묶는다. */
@@ -278,20 +297,41 @@
   /* 한 줄짜리 쪽 · 두 줄짜리 쪽의 칸 높이. */
   --pr-row-1: var(--pr-photo-area);
   --pr-row-2: calc((var(--pr-photo-area) - var(--pr-gutter)) / 2);
-  --pr-story-row-1: calc(var(--pr-photo-area) - var(--pr-story));
-  --pr-story-row-2: calc((var(--pr-photo-area) - var(--pr-story) - var(--pr-gutter)) / 2);
 }
 
-.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-row-1) - var(--pr-caption)); }
-.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img,
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img,
-.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-row-2) - var(--pr-caption)); }
+/* 사진 세로 상한 — **시안 §4 의 값 그대로**다(재서 정한 것이 아니다).
+ *     1장   128mm
+ *     2장   118mm  (나란히 두 칸)
+ *     3장   100mm / 43mm × 2
+ *     4장    58mm  (두 칸 × 두 줄)
+ *   5·6장    58mm  (세 칸)
+ *
+ * ★ `min()` 으로 **남는 자리와 견준다.** 날짜 이야기가 함께 오는 쪽은 그만큼 자리가
+ *   줄어드는데, 시안 값을 그대로 쓰면 그런 쪽에서 지면을 넘는다(1장 142 > 104).
+ *   둘 중 작은 쪽을 쓰면 어느 쪽에서도 넘지 않는다.
+ * ★ 상한만 준다. 폭·높이는 auto 라 **잘리지도 찌그러지지도 않는다.** */
+.album-renderer--print .print-page {
+  /* 사진에 쓸 수 있는 세로 — 이야기가 있으면 그만큼 뺀다. */
+  --pr-avail: var(--pr-photo-area);
+  /* 한 줄짜리 쪽 · 두 줄짜리 쪽에서 사진 하나가 쓸 수 있는 높이.
+     ★ 캡션대(14mm)**와 사진·캡션 사이 간격(2.8mm)을 둘 다** 뺀다. 간격을 빼먹으면
+       프레임이 그만큼 커져 날짜 머리가 있는 쪽에서 지면을 넘는다(실측: 4장 쪽이
+       175.6mm 로 안전 영역 174 를 1.6mm 넘겼다). */
+  --pr-fit-1: calc(var(--pr-avail) - var(--pr-caption) - var(--pr-cap-gap));
+  --pr-fit-2: calc((var(--pr-avail) - var(--pr-gutter)) / 2 - var(--pr-caption) - var(--pr-cap-gap));
+}
+.album-renderer--print .print-page[data-has-story] {
+  --pr-avail: calc(var(--pr-photo-area) - var(--pr-story));
+}
 
-/* 날짜 이야기가 함께 들어가는 쪽 — 이야기가 차지하는 만큼만 낮춘다. */
-.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-story-row-1) - var(--pr-caption)); }
-.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img,
-.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img,
-.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-story-row-2) - var(--pr-caption)); }
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: min(128mm, var(--pr-fit-1)); }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: min(118mm, var(--pr-fit-1)); }
+/* 3장 — 왼쪽 큰 한 장과 오른쪽 작은 둘. 오른쪽 둘은 한 칸 안에 쌓이므로 두 줄 몫이다. */
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:first-child .print-frame__photo img { max-height: min(100mm, var(--pr-fit-1)); }
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:not(:first-child) .print-frame__photo img { max-height: min(43mm, var(--pr-fit-2)); }
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="5"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="6"] .print-frame__photo img { max-height: min(58mm, var(--pr-fit-2)); }
 
 /* 🔴 캡션이 PDF 에 **한 글자도 안 찍히던** 자리다 (I-4e).
  *
@@ -324,6 +364,14 @@
      어긋나기 때문이다. 넘치는 글은 위 line-clamp 가 두 줄에서 자른다. */
   height: var(--pr-caption);
   overflow: hidden;
+}
+
+/* ★ 캡션 글을 **캡션대 위쪽에 붙인다**. 캡션대 높이(14mm)는 자리를 지키는 값이라
+   그대로 두고, 그 안에서 글이 위로 온다. `.photo-memory-lines--caption` 의
+   `margin: 10px 0 0` 은 화면 여백인데 인쇄까지 따라와 글을 2.65mm 더 내렸다.
+   인쇄에서만 0 으로 둔다 — 화면은 그대로다. */
+.album-renderer--print .print-frame__caption .photo-memory-lines--caption {
+  margin-top: 0;
 }
 
 /* 🔴 인쇄에서 캡션이 **두 줄에서 잘리던** 자리다 (I-4g · §9).

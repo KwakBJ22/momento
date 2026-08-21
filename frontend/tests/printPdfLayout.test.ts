@@ -71,7 +71,9 @@ test("표지와 브랜드 페이지가 각각 독립 페이지다", async () => 
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("★ A4 한 장에 사진을 4장 넘게 넣지 않는다", async () => {
+// ★ 2026-08-19 — 시안 §4 의 배치가 **6장까지** 있어 한 쪽 상한이 4 → 6 이 됐다.
+//   지키려던 것(상한이 있다 · 사진이 하나도 빠지지 않는다)은 그대로다.
+test("★ 한 장에 사진을 6장 넘게 넣지 않는다", async () => {
   // 같은 날 8장 → 두 장에 나눠 담는다(§9).
   const photos = Array.from({ length: 8 }, (_, index) => photo(`p${index + 1}`, "2026-08-01"));
   const view = await renderPrint(photos);
@@ -79,14 +81,16 @@ test("★ A4 한 장에 사진을 4장 넘게 넣지 않는다", async () => {
   assert.equal(pages.length, 2, "8장이면 두 장이다");
   for (const page of pages) {
     const count = page.querySelectorAll(".print-frame").length;
-    assert.ok(count <= 4, `한 장에 ${count}장 — 4장을 넘으면 안 된다`);
+    assert.ok(count <= 6, `한 장에 ${count}장 — 6장을 넘으면 안 된다`);
   }
   assert.equal(view.container.querySelectorAll(".print-frame").length, 8, "빠진 사진이 없다");
   await view.React.act(async () => { view.root.unmount(); });
 });
 
 test("★ 날짜 머리글과 그 날 첫 사진이 같은 페이지에 있다", async () => {
-  const photos = Array.from({ length: 6 }, (_, index) => photo(`p${index + 1}`, "2026-08-01"));
+  // ★ 2026-08-19 — 한 쪽이 6장까지 담으므로 **8장**을 써야 두 쪽이 된다(예전엔 6장).
+  //   보려는 것은 `머리글만 앞 장에 남지 않는다` 와 `이어지는 장에는 머리글이 없다` 다.
+  const photos = Array.from({ length: 8 }, (_, index) => photo(`p${index + 1}`, "2026-08-01"));
   const view = await renderPrint(photos);
   const pages = Array.from(view.container.querySelectorAll(".print-page"));
   const first = pages[0];

@@ -30,7 +30,11 @@ import "./PrintPages.css";
  */
 
 /** A4 한 장에 담는 사진 수 상한 — 이 값을 올리지 않는다(§9). */
-export const PRINT_PHOTOS_PER_PAGE = 4;
+/* 한 쪽에 담는 사진 수 — 시안 §4 의 배치가 **6장까지** 있다(3단).
+   ★ 4 → 6 (2026-08-19). 배치가 1·2·3·4·6장으로 늘면서 한 쪽이 담을 수 있는 양도
+     늘었다. 쪽수가 줄어 종이값이 내려가고, 6장 쪽은 3단이라 사진이 작아진다 —
+     그 균형은 시안이 정한 것이다. */
+export const PRINT_PHOTOS_PER_PAGE = 6;
 
 /** ★ 사진의 짧은 변은 이보다 작아지지 않는다 (I-4b-5). 38mm 는 엄지손톱만 하다. */
 export const PRINT_MIN_PHOTO_SHORT_SIDE_MM = 60;

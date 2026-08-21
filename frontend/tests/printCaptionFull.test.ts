@@ -149,12 +149,14 @@ test("★ 아주 긴 캡션은 **그 사진만** 다음 쪽으로 간다", async
   assert.deepEqual(pages.map((page) => page.map((item) => item.id)), [["p1", "p2"], ["p3"], ["p4", "p5"]]);
 });
 
-test("판정을 주지 않으면 쪽 나눔은 지금 그대로다 (4c·4d 유지)", async () => {
+// ★ 2026-08-19 — 한 쪽에 담는 수가 4 → 6 이 됐다(시안 §4 에 6장 배치가 있다).
+//   지키려던 것은 **판정을 안 주면 캡션 때문에 나누지 않는다**는 것이고 그대로다.
+test("판정을 주지 않으면 캡션 때문에 나누지 않는다 (4c·4d 유지)", async () => {
   const { paginateChapterPhotos } = await import("../src/album-engine/components/PrintPages");
   const photos = [1, 2, 3, 4, 5].map((n) => ({ id: `p${n}` }));
   assert.deepEqual(
     paginateChapterPhotos(photos, false).map((page) => page.map((item) => item.id)),
-    [["p1", "p2", "p3", "p4"], ["p5"]],
+    [["p1", "p2", "p3", "p4", "p5"]],
   );
 });
 
