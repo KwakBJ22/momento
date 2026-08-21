@@ -214,6 +214,25 @@ export function storyNeedsOwnPage(body: string | null | undefined): boolean {
   return (body ?? "").trim().length > STORY_OWN_PAGE_MIN_CHARS;
 }
 
+/**
+ * 펼침면 — **사진 한 쪽, 이야기 한 쪽** (시안 §5 `사진 수가 적은 날의 기본 펼침`).
+ *
+ * 레이플랫 제본이라 두 쪽이 한 번에 보인다. 사진이 한 장뿐인 날은 그 한 장을 쪽 하나에
+ * 크게 두고, 맞은편에 날짜 머리와 이야기를 둔다. 한 쪽에 몰아 넣으면 사진이 이야기
+ * 자리(50mm)만큼 눌린다.
+ *
+ * ★ **한 장인 날에만** 만든다. 이 값을 올리면 그만큼 종이가 늘어난다 — 시안의 그림도
+ *   사진 한 장짜리 쪽이다. 늘려야 할 때 고칠 자리는 여기 하나다.
+ * ★ 이야기가 아주 긴 날(`storyNeedsOwnPage`)은 이 갈래로 오지 않는다. 그쪽은 글이
+ *   먼저 서고 사진이 뒤따르는 **다른** 배치다(시안 §3).
+ */
+export const SPREAD_MAX_PHOTOS = 1;
+
+export function storyMakesSpread(photoCount: number, body: string | null | undefined): boolean {
+  if (!(body ?? "").trim()) return false;
+  return photoCount > 0 && photoCount <= SPREAD_MAX_PHOTOS;
+}
+
 export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode {
   const yearFirstChapters = yearFirstChapterIndexes(album.chapters.map((chapter) => chapter.date ?? null));
   const monthFirstChapters = monthFirstChapterIndexes(album.chapters.map((chapter) => chapter.date ?? null));
@@ -222,7 +241,9 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
       {album.chapters.map((chapter, chapterIndex) => {
         // 글이 제 쪽을 가져가면 사진 쪽은 이야기 자리를 비워 둘 필요가 없다.
         const storyOwnPage = storyNeedsOwnPage(chapter.storyBody);
-        const inlineStory = Boolean(chapter.storyBody) && !storyOwnPage;
+        // 펼침면 — 사진 한 장짜리 날은 사진 쪽과 이야기 쪽을 나눠 마주보게 한다(시안 §5).
+        const spread = !storyOwnPage && storyMakesSpread(chapter.photos.length, chapter.storyBody);
+        const inlineStory = Boolean(chapter.storyBody) && !storyOwnPage && !spread;
         const pages = paginateChapterPhotos(
           chapter.photos,
           inlineStory,
@@ -233,6 +254,38 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
         const month = monthFirstChapters.has(chapterIndex) && chapter.date
           ? monthSummary(album.chapters, chapterIndex)
           : null;
+        /**
+         * 이야기만 있는 쪽 — 두 갈래가 **같은 쪽**을 쓴다. 다른 것은 두 가지뿐이다.
+         *   긴 이야기(§3)  글이 많아 두 단으로 나눈다 · 사진 **앞**에 선다
+         *   펼침면(§5)     글이 짧아 한 단이다 · 사진 **뒤**에 선다
+         */
+        const storyPage = (storyOwnPage || spread) && chapter.storyBody ? (
+          <section
+            className="print-page print-page--story"
+            data-print-page=""
+            data-story-spread={spread ? "" : undefined}
+            key={`print-story-${chapter.date ?? chapterIndex}`}
+          >
+            <ChapterHeader
+              dayIndex={chapter.dayIndex}
+              date={chapter.date}
+              dateLabel={chapter.dateLabel}
+              dateRangeLabel={chapter.dateRangeLabel}
+              title={chapter.title}
+              place={chapter.place}
+              locationSource={chapter.locationSource}
+              kind={chapter.kind}
+              variant="print-date"
+              photoCount={chapter.photos.length}
+              showYear={yearFirstChapters.has(chapterIndex)}
+            />
+            {/* 펼침면은 글이 짧아 한 단이다 — 세 줄을 두 단으로 쪼개면 더 안 읽힌다.
+                시안 실측: 글줄 폭 131.3mm 한 단. */}
+            <div className={spread ? "print-story__single" : "print-story__columns"}>
+              <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
+            </div>
+          </section>
+        ) : null;
         return (
           <Fragment key={`print-chapter-${chapter.date ?? chapterIndex}`}>
             {/* 월 시작 쪽 — 큰 숫자 하나로 달이 바뀐 것을 알린다(시안 §3).
@@ -249,29 +302,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
             ) : null}
             {/* 글만 있는 쪽 — 이야기가 길면 지면 하나를 글에 내주고 사진은 다음 쪽으로
                 넘긴다(시안 §3). 두 단으로 나눠 한 줄이 너무 길어지지 않게 한다. */}
-            {storyOwnPage && chapter.storyBody ? (
-              <section
-                className="print-page print-page--story"
-                data-print-page=""
-                key={`print-story-${chapter.date ?? chapterIndex}`}
-              >
-                <ChapterHeader
-                  dayIndex={chapter.dayIndex}
-                  date={chapter.date}
-                  dateLabel={chapter.dateLabel}
-                  dateRangeLabel={chapter.dateRangeLabel}
-                  title={chapter.title}
-                  place={chapter.place}
-                  locationSource={chapter.locationSource}
-                  kind={chapter.kind}
-                  variant="print-date"
-                  photoCount={chapter.photos.length}
-                />
-                <div className="print-story__columns">
-                  <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
-                </div>
-              </section>
-            ) : null}
+            {storyOwnPage ? storyPage : null}
             {pages.map((photos, pageIndex) => (
               <section
                 className="print-page"
@@ -282,10 +313,14 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 style={printCaptionExtraStyle(photos)}
                 /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
                 data-has-story={pageIndex === pages.length - 1 && inlineStory ? "" : undefined}
+                /* 펼침면의 왼쪽 — 머리가 없는 쪽이라 사진을 세로 가운데에 둔다(시안 §5). */
+                data-spread-photo={spread ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}
               >
-                {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9). */}
-                {pageIndex === 0 ? (
+                {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9).
+                    ★ 이야기가 제 쪽을 가져가면 머리는 **그 쪽**에 선다(시안 §3·§5).
+                      같은 날 머리가 잇달아 두 번 나오지 않게 한다. */}
+                {pageIndex === 0 && !storyOwnPage && !spread ? (
                   <ChapterHeader
                     dayIndex={chapter.dayIndex}
                     date={chapter.date}
@@ -310,6 +345,8 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 ) : null}
               </section>
             ))}
+            {/* 펼침면의 오른쪽 — 사진 쪽 **다음**에 이야기 쪽이 온다(시안 §5). */}
+            {spread ? storyPage : null}
           </Fragment>
         );
       })}

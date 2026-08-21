@@ -56,9 +56,11 @@ test("★ 순서는 로고 → 영문 → 주소다", async () => {
     } as never));
   });
   const page = container.querySelector(".album-renderer__brand-page")!;
-  const order = Array.from(page.querySelectorAll(".album-brand-mark, .album-renderer__brand-en, .album-renderer__brand-url"))
+  // ★ 2026-08-19 — 인쇄 마지막 장에서 **그림 로고가 빠졌다**(시안 §6 — 활자 한 줄로
+  //   대신한다). 남은 순서는 묻는 말 → 영문 → 주소다. 화면은 로고 그대로다(아래 검사).
+  const order = Array.from(page.querySelectorAll(".album-brand-mark, .album-renderer__brand-ask-title, .album-renderer__brand-en, .album-renderer__brand-url"))
     .map((node) => node.className.split(" ")[0]);
-  assert.deepEqual(order, ["album-brand-mark", "album-renderer__brand-en", "album-renderer__brand-url"]);
+  assert.deepEqual(order, ["album-renderer__brand-ask-title", "album-renderer__brand-en", "album-renderer__brand-url"]);
   assert.equal(page.querySelector(".album-renderer__brand-en")?.textContent, "woorialbum");
   assert.equal(page.querySelector(".album-renderer__brand-url")?.textContent, "woorialbum.com");
   // ★ 주소는 글자로만 쓴다 — 인쇄물이라 링크로 만들지 않는다.
@@ -67,7 +69,9 @@ test("★ 순서는 로고 → 영문 → 주소다", async () => {
 });
 
 test("★ 화면 렌더는 건드리지 않는다 — 두 줄은 인쇄에만 넣는다", async () => {
-  assert.match(renderer, /\{mode === "print" \? \(\s*<p className="album-renderer__brand-id">/);
+  // ★ 2026-08-19 — 마지막 장이 시안대로 바뀌면서 마크업이 늘었다. 지키는 것은 그대로다:
+  //   **인쇄 갈래에만** 그 두 줄이 있고 화면에는 없다.
+  assert.match(renderer, /\{mode === "print" \? \([\s\S]{0,400}album-renderer__brand-id/);
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: AlbumRenderer } = await import("../src/album-engine/AlbumRenderer");
@@ -139,13 +143,13 @@ test("같은 쪽에 올 때는 쪽 **아래**에 붙는다 (본문 바로 뒤가
   assert.match(inline, /padding: 0/);
 });
 
-test("★ 제 쪽으로 갈 때의 모양은 지금 그대로다 (쪽 가운데 · 한 장)", () => {
-  // 한 장 크기 규칙과 가운데 정렬이 그대로 남아 있다.
-  // ★ 2026-08-16 — 지면이 정사각(206×206)이 됐다. `한 장짜리`라는 규칙은 그대로다.
+// ★ 2026-08-19 — 가운데 정렬이 **아래쪽 정렬**로 바뀌었다(시안 §6 — 마지막 장은
+//   무게를 아래에만 두고 위를 비운다). `한 장짜리`라는 규칙은 그대로다.
+test("★ 제 쪽으로 갈 때 — 한 장짜리이고 무게는 아래쪽이다", () => {
   assert.match(printCss, /\.album-renderer--print \.album-cover,\s*\r?\n\.album-renderer--print \.album-renderer__brand-page \{[\s\S]{0,160}aspect-ratio: 1 \/ 1/);
   const blocks = printCss.split(".album-renderer--print .album-renderer__brand-page {").slice(1)
     .map((chunk) => chunk.slice(0, chunk.indexOf("}")));
-  assert.ok(blocks.some((block) => /justify-content: center/.test(block) && /align-items: center/.test(block)));
+  assert.ok(blocks.some((block) => /justify-content: flex-end/.test(block) && /align-items: center/.test(block)));
 });
 
 test("내보내기가 이 배치를 실제로 건다", () => {

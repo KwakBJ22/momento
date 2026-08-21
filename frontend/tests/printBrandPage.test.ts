@@ -3,16 +3,18 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 /**
- * 마지막 브랜드 쪽 (I-4-6 · SCREEN_SPEC §9 `마지막 브랜드 페이지`).
+ * 마지막 장 — **무료판에만** 붙는다 (시안 `print-layout-v3` §6).
  *
- * 실물 7쪽에서 본 것:
- *   · 위쪽 절반이 비어 있다 — 내용을 페이지 가운데로.
- *   · 로고가 작다 — 이 쪽은 **브랜드를 보여주는 쪽**이라 크게. 실측 3.7mm 였다.
- *     `.brand-mark { font-size: 16mm }` 이 적혀 있었지만 아무 효과가 없었다:
- *     로고 글자 크기가 화면 기준 rem 고정값이라 부모의 font-size 를 물려받지 않는다.
- *   · 문구 둘째 줄 앞에 공백이 하나 들어가 보인다 — 문자열에는 공백이 없었다.
- *     두 줄을 **따로 가운데 맞추다 보니** 길이 차이만큼 시작 위치가 어긋난 것이다
- *     (실측 55.94mm vs 56.68mm — 0.74mm, 글자 하나 폭).
+ * ★ **뒤집힘 (2026-08-19).** 예전에는 `마지막 브랜드 쪽`(I-4-6 · SCREEN_SPEC §9)이었다:
+ *   로고를 **쪽 가운데 크게** 앉히고 `이 PDF 가 이 서비스를 알리는 유일한 자리`로 삼았다.
+ *   시안이 그것을 바꾼다 —
+ *     · 무게를 **아래쪽에만** 둔다(위는 비운다)
+ *     · **로고를 활자 한 줄로 대신한다**(그림 로고를 쓰지 않는다)
+ *     · 광고가 아니라 조용한 안내다: 묻는 말 한 줄 + 무엇인지 한 줄 + 주소
+ *   지키려던 것(독립 한 장 · 없는 것을 약속하지 않는다)은 그대로다.
+ *
+ * ★ QR 은 아직 없다. 시안에는 있지만 붙일 그림이 저장소에 없고, 코드를 지어내면
+ *   찍힌 책에서 안 읽힌다. 주소는 활자로 적어 두었다 — 그림이 생기면 그 자리에 넣는다.
  */
 
 const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages.css", import.meta.url), "utf8");
@@ -25,55 +27,60 @@ function rule(selector: string): string {
   return printCss.slice(start + selector.length + 2, printCss.indexOf("}", start));
 }
 
-test("★ 로고를 실제로 키운다 — rem 고정값이라 부모 font-size 로는 안 커진다", () => {
-  const shared = readFileSync(new URL("../src/album-engine/AlbumRenderer.css", import.meta.url), "utf8");
-  assert.match(shared, /\.album-brand-mark__word \{[\s\S]{0,80}font-size: 0\.78rem/);
-  // 그래서 조각마다 mm 로 직접 준다.
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__icon \{ width: var\(--print-brand-logo\); height: var\(--print-brand-logo\); \}/);
-  // 아무 효과가 없던 예전 규칙은 없앴다.
-  assert.equal(/\.album-renderer__brand-page \.brand-mark \{/.test(printCss), false);
-});
-
-test("★ 이 쪽 로고가 표지보다 크다 — 브랜드를 보여주는 쪽이다(§9)", () => {
-  // ★ 2026-08-16 — 인쇄 글자 크기 단위가 pt 다(판형이 정사각으로 바뀌었다).
-  const size = (name: string) => Number(printCss.match(new RegExp(`${name}:\\s*([\\d.]+)pt`))![1]);
-  const brandPage = size("--print-brand-logo");
-  const cover = size("--print-cover-logo");
-  assert.ok(brandPage > cover, `${brandPage}pt 가 표지 ${cover}pt 보다 커야 한다`);
-});
-
-test("★ 둘째 줄 앞의 공백 — 문자열이 아니라 가운데 정렬 때문이었다", () => {
-  // 문자열에는 공백이 없다(지어낸 원인이 아님을 못박는다).
-  const invite = brand.match(/BRAND_PDF_INVITE = "([^"]*)"/)![1];
-  assert.equal(invite, invite.trim());
-  assert.equal(invite.startsWith(" "), false);
-
-  // 고친 방식: 두 줄을 한 상자에 묶고 그 상자를 가운데 둔다. 안에서는 왼쪽을 맞춘다.
-  assert.match(renderer, /<div className="album-renderer__brand-lines">/);
-  const lines = rule(".album-renderer--print .album-renderer__brand-lines");
-  assert.match(lines, /width: fit-content/);
-  assert.match(lines, /margin: 0 auto/);
-  assert.match(lines, /text-align: left/);
-});
-
-test("내용이 페이지 가운데에 있다", () => {
-  // 이 선택자에 규칙이 둘이다(한 장 크기 / 배치) — 배치 쪽을 찾는다.
-  const blocks = printCss.split(".album-renderer--print .album-renderer__brand-page {").slice(1)
-    .map((chunk) => chunk.slice(0, chunk.indexOf("}")));
-  assert.ok(blocks.some((block) => /justify-content: center/.test(block) && /align-items: center/.test(block)),
-    "가운데 정렬 규칙이 없다");
-  // 한 장 크기 규칙도 그대로 있다(§9 — 독립 페이지).
-  // ★ 2026-08-16 — 지면이 정사각(206×206)이다. `독립 한 장`이라는 규칙은 그대로다.
-  assert.ok(blocks.some((block) => /aspect-ratio: 1 \/ 1/.test(block))
-    || /\.album-cover,[\s\S]{0,80}brand-page \{[\s\S]{0,160}aspect-ratio: 1 \/ 1/.test(printCss),
-    "한 장 크기 규칙이 없다");
-});
-
-test("없는 것을 약속하지 않는다 (§10) — 주소도 `곧`도 적지 않는다", () => {
+test("★ 로고를 활자 한 줄로 대신한다 — 그림 로고를 앉히지 않는다", () => {
+  // ★ **인쇄 갈래만** 본다. 화면 갈래는 예전 그대로 로고를 쓴다 — 시안이 바꾼 것은
+  //   인쇄의 마지막 장이고, 화면은 건드리지 않는다.
   const start = renderer.indexOf('<section className="album-renderer__brand-page">');
   const section = renderer.slice(start, renderer.indexOf("</section>", start));
-  for (const token of ["http", "www.", "곧", "준비 중", "출시"]) {
+  const printBranch = section.slice(0, section.indexOf(") : ("));
+  assert.equal(printBranch.includes("<BrandMark"), false, "인쇄 마지막 장에 그림 로고가 남아 있다");
+  // 활자 두 줄 — 영문 이름과 주소.
+  assert.match(printBranch, /album-renderer__brand-en/);
+  assert.match(printBranch, /album-renderer__brand-url/);
+  // 화면은 로고 그대로다(회귀).
+  assert.match(section.slice(section.indexOf(") : (")), /<BrandMark/);
+  // 로고 크기를 주던 규칙도 함께 걷어냈다(쓸 자리가 없어졌다).
+  assert.equal(
+    /\.album-renderer__brand-page \.album-brand-mark__word \{/.test(printCss),
+    false,
+    "쓰지 않는 로고 규칙이 남아 있다",
+  );
+});
+
+test("★ 무게를 아래쪽에만 둔다 — 위는 비운다 (시안 §6)", () => {
+  const blocks = printCss.split(".album-renderer--print .album-renderer__brand-page {").slice(1)
+    .map((chunk) => chunk.slice(0, chunk.indexOf("}")));
+  assert.ok(
+    blocks.some((block) => /justify-content: flex-end/.test(block)),
+    "아래쪽으로 모으는 규칙이 없다",
+  );
+  // 독립 한 장이라는 규칙은 그대로다(§9).
+  assert.ok(
+    blocks.some((block) => /aspect-ratio: 1 \/ 1/.test(block))
+      || /\.album-cover,[\s\S]{0,80}brand-page \{[\s\S]{0,160}aspect-ratio: 1 \/ 1/.test(printCss),
+    "한 장 크기 규칙이 없다",
+  );
+});
+
+test("★ 묻는 말 한 줄과 무엇인지 한 줄 — 문자열은 lib/brand 한 곳에 있다 (§3)", () => {
+  assert.match(brand, /BRAND_LAST_PAGE_ASK = "우리도 만들어볼까\?"/);
+  assert.match(brand, /BRAND_LAST_PAGE_BODY = /);
+  const start = renderer.indexOf('<section className="album-renderer__brand-page">');
+  const section = renderer.slice(start, renderer.indexOf("</section>", start));
+  assert.match(section, /\{BRAND_LAST_PAGE_ASK\}/);
+  assert.match(section, /\{BRAND_LAST_PAGE_BODY\}/);
+  // 자리에 문자열을 직접 적지 않는다.
+  assert.equal(section.includes("우리도 만들어볼까"), false, "문자열을 자리에 적었다");
+});
+
+test("★ 안내 글줄이 너무 길어지지 않는다 (시안 330px = 103mm)", () => {
+  assert.match(rule(".album-renderer--print .album-renderer__brand-ask-body"), /max-width: 103mm/);
+});
+
+test("없는 것을 약속하지 않는다 (§10) — `곧`도 값도 적지 않는다", () => {
+  const start = renderer.indexOf('<section className="album-renderer__brand-page">');
+  const section = renderer.slice(start, renderer.indexOf("</section>", start));
+  for (const token of ["http", "www.", "곧", "준비 중", "출시", "원"]) {
     assert.equal(section.includes(token), false, `약속: ${token}`);
   }
 });

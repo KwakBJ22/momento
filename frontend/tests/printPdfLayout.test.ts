@@ -144,13 +144,13 @@ test("★ 인쇄는 사진을 기울이지 않는다 (화면은 §9 10차에서 
   assert.doesNotMatch(read("album-engine/components/PrintPages.css"), /rotate\(/);
 });
 
-test("★ PDF 안의 브랜드는 로고 조합이다 (검은 글자 단독 표기 0건)", async () => {
+// ★ 2026-08-19 — 인쇄 마지막 장에서 **그림 로고가 빠졌다**(시안 §6 — 활자 한 줄로
+//   대신한다). 지키려던 것(서비스 이름을 자리에 글자로 흩어 적지 않는다)은 그대로다.
+test("★ PDF 마지막 장은 활자다 — 이름을 자리에 직접 적지 않는다", async () => {
   const view = await renderPrint([photo("p1", "2026-08-01")]);
   const brand = view.container.querySelector(".album-renderer__brand-page")!;
-  // 로고 조합: `우리`(진한 글자색) + `앨범`(브랜드색) — BrandMark 가 두 조각으로 그린다.
-  const mark = brand.querySelector(".brand-mark");
-  assert.equal(mark !== null, true, "브랜드 페이지에 로고가 있어야 한다");
-  assert.equal(mark!.querySelector("b") !== null && mark!.querySelector("i") !== null, true, "두 색 조각으로 그린다");
+  assert.equal(brand.querySelector(".brand-mark"), null, "인쇄에 그림 로고가 남아 있다");
+  assert.equal(brand.querySelector(".album-renderer__brand-en")?.textContent, "woorialbum");
   // 서비스 이름을 글자로만 적은 자리가 없다.
   const renderer = read("album-engine/AlbumRenderer.tsx");
   const code = renderer.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "");

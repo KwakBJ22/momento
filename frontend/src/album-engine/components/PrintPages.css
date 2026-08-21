@@ -48,6 +48,12 @@
   --print-month-number: 78pt;
   --print-month-title: 21.3pt;
   --print-month-meta: 11.1pt;
+  /* 우리의 이야기 숫자 요약 (시안 §6: 30px · 11.5px). */
+  --print-count-value: 26.6pt;
+  --print-count-label: 10.2pt;
+  /* 마지막 장 (시안 §6: 19px · 12.5px). */
+  --print-last-ask: 16.8pt;
+  --print-last-body: 11.1pt;
   --print-caption: 9pt;
   --print-story-title: 12pt;
   --print-story-body: 9.5pt;
@@ -124,6 +130,79 @@
 /* 날짜 머리글 — 남는 것은 **날짜 하나**다(I-4-3 · §9). 매 쪽 반복되던 `2018년 11월`
    줄과 `(사진 N장)` 을 없앴다. 한 줄뿐이라 그 한 줄이 제목 노릇을 한다.
    A4 실측 6mm ≈ 17pt — 본문(4.8mm)보다 확실히 커야 쪽을 넘길 때 눈에 걸린다. */
+/* 우리의 이야기 — 숫자 요약 (시안 §6 `우리의 이야기` · **두 판 공통**).
+ *
+ *     22          80           9
+ *     만난 날      실린 사진     함께한 사람
+ *
+ * 시안 값: 숫자 30px = 26.6pt(라틴 세리프) · 라벨 11.5px = 10.2pt
+ *          칸 사이 44px = 13.75mm · 숫자와 라벨 사이 5px = 1.6mm
+ *
+ * ★ 세는 것이 아니라 **닫는 말**이다. `우리의 이야기` 와 `함께 만든 사람` 사이에
+ *   놓여, 이 책이 무엇을 담았는지 한눈에 보이게 한다.
+ * ★ 0 을 말하지 않는 규칙은 여기 오지 않는다 — 셋 다 앨범이 있으면 늘 1 이상이다. */
+.album-renderer--print .print-closing__counts {
+  display: flex;
+  gap: 13.75mm;
+  margin: 0;
+  padding-top: 1.9mm;
+}
+
+.album-renderer--print .print-closing__count {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6mm;
+}
+
+.album-renderer--print .print-closing__count-value {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-count-value);
+  line-height: 1;
+  font-weight: 400;
+}
+
+.album-renderer--print .print-closing__count-label {
+  color: var(--c-text-soft);
+  font-size: var(--print-count-label);
+  line-height: var(--print-leading-body);
+  font-weight: 300;
+}
+
+/* 마지막 장 — **무료판에만** (시안 §6).
+ *
+ * ★ 로고를 **활자 한 줄로 대신한다.** 그림 로고를 크게 앉히던 자리였다 —
+ *   마지막 장은 광고가 아니라 조용한 안내다.
+ * ★ 무게를 아래쪽에만 둔다. 위는 비운다.
+ * ★ QR 은 아직 없다 — 만들어 붙일 그림이 저장소에 없고, 없는 코드를 지어내면
+ *   찍힌 책에서 안 읽힌다. 주소는 활자로 적어 두었다. */
+.album-renderer--print .album-renderer__brand-ask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5.6mm;
+  text-align: center;
+}
+
+.album-renderer--print .album-renderer__brand-ask-title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: var(--print-last-ask);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.album-renderer--print .album-renderer__brand-ask-body {
+  margin: 0;
+  max-width: 103mm; /* 330px */
+  color: var(--c-text-soft);
+  font-size: var(--print-last-body);
+  line-height: 1.9;
+  font-weight: 300;
+}
+
 /* 글만 있는 쪽 — 이야기가 긴 날 (시안 §3 `글만 있는 쪽`).
  *
  * ★ **뒤집힘.** 예전에는 `글만 있는 쪽을 만들지 않는다`(I-4d-3)가 규칙이었다. 이야기는
@@ -564,25 +643,23 @@
   page-break-inside: avoid;
 }
 
-/* 마지막 브랜드 페이지 — 이 PDF 가 이 서비스를 알리는 유일한 자리다. 크게 둔다.
-   없는 것을 약속하지 않는다(§10) — 주소도 "곧"도 적지 않는다. */
+/* 마지막 장 — **무료판에만** 붙는다 (시안 §6).
+   ★ 예전에는 로고를 가운데 크게 앉힌 `브랜드 쪽` 이었다. 시안은 **아래쪽에만** 두고
+     로고를 활자 한 줄로 대신한다 — 마지막 장은 광고가 아니라 조용한 안내다.
+   없는 것을 약속하지 않는다(§10) — 값도 기능도 적지 않는다. */
 .album-renderer--print .album-renderer__brand-page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8mm;
+  justify-content: flex-end;
+  gap: 12mm;
   padding: var(--pr-inset);
   text-align: center;
 }
 
-/* ★ 로고 크기를 여기서 따로 주는 이유는 표지와 같다 — album-brand-mark 의 글자
-   크기가 화면 기준 rem 고정값이라 부모의 font-size 를 물려받지 않는다. 예전에는
-   .brand-mark 에 16mm 를 줬는데 아무 효과가 없어서 로고가 작게 찍혔다.
-   크기는 위 표(29px = 22pt)다 — 이 쪽은 브랜드를 보여주는 쪽이라 표지(23px)보다 크다(§9). */
-.album-renderer--print .album-renderer__brand-page .album-brand-mark { gap: 3mm; margin: 0; }
-.album-renderer--print .album-renderer__brand-page .album-brand-mark__icon { width: var(--print-brand-logo); height: var(--print-brand-logo); }
-.album-renderer--print .album-renderer__brand-page .album-brand-mark__word { font-size: var(--print-brand-logo); }
+/* ★ 그림 로고가 빠졌다(2026-08-19 · 시안 §6 — 활자 한 줄로 대신한다). 로고 크기를
+   따로 주던 세 줄도 함께 걷어냈다. `--print-brand-logo` 는 화면 자리가 아직 읽으므로
+   값은 남겨 둔다. */
 
 /* ★ 두 줄을 한 상자에 묶고 **그 상자를** 가운데 둔다(I-4-6).
    줄마다 따로 가운데를 맞추면 길이가 달라 시작 위치가 어긋나고, 실물에서는 둘째 줄
@@ -653,4 +730,24 @@
 .album-renderer--print .print-closing > * {
   margin-top: 0;
   width: 100%;
+}
+
+/* 펼침면 — 사진 한 쪽, 이야기 한 쪽 (시안 §5).
+ *
+ * 레이플랫 제본이라 두 쪽이 한 번에 보인다. 사진 한 장짜리 날은 사진을 왼쪽 쪽에
+ * 통째로 두고, 맞은편에 날짜 머리와 이야기를 둔다.
+ *
+ * ★ 왼쪽 쪽에는 머리가 없다 — 머리는 맞은편에 있다. 그래서 사진을 위로 붙이지 않고
+ *   **세로 가운데**에 둔다. 위만 비면 쪽이 기울어 보인다.
+ * ★ 사진 상한은 그대로 128mm 다(시안 §4 `1장 — 크게`). 자리가 남는다고 키우지 않는다.
+ * ★ 오른쪽 쪽은 **한 단**이다. 짧은 이야기를 두 단으로 쪼개면 세 줄이 두 조각이 된다.
+ *   시안 실측 글줄 폭 131.3mm — 안전 영역 174mm 보다 좁게 잡는다. */
+.album-renderer--print .print-page[data-spread-photo] {
+  justify-content: center;
+}
+
+.album-renderer--print .print-page--story[data-story-spread] .print-story__single {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 131.3mm;
 }

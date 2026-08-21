@@ -165,7 +165,9 @@ test("★ 이야기가 길 때만 글에 지면을 내준다 (짧으면 예전�
   assert.match(printPages, /pageIndex === pages\.length - 1 && inlineStory && chapter\.storyBody \?/);
   // 긴 이야기는 제 쪽을 갖고, 사진 쪽은 이야기 자리를 비워 두지 않는다.
   assert.match(printPages, /print-page print-page--story/);
-  assert.match(printPages, /const inlineStory = Boolean\(chapter\.storyBody\) && !storyOwnPage;/);
+  // ★ 2026-08-19 — 여기에 갈래가 하나 더 붙었다: 펼침면(§5 · 사진 한 장짜리 날).
+  //   이 검사가 지키려던 것은 `이야기가 제 쪽을 가져가면 사진 쪽에 또 붙지 않는다` 다.
+  assert.match(printPages, /const inlineStory = Boolean\(chapter\.storyBody\) && !storyOwnPage && !spread;/);
   // 두 단으로 나눈다 — 한 단이면 글줄이 174mm 가 되어 안 읽힌다(시안 §4).
   assert.match(printCss, /\.print-page--story \.print-story__columns \{[\s\S]*?columns: 2;/);
   // 앨범 끝 글은 그대로 자기 쪽이다.

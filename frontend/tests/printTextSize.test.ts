@@ -105,5 +105,7 @@ test("각 자리가 자기 변수를 읽는다 (엉뚱한 변수를 쓰지 않�
   // ★ 2026-08-19 — 표지에서 로고가 빠졌다(시안 §2). 이 서비스를 알리는 자리는
   //   **마지막 장**이다. 그래서 표지 로고 줄은 더 볼 것이 없고, 브랜드 쪽만 본다.
   //   표지 제목은 모양마다 크기가 달라 아래에서 따로 잠근다.
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
+  // ★ 2026-08-19 — 마지막 장에서 **그림 로고가 빠졌다**(시안 §6 — 활자 한 줄로
+  //   대신한다). 그래서 로고 크기를 주던 규칙도 없다. 활자 두 줄이 그 자리를 맡는다.
+  assert.ok(printCss.includes(".album-renderer__brand-en"), "활자 줄 규칙이 없다");
 });

@@ -82,12 +82,18 @@ test("★ 표지에는 제목·기간·함께한 사람만 있다 — 로고는 
 
 // ★ 2026-08-19 — 표지 로고가 사라졌으므로 볼 것도 사라졌다. `rem 고정값이라 인쇄에서
 //   다시 준다`는 규칙 자체는 **마지막 장**에 그대로 살아 있어 그쪽을 본다.
-test("★ 브랜드 로고를 인쇄에서 크게 준다 (rem 고정값이라 물려받지 못한다)", () => {
-  const shared = readFileSync(new URL("../src/album-engine/AlbumRenderer.css", import.meta.url), "utf8");
-  assert.match(shared, /\.album-brand-mark__word \{[\s\S]{0,80}font-size: 0\.78rem/);
-  assert.match(printCss, /\.album-renderer__brand-page \.album-brand-mark__word \{ font-size: var\(--print-brand-logo\); \}/);
-  // 표지에는 로고 규칙이 없다.
+// ★ 2026-08-19 — 표지에 이어 **마지막 장에서도 그림 로고가 빠졌다**(시안 §2·§6).
+//   인쇄 PDF 어디에도 그림 로고를 크게 앉히는 자리가 없다 — 활자가 그 일을 한다.
+test("★ 인쇄에는 그림 로고를 앉히지 않는다 — 활자가 대신한다", () => {
   assert.equal(printCss.includes(".album-cover__brand"), false, "표지 로고 규칙이 남아 있다");
+  assert.equal(
+    /\.album-renderer__brand-page \.album-brand-mark__word \{/.test(printCss),
+    false,
+    "마지막 장 로고 규칙이 남아 있다",
+  );
+  // 활자 두 줄이 그 자리를 맡는다.
+  assert.ok(printCss.includes(".album-renderer__brand-en"), "활자 줄 규칙이 없다");
+  assert.ok(printCss.includes(".album-renderer__brand-url"), "주소 줄 규칙이 없다");
 });
 
 test("★ 표지 사진을 자르지 않는다 — 상자가 아니라 사진에 상한을 준다", () => {

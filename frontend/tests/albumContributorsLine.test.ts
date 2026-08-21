@@ -66,7 +66,9 @@ test("★ PDF 에 들어가고, 페이지 경계에서 잘리지 않는다", () 
   // 세 갈래 모두: 사진 없는 살아있는 앨범 / 인쇄(print-closing) / 화면.
   assert.equal((renderer.match(/<AlbumContributors /g) || []).length, 3, "모든 렌더 경로");
   // 끝 글(우리의 이야기 + 함께 만든 사람)은 print-closing 한 장으로 묶여 갈라지지 않는다.
-  assert.match(renderer, /<section className="print-closing">[\s\S]{0,220}<AlbumContributors names=\{contributorNames\} \/>/);
+  // ★ 2026-08-19 — 그 사이에 숫자 요약(만난 날 · 실린 사진 · 함께한 사람)이 들었다
+  //   (시안 §6 · 두 판 공통). 묶여서 갈라지지 않는다는 규칙은 그대로다.
+  assert.match(renderer, /<section className="print-closing">[\s\S]{0,900}<AlbumContributors names=\{contributorNames\} \/>/);
   const pdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
   assert.match(pdf, /const selector = "[^"]*\.print-closing[^"]*"/);
   const css = readFileSync(new URL("../src/album-engine/components/AlbumContributors.css", import.meta.url), "utf8");
