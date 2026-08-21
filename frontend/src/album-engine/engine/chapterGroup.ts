@@ -29,19 +29,23 @@ export function formatKoreanDate(dateKey: string): string {
 }
 
 /**
- * 인쇄 본문의 날짜 머리글 — **날짜 하나** (I-4-3 · SCREEN_SPEC §9).
+ * 인쇄 날짜 머리 **B안** — 큰 날짜 숫자 (시안 §3 `날짜 머리`).
  *
- *   11월 18일            (같은 해 안에서는 연도를 쓰지 않는다 — 표지에 이미 있다)
- *   2018년 11월 18일      (해가 바뀌는 앨범에서 그 해 **첫 날짜**에만)
- *
- * 예전에는 매 쪽 위에 `2018년 11월` 한 줄이 더 있고, 그 아래가
- * `2018.11.18 (사진 4장)` 이었다. 매 쪽 같은 값이 반복되고, 세는 것은 앨범이 할
- * 일이 아니다.
+ * `7.8` 처럼 **월.일** 만 크게 쓴다. 연도는 아래 보조줄이 맡는다 — 큰 숫자에 연도까지
+ * 넣으면 숫자가 길어져 제목처럼 읽히지 않는다.
+ * ★ PO 가 B안 하나로 정했다. A안(굵은 밑줄)은 만들지 않는다.
  */
-export function formatPrintDateHeading(dateKey: string, withYear: boolean): string {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const dayLabel = `${month}월 ${day}일`;
-  return withYear ? `${year}년 ${dayLabel}` : dayLabel;
+export function formatPrintDateNumber(dateKey: string): string {
+  const [, month, day] = dateKey.split("-").map(Number);
+  return `${month}.${day}`;
+}
+
+/** 큰 숫자 아래 보조줄 — `2018년 · 사진 2장`. 없는 조각은 잇지 않는다(0을 말하지 않는다). */
+export function formatPrintDateMeta(dateKey: string, photoCount?: number | null): string {
+  const [year] = dateKey.split("-").map(Number);
+  const parts = [`${year}년`];
+  if (typeof photoCount === "number" && photoCount > 0) parts.push(`사진 ${photoCount}장`);
+  return parts.join(" · ");
 }
 
 export function formatDotDate(dateKey: string): string {

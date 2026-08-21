@@ -2,7 +2,7 @@ import { Pencil } from "lucide-react";
 
 import "./ChapterHeader.css";
 import type { LocationSource } from "../types";
-import { formatDotDate, formatKoreanMonth, formatPrintDateHeading } from "../engine/chapterGroup";
+import { formatDotDate, formatKoreanMonth, formatPrintDateMeta, formatPrintDateNumber } from "../engine/chapterGroup";
 import { usePlaceEdit } from "../components/PlaceEditContext";
 import { canSaveDateDraft, dateDraftProblem, formatDateDraft, isCompleteDateDraft } from "../../lib/dateDraft";
 
@@ -20,7 +20,11 @@ interface ChapterHeaderProps {
   kind?: "day" | "event" | "neutral";
   /** `print-date` 는 열람용 PDF 전용이다 — 날짜 한 줄만(§9 · I-4-3). */
   variant?: "default" | "date-only" | "print-date";
-  /** print-date 에서 연도를 함께 쓸지. 해가 바뀌는 앨범의 그 해 첫 날짜에만 참이다. */
+  /**
+   * print-date 에서 연도를 함께 쓸지 — **더 보지 않는다** (2026-08-19 · 시안 §3 B안).
+   * 큰 날짜 숫자는 `7.8` 처럼 월.일만 쓰고 연도는 **아래 보조줄이 늘 말한다**.
+   * 그래서 해가 바뀌는 앨범인지 따질 필요가 없어졌다. 부르는 쪽 계약은 그대로 둔다.
+   */
   showYear?: boolean;
   /** 바로 앞 묶음과 **날짜가 같은가**. 같으면 날짜를 다시 쓰지 않는다 —
    *  한 날에 장소가 둘이면 `2018.07.08 · 제주 서귀포시` 다음은 `제주 성산읍` 만 쓴다.
@@ -47,7 +51,6 @@ export default function ChapterHeader({
   photoCount,
   kind = "event",
   variant = "date-only",
-  showYear = false,
   repeatsDate = false,
   repeatsMonth = false,
   placeKey = null,
@@ -65,11 +68,36 @@ export default function ChapterHeader({
   // `2018년 11월` 줄은 매 쪽 같은 값이라 없앴다(표지에 이미 있다).
   // `(사진 N장)` 도 없앴다 — 세는 것은 앨범이 할 일이 아니다.
   if (variant === "print-date") {
-    const line = date ? formatPrintDateHeading(date, showYear) : dateRangeLabel || null;
-    if (!line) return null;
+    /* 날짜 머리 **B안** — 큰 날짜 숫자 + 장소 제목 + 아래 한 줄 (시안 §3).
+     *
+     *     7.8
+     *     속초, 비 오는 바다
+     *     2018년 · 사진 2장
+     *
+     * ★ PO 가 B안 하나로 정했다. **A안(굵은 밑줄)은 만들지 않는다** — 시안의 본문
+     *   배치 그림들이 A안으로 그려져 있지만 그것은 배치를 보이려는 그림이고,
+     *   머리 모양은 여기 하나로 간다.
+     * ★ 날짜가 없는 묶음(아이폰이 EXIF 를 지운 사진들)은 큰 숫자를 만들 수 없다.
+     *   그때는 예전처럼 기간 한 줄로 두고, 그것도 없으면 그리지 않는다.
+     */
+    if (!date) {
+      const fallback = dateRangeLabel || null;
+      if (!fallback) return null;
+      return (
+        <header className="chapter-header chapter-header--print-date date-header" aria-label="날짜">
+          <p className="chapter-header__dayline">{fallback}</p>
+        </header>
+      );
+    }
+    const placeText = showPlace ? (place || "").trim() : "";
     return (
       <header className="chapter-header chapter-header--print-date date-header" aria-label="날짜">
-        <p className="chapter-header__dayline">{line}</p>
+        {/* 큰 숫자는 라틴 세리프다 — 숫자가 제목처럼 선다(시안 §6). */}
+        <p className="chapter-header__daynum">{formatPrintDateNumber(date)}</p>
+        <div className="chapter-header__daytext">
+          {placeText ? <p className="chapter-header__dayplace">{placeText}</p> : null}
+          <p className="chapter-header__daymeta">{formatPrintDateMeta(date, photoCount)}</p>
+        </div>
       </header>
     );
   }

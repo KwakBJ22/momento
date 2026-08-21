@@ -7,6 +7,7 @@ import { buildPhotoCaptionSegments } from "./photoCaptionSegments";
 // ★ 캡션 높이 계산(printCaptionExtraMm)은 정사각 판형에서 쓰지 않는다 — 캡션대가
 //   14mm 고정이라 늘어날 것이 없다. 그 계산은 printCaptionFit.ts 에 그대로 둔다.
 import { printCaptionNeedsOwnPage } from "./printCaptionFit";
+import { formatKoreanMonth } from "../engine/chapterGroup";
 import type { BuiltAlbum } from "../buildAlbum";
 import type { EnginePhoto } from "../types";
 import "./PrintPages.css";
@@ -160,20 +161,117 @@ export function yearFirstChapterIndexes(dates: Array<string | null>): Set<number
   return seen.size <= 1 ? new Set() : new Set(first.map(([index]) => index));
 }
 
+/**
+ * 달이 바뀌는 자리 — 그 앞에 **월 시작 쪽**을 한 장 세운다 (시안 §3).
+ *
+ * ★ 달이 하나뿐인 앨범에는 세우지 않는다. 한 장을 통째로 쓰는 쪽이라, 나눌 것이
+ *   없는데 세우면 종이만 늘어난다.
+ * ★ 날짜가 없는 묶음은 달을 알 수 없으므로 세지 않는다(맨 뒤에 서는 그 묶음이다).
+ */
+export function monthFirstChapterIndexes(dates: Array<string | null>): Set<number> {
+  const seen = new Set<string>();
+  const first: Array<[number, string]> = [];
+  dates.forEach((date, index) => {
+    const month = date?.slice(0, 7);
+    if (!month || seen.has(month)) return;
+    seen.add(month);
+    first.push([index, month]);
+  });
+  return seen.size <= 1 ? new Set() : new Set(first.map(([index]) => index));
+}
+
+/** 그 달에 든 날 수와 사진 수 — `여섯 날 · 사진 21장` 을 만드는 값이다. */
+export function monthSummary(
+  chapters: Array<{ date: string | null; photos: unknown[] }>,
+  fromIndex: number,
+): { days: number; photos: number } {
+  const month = chapters[fromIndex]?.date?.slice(0, 7);
+  let days = 0;
+  let photos = 0;
+  for (let index = fromIndex; index < chapters.length; index += 1) {
+    const chapter = chapters[index];
+    if (chapter.date?.slice(0, 7) !== month) break;
+    days += 1;
+    photos += chapter.photos.length;
+  }
+  return { days, photos };
+}
+
+/**
+ * 이야기가 길어 **지면 하나를 글에 내줄** 때인가 (시안 §3 `글만 있는 쪽`).
+ *
+ * 쪽 안에 붙는 이야기 자리는 `--pr-story: 50mm` 다. 크롬에서 그 자리에 실제로 몇 글자가
+ * 들어가는지 재 봤더니 **282자**였다(제목 포함 · 글줄 폭 129mm). 그보다 길면 글이
+ * 잘리거나 사진을 밀어내므로, 그 날은 글에 한 쪽을 주고 사진을 다음 쪽으로 넘긴다.
+ *
+ * ★ 날짜 이야기는 원래 3~6줄이다(CLAUDE.md §6). 이 갈래는 **드물게** 걸린다 —
+ *   흔하게 걸리면 앨범이 글 모음이 된다.
+ * ★ 값을 여기 하나에 둔다. 화면은 이 판정을 쓰지 않는다(인쇄만이다).
+ */
+export const STORY_OWN_PAGE_MIN_CHARS = 280;
+
+export function storyNeedsOwnPage(body: string | null | undefined): boolean {
+  return (body ?? "").trim().length > STORY_OWN_PAGE_MIN_CHARS;
+}
+
 export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode {
   const yearFirstChapters = yearFirstChapterIndexes(album.chapters.map((chapter) => chapter.date ?? null));
+  const monthFirstChapters = monthFirstChapterIndexes(album.chapters.map((chapter) => chapter.date ?? null));
   return (
     <>
       {album.chapters.map((chapter, chapterIndex) => {
+        // 글이 제 쪽을 가져가면 사진 쪽은 이야기 자리를 비워 둘 필요가 없다.
+        const storyOwnPage = storyNeedsOwnPage(chapter.storyBody);
+        const inlineStory = Boolean(chapter.storyBody) && !storyOwnPage;
         const pages = paginateChapterPhotos(
           chapter.photos,
-          Boolean(chapter.storyBody),
+          inlineStory,
           STORY_PAGE_MAX_PHOTOS,
           printCaptionNeedsOwnPage,
         );
         const storyTitle = chapter.dateRangeLabel ? `${chapter.dateRangeLabel}의 이야기` : "그날의 이야기";
+        const month = monthFirstChapters.has(chapterIndex) && chapter.date
+          ? monthSummary(album.chapters, chapterIndex)
+          : null;
         return (
           <Fragment key={`print-chapter-${chapter.date ?? chapterIndex}`}>
+            {/* 월 시작 쪽 — 큰 숫자 하나로 달이 바뀐 것을 알린다(시안 §3).
+                사진을 넣지 않는 쪽이라 아래쪽에 무게를 모으고 위를 크게 비운다. */}
+            {month && chapter.date ? (
+              <section className="print-page print-page--month" data-print-page="" key={`print-month-${chapter.date}`}>
+                <p className="print-month__number">{chapter.date.slice(5, 7)}</p>
+                <div className="print-month__line">
+                  <h2 className="print-month__title">{formatKoreanMonth(chapter.date)}</h2>
+                  <span className="print-month__rule" aria-hidden="true" />
+                  <span className="print-month__meta">{`${month.days}일 · 사진 ${month.photos}장`}</span>
+                </div>
+              </section>
+            ) : null}
+            {/* 글만 있는 쪽 — 이야기가 길면 지면 하나를 글에 내주고 사진은 다음 쪽으로
+                넘긴다(시안 §3). 두 단으로 나눠 한 줄이 너무 길어지지 않게 한다. */}
+            {storyOwnPage && chapter.storyBody ? (
+              <section
+                className="print-page print-page--story"
+                data-print-page=""
+                key={`print-story-${chapter.date ?? chapterIndex}`}
+              >
+                <ChapterHeader
+                  dayIndex={chapter.dayIndex}
+                  date={chapter.date}
+                  dateLabel={chapter.dateLabel}
+                  dateRangeLabel={chapter.dateRangeLabel}
+                  title={chapter.title}
+                  place={chapter.place}
+                  locationSource={chapter.locationSource}
+                  kind={chapter.kind}
+                  variant="print-date"
+                  photoCount={chapter.photos.length}
+                />
+                <div className="print-story__columns">
+                  <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
+                </div>
+              </section>
+            ) : null}
             {pages.map((photos, pageIndex) => (
               <section
                 className="print-page"
@@ -183,7 +281,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                    프레임 높이가 그대로라 쪽을 넘지 않는다. */
                 style={printCaptionExtraStyle(photos)}
                 /* 날짜 이야기가 같이 들어가는 쪽은 사진 자리가 좁다 — 사진 상한이 달라진다(I-4-4). */
-                data-has-story={pageIndex === pages.length - 1 && chapter.storyBody ? "" : undefined}
+                data-has-story={pageIndex === pages.length - 1 && inlineStory ? "" : undefined}
                 key={`print-page-${chapter.date ?? chapterIndex}-${pageIndex}`}
               >
                 {/* 머리글은 그 날 첫 장에만 — 머리글만 앞 장에 남으면 안 된다(§9). */}
@@ -198,6 +296,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                     locationSource={chapter.locationSource}
                     kind={chapter.kind}
                     variant="print-date"
+                    photoCount={chapter.photos.length}
                     showYear={yearFirstChapters.has(chapterIndex)}
                   />
                 ) : null}
@@ -206,7 +305,7 @@ export default function PrintPages({ album }: { album: BuiltAlbum }): ReactNode 
                 </div>
                 {/* 날짜 이야기는 그 날 마지막 장에 붙는다 — 다만 사진이 많은 쪽에서는
                     사진이 60mm 아래로 작아지므로 다음 쪽으로 넘긴다(I-4b-5). */}
-                {pageIndex === pages.length - 1 && chapter.storyBody ? (
+                {pageIndex === pages.length - 1 && inlineStory && chapter.storyBody ? (
                   <StoryBlock title={storyTitle} body={chapter.storyBody} storyKey={chapter.date ?? String(chapterIndex)} />
                 ) : null}
               </section>

@@ -41,15 +41,47 @@ async function renderHeader(props: Record<string, unknown>) {
   return { text, lines };
 }
 
-test("★ 인쇄 머리글은 날짜 한 줄뿐이다 — 달 줄도 장수도 없다", async () => {
-  const view = await renderHeader({ date: "2018-11-18", dateRangeLabel: "2018.11.18", photoCount: 4, variant: "print-date" });
-  assert.equal(view.text, "11월 18일");
-  assert.equal(view.lines, 1, "줄이 하나여야 한다");
+// ★ 2026-08-19 — 시안 §3 의 **B안**으로 바뀌었다(PO 가 B안 하나로 정했다).
+//     11월 18일          →   11.18
+//                             속초              (장소가 있을 때만)
+//                             2018년 · 사진 4장
+//   지키려던 것(매 쪽 같은 달 줄을 반복하지 않는다)은 그대로다 — 반복되던 것은
+//   `2018년 11월` 한 줄이었고, 지금 보조줄은 **연도와 장수**다.
+//   ★ A안(굵은 밑줄)은 만들지 않는다.
+test("★ 인쇄 머리글은 B안이다 — 큰 날짜 숫자 + 장소 + 아래 한 줄", async () => {
+  const view = await renderHeader({
+    date: "2018-11-18", dateRangeLabel: "2018.11.18", photoCount: 4,
+    place: "속초", locationSource: "exif", variant: "print-date",
+  });
+  assert.equal(view.text, "11.18속초2018년 · 사진 4장");
+  assert.equal(view.lines, 3);
+
+  // 장소를 모르면 그 줄을 그리지 않는다 — 빈 줄을 남기지 않는다.
+  const noPlace = await renderHeader({ date: "2018-11-18", photoCount: 4, variant: "print-date" });
+  assert.equal(noPlace.text, "11.182018년 · 사진 4장");
+  assert.equal(noPlace.lines, 2);
+
+  // 사진 수가 없으면 0장이라고 하지 않는다.
+  const noCount = await renderHeader({ date: "2018-11-18", variant: "print-date" });
+  assert.equal(noCount.text, "11.182018년");
 });
 
-test("★ 해가 바뀌는 앨범에서만, 그 해 첫 날짜에 연도를 붙인다", async () => {
-  const withYear = await renderHeader({ date: "2019-01-02", variant: "print-date", showYear: true });
-  assert.equal(withYear.text, "2019년 1월 2일");
+test("★ 날짜가 없는 묶음은 큰 숫자를 만들 수 없다 — 기간 한 줄로 둔다", async () => {
+  // 아이폰 사파리가 EXIF 를 지운 사진들이 여기 온다(맨 뒤에 서는 묶음).
+  const view = await renderHeader({ date: null, dateRangeLabel: "2018.11.18 – 11.20", variant: "print-date" });
+  assert.equal(view.text, "2018.11.18 – 11.20");
+  assert.equal(view.lines, 1);
+  // 기간조차 없으면 아무것도 그리지 않는다.
+  const empty = await renderHeader({ date: null, dateRangeLabel: null, variant: "print-date" });
+  assert.equal(empty.text, "");
+});
+
+// ★ 2026-08-19 — B안은 **연도를 늘 보조줄에** 쓴다. 그래서 `해가 바뀌는지` 를 따져
+//   큰 숫자에 연도를 붙이던 갈래가 없어졌다. `yearFirstChapterIndexes` 는 계약을
+//   그대로 두었으므로(부르는 쪽이 아직 넘긴다) 그 계산만 잠가 둔다.
+test("★ 연도는 늘 보조줄이 말한다 — 큰 숫자에 붙이지 않는다", async () => {
+  const anyYear = await renderHeader({ date: "2019-01-02", variant: "print-date", showYear: true });
+  assert.equal(anyYear.text, "1.22019년", "showYear 가 큰 숫자를 바꿨다");
   const { yearFirstChapterIndexes } = await import("../src/album-engine/components/PrintPages");
   // 한 해 안에서 끝나면 연도를 한 번도 쓰지 않는다(표지에 있다).
   assert.deepEqual([...yearFirstChapterIndexes(["2018-11-18", "2018-11-19", "2018-11-20"])], []);
@@ -72,9 +104,11 @@ test("★ 화면 머리글은 그대로다 — 인쇄만 새 변형을 쓴다", 
   assert.equal(screen.lines, 3);
   // 그리고 화면은 실제로 date-only 를 넘긴다.
   assert.match(renderer, /photoCount=\{chapter\.photos\.length\}\s*variant="date-only"/);
-  // 인쇄만 print-date 다. 장수를 아예 넘기지 않는다.
+  // 인쇄만 print-date 다.
   assert.match(printPages, /variant="print-date"/);
-  assert.equal(/photoCount=/.test(printPages), false, "인쇄가 아직 장수를 넘긴다");
+  // ★ 2026-08-19 — 인쇄도 장수를 넘긴다. B안 보조줄이 `2018년 · 사진 4장` 이라
+  //   그 값이 필요해졌다(예전에는 머리글에 장수를 쓰지 않아 넘기지 않았다).
+  assert.match(printPages, /photoCount=\{chapter\.photos\.length\}/);
 });
 
 test("머리글 크기는 큐 4-5 표의 값이다 — 본문보다 커야 눈에 걸린다", () => {

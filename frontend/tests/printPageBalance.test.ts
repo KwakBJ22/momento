@@ -147,12 +147,27 @@ test("★ 날짜 이야기는 그 날 마지막 사진과 같은 쪽에 둔다 �
   assert.deepEqual(paginateChapterPhotos(photos(7), true, 2), [[1, 2, 3, 4, 5, 6], [7]]);
 });
 
-test("★ 글만 있는 쪽을 만들지 않는다 (`우리의 이야기` 는 예외 — 원래 자기 쪽을 갖는다)", () => {
-  // 이야기 전용 쪽을 그리던 코드가 없다.
-  assert.equal(printPages.includes("print-page--story"), false);
-  assert.equal(printPages.includes("storyGoesToOwnPage"), false);
-  // 이야기는 언제나 그 날 마지막 **사진 쪽**에 붙는다.
-  assert.match(printPages, /pageIndex === pages\.length - 1 && chapter\.storyBody \?/);
+// ★ **뒤집힘 (2026-08-19 · 시안 §3 `글만 있는 쪽`).** 예전 규칙은 `글만 있는 쪽을
+//   만들지 않는다`(I-4d-3) 였다 — 이야기는 언제나 그 날 마지막 사진 쪽에 붙었다.
+//   시안이 그 규칙을 바꾼다: **이야기가 길면** 지면 하나를 글에 내주고 사진은 다음
+//   쪽으로 넘긴다. 짧은 이야기는 예전 그대로 사진 쪽에 붙는다(그쪽이 대부분이다 —
+//   날짜 이야기는 3~6줄이다).
+test("★ 이야기가 길 때만 글에 지면을 내준다 (짧으면 예전대로 사진 쪽에 붙는다)", async () => {
+  const { storyNeedsOwnPage, STORY_OWN_PAGE_MIN_CHARS } = await import("../src/album-engine/components/PrintPages");
+  // 값의 근거: 쪽 안 이야기 자리(--pr-story 50mm)에 크롬에서 282자가 들어갔다.
+  assert.equal(STORY_OWN_PAGE_MIN_CHARS, 280);
+  assert.equal(storyNeedsOwnPage("짧은 이야기"), false);
+  assert.equal(storyNeedsOwnPage(null), false);
+  assert.equal(storyNeedsOwnPage("가".repeat(280)), false);
+  assert.equal(storyNeedsOwnPage("가".repeat(281)), true);
+
+  // 짧은 이야기는 사진 쪽에 붙는다 — 그 갈래가 살아 있다.
+  assert.match(printPages, /pageIndex === pages\.length - 1 && inlineStory && chapter\.storyBody \?/);
+  // 긴 이야기는 제 쪽을 갖고, 사진 쪽은 이야기 자리를 비워 두지 않는다.
+  assert.match(printPages, /print-page print-page--story/);
+  assert.match(printPages, /const inlineStory = Boolean\(chapter\.storyBody\) && !storyOwnPage;/);
+  // 두 단으로 나눈다 — 한 단이면 글줄이 174mm 가 되어 안 읽힌다(시안 §4).
+  assert.match(printCss, /\.print-page--story \.print-story__columns \{[\s\S]*?columns: 2;/);
   // 앨범 끝 글은 그대로 자기 쪽이다.
   assert.match(printCss, /\.album-renderer--print \.print-closing \{/);
 });

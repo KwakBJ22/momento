@@ -41,6 +41,13 @@
   --print-cover-logo: 17pt;
   --print-cover-period: 12pt;
   --print-date-heading: 11pt;
+  /* 날짜 머리 B안 — 큰 숫자와 그 아래 보조줄 (시안 §3: 46px · 11.5px). */
+  --print-date-number: 40.7pt;
+  --print-date-meta: 10.2pt;
+  /* 월 시작 쪽 (시안 §3: 88px · 24px · 12.5px). */
+  --print-month-number: 78pt;
+  --print-month-title: 21.3pt;
+  --print-month-meta: 11.1pt;
   --print-caption: 9pt;
   --print-story-title: 12pt;
   --print-story-body: 9.5pt;
@@ -117,6 +124,99 @@
 /* 날짜 머리글 — 남는 것은 **날짜 하나**다(I-4-3 · §9). 매 쪽 반복되던 `2018년 11월`
    줄과 `(사진 N장)` 을 없앴다. 한 줄뿐이라 그 한 줄이 제목 노릇을 한다.
    A4 실측 6mm ≈ 17pt — 본문(4.8mm)보다 확실히 커야 쪽을 넘길 때 눈에 걸린다. */
+/* 글만 있는 쪽 — 이야기가 긴 날 (시안 §3 `글만 있는 쪽`).
+ *
+ * ★ **뒤집힘.** 예전에는 `글만 있는 쪽을 만들지 않는다`(I-4d-3)가 규칙이었다. 이야기는
+ *   언제나 그 날 마지막 사진 쪽에 붙었다. 시안이 그 규칙을 바꾼다 — 이야기가 길면
+ *   지면 하나를 글에 내주고 사진은 다음 쪽으로 넘긴다. 짧은 이야기는 예전 그대로
+ *   사진 쪽에 붙는다(그쪽이 대부분이다 · 날짜 이야기는 3~6줄이다).
+ * ★ **두 단**으로 나눈다. 한 단이면 174mm 짜리 글줄이 되어 안 읽힌다(시안 §4).
+ *   단 사이는 거터 6mm 다. */
+.album-renderer--print .print-page--story .print-story__columns {
+  flex: 1 1 auto;
+  min-height: 0;
+  columns: 2;
+  column-gap: var(--pr-gutter);
+  /* 두 단이라 글줄 폭 상한(3열 122mm)이 필요 없다 — 단 자체가 이미 좁다. */
+}
+
+.album-renderer--print .print-page--story .story-block__body {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* 월 시작 쪽 — 큰 숫자 하나로 달이 바뀐 것을 알린다 (시안 §3 `월 시작 쪽`).
+ *
+ * 시안 값: 큰 숫자 88px = 78pt · line-height .85 · letter-spacing -.02em
+ *          월 이름 24px = 21.3pt · 짧은 선 60px = 18.75mm · 보조줄 12.5px = 11.1pt
+ *          둘 사이 16px = 5mm · 월 이름 줄 안쪽 간격 14px = 4.4mm
+ *
+ * ★ **사진을 넣지 않는 쪽**이라 비어 보이기 쉽다. 아래쪽에 무게를 모으고 위를 크게
+ *   비운다(시안). 가운데로 모으면 그냥 빈 쪽으로 읽힌다.
+ * ★ 월별 **이야기**를 쓰지 않는다(CLAUDE.md §6 에서 없앤 요소다). 이 쪽은 글이
+ *   아니라 **칸막이**다 — 숫자와 이름과 센 값만 있다. */
+.album-renderer--print .print-page--month {
+  justify-content: flex-end;
+  gap: 5mm;
+}
+
+.album-renderer--print .print-month__number {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-month-number);
+  line-height: 0.85;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.album-renderer--print .print-month__line {
+  display: flex;
+  align-items: baseline;
+  gap: 4.4mm;
+  /* 아래쪽에 무게를 모으되 지면 끝에 붙지는 않는다 — 아래 여백을 조금 남긴다. */
+  padding-bottom: 12mm;
+}
+
+.album-renderer--print .print-month__title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: var(--print-month-title);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.album-renderer--print .print-month__rule {
+  flex: 0 0 auto;
+  width: 18.75mm; /* 60px */
+  height: 0.3mm;  /* 1px */
+  background: var(--c-border);
+}
+
+.album-renderer--print .print-month__meta {
+  color: var(--c-text-soft);
+  font-size: var(--print-month-meta);
+  line-height: var(--print-leading-body);
+  font-weight: 300;
+}
+
+/* 날짜 머리 **B안** — 큰 날짜 숫자 + 장소 제목 + 아래 한 줄 (시안 §3 오른쪽).
+ *
+ *     7.8
+ *     속초, 비 오는 바다
+ *     2018년 · 사진 2장
+ *
+ * 시안 값(640px = 200mm 이므로 3.2px = 1mm · px × 0.8858 = pt):
+ *     큰 숫자 46px = 40.7pt · line-height 0.9 · 라틴 세리프
+ *     장소   14.5px = 12.8pt · letter-spacing .03em
+ *     보조줄 11.5px = 10.2pt · letter-spacing .08em
+ *     둘 사이 16px = 5mm · 오른쪽 두 줄 사이 4px = 1.25mm
+ *
+ * ★ 왼쪽 정렬이다. 예전 A안은 가운데 한 줄이었다.
+ * ★ 머리글대 높이(14mm)는 그대로다 — 쪽마다 사진 시작선이 같아야 한다.
+ *   큰 숫자가 그보다 크므로 **넘치는 만큼은 아래로 흐르지 않게** 가운데를 맞춘다. */
 .album-renderer--print .chapter-header--print-date {
   /* ★ 언제나 쪽 맨 위다. 어떤 정렬에도 딸려 내려가지 않는다(I-4c). */
   order: -1;
@@ -124,19 +224,65 @@
      아래 6mm 는 지면의 gap 이 준다 — 사진 영역 174 × 154 가 여기서 나온다. */
   flex: 0 0 var(--pr-head);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 5mm;
   margin: 0;
   padding: 0;
-  text-align: center;
+  text-align: start;
+  overflow: hidden;
 }
 
-.album-renderer--print .chapter-header--print-date .chapter-header__dayline {
+/* 큰 날짜 숫자 — 라틴 세리프. 숫자가 제목처럼 선다(시안 §6). */
+.album-renderer--print .chapter-header--print-date .chapter-header__daynum {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-date-number);
+  line-height: 0.9;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__daytext {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25mm;
+  padding-bottom: 1.25mm;
+  min-width: 0;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__dayplace {
   margin: 0;
   color: var(--c-text);
   font-size: var(--print-date-heading);
   line-height: var(--print-leading-title);
-  font-weight: 780;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  /* 장소가 길어도 머리글대를 밀지 않는다 — 한 줄에서 끊는다. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__daymeta {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: var(--print-date-meta);
+  line-height: var(--print-leading-title);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* 날짜가 없는 묶음 — 예전처럼 기간 한 줄이다(큰 숫자를 만들 수 없다). */
+.album-renderer--print .chapter-header--print-date .chapter-header__dayline {
+  margin: 0;
+  align-self: center;
+  color: var(--c-text);
+  font-size: var(--print-date-heading);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
   letter-spacing: -0.02em;
 }
 
