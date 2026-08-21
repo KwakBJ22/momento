@@ -124,9 +124,9 @@ function App() {
   const appNavigation = (sharedAlbumId || contributeAlbumId || participantsAlbumId || result)
     ? "album"
     : myAlbumsPage ? "my-albums" : category && isPhotoSelectionStep ? "new-album" : "home";
-  const dispatchAlbumAction = (action: "top" | "photo" | "memory" | "share") => {
-    window.dispatchEvent(new CustomEvent("woorialbum:album-action", { detail: { action } }));
-  };
+  // ★ `woorialbum:album-action` 을 여기서 쏘던 자리는 없앴다 — 앨범 상세 하단 메뉴가
+  //   `AlbumView` 것 하나로 줄면서, 같은 화면 안에서 부모가 자식에게 바로 넘기게 됐다.
+  //   이벤트 자체는 그대로 살아 있다: `PhotoMemoryList` 가 쏘고 `AlbumView` 가 받는다.
 
   useEffect(() => {
     let active = true;
@@ -486,9 +486,13 @@ function App() {
           네비가 없는 화면에 여백을 주면 빈 공간이 된다. */}
       {!adminRoute ? <AppFooter withBottomNavigation={hasBottomNavigation} /> : null}
       {/* ★ 못 여는 앨범 화면에는 하단 네비를 두지 않는다(K-11) — 열지도 못하는 앨범에
-          사진을 더하라고 권하는 꼴이었다. */}
-      {showGlobalBottomNavigation && !albumUnavailable ? (
-        appNavigation === "album" ? <AlbumBottomNavigation onAddPhoto={() => dispatchAlbumAction("photo")} onAddMemory={() => dispatchAlbumAction("memory")} onShare={() => dispatchAlbumAction("share")} onCreateAlbum={() => window.location.assign("/")} />
+          사진을 더하라고 권하는 꼴이었다.
+          ★ **앨범 상세(`/album/:id`)는 뺀다.** 그 화면은 `AlbumView` 가 자기 하단 메뉴를
+            그린다 — 역할(주최자·참여자·구경꾼)과 권한(`canAddPhoto`·`canAddMemory`)을
+            아는 쪽이다. 여기서 한 벌 더 그리면 역할을 모르는 쪽이 위에 덮여,
+            `내 앨범` 이 눌리지 않고 참여자가 주최자 메뉴를 봤다. */}
+      {showGlobalBottomNavigation && !albumUnavailable && !sharedAlbumId ? (
+        appNavigation === "album" ? <AlbumBottomNavigation onCreateAlbum={() => window.location.assign("/")} />
           : <AlbumBottomNavigation variant="app" activeItem={appNavigation} onMyAlbums={() => window.location.assign("/my-albums")} onCreateAlbum={requestLeaveHome} />
       ) : null}
       {/* 전역 ⋯ 시트(§3·§5): 계정 한 행뿐이다. 시트 틀은 이미 쓰는 것을 그대로 쓴다. */}

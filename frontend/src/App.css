@@ -476,9 +476,10 @@ body {
   padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
 }
 
-.app--with-bottom-navigation .album-screen > .album-bottom-navigation {
-  display: none;
-}
+/* ★ 2026-08-21 — `.album-screen > .album-bottom-navigation { display: none }` 를 지웠다.
+   앨범 상세에 하단 메뉴가 두 벌 그려져서, 역할을 아는 쪽(AlbumScreen)을 숨기고
+   역할을 모르는 전역 메뉴를 보여 주고 있었다. 이제 전역 메뉴가 이 화면에 오지
+   않으므로 숨길 것이 없다. 되살리지 않는다. */
 
 .landing {
   position: relative;
