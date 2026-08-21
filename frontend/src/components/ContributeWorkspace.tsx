@@ -17,6 +17,7 @@ import type { PublicContributionItem } from "../types";
 import AlbumScreen from "./AlbumScreen";
 import "./ContributeWorkspace.css";
 import ConfirmSheet from "./ConfirmSheet";
+import { formatUploadSize } from "../lib/optimizeImageFile";
 import { userFacingError } from "../lib/userFacingError";
 
 // 파일 선택창의 accept — 환경에 따라 한 번만 정한다(imageFile.ts 주석 참고).
@@ -72,6 +73,17 @@ export type WorkspaceState = {
   memories?: Array<{ id: string; author_name?: string | null; comment: string; mine?: boolean }>;
   album_json?: unknown;
 };
+
+/**
+ * 실패한 카드 아래에 적을 한 줄 — `IMG_0729.jpeg · 3.3MB` (PO 2026-08-21).
+ *
+ * ★ 폰에는 콘솔이 없다. 어떤 사진에서 걸렸는지 **화면에서** 보여야, 다시 눌러야 할지
+ *   그 사진만 빼야 할지 사용자가 고를 수 있다.
+ * ★ 크기 표기는 앨범 만들 때 쓰는 그 함수다(`formatUploadSize`). 새로 만들지 않는다.
+ */
+export function describeUploadFile(file: File): string {
+  return `${file.name || "사진"} · ${formatUploadSize(file.size)}`;
+}
 
 type PendingUpload = {
   id: string;
@@ -235,11 +247,14 @@ export default function ContributeWorkspace({
       ? {
           ...current,
           photo_count: photoCount,
-          photos: [...photos, ...(current.photos || []).filter((photo) => !photos.some((added) => added.id === photo.id))],
+          // 올라간 사진도 같은 규칙이다 — 있던 사진 **뒤**에 붙는다.
+          photos: [...(current.photos || []).filter((photo) => !photos.some((added) => added.id === photo.id)), ...photos],
         }
       : current);
     setWorkspaceRevision((revision) => revision + 1);
-    setLatestPhotoId(photos[0]?.id || null);
+    // 맨 아래에 붙으므로 `가장 최근`은 **마지막** 것이다. 화면이 따라가는 자리이고,
+    // 한마디 편집기가 사진을 고르지 않았을 때 여는 자리이기도 하다.
+    setLatestPhotoId(photos[photos.length - 1]?.id || null);
     markFresh(photos.map((photo) => photo.id));
     showToast("사진이 추가되었습니다.");
     onContributionAdded?.(photos.map((photo) => ({
@@ -278,7 +293,14 @@ export default function ContributeWorkspace({
         items.some((item) => item.id === pending.id) ? { ...pending, status: "failed" } : pending
       )));
       console.warn("[우리앨범] Contribution photo upload failed.", err);
-      setError("사진을 추가하지 못했습니다.");
+      // ★ **서버까지 가지도 못한 것**과 **서버가 거절한 것**을 가른다 (PO 2026-08-21).
+      //   예전에는 둘 다 `사진을 추가하지 못했습니다.` 한 줄이라, 폰에서 무엇이
+      //   잘못됐는지 알 길이 없었다(진짜 이유는 console.warn 으로만 흘렀다).
+      //   이 try 안에서 TypeError 를 던지는 것은 fetch 뿐이다 — `readUploadFileMeta`
+      //   는 스스로 삼킨다. 그래서 TypeError = 응답을 받지도 못했다는 뜻이다.
+      setError(err instanceof TypeError
+        ? "사진을 보내는 중에 연결이 끊겼어요. 다시 눌러 주세요."
+        : userFacingError(err, "사진을 추가하지 못했습니다."));
     } finally {
       setIsUploading(false);
     }
@@ -308,7 +330,10 @@ export default function ContributeWorkspace({
       previewUrl: URL.createObjectURL(file),
       status: "uploading" as const,
     }));
-    setPendingUploads((current) => [...items, ...current]);
+    // ★ 새로 고른 사진은 **맨 아래**에 붙는다 (PO 2026-08-21). 사진을 더하는 사람은
+    //   뒤에 이어 붙이는 것으로 느낀다 — 맨 위에 끼어들면 방금 무엇을 넣었는지
+    //   오히려 못 찾는다.
+    setPendingUploads((current) => [...current, ...items]);
     await uploadPending(items);
   };
 
@@ -550,19 +575,6 @@ export default function ContributeWorkspace({
             ? <p className="contribute__empty">위의 ‘사진 추가하기’를 눌러 사진을 골라 주세요.</p>
             : null}
           <div className="contribute__grid">
-            {pendingUploads.map((pending) => (
-              <article key={pending.id} className="contribute__card contribute__card--pending">
-                <div className="contribute__pending-media">
-                  <WorkspaceImage src={pending.previewUrl} alt="선택한 사진" />
-                  <div className={`contribute__upload-overlay${pending.status === "failed" ? " contribute__upload-overlay--failed" : ""}`}>
-                    <p className="notice notice--progress contribute__card-status" role="status">{pending.status === "uploading" ? "업로드 중..." : "업로드하지 못했습니다."}</p>
-                    {pending.status === "failed" ? (
-                      <button type="button" className="contribute__retry" disabled={isUploading} onClick={() => void uploadPending([pending])}>다시 시도</button>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            ))}
             {(workspace.photos || [])
               // Embedded "사진 추가": show only what THIS session added (plus the
               // pending uploads above). The album's existing photos already live in
@@ -573,7 +585,8 @@ export default function ContributeWorkspace({
               <article
                 key={photo.id}
                 className={`contribute__card${newItemIds.includes(photo.id) ? " contribute__card--fresh" : ""}`}
-                ref={newItemIds.includes(photo.id) ? latestPhotoRef : undefined}
+                /* 화면은 **방금 넣은 그 사진**을 따라간다 — 맨 아래에 붙으므로 아래로 간다. */
+                ref={photo.id === latestPhotoId ? latestPhotoRef : undefined}
               >
                 <WorkspaceImage src={photo.thumbnail_url || photo.original_url || ""} />
                 {newItemIds.includes(photo.id) ? <p className="contribute__fresh">방금 추가됨</p> : null}
@@ -623,6 +636,26 @@ export default function ContributeWorkspace({
                     </div>
                   </div>
                 ) : null}
+              </article>
+            ))}
+            {/* ★ 올리는 중·실패한 카드는 **사진 목록 뒤**다 (PO 2026-08-21).
+                다 올라간 사진은 맨 아래에 붙는데 올리는 중인 카드만 맨 위에
+                있으면 눈이 위아래로 뛴다. 방금 넣은 것이 한자리에 모여야 한다. */}
+            {pendingUploads.map((pending) => (
+              <article key={pending.id} className="contribute__card contribute__card--pending">
+                <div className="contribute__pending-media">
+                  <WorkspaceImage src={pending.previewUrl} alt="선택한 사진" />
+                  <div className={`contribute__upload-overlay${pending.status === "failed" ? " contribute__upload-overlay--failed" : ""}`}>
+                    <p className="notice notice--progress contribute__card-status" role="status">{pending.status === "uploading" ? "보내는 중이에요…" : "이 사진을 보내지 못했어요."}</p>
+                    {pending.status === "failed" ? (
+                      <>
+                        {/* 어떤 사진에서 걸렸는지 폰에서 바로 보여야 한다. */}
+                        <p className="contribute__upload-file">{describeUploadFile(pending.file)}</p>
+                        <button type="button" className="contribute__retry" disabled={isUploading} onClick={() => void uploadPending([pending])}>다시 시도</button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               </article>
             ))}
           </div>

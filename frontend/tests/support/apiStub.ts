@@ -71,8 +71,21 @@ export async function startPublicContribution(): Promise<CollabSession> {
 export function isPublicShareUrl(value: string | null | undefined): boolean {
   return Boolean(value && value.includes("/s/"));
 }
+/**
+ * 참여 세션과 사진 더하기 대역 — `globalThis.__collabStub` 이 있을 때만 산다.
+ * ★ 없으면 예전 그대로다(세션 없음 · 업로드는 undefined). 다른 테스트에 영향이 없다.
+ */
+export interface CollabStubData {
+  session?: CollabSession;
+  upload?: (files: File[]) => Promise<unknown>;
+}
+
+function collabStub(): CollabStubData {
+  return (globalThis as unknown as { __collabStub?: CollabStubData }).__collabStub ?? {};
+}
+
 export function loadCollabSession(): CollabSession | null {
-  return null;
+  return collabStub().session ?? null;
 }
 export function saveCollabSession(): void {}
 export async function getGuestbookEntries(): Promise<unknown[]> {
@@ -194,7 +207,10 @@ export async function updateAlbumPhotoLocation(): Promise<any> { return undefine
 export async function updateFamilyMemberRole(): Promise<any> { return undefined as any; }
 export async function updatePhotoMemory(): Promise<any> { return undefined as any; }
 export async function uploadAlbum(): Promise<any> { return undefined as any; }
-export async function uploadContributePhotos(): Promise<any> { return undefined as any; }
+export async function uploadContributePhotos(_albumId: string, _session: unknown, files: File[]): Promise<any> {
+  const upload = collabStub().upload;
+  return upload ? await upload(files) : (undefined as any);
+}
 export type AlbumGenerationStatus = any;
 export type AlbumShareLink = any;
 export type MyAlbum = any;
