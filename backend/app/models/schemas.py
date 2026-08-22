@@ -493,6 +493,46 @@ class SignupProviderResponse(BaseModel):
     provider: str | None = None
 
 
+class MergeCandidateResponse(BaseModel):
+    """같은 이메일로 만든 **다른 계정**이 있는가 (2026-08-19 · 계정 합치기 2단계).
+
+    ★ 있다는 사실과 **어느 길로 만들었는지**만 알려 준다. 이름·앨범·사진은 주지 않는다 —
+      아직 그 계정의 주인임을 증명하지 않았다.
+    ★ 이 응답만으로는 아무것도 합쳐지지 않는다. 합치려면 그 계정으로도 로그인해야 한다.
+    """
+
+    #: 합칠 만한 계정이 있는가. 없으면 아래는 전부 비어 있다.
+    found: bool = False
+    candidate_id: UUID | None = None
+    email: str | None = None
+    #: 그 계정을 만든 길("kakao" · "email" …). 모르면 None.
+    provider: str | None = None
+    #: 지금 로그인해 있는 쪽의 길 — 화면이 `다른 쪽으로 한 번 더 로그인` 을 안내할 때 쓴다.
+    my_provider: str | None = None
+    #: 이 계정이 **이미 합쳐져 닫힌** 계정인가. 참이면 화면이 남은 계정으로 안내한다.
+    merged_away: bool = False
+    #: 합쳐져 간 곳의 로그인 방법(merged_away 일 때만).
+    merged_into_provider: str | None = None
+
+
+class AccountMergeRequest(BaseModel):
+    """합칠 계정의 **접근 토큰**. 지금 요청의 Bearer 와 **둘 다** 검증한다.
+
+    ★ 이메일이 같다는 것만으로 합치지 않는다. 두 자격을 모두 증명해야 한다.
+    """
+
+    other_access_token: str = Field(min_length=10, max_length=4096)
+
+
+class AccountMergeResponse(BaseModel):
+    #: 옮긴 줄 수 · 같은 자리가 겹쳐 지운 줄 수(둘 다 참여한 앨범의 참여 행 따위).
+    moved: int = 0
+    dropped: int = 0
+    #: 합치기 **전** 두 계정의 합계와 **후** 남은 계정의 수. 같아야 한다(잃은 것이 없다).
+    before: dict[str, int] = Field(default_factory=dict)
+    after: dict[str, int] = Field(default_factory=dict)
+
+
 class AuthBootstrapRequest(BaseModel):
     # Guest contributor ids from the browser to attribute to this account on login.
     # Capped so a login never sends an unbounded payload.

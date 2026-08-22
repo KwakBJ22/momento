@@ -5,8 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.config import get_settings
 from app.models.schemas import (
+    AccountMergeRequest,
+    AccountMergeResponse,
     AuthBootstrapRequest,
     AuthBootstrapResponse,
+    MergeCandidateResponse,
     ProfileContactRequest,
     ProfileContactResponse,
     SignupProviderRequest,
@@ -14,8 +17,13 @@ from app.models.schemas import (
     WithdrawalSummaryResponse,
 )
 from app.services.account_service import count_withdrawal_impact, delete_account
+from app.services.account_merge_service import (
+    find_merge_candidate,
+    find_merged_away,
+    merge_profiles,
+)
 from app.services.profile_contact_service import get_contact, save_contact
-from app.services.auth import require_authenticated_user
+from app.services.auth import require_authenticated_user, verify_access_token
 from app.services.collaboration_service import attribute_contributions
 from app.services.event_logger import EventLogger
 from app.services.plan_limits import count_owned_albums, get_user_limits
@@ -101,6 +109,83 @@ def read_signup_provider(body: SignupProviderRequest) -> SignupProviderResponse:
     provider = (rows[0].get("primary_provider") or "").strip().lower()
     # 카카오가 아닌 소셜(네이버 등)도 `카카오로 로그인` 을 권하면 안 된다 — 아는 것만 말한다.
     return SignupProviderResponse(provider=provider or None)
+
+
+@router.get("/merge-candidate", response_model=MergeCandidateResponse)
+def read_merge_candidate(
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> MergeCandidateResponse:
+    """같은 이메일로 만든 **다른 계정**이 있는지 알려 준다 (2026-08-19 · 2단계).
+
+    ★ 이것만으로는 아무것도 합쳐지지 않는다. 합치려면 그 계정으로도 로그인해야 한다
+      (아래 `/merge`). 이메일이 같다는 것만으로 자동으로 합치지 않는다 —
+      그 이메일을 실제로 갖고 있지 않은 사람이 남의 계정에 들어갈 수 있다.
+    ★ 알려 주는 것은 **있다는 사실과 어느 길로 만들었는지**뿐이다.
+    ★ 조회가 실패해도 막지 않는다. 모르면 `없음`이고 화면은 그냥 지나간다 —
+      안내 하나 때문에 로그인 뒤 화면이 서면 안 된다(§11).
+    """
+    client = get_supabase_client()
+    try:
+        merged = find_merged_away(client, authenticated_user_id)
+        if merged:
+            # 옛 방법으로 로그인했다 — 빈 계정을 보여 주지 않고 남은 계정으로 안내한다.
+            return MergeCandidateResponse(
+                found=False, merged_away=True, merged_into_provider=merged.get("provider")
+            )
+        candidate = find_merge_candidate(client, authenticated_user_id)
+    except Exception as exc:  # noqa: BLE001 - 안내 하나 때문에 로그인을 막지 않는다
+        logger.warning("merge_candidate_lookup_failed error_type=%s", type(exc).__name__)
+        return MergeCandidateResponse(found=False)
+    if not candidate:
+        return MergeCandidateResponse(found=False)
+    return MergeCandidateResponse(
+        found=True,
+        candidate_id=UUID(candidate["candidate_id"]),
+        email=candidate["email"],
+        provider=candidate["provider"],
+        my_provider=candidate["my_provider"],
+    )
+
+
+@router.post("/merge", response_model=AccountMergeResponse)
+def merge_accounts(
+    body: AccountMergeRequest,
+    authenticated_user_id: str = Depends(require_authenticated_user),
+) -> AccountMergeResponse:
+    """두 계정을 하나로 합친다 — **양쪽 다 로그인할 수 있어야** 성립한다.
+
+    ★ 자격을 **둘 다** 증명한다: 지금 요청의 Bearer(남길 계정)와 본문에 실린 합칠 계정의
+      토큰. 하나만으로는 합치지 않는다. 이메일이 같다는 것도 근거가 되지 못한다 —
+      그것만으로 합치면 그 이메일을 갖고 있지 않은 사람이 남의 계정에 들어간다.
+    ★ 남는 것은 **지금 로그인해 있는 계정**이다. 사용자가 이미 그 안에 있고, 우리가 가장
+      확실하게 아는 자격도 그것이다. 옮겨 온 계정은 닫기만 하고 **지우지 않는다**.
+    ★ 옮기는 일은 RPC 하나로 묶는다 — 중간에 실패하면 아무것도 바뀌지 않는다.
+    ★ 이메일이 다른 계정끼리는 여기서 합치지 않는다. 그때는 사용자가 `더보기` 에서
+      직접 로그인 방법을 잇는다(화면 몫 · 2단계 ②).
+    """
+    other = verify_access_token(body.other_access_token)
+    if not other or not other.id:
+        raise HTTPException(status_code=401, detail="합칠 계정으로 로그인하지 못했어요.")
+    source_id = str(other.id)
+    if source_id == authenticated_user_id:
+        raise HTTPException(status_code=400, detail="같은 계정이에요.")
+
+    client = get_supabase_client()
+    candidate = find_merge_candidate(client, authenticated_user_id)
+    if not candidate or candidate["candidate_id"] != source_id:
+        # 후보가 아닌 계정을 합치지 않는다. 이메일이 다르면 여기서 끝난다(§10).
+        raise HTTPException(status_code=400, detail="이 계정과는 합칠 수 없어요.")
+
+    try:
+        result = merge_profiles(client, source_id=source_id, target_id=authenticated_user_id)
+    except Exception as exc:  # noqa: BLE001 - 실패하면 아무것도 바뀌지 않았다(RPC 트랜잭션)
+        logger.warning("account_merge_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="계정을 합치지 못했어요. 잠시 후 다시 시도해 주세요.") from exc
+
+    # ★ 여기서 analytics 이벤트를 남기지 않는다. 새 이름은 CHECK 목록에 **먼저** 올려야
+    #   하는데(§3③ — 없으면 조용히 버려진다) 이번 건은 migration 을 하나로 두기 위해서다.
+    #   합친 사실은 위 account_merged 로그(서버 로그)에 남는다.
+    return AccountMergeResponse(**result)
 
 
 @router.get("/contact", response_model=ProfileContactResponse)

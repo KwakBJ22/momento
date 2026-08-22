@@ -230,6 +230,48 @@ export async function getAlbumDeletePreview(albumId: string): Promise<AlbumDelet
   return (await response.json()) as AlbumDeletePreview;
 }
 
+/**
+ * 같은 이메일로 만든 **다른 계정**이 있는가 (2026-08-19 · 계정 합치기 2단계).
+ *
+ * ★ 이것만으로는 아무것도 합쳐지지 않는다. 합치려면 그 계정으로도 로그인해야 한다.
+ * ★ 실패하면 `없음`으로 본다 — 안내 하나 때문에 로그인 뒤 화면이 서면 안 된다(§11).
+ */
+export interface MergeCandidate {
+  found: boolean;
+  candidate_id?: string | null;
+  email?: string | null;
+  provider?: string | null;
+  my_provider?: string | null;
+  merged_away?: boolean;
+  merged_into_provider?: string | null;
+}
+
+export async function getMergeCandidate(): Promise<MergeCandidate> {
+  try {
+    const response = await authenticatedFetch("/api/auth/merge-candidate", { cache: "no-store" });
+    if (!response.ok) return { found: false };
+    return (await response.json()) as MergeCandidate;
+  } catch {
+    return { found: false };
+  }
+}
+
+/**
+ * 두 계정을 하나로 합친다 — **양쪽 다 로그인할 수 있어야** 성립한다.
+ *
+ * 지금 세션(남길 계정)은 Bearer 로, 합칠 계정은 본문의 토큰으로 증명한다.
+ * 판정도 옮기는 일도 서버가 한 번에 한다 — 중간에 실패하면 아무것도 바뀌지 않는다.
+ */
+export async function mergeAccounts(otherAccessToken: string): Promise<{ before: Record<string, number>; after: Record<string, number> }> {
+  const response = await authenticatedFetch("/api/auth/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ other_access_token: otherAccessToken }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { before: Record<string, number>; after: Record<string, number> };
+}
+
 export async function deleteAlbum(albumId: string): Promise<void> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));

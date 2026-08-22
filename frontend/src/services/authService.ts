@@ -349,6 +349,53 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return session;
 }
 
+/**
+ * 지금 계정에 **이메일·비밀번호 로그인을 더한다** (2026-08-19 · 2단계 ②).
+ *
+ * 이메일이 **다른** 두 계정은 합치지 않는다(PO 결정). 대신 지금 쓰는 계정에 로그인
+ * 방법을 하나 더 붙인다 — 옮길 것이 없으니 잃을 것도 없다. 카카오로 들어온 사람은
+ * 이미 그 이메일을 갖고 있으므로 비밀번호만 정하면 그다음부터 두 방법 다 된다.
+ *
+ * ★ 계정을 새로 만들지 않는다. 앨범도 참여도 그대로다.
+ * ★ 이메일이 아직 없는 계정이면 이메일도 함께 정한다 — 그때는 Supabase 가 확인 메일을
+ *   보내고, 링크를 누르기 전까지는 이메일 로그인이 켜지지 않는다(그 사실을 화면이 말한다).
+ */
+export async function linkEmailPassword(input: { password: string; email?: string }): Promise<{ needsConfirmation: boolean }> {
+  const client = authClient();
+  const email = (input.email || "").trim().toLowerCase();
+  const payload: { password: string; email?: string } = { password: input.password };
+  if (email) payload.email = email;
+  const { data, error } = await client.auth.updateUser(payload);
+  if (error) throw error;
+  // 이메일을 바꿨거나 새로 넣었으면 확인 메일이 간다 — 그 전까지는 켜지지 않는다.
+  const confirmed = Boolean(data.user?.email_confirmed_at);
+  return { needsConfirmation: Boolean(email) && !confirmed };
+}
+
+/**
+ * 계정 합치기에서 **먼저 로그인해 있던 계정의 토큰**을 잠깐 들고 있는 자리 (2단계 ①).
+ *
+ * 합치려면 다른 쪽 방법으로 한 번 더 로그인해야 하는데, 그 순간 브라우저의 세션은
+ * 새 계정으로 갈린다. 그래서 **먼저 있던 토큰을 여기 적어 두고**, 로그인이 끝나면
+ * 그 토큰을 합칠 계정의 증거로 서버에 보낸다. 서버는 둘 다 검증한다(§10).
+ *
+ * ★ 탭을 닫으면 사라지는 자리(sessionStorage)에 둔다. 쓰고 나면 바로 지운다.
+ * ★ 이 값만으로는 아무것도 못 한다 — 서버가 **두 자격을 모두** 본다.
+ */
+const MERGE_TOKEN_KEY = "woorialbum-merge-from";
+
+export function rememberMergeSource(accessToken: string): void {
+  try { sessionStorage.setItem(MERGE_TOKEN_KEY, accessToken); } catch { /* 저장소를 못 쓰면 합치기만 못 한다 */ }
+}
+
+export function readMergeSource(): string | null {
+  try { return sessionStorage.getItem(MERGE_TOKEN_KEY); } catch { return null; }
+}
+
+export function forgetMergeSource(): void {
+  try { sessionStorage.removeItem(MERGE_TOKEN_KEY); } catch { /* 지울 것이 없다 */ }
+}
+
 /** 인증 메일 다시 보내기 — `메일을 보냈어요` 자리에 함께 둔다. */
 export async function resendEmailConfirmation(email: string, returnTo?: string): Promise<void> {
   const client = authClient();

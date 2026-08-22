@@ -215,3 +215,9 @@ export type AlbumGenerationStatus = any;
 export type AlbumShareLink = any;
 export type MyAlbum = any;
 export type PendingContributionItem = any;
+
+/** 계정 합치기 — 화면 검사에서는 부르기만 하고 아무 일도 하지 않는다(2026-08-19). */
+export async function getMergeCandidate(): Promise<{ found: boolean }> { return { found: false }; }
+export async function mergeAccounts(): Promise<{ before: Record<string, number>; after: Record<string, number> }> {
+  return { before: {}, after: {} };
+}

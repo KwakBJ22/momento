@@ -22,6 +22,8 @@ import { MoreHorizontal } from "lucide-react";
 import SheetDialog from "./components/SheetDialog";
 import LegalConsent from "./components/LegalConsent";
 import AccountSheetRow from "./components/AccountSheetRow";
+import AccountMergeSheet, { finishMergeIfPending, hasDeclinedMerge } from "./components/AccountMergeSheet";
+import LinkMethodSheet from "./components/LinkMethodSheet";
 import { useContactCloseGuard } from "./lib/useContactCloseGuard";
 import AppHeader, { HeaderRight } from "./components/AppHeader";
 import ConfirmSheet from "./components/ConfirmSheet";
@@ -30,7 +32,7 @@ import AppFooter from "./components/AppFooter";
 import { useKakaoSdk } from "./hooks/useKakaoSdk";
 import { readBootstrapCache, shouldCallBootstrap, writeBootstrapCache } from "./lib/bootstrapOnce";
 import { pageIsLeaving } from "./lib/pageLeaving";
-import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getWithdrawalSummary } from "./lib/api";
+import { bootstrapAccount, claimGuestAlbum, deleteAccount, getAlbum, getAlbumPhotos, getMergeCandidate, getWithdrawalSummary, type MergeCandidate } from "./lib/api";
 import type { WithdrawalSummary } from "./types";
 import { collectContributorGuestIds, markContributionsAttributed } from "./lib/contributionAttribution";
 import { saveAlbumCreationPreview } from "./lib/albumCreation";
@@ -73,6 +75,9 @@ function App() {
   const guestClaimRunningRef = useRef(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  // 같은 이메일로 만든 계정이 하나 더 있는가 (2026-08-19 · 2단계 ①).
+  // ★ 찾기만 한다. 합치는 것은 사용자가 **다른 쪽으로 한 번 더 로그인**해야 시작된다.
+  const [mergeCandidate, setMergeCandidate] = useState<MergeCandidate | null>(null);
   const { requestClose: requestCloseAccountMenu, guard: accountContactGuard } = useContactCloseGuard(() => setAccountMenuOpen(false));
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [showAlbumResult, setShowAlbumResult] = useState(false);
@@ -95,6 +100,8 @@ function App() {
   // chosen File objects cannot be restored, so UploadForm asks for a re-pick.
   const photosNeedReselectRef = useRef(initialCreateStep.photoStep && Boolean(initialCreateStep.category));
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // `다른 방법으로도 로그인하기` (2단계 ②) — 합치지 않고 **잇는다**.
+  const [linkMethodOpen, setLinkMethodOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   // 탈퇴하면 무엇이 얼마나 사라지는지 — **서버가 센 값**이다(K-17). 화면은 보여주기만 한다.
@@ -183,6 +190,43 @@ function App() {
    *   를 채우고 세션을 `claimed` 로 닫고, 다른 계정의 두 번째 claim 을 거절한다.
    *   확인만 하고 건드리지 않았다.
    */
+  /**
+   * 로그인한 뒤 **계정 합치기**를 살핀다 (2026-08-19 · 2단계 ①).
+   *
+   * 두 가지를 순서대로 한다:
+   *   ① 합치던 중이었으면(다른 쪽으로 로그인하고 돌아왔다) **끝낸다.**
+   *   ② 아니면 같은 이메일로 만든 다른 계정이 있는지 보고, 있으면 **묻는다.**
+   *
+   * ★ 물어보는 것뿐이다. 이메일이 같다는 것만으로 합치지 않는다 — 합치려면
+   *   그 계정으로도 로그인해야 하고, 판정은 서버가 둘 다 본다(§10).
+   * ★ `따로 쓸게요` 를 고른 상대는 다시 묻지 않는다.
+   * ★ 실패해도 아무 말 하지 않는다. 안내 하나 때문에 로그인 뒤 화면이 서면 안 된다(§11).
+   */
+  // 합칠 계정이 **이메일**이면 그 자리에서 로그인 창을 연다 — 새 페이지를 만들지 않는다.
+  // 로그인이 끝나면 아래 효과가 이어서 합친다(먼저 있던 토큰을 증거로 보낸다).
+  useEffect(() => {
+    const onMergeSignIn = () => openLogin("signin");
+    window.addEventListener("woorialbum:merge-signin", onMergeSignIn);
+    return () => window.removeEventListener("woorialbum:merge-signin", onMergeSignIn);
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void (async () => {
+      if (await finishMergeIfPending()) {
+        // 합쳐졌다 — 앨범 목록이 달라졌으므로 화면을 다시 읽는다.
+        if (active) window.location.reload();
+        return;
+      }
+      const candidate = await getMergeCandidate();
+      if (!active || !candidate.found || !candidate.candidate_id) return;
+      if (hasDeclinedMerge(candidate.candidate_id)) return;
+      setMergeCandidate(candidate);
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user) return;
     const albumId = readPendingGuestClaim();
@@ -389,6 +433,10 @@ function App() {
   // 되돌릴 수 없는 것을 로그아웃 옆에 두지 않는다.
   const accountSheetActions = (
     <>
+      {/* ★ 이메일이 **다른** 두 계정은 합치지 않는다(PO 결정). 대신 지금 계정에 로그인
+          방법을 하나 더 붙인다 — 옮길 것이 없으니 잃을 것도 없다(2단계 ②).
+          새 페이지를 만들지 않는다 — 이 시트 안에서 끝난다(§7). */}
+      <button type="button" className="album-more-sheet__row" onClick={() => { setAccountMenuOpen(false); setLinkMethodOpen(true); }}><span>다른 방법으로도 로그인하기</span></button>
       <button type="button" className="album-more-sheet__row" onClick={() => void logout()}><span>로그아웃</span></button>
       <button type="button" className="album-more-sheet__row album-more-sheet__row--danger" onClick={openWithdraw}><span>회원 탈퇴</span></button>
     </>
@@ -507,6 +555,15 @@ function App() {
       ) : null}
       {accountContactGuard}
       {loginModal}
+      {/* 같은 이메일로 만든 계정이 하나 더 있을 때 **묻는 자리** (2단계 ①).
+          합치는 것은 여기서 시작만 하고, 실제로는 다른 쪽으로 한 번 더 로그인해야 된다. */}
+      {mergeCandidate ? (
+        <AccountMergeSheet candidate={mergeCandidate} onClose={() => setMergeCandidate(null)} />
+      ) : null}
+      {/* 이메일이 다른 계정은 합치지 않는다 — 지금 계정에 로그인 방법을 하나 더 붙인다(②). */}
+      {linkMethodOpen && user ? (
+        <LinkMethodSheet provider={user.provider} email={user.email} onClose={() => setLinkMethodOpen(false)} />
+      ) : null}
       {/* ★ 고른 사진이 있을 때만 묻는다(K-20). 없으면 묻지 않고 바로 간다.
           window.confirm 을 쓰지 않는다(§5) — 이미 쓰는 시트 그대로다.
           `계속 고르기` 가 왼쪽이자 기본이다. 잃을 것이 있는 쪽이 먼저 눌리면 안 된다. */}

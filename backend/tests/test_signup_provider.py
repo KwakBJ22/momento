@@ -119,14 +119,27 @@ class SignupProviderContractTests(TestCase):
         for banned in ("send_sms", "phone_signup", "verify_otp"):
             self.assertNotIn(banned, source)
 
-    def test_계정_합치기를_만들지_않았다(self) -> None:
-        """2단계다 — 1단계에서는 길만 알려 준다."""
+    def test_계정_합치기는_두_자격을_모두_요구한다(self) -> None:
+        """★ 뒤집음 (2026-08-19 · 2단계).
+
+        1단계에서는 `합치기를 만들지 않았다` 를 지켰다. 2단계가 그것을 만든다.
+        지킬 것이 바뀌었다: **합치기가 있느냐**가 아니라 **한쪽 자격만으로는 합쳐지지
+        않느냐**다. 이메일이 같다는 것만으로 합치면 그 이메일을 갖고 있지 않은 사람이
+        남의 계정에 들어간다.
+        """
         import inspect
 
         from app.api import auth as auth_api
 
         source = inspect.getsource(auth_api)
-        for banned in ("link_identity", "merge_account", "unlink_identity"):
+        # 합칠 계정의 토큰을 **따로** 검증한다(요청의 Bearer 와 둘 다).
+        self.assertIn("verify_access_token(body.other_access_token)", source)
+        # 그 토큰이 못 믿을 것이면 401 이고, 아무것도 합쳐지지 않는다.
+        self.assertIn("합칠 계정으로 로그인하지 못했어요", source)
+        # 후보(같은 이메일로 만든 살아 있는 계정)가 아닌 계정과는 합치지 않는다.
+        self.assertIn("이 계정과는 합칠 수 없어요", source)
+        # 신원 잇기(link/unlink)는 여전히 여기서 하지 않는다 — 화면이 Supabase 로 직접 한다.
+        for banned in ("link_identity", "unlink_identity"):
             self.assertNotIn(banned, source)
 
 
