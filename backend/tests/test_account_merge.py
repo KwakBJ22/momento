@@ -293,10 +293,33 @@ class MergeMigrationRulesTests(TestCase):
         self.assertIn("COALESCE(NULLIF(t.contact_phone, ''), s.contact_phone)", self.body)
         self.assertIn("COALESCE(NULLIF(t.contact_email, ''), s.contact_email)", self.body)
 
-    def test_규칙이_있는_다섯_표는_자동_순회에서_뺀다(self) -> None:
+    def test_손으로_처리한_칸만_자동_순회에서_뺀다(self) -> None:
+        """★ 뒤집음 (PO 2026-08-22). 예전에는 **표 이름**으로 걸렀다 — 그러면 같은 표의
+        다른 칸(album_members.invited_by · family_members.invited_by)까지 빠져, 옮긴 뒤에도
+        닫힌 계정이 초대자로 남는다. 손으로 한 것은 칸이므로 **(표, 칸) 짝**으로 거른다."""
         loop = self.body[self.body.index("pg_constraint"):]
-        for table in ("album_contributors", "album_members", "family_members", "memory_answers", "album_bookmarks"):
-            self.assertIn(f"'{table}'", loop, f"{table} 가 자동 순회에 다시 잡힌다(규칙이 무시된다)")
+        for pair in (
+            "('album_contributors', 'user_id')",
+            "('album_members', 'profile_id')",
+            "('family_members', 'profile_id')",
+            "('memory_answers', 'profile_id')",
+            "('album_bookmarks', 'user_id')",
+        ):
+            self.assertIn(pair, loop, f"{pair} 가 자동 순회에 다시 잡힌다(규칙이 무시된다)")
+        # profiles 는 표째로 뺀다(자기 자신).
+        self.assertIn("src.relname <> 'profiles'", loop)
+        # 표 이름만으로 거르던 옛 줄이 돌아오면 invited_by 가 다시 빠진다.
+        self.assertNotIn("src.relname NOT IN", loop, "표 이름으로 거르던 옛 방식이 돌아왔다")
+
+    def test_초대한_사람_칸은_자동_순회에_들어온다(self) -> None:
+        """album_members.invited_by · family_members.invited_by 는 손으로 처리하지 않았다 —
+        그러니 순회가 옮겨야 한다. 빠지면 닫힌 계정이 초대자로 남는다."""
+        loop = self.body[self.body.index("pg_constraint"):]
+        for missing in ("('album_members', 'invited_by')", "('family_members', 'invited_by')"):
+            self.assertNotIn(missing, loop, f"{missing} 를 순회에서 뺐다 — 옮겨지지 않는다")
+        # 손으로 처리하는 구역에서도 invited_by 를 건드리지 않는다(한 곳에서만 옮긴다).
+        manual = self.body[:self.body.index("pg_constraint")]
+        self.assertNotIn("invited_by", manual)
 
     def test_프로필은_닫기만_한다(self) -> None:
         self.assertIn("SET status = 'deleted', deleted_at = COALESCE(deleted_at, now())", self.body)

@@ -18,8 +18,10 @@
 --
 -- ★ 표를 지우지 않는다. 남는 계정은 profiles.deleted_at 으로 닫는다(auth.users 도 그대로).
 -- ★ 새 칸을 만들지 않는다. 이미 있는 status · deleted_at · removed_at 만 쓴다.
--- ★ 규칙이 필요한 표 다섯(album_contributors · album_members · family_members ·
---   memory_answers · album_bookmarks)은 손으로 다루고 자동 순회에서 뺀다.
+-- ★ 규칙이 필요한 **(표, 칸) 여섯 짝**(album_contributors.user_id · album_members.profile_id ·
+--   family_members.profile_id · memory_answers.profile_id · album_bookmarks.user_id, 그리고
+--   profiles 는 표째)은 손으로 다루고 자동 순회에서 뺀다. 같은 표의 다른 칸
+--   (invited_by 따위)은 순회에 **들어온다** — 표가 아니라 칸으로 거른다.
 --   나머지는 profiles(id) 를 가리키는 외래키를 카탈로그에서 찾아 돈다 — 표가 늘어도 안 낡는다.
 -- ★ ctid 커서를 쓰지 않는다(2026-08-21). 갱신하면 ctid 가 바뀌어 같은 줄을 다시 만날 수
 --   있었다 — 전부 집합 연산이다.
@@ -207,8 +209,11 @@ BEGIN
 
   ------------------------------------------------------------------
   -- ⑥ 나머지 — profiles(id) 를 가리키는 모든 외래키를 카탈로그에서 찾아 집합으로 옮긴다.
-  --    위 다섯 표는 뺀다(규칙이 따로 있다). 모르는 표에서 유일 제약에 걸리면 예외가
-  --    그대로 올라가 **합치기 전체가 실패한다** — 아무것도 잃지 않는 쪽을 고른 것이다.
+  --    위에서 손으로 처리한 **(표, 칸) 여섯 짝**만 뺀다. 모르는 표에서 유일 제약에
+  --    걸리면 예외가 그대로 올라가 **합치기 전체가 실패한다** — 아무것도 잃지 않는 쪽이다.
+  --    ★ 표 이름이 아니라 (표, 칸) 짝으로 거른다 (2026-08-22). 표로 거르면 같은 표의
+  --      다른 칸 — album_members.invited_by · family_members.invited_by(초대한 사람) —
+  --      까지 빠져, 옮긴 뒤에도 닫힌 계정이 초대자로 남는다. 손으로 한 것은 **칸**이다.
   ------------------------------------------------------------------
   FOR v_ref IN
     SELECT src.relname AS table_name, att.attname AS column_name
@@ -221,10 +226,14 @@ BEGIN
     WHERE con.contype = 'f'
       AND tgt.relname = 'profiles'
       AND ns.nspname = 'public'
-      AND src.relname NOT IN (
-        'profiles',
-        'album_contributors', 'album_members', 'family_members',
-        'memory_answers', 'album_bookmarks'
+      -- profiles 는 표째로 뺀다(자기 자신). 나머지는 손으로 처리한 칸만 뺀다.
+      AND src.relname <> 'profiles'
+      AND (src.relname, att.attname) NOT IN (
+        ('album_contributors', 'user_id'),
+        ('album_members', 'profile_id'),
+        ('family_members', 'profile_id'),
+        ('memory_answers', 'profile_id'),
+        ('album_bookmarks', 'user_id')
       )
   LOOP
     EXECUTE format(
