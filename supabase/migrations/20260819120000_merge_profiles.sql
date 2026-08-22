@@ -79,8 +79,11 @@ BEGIN
     UPDATE public.album_guestbook_entries SET contributor_id = v_pair.target_row
     WHERE contributor_id = v_pair.source_row;
     -- 높은 역할을 남긴다 (owner > contributor > viewer).
-    IF CASE v_pair.source_role WHEN 'owner' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END
-     > CASE v_pair.target_role WHEN 'owner' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END THEN
+    -- ★ CASE 는 반드시 괄호로 싼다 — plpgsql 의 IF 는 조건을 첫 THEN 에서 끊으므로, 괄호가
+    --   없으면 CASE 의 THEN 이 IF 의 THEN 으로 읽혀 `syntax error at end of input` 이 난다
+    --   (dev 적용 실패 2026-08-22). 아래 album_members · family_members 도 같은 모양으로 맞춘다.
+    IF (CASE v_pair.source_role WHEN 'owner' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END)
+     > (CASE v_pair.target_role WHEN 'owner' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END) THEN
       UPDATE public.album_contributors SET role = v_pair.source_role WHERE id = v_pair.target_row;
     END IF;
     -- 빈 줄을 닫는다. 지우지 않는다 — 활성 유일 제약은 active 에만 걸려 충돌하지 않는다.
@@ -105,8 +108,9 @@ BEGIN
   LOOP
     UPDATE public.album_members
     SET role = CASE
-          WHEN CASE v_pair.source_role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END
-             > CASE v_pair.target_role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END
+          -- (CASE) 괄호 — 위 album_contributors 의 IF 와 같은 모양 (SQL 식이라 없어도 돌지만 같은 글은 같은 모양).
+          WHEN (CASE v_pair.source_role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END)
+             > (CASE v_pair.target_role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'contributor' THEN 2 ELSE 1 END)
           THEN v_pair.source_role ELSE v_pair.target_role END,
         status = CASE WHEN v_pair.source_status = 'active' OR v_pair.target_status = 'active'
                       THEN 'active' ELSE v_pair.target_status END,
@@ -144,8 +148,9 @@ BEGIN
     WHERE id = v_pair.source_row;
     UPDATE public.family_members
     SET role = CASE
-          WHEN CASE v_pair.source_role WHEN 'owner' THEN 3 WHEN 'admin' THEN 2 ELSE 1 END
-             > CASE v_pair.target_role WHEN 'owner' THEN 3 WHEN 'admin' THEN 2 ELSE 1 END
+          -- (CASE) 괄호 — 위 album_contributors 의 IF 와 같은 모양.
+          WHEN (CASE v_pair.source_role WHEN 'owner' THEN 3 WHEN 'admin' THEN 2 ELSE 1 END)
+             > (CASE v_pair.target_role WHEN 'owner' THEN 3 WHEN 'admin' THEN 2 ELSE 1 END)
           THEN v_pair.source_role ELSE v_pair.target_role END,
         status = CASE WHEN v_pair.source_status = 'active' OR v_pair.target_status = 'active'
                       THEN 'active' ELSE v_pair.target_status END,
@@ -236,10 +241,12 @@ BEGIN
         ('album_bookmarks', 'user_id')
       )
   LOOP
+    -- %L 로 값을 박는다 (dev 에 들어간 판과 같다). p_target · p_source 는 uuid 로 형이 잡힌
+    -- 인자이고 %L 이 따옴표를 붙이므로 주입 위험은 없다.
     EXECUTE format(
-      'UPDATE public.%I SET %I = $1 WHERE %I = $2',
-      v_ref.table_name, v_ref.column_name, v_ref.column_name
-    ) USING p_target, p_source;
+      'UPDATE public.%I SET %I = %L WHERE %I = %L',
+      v_ref.table_name, v_ref.column_name, p_target, v_ref.column_name, p_source
+    );
     GET DIAGNOSTICS v_one = ROW_COUNT; v_moved := v_moved + v_one;
   END LOOP;
 

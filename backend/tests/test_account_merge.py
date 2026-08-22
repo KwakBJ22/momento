@@ -10,6 +10,7 @@ PO 결정: **이메일이 같으면 묻는다. 다르면 사용자가 직접 합
 """
 
 import pathlib
+import re
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -320,6 +321,27 @@ class MergeMigrationRulesTests(TestCase):
         # 손으로 처리하는 구역에서도 invited_by 를 건드리지 않는다(한 곳에서만 옮긴다).
         manual = self.body[:self.body.index("pg_constraint")]
         self.assertNotIn("invited_by", manual)
+
+    def test_IF_뒤의_CASE_는_괄호로_싸여_있다(self) -> None:
+        """★ dev 적용 실패 2026-08-22 — `IF CASE ... THEN` 은 plpgsql 이 조건을 첫 THEN 에서 끊어
+        `syntax error at end of input` 이 난다. plpgsql 은 CREATE FUNCTION 때만 문법을 보므로
+        여기서는 글자로 붙잡는다 — 완벽하지 않지만 이번과 같은 사고는 잡는다."""
+        bare_if_case = re.findall(r"\bIF\s+CASE\b", self.body)
+        self.assertEqual(bare_if_case, [], "IF 바로 뒤에 괄호 없는 CASE 가 있다 — CREATE FUNCTION 이 실패한다")
+        bare_when_case = re.findall(r"\bWHEN\s+CASE\b", self.body)
+        self.assertEqual(bare_when_case, [], "WHEN 뒤의 CASE 도 같은 모양(괄호)으로 맞춘다")
+        # 세 구역 모두 괄호 판이다(album_contributors IF · album_members · family_members).
+        self.assertEqual(len(re.findall(r"\(CASE v_pair\.source_role", self.body)), 3)
+        # 왜 괄호인지 그 자리에 적혀 있다 — 없으면 다음 사람이 지운다.
+        self.assertIn("CASE 는 반드시 괄호로 싼다", self.sql)
+
+    def test_자동_순회의_EXECUTE_는_자리표시자가_아니라_L_이다(self) -> None:
+        """dev 에 들어간 판과 같은 모양이어야 한다 — `$1`/`$2` + USING 이 아니라 %L."""
+        loop = self.body[self.body.index("pg_constraint"):]
+        execute = loop[loop.index("EXECUTE format("):loop.index("GET DIAGNOSTICS")]
+        self.assertNotIn("$1", execute); self.assertNotIn("$2", execute); self.assertNotIn("USING", execute)
+        self.assertIn("'UPDATE public.%I SET %I = %L WHERE %I = %L'", execute)
+        self.assertIn("v_ref.table_name, v_ref.column_name, p_target, v_ref.column_name, p_source", execute)
 
     def test_프로필은_닫기만_한다(self) -> None:
         self.assertIn("SET status = 'deleted', deleted_at = COALESCE(deleted_at, now())", self.body)
