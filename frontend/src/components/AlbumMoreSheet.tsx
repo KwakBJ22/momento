@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 
-import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import AlbumAppearancePicker from "./AlbumAppearancePicker";
 import PrintIntentCta from "./PrintIntentCta";
 import type { AlbumPaper, AlbumSkin } from "../lib/albumSkin";
@@ -114,12 +113,8 @@ export default function AlbumMoreSheet({
           : null}
         {/* 새로 더해진 것은 이미 붙어 있다. 여기는 앨범을 **다시 짜는** 자리다. */}
         {canEdit && onRebuildEdition ? <button type="button" className="album-more-sheet__row" disabled={isRebuilding} onClick={() => { onClose(); onRebuildEdition(); }}><span>{isRebuilding ? "다시 구성하는 중..." : "앨범 다시 구성"}</span><em>새로 더해진 것까지 넣어요</em></button> : null}
-        {/* PDF 초과 시: opacity 로 흐리지 않고(대비 2.1:1) 라벨은 subtle, 이유는 warning. */}
-        {onExportPdf ? (photoCount > PDF_PHOTO_SAFE_LIMIT
-          ? <><div className="album-more-sheet__row album-more-sheet__row--off" aria-disabled="true"><span>파일로 저장하기 (PDF)</span><em>{PDF_BLOCKED_REASON}</em></div>
-            {/* 예약 슬롯(4a·③): 지금은 숫자 사실만 — 어떤 것도 예고하지 않는다. */}
-            <p className="album-more-sheet__slot">이 앨범 사진 {photoCount}장 · 한 파일 {PDF_PHOTO_SAFE_LIMIT}장</p></>
-          : <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { onClose(); onExportPdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button>) : null}
+        {/* ★ 2026-08-22 — 30장 차단 행(`album-more-sheet__row--off` + 슬롯 줄)을 지웠다. PDF 는 서버가 그린다. */}
+        {onExportPdf ? <button type="button" className="album-more-sheet__row" disabled={isExportingPdf} onClick={() => { onClose(); onExportPdf(); }}><span>{isExportingPdf ? "PDF 만드는 중..." : "파일로 저장하기 (PDF)"}</span></button> : null}
         {/* PDF 바로 아래다 — 화면으로 보다가 `종이로도 받고 싶다`가 이어지는 자리다. */}
         {canAskPrintIntent ? <PrintIntentCta albumId={albumId} variant="sheet" /> : null}
         {/* ★ `새 앨범 만들기` 는 여기 없다 (PO 2026-08-13). 하단 네비의 `앨범 만들기` 와

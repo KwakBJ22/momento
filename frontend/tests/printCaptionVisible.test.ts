@@ -31,7 +31,6 @@ setupDom("https://test.local/");
 const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages.css", import.meta.url), "utf8");
 const linesCss = readFileSync(new URL("../src/album-engine/components/PhotoMemoryLines.css", import.meta.url), "utf8");
 const renderer = readFileSync(new URL("../src/album-engine/AlbumRenderer.tsx", import.meta.url), "utf8");
-const sample = readFileSync(new URL("../scripts/pdfSample.tsx", import.meta.url), "utf8");
 
 const CAPTION = "공항에서 내리자마자 바람이 셌다.";
 
@@ -99,9 +98,9 @@ test("★ 인쇄 글에 투명해질 여지를 남기지 않는다", () => {
 
 test("이름은 이미 이어져 있다 — caption 이 엔진의 comment 로 옮겨진다", () => {
   assert.match(renderer, /comment: photo\.caption,/);
-  // 표본도 실제 경로와 같은 이름(AlbumPhoto.caption)을 쓴다.
-  assert.match(sample, /caption, taken_at:/);
-  assert.equal(sample.includes("comment:"), false, "표본이 엔진 내부 이름을 쓰면 실물과 달라진다");
+  // ★ 2026-08-22 — 표본(scripts/pdfSample.tsx)은 굽는 길과 함께 지웠다. 서버도 같은 이름(caption)을 읽는다.
+  const server = readFileSync(new URL("../../backend/app/services/album_pdf_service.py", import.meta.url), "utf8");
+  assert.match(server, /caption=\(str\(row\.get\("caption"\) or ""\)/);
 });
 
 test("긴 캡션이 프레임 폭을 늘리지 않는다 (4d 에서 잠근 것 유지)", () => {

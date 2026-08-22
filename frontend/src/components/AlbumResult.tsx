@@ -13,7 +13,6 @@ import {
   patchEpilogue,
   saveAlbumPhotoCaption,
 } from "../lib/api";
-import { PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
 import { resolveAlbumRole } from "../lib/albumRole";
 import { withAlbumVersion } from "../lib/albumVersion";
 import { resolveShareImageUrl } from "../lib/shareImage";
@@ -220,20 +219,8 @@ export default function AlbumResultView({
     setIsExportingPdf(true);
     setPdfNotice(null);
     try {
-      const delivery = await downloadAlbumPdf({
-        albumId: result.album_id,
-        albumVersion,
-        contributorNames: result.contributor_names ?? [],
-        title: albumTitle,
-        photos: stagePhotos,
-        epilogue,
-        coverDateLabel: result.date,
-        category: result.category,
-        templateType: result.template_type,
-        chapterStories,
-        coverPhotoId: result.cover_photo_id,
-        livingAppendPages: result.living_append_pages,
-      });
+      // PDF 는 서버가 앨범 기록으로 그린다(2026-08-22) — 화면의 사진·글을 넘기지 않는다.
+      const delivery = await downloadAlbumPdf({ albumId: result.album_id, albumVersion, title: albumTitle });
       setPdfNotice(pdfSuccessMessage(delivery));
     } catch (err) {
       setPdfNotice(pdfFailureMessage(err));
@@ -265,8 +252,7 @@ export default function AlbumResultView({
         <p className="album-result__action-hint">{SHARE_HINT}</p>
       </div>
       <div className="album-result__hinted-action">
-        <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || stagePhotos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
-        {stagePhotos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}
+        <button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>
       </div>
     </div>{manageSlot ? <div className="album-page__manage-slot">{manageSlot}</div> : null}</>
   );

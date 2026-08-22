@@ -69,8 +69,9 @@ test("★ PDF 에 들어가고, 페이지 경계에서 잘리지 않는다", () 
   // ★ 2026-08-19 — 그 사이에 숫자 요약(만난 날 · 실린 사진 · 함께한 사람)이 들었다
   //   (시안 §6 · 두 판 공통). 묶여서 갈라지지 않는다는 규칙은 그대로다.
   assert.match(renderer, /<section className="print-closing">[\s\S]{0,900}<AlbumContributors names=\{contributorNames\} \/>/);
-  const pdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  assert.match(pdf, /const selector = "[^"]*\.print-closing[^"]*"/);
+  // ★ 2026-08-22 — PDF 는 서버가 그린다. 서버도 같은 자리(우리의 이야기 쪽)에 같은 한 줄을 놓는다.
+  const server = readFileSync(new URL("../../backend/app/services/album_pdf_service.py", import.meta.url), "utf8");
+  assert.match(server, /"함께 만든 사람 — " \+ " · "\.join\(album\.contributor_names\)/);
   const css = readFileSync(new URL("../src/album-engine/components/AlbumContributors.css", import.meta.url), "utf8");
   assert.match(css, /break-inside: avoid/);
   assert.match(css, /page-break-inside: avoid/);
@@ -95,17 +96,16 @@ test("이름은 세는 규칙과 같은 자리에서 온다 (수와 이름이 �
 });
 
 // E-5 확인 — `함께 만든 사람` 줄이 실제 PDF 에 없던 원인 두 가지를 잠근다.
-test("★ PDF 렌더러에 이름을 실제로 넘긴다 (원인 ①)", () => {
-  const pdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  // PDF 는 화면과 **다른 AlbumRenderer 인스턴스**를 새로 마운트한다 — 값을 넘기지 않으면
-  // 화면에만 있고 인쇄물에는 없다. 실제로 그렇게 빠져 있었다.
-  assert.match(pdf, /contributorNames\?: string\[\]/);
-  assert.match(pdf, /contributorNames=\{input\.contributorNames \?\? \[\]\}/);
-  // PDF 를 만드는 세 화면 모두 값을 채운다.
-  for (const file of ["AlbumView", "AlbumResult", "PublicShareView"]) {
-    const source = readFileSync(new URL(`../src/components/${file}.tsx`, import.meta.url), "utf8");
-    assert.match(source, /contributorNames: [\w.]+\.contributor_names \?\? \[\]/, file);
-  }
+test("★ PDF 에 이름이 실제로 들어간다 (원인 ①) — 서버가 직접 읽는다", () => {
+  // ★ 2026-08-22 — PDF 는 서버가 그린다. 예전에는 화면이 PDF 렌더러에 이름을 넘겨야 했고
+  //   한 번 빠져 있었다. 이제 서버가 참여자 목록을 **스스로** 읽어 넣는다 — 화면이 넘길 것이 없다.
+  const album = readFileSync(new URL("../../backend/app/api/album.py", import.meta.url), "utf8");
+  const build = album.slice(album.indexOf("def _build_and_store_pdf("), album.indexOf("@router.put(\"/albums/{album_id}/pdf\")"));
+  assert.match(build, /contributor_names = list_active_contributor_names\(client, album_id\)/);
+  assert.match(build, /album_from_records\(record, photo_rows, contributor_names, stories\)/);
+  // 실제 PDF 에서 그 줄이 글자로 뽑히는지는 backend/tests/test_album_pdf_service.py 가 잰다.
+  const serverTest = readFileSync(new URL("../../backend/tests/test_album_pdf_service.py", import.meta.url), "utf8");
+  assert.match(serverTest, /함께 만든 사람 — 곽병준 · 영희 · 준3/);
 });
 
 test("★ 렌더링이 바뀌면 저장된 옛 PDF 를 다시 주지 않는다 (원인 ②)", () => {

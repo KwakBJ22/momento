@@ -44,21 +44,15 @@ test("아이폰 카카오톡은 예전처럼 인앱 판정에도 걸린다 (순�
   assert.equal(isInAppWebView(IPHONE), false);
 });
 
-test("★ 아이폰에서는 올려 둔 주소가 있으면 blob 대신 그 주소로 보낸다", () => {
+// ★ 2026-08-22 — PDF 는 서버가 그린다. 세 갈래(캐시 주소 / 올린 주소 / blob)가 **한 길**이
+//   됐다: 서버가 만든 파일의 주소로 같은 창에서 이동한다. 아이폰만 따로 가르던 갈래와
+//   blob 저장은 잴 것이 없어 지웠다. 지키는 것은 그대로다 — 아이폰도 주소로 받는다.
+test("★ 기기를 가리지 않고 서버가 만든 파일의 주소로 받는다 — blob 길은 없다", () => {
   const pdf = read("lib/exportPdf.tsx");
-  const flow = pdf.slice(pdf.indexOf("export async function downloadAlbumPdf"), pdf.indexOf("export async function renderAlbumPdfBlob"));
-
-  const iosAt = flow.indexOf("isIosWebKit(currentUserAgent())");
-  const blobAt = flow.indexOf("triggerBlobDownload(blob");
-  assert.ok(iosAt > 0, "아이폰 갈래가 있어야 한다");
-  assert.ok(iosAt < blobAt, "blob 저장보다 먼저 판단해야 한다 — 뒤에 두면 이미 blob 으로 끝난다");
-  assert.match(flow, /if \(storedUrl && isIosWebKit\(currentUserAgent\(\)\)\) \{[\s\S]{0,120}?return deliverStoredPdf\(storedUrl/);
-
-  // 인앱 브라우저 갈래가 먼저다 — 아이폰 카카오톡은 예전 문구·예전 길 그대로다.
-  assert.ok(flow.indexOf("isInAppWebView(currentUserAgent())") < iosAt);
-});
-
-test("주소가 없으면 예전 그대로 blob 으로 저장한다 (기능을 빼지 않는다)", () => {
-  const pdf = read("lib/exportPdf.tsx");
-  assert.match(pdf, /triggerBlobDownload\(blob, pdfFilename\(input\)\);\s*\n\s*return \{ via: "download" \};/);
+  const flow = pdf.slice(pdf.indexOf("export async function downloadAlbumPdf"));
+  assert.match(flow, /return deliverStoredPdf\(url, pdfDownloadFilename\(input\.title\)\);/);
+  assert.equal(pdf.includes("triggerBlobDownload"), false, "blob 저장이 되살아났다 — 아이폰에서 조용히 끝나는 길이다");
+  assert.equal(pdf.includes("URL.createObjectURL"), false);
+  // 같은 창에서 이동한다(새 창을 열면 빈 창이 남는다).
+  assert.match(pdf, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
 });

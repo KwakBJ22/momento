@@ -77,9 +77,11 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
   assert.equal(sheetCode.includes("새 앨범 만들기"), false, "같은 행동이 두 자리에 다시 생겼다");
   // 호출자가 서버 플래그를 그대로 넘긴다.
   assert.match(read("components/AlbumView.tsx"), /canEdit=\{role === "owner"\}/);
-  // PDF 초과: 이유를 사람 말로 + 예약 슬롯(숫자 사실만).
-  assert.match(sheet, /album-more-sheet__row--off[\s\S]{0,200}\{PDF_BLOCKED_REASON\}/);
-  assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photoCount\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);
+  // ★ 2026-08-22 — 30장 차단 행(`row--off` + 예약 슬롯)을 지웠다. PDF 는 서버가 그린다 —
+  //   장수로 막지 않는다. 파일로 저장하기 행은 하나뿐이고 만드는 동안만 잠긴다.
+  assert.equal(sheetCode.includes("album-more-sheet__row--off"), false, "30장 차단 행이 되살아났다");
+  assert.equal(sheetCode.includes("PDF_PHOTO_SAFE_LIMIT"), false);
+  assert.match(sheet, /onExportPdf \? <button type="button" className="album-more-sheet__row" disabled=\{isExportingPdf\}/);
   assert.match(sheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   // ★ 뒤집힌 항목 (2026-08-13). 안심 문구를 한 줄로 줄였다 — 뒤 문장(`실수로 지워지지
   //   않아요.`)은 앞 문장과 같은 말이라 두 번 읽히기만 했다. 안심을 주는 규칙은 그대로다.

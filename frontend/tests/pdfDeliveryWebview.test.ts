@@ -42,14 +42,15 @@ test("저장 버전이 맞아야 받아 주는 규칙은 그대로다", () => {
   assert.match(put, /url = get_signed_url\(/);
 });
 
-test("★ 인앱 브라우저에서는 blob 이 아니라 올린 파일의 주소로 보낸다", () => {
+// ★ 2026-08-22 — PDF 는 서버가 그린다. 화면이 굽고 올리던(uploadAlbumPdf) 길이 없어졌으니
+//   `올린 주소` 도 없다. 인앱 브라우저가 받는 길은 그대로다: **서버 파일의 https 주소로 같은
+//   창에서 이동한다.** 그 주소는 이제 GET 한 번으로 온다(캐시가 없으면 서버가 만들어 준다).
+test("★ 인앱 브라우저는 서버 파일의 주소로 받는다 — blob 을 쓰지 않는다", () => {
   const pdf = read("lib/exportPdf.tsx");
-  const flow = pdf.slice(pdf.indexOf("export async function downloadAlbumPdf"), pdf.indexOf("export async function renderAlbumPdfBlob"));
-  // 저장 → 주소 전달 순서가 유지된다.
-  assert.match(flow, /storedUrl = \(await uploadAlbumPdf\(input\.albumId, input\.albumVersion, blob\)\)\.url;/);
-  assert.match(flow, /if \(isInAppWebView\(currentUserAgent\(\)\)\) \{[\s\S]*?if \(storedUrl\) \{[\s\S]*?return deliverStoredPdf\(storedUrl/);
-  // 그 문구는 **주소가 없을 때만** 나온다(마지막 안내).
-  assert.match(flow, /logPdf\("pdf_download_unsupported"[\s\S]{0,120}throw new Error\(webviewSaveMessage/);
+  const flow = pdf.slice(pdf.indexOf("export async function downloadAlbumPdf"));
+  assert.match(flow, /await withPdfTimeout\(getAlbumPdfUrl\(input\.albumId, input\.albumVersion\), PDF_TIMEOUT_MESSAGE\)/);
+  assert.match(flow, /return deliverStoredPdf\(url, pdfDownloadFilename\(input\.title\)\);/);
+  assert.equal(pdf.includes("createObjectURL"), false, "blob 길이 되살아났다 — 인앱 브라우저는 blob 을 무시한다");
   // 저장된 주소로는 같은 창에서 이동한다(새 창을 열면 빈 창이 남는다).
   assert.match(pdf, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
 });
@@ -68,7 +69,8 @@ test("저장·조회가 같은 캐시 키를 쓴다 (렌더러 버전 포함)", 
 
 test("어느 단계에서 막혔는지 로그로 알 수 있다", () => {
   const pdf = read("lib/exportPdf.tsx");
-  assert.match(pdf, /logPdf\("pdf_upload_failed", \{[\s\S]*?status: status \?\? "none"/);
+  // ★ 2026-08-22 — 올리는 단계가 없어져 `pdf_upload_failed` 는 `pdf_request_failed` 가 됐다.
+  assert.match(pdf, /logPdf\("pdf_request_failed", \{[\s\S]*?status: status \?\? "none"/);
   assert.match(pdf, /version: input\.albumVersion/);
   // 상태를 실어 보내려면 api 가 그것을 오류에 붙여야 한다.
   const api = read("lib/api.ts");

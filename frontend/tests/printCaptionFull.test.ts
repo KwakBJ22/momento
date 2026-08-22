@@ -20,7 +20,9 @@ setupDom("https://test.local/");
 
 const printCss = readFileSync(new URL("../src/album-engine/components/PrintPages.css", import.meta.url), "utf8");
 const linesCss = readFileSync(new URL("../src/album-engine/components/PhotoMemoryLines.css", import.meta.url), "utf8");
-const sample = readFileSync(new URL("../scripts/pdfSample.tsx", import.meta.url), "utf8");
+// ★ 2026-08-22 — 표본(scripts/pdfSample.tsx)은 굽는 길과 함께 지웠다. 긴 캡션이 통째로 나오는지는
+//   이제 서버 검사가 실제 PDF 에서 글자를 뽑아 본다 — 같은 문장이다.
+const serverTest = readFileSync(new URL("../../backend/tests/test_album_pdf_service.py", import.meta.url), "utf8");
 
 /** 표본에 넣은 그 문장이다. 두 줄로는 절대 안 끝난다. */
 const LONG = "숙소 앞 돌담. 여기서 한참 서 있었다. 아무도 먼저 들어가자는 말을 안 했다. 바람이 차가웠는데도 셋 다 그냥 서서 바다 쪽만 봤다.";
@@ -167,6 +169,7 @@ test("사진이 사라질 만큼은 빼지 않는다", async () => {
   assert.equal(printCaptionExtraMm([{ id: "p1", comment: "가".repeat(5000) }]), PRINT_CAPTION_EXTRA_MAX_MM);
 });
 
-test("표본에 긴 캡션이 들어 있다 — 잘리지 않는 것을 눈으로 볼 수 있어야 한다", () => {
-  assert.ok(sample.includes(LONG), "표본 데이터에 그 문장이 없다");
+test("서버 검사가 같은 긴 캡션을 실제 PDF 에서 통째로 뽑아 본다 — 눈이 아니라 숫자로", () => {
+  assert.ok(serverTest.includes(LONG), "서버 검사에 그 문장이 없다");
+  assert.match(serverTest, /assertIn\(LONG_CAPTION, joined/);
 });

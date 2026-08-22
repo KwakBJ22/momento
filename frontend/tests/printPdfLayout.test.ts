@@ -158,9 +158,14 @@ test("★ PDF 마지막 장은 활자다 — 이름을 자리에 직접 적지 �
   await view.React.act(async () => { view.root.unmount(); });
 });
 
-test("페이지 나눔이 새 단위를 본다", () => {
-  const pdf = read("lib/exportPdf.tsx");
-  assert.match(pdf, /const selector = "\.album-cover, \.print-page, \.print-closing, \.album-living-page, \.album-renderer__brand-page"/);
+test("페이지 나눔은 서버가 한다 — 쪽을 하나씩 그린다", () => {
+  // ★ 2026-08-22 — 화면 블록을 쪽 경계에 맞춰 밀던 selector 는 굽는 길과 함께 지웠다.
+  //   서버는 표지 · 사진 쪽 · 이야기 · 우리의 이야기 · 맺음을 **각각 한 쪽**으로 그린다.
+  const server = readFileSync(new URL("../../backend/app/services/album_pdf_service.py", import.meta.url), "utf8");
+  for (const fn of ["_draw_cover", "_draw_photo_page", "_draw_story_page", "_draw_closing_page", "_draw_last_page"]) {
+    assert.match(server, new RegExp(`def ${fn}\\(`), `${fn} 이 없다`);
+  }
+  assert.equal(read("lib/exportPdf.tsx").includes("const selector ="), false);
 });
 
 /**
@@ -180,10 +185,14 @@ const LIVING_PAGE = [{
 }];
 
 test("★ 인쇄에는 `새로 더해진` 자리가 오지 않는다 — 종이는 되돌릴 수 없다", async () => {
-  // ① PDF 를 만드는 자리가 빈 배열을 넘긴다 — 화면 값을 그대로 흘려보내지 않는다.
+  // ① ★ 2026-08-22 — PDF 는 서버가 그린다. 문턱은 서버의 같은 자리(화면 detail 과 같은
+  //   album_document_photo_ids)에 있다 — 본문에 실린 사진만 간다. 화면은 아무것도 넘기지 않는다.
   const pdf = read("lib/exportPdf.tsx");
-  assert.match(pdf, /livingAppendPages=\{\[\]\}/, "화면 값이 그대로 인쇄로 간다");
-  assert.equal(pdf.includes("livingAppendPages={input.livingAppendPages}"), false, "인쇄로 넘기는 자리가 남았다");
+  assert.equal(pdf.includes("livingAppendPages"), false, "화면이 인쇄로 무엇을 넘기기 시작했다");
+  const album = readFileSync(new URL("../../backend/app/api/album.py", import.meta.url), "utf8");
+  const build = album.slice(album.indexOf("def _build_and_store_pdf("), album.indexOf("@router.put(\"/albums/{album_id}/pdf\")"));
+  assert.match(build, /document_photo_ids = album_document_photo_ids\(document\)/);
+  assert.match(build, /photo_rows = \[row for row in all_rows if not document_photo_ids or str\(row\["id"\]\) in document_photo_ids\]/);
   // ② 그렇게 넘겼을 때 인쇄 렌더에 그 자리가 하나도 없다.
   const view = await renderPrint([photo("p1", "2026-08-01")], { livingAppendPages: [] });
   assert.equal(view.container.querySelectorAll(".album-living-page").length, 0);

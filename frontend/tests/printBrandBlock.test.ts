@@ -106,33 +106,18 @@ test("영문·주소는 9pt · 본문 보조색 · 줄간격 1.5 · 가운데", 
 
 // --- 4f-1 자리가 있으면 같은 쪽 ---
 
-test("★ 자리가 있으면 끝 글 쪽 **아래**에 붙고, 없으면 제 쪽으로 되돌아간다", async () => {
-  const { placeBrandOnClosingPage } = await import("../src/lib/pdfPageBreak");
-
-  /** jsdom 에는 레이아웃이 없다 — 높이를 직접 정해 두 갈래를 다 본다. */
-  const build = (fits: boolean) => {
-    const root = document.createElement("div");
-    root.innerHTML = `<div class="album-renderer__body">
-      <section class="print-closing"><div class="album-epilogue"></div></section>
-      <section class="album-renderer__brand-page"></section>
-    </div>`;
-    const closing = root.querySelector<HTMLElement>(".print-closing")!;
-    Object.defineProperty(closing, "clientHeight", { value: 1000, configurable: true });
-    Object.defineProperty(closing, "scrollHeight", { value: fits ? 900 : 1400, configurable: true });
-    return root;
-  };
-
-  const roomy = build(true);
-  assert.equal(placeBrandOnClosingPage(roomy), "closing");
-  assert.equal(roomy.querySelector(".print-closing > .album-renderer__brand-page") !== null, true, "끝 글 쪽 안에 들어가야 한다");
-  assert.equal(roomy.querySelector<HTMLElement>(".album-renderer__brand-page")!.dataset.printBrandInline, "1");
-
-  const tight = build(false);
-  assert.equal(placeBrandOnClosingPage(tight), "own-page");
-  assert.equal(tight.querySelector(".print-closing > .album-renderer__brand-page") === null, true, "제 쪽으로 되돌아가야 한다");
-  const returned = tight.querySelector<HTMLElement>(".album-renderer__brand-page")!;
-  assert.equal(returned.dataset.printBrandInline, undefined, "되돌릴 때 표시도 지운다");
-  assert.equal(returned.parentElement?.className, "album-renderer__body");
+// ★ 2026-08-22 — `placeBrandOnClosingPage`(끝 글 쪽에 자리가 있으면 브랜드를 거기 붙이던
+//   계산)는 굽던 시절의 것이라 지웠다. 서버는 맺음을 **제 쪽 한 장**으로 그린다(무게 아래).
+//   맺음 쪽이 있고 그 글자가 프런트 brand.ts 와 같은지는 backend/tests/test_album_pdf_service.py 가
+//   실제 PDF 에서 글자를 뽑아 잰다.
+test("★ 서버가 맺음을 제 쪽 한 장으로 그린다 — 무게는 아래", () => {
+  const server = readFileSync(new URL("../../backend/app/services/album_pdf_service.py", import.meta.url), "utf8");
+  assert.match(server, /def _draw_last_page\(/);
+  assert.match(server, /무게를 아래에/);
+  assert.match(server, /BRAND_LAST_PAGE_ASK = "우리도 만들어볼까\?"/);
+  assert.match(server, /BRAND_SITE_URL = "woorialbum\.com"/);
+  const pageBreak = readFileSync(new URL("../src/lib/pdfPageBreak.ts", import.meta.url), "utf8");
+  assert.equal(pageBreak.includes("export function placeBrandOnClosingPage"), false, "끝 글 쪽에 끼우는 계산이 되살아났다");
 });
 
 test("같은 쪽에 올 때는 쪽 **아래**에 붙는다 (본문 바로 뒤가 아니다)", () => {
@@ -152,11 +137,9 @@ test("★ 제 쪽으로 갈 때 — 한 장짜리이고 무게는 아래쪽이�
   assert.ok(blocks.some((block) => /justify-content: flex-end/.test(block) && /align-items: center/.test(block)));
 });
 
-test("내보내기가 이 배치를 실제로 건다", () => {
+test("내보내기는 화면을 굽지 않는다 — 배치는 서버가 한다", () => {
   const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  assert.match(exportPdf, /placeBrandOnClosingPage\(element\)/);
-  // 어디에 놓였는지 남긴다(다음에 이상하면 이 줄로 찾는다).
-  assert.match(exportPdf, /logPdf\("pdf_brand_placed"/);
-  // 페이지 정렬보다 **먼저** 옮긴다 — 옮기면 높이가 바뀐다.
-  assert.ok(exportPdf.indexOf("placeBrandOnClosingPage") < exportPdf.indexOf("alignBlocksToPrintPages(element)"));
+  const code = exportPdf.split(/\r?\n/).filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join("\n");
+  assert.equal(code.includes("placeBrandOnClosingPage"), false);
+  assert.equal(code.includes("AlbumRenderer"), false, "화면 렌더러를 PDF 에 다시 마운트한다");
 });

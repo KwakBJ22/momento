@@ -8,7 +8,7 @@ const CLAIM_WAIT_LIMIT = 5;
 
 import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, createPhotoMemory, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, removeAlbumPhoto, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
-import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
 import { albumTroubleCopy, type AlbumViewTrouble } from "../lib/albumTrouble";
 import { withAlbumVersion } from "../lib/albumVersion";
@@ -625,29 +625,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
     try {
 
-      const delivery = await downloadAlbumPdf({
-
-        albumId: source.album_id,
-
-        albumVersion: source.album_version ?? 0,
-        contributorNames: source.contributor_names ?? [],
-
-        title: source.title,
-
-        photos,
-
-        epilogue: source.epilogue ?? source.narrative ?? "",
-
-        coverDateLabel: source.date,
-
-        category: source.category,
-
-        templateType: source.template_type,
-        chapterStories: visibleChapterStories(source.chapter_stories, photos),
-        coverPhotoId: source.cover_photo_id,
-        livingAppendPages,
-
-      });
+      // PDF 는 서버가 앨범 기록으로 그린다(2026-08-22) — 화면의 사진·글을 넘기지 않는다.
+      const delivery = await downloadAlbumPdf({ albumId: source.album_id, albumVersion: source.album_version ?? 0, title: source.title });
       setPdfNotice(pdfSuccessMessage(delivery));
 
     } catch (error) {
@@ -1043,7 +1022,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     <div className="album-result__actions">
       {/* 닫아도 남는 진입점(§1) — 큰 안내를 닫은 뒤에도 여기서 저장할 수 있다. */}
       <button type="button" className="btn btn--primary" onClick={() => onGuestSave?.()}>내 앨범으로 저장하기</button>
-      <div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album || photos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>{photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}</div>
+      <div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button></div>
     </div>
   ) : (
     // 목업 2a: 앨범 하단에 버튼 열을 두지 않는다 — 공유·PDF·삭제는 공유하기/더보기

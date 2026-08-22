@@ -169,6 +169,7 @@ from app.services.collaboration_service import (
 from app.services.question_service import format_existing_answers, generate_album_questions
 from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key, visible_date_stories
 from app.services.storage_service import StorageService, album_pdf_path
+from app.services.album_pdf_service import album_from_records, build_album_pdf
 
 router = APIRouter(prefix="/api", tags=["album"])
 # ★ PDF 렌더링이 바뀌면 이 수를 올린다. 저장된 PDF 는 `album_version:r{이 수}` 로 캐시되므로,
@@ -176,6 +177,10 @@ router = APIRouter(prefix="/api", tags=["album"])
 # 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
 #   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
 PDF_RENDERER_VERSION = 3
+# ★ 서버가 그리는 첫 판형 판 (2026-08-22). 프런트 pdfPageBreak.ts 의 PRINT_LAYOUT_VERSION 과 같다.
+#   판 1·2 는 화면이 html2canvas 로 구워 PUT 으로 올리던 시절의 열쇠다 — 그 판을 물으면
+#   예전처럼 url=None 을 돌려준다(옛 화면은 제 길로 간다). 3부터는 캐시가 없으면 서버가 만든다.
+SERVER_PDF_LAYOUT = 3
 
 
 def _pdf_cache_key(version: int | str, renderer_version: int, layout: int) -> str:
@@ -2720,11 +2725,54 @@ def get_album_pdf(
     target_version = version if version is not None else album_version
     cache_key = _pdf_cache_key(target_version, renderer_version, layout)
     cached_path = get_cached_pdf_path(record, cache_key)
-    if not cached_path:
-        return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
+    if cached_path:
+        url = get_signed_url(client, get_cached_pdf_bucket(record, cache_key, settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
+        return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
 
-    url = get_signed_url(client, get_cached_pdf_bucket(record, cache_key, settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
+    # ★ 캐시가 없으면 **서버가 만든다** (PO 승인 2026-08-22 · 구조 변경).
+    #   예전에는 여기서 url=None 을 돌려주고 폰이 원본을 전부 내려받아 구웠다 — 아이폰이
+    #   멈추던 뿌리다. 원본은 서버에 있으니 서버에서 그린다(album_pdf_service).
+    #   · 저장 자리와 열쇠는 PUT 과 **같다** — 새 길을 만들지 않는다(§10).
+    #   · 옛 판(version ≠ 현재)이나 옛 판형(layout < SERVER_PDF_LAYOUT · 화면이 굽던 시절의
+    #     열쇠)은 만들지 않는다 — 옛 화면은 예전처럼 url=None 을 받고 제 길(PUT)로 간다.
+    if target_version != album_version or layout < SERVER_PDF_LAYOUT:
+        return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
+    path = _build_and_store_pdf(client, settings, record, album_id, target_version, renderer_version, layout, authenticated_user_id)
+    url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
+
+
+def _build_and_store_pdf(client, settings: Settings, record: dict, album_id: str, version: int,
+                         renderer_version: int, layout: int, user_id: str) -> str:
+    """앨범 PDF 를 서버에서 그려 PUT 과 같은 자리에 넣고, 저장 경로를 돌려준다.
+
+    사진은 한 장씩 Storage 에서 내려받아 놓는다(전부 메모리에 올리지 않는다).
+    걸린 초와 사진 수를 로그에 남긴다 — 사진 30장이 몇 초인지 운영이 봐야 한다.
+    """
+    # ★ 인쇄에는 `새로 더해진` 자리가 오지 않는다 (PO 결정 2026-08-15 · A안). 사진은 주최자가
+    #   반영해야 앨범에 들어간다 — 화면(get_album_detail)과 **같은 문턱**이다: 지금 판의 본문
+    #   (album_json)에 실린 사진만. 문턱을 새로 만들지 않고 같은 함수를 쓴다.
+    document, _append_pages = _edition_document_and_pages(record, None)
+    document_photo_ids = album_document_photo_ids(document)
+    all_rows = get_album_photo_records(client, album_id)
+    photo_rows = [row for row in all_rows if not document_photo_ids or str(row["id"]) in document_photo_ids]
+    stories = visible_date_stories(record.get("chapter_stories"), photo_rows)
+    contributor_names = list_active_contributor_names(client, album_id)
+    album = album_from_records(record, photo_rows, contributor_names, stories)
+    storage = StorageService.for_supabase(client, settings)
+    content, report = build_album_pdf(album, storage.download)
+    logger.info(
+        "pdf_server_built album=%s photos=%s pages=%s failed=%s seconds=%s bytes=%s layout=%s",
+        album_id, len(photo_rows), len(report.pages), len(report.failed_photo_ids), report.seconds, len(content), layout,
+    )
+    path = album_pdf_path(album_id, f"l{layout}-{uuid4()}")
+    storage.upload(settings.supabase_private_storage_bucket, path, content, content_type="application/pdf")
+    set_cached_pdf_path(client, record, _pdf_cache_key(version, renderer_version, layout), path, settings.supabase_private_storage_bucket)
+    log_event(client, "pdf_generated", album_id=album_id, metadata={
+        "owner_id": user_id, "built_by": "server", "photos": len(photo_rows),
+        "failed_photos": len(report.failed_photo_ids), "seconds": report.seconds,
+    })
+    return path
 
 
 @router.put("/albums/{album_id}/pdf")

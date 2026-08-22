@@ -49,11 +49,12 @@ test("표기: 함께하고 붙여쓰기 + 이름 받침에 따른 로/으로", (
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
 test("whoami 띠·내가 더한 것은 PDF·공유 렌더로 새지 않는다", () => {
-  // PDF 는 AlbumScreen 을 거치지 않고 AlbumRenderer(print)만 직접 마운트한다 —
-  // preHeader(whoami)·headerSupplement(mine)는 캡처 대상 밖.
+  // ★ 2026-08-22 — PDF 는 서버가 앨범 기록으로 그린다(AlbumScreen 도 AlbumRenderer 도 거치지
+  //   않는다). preHeader(whoami)·headerSupplement(mine)는 화면 전용이라 갈 길이 없다.
   const pdf = read("lib/exportPdf.tsx");
-  assert.match(pdf, /<AlbumRenderer/);
   assert.doesNotMatch(pdf, /AlbumScreen|preHeader|album-whoami|album-mine|viewer_participation/);
+  const server = readFileSync(new URL("../../backend/app/services/album_pdf_service.py", import.meta.url), "utf8");
+  assert.doesNotMatch(server, /whoami|viewer_participation/);
   // 공유 화면에도 참여 정체성 띠·"내가 더한 것"은 없다. 공유 응답에 viewer_participation
   // 자체가 없기 때문이다. ★ preHeader **자리** 자체는 금지가 아니다 — F-1 의 담아두기
   // 안내가 그 자리를 쓴다(§1 9차). 금지된 것은 이 세 가지 내용물이다.

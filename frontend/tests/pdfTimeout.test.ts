@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { PDF_TIMEOUT_MS, PdfTimeoutError, canvasFits, withPdfTimeout } from "../src/lib/pdfTimeout";
+import { PDF_TIMEOUT_MS, PdfTimeoutError, withPdfTimeout } from "../src/lib/pdfTimeout";
 import { PDF_TIMEOUT_MESSAGE } from "../src/lib/pdfNotice";
 
 /**
@@ -77,33 +77,23 @@ test("★ 시간 값은 사람이 `멈췄다` 고 느끼기 전이다 — 근거
   assert.match(source, /실측/, "왜 그 값인지가 적혀 있지 않다");
 });
 
-test("★ 만들기 전에 이 기기가 할 수 있는지 재본다 — 숫자를 기기별로 박지 않는다", () => {
-  // 잴 수 있는 크기는 그대로 통과한다.
-  assert.equal(canvasFits(10, 10), true);
-  // 크기가 0 이하이거나 잴 것이 없으면 막지 않는다 — 모른다고 못 하게 하지 않는다.
-  assert.equal(canvasFits(0, 0), true);
-
+// ★ 2026-08-22 — PDF 는 서버가 그린다. 기기가 캔버스를 만들 수 있는지 재보던 `canvasFits` 와
+//   30장 상한은 잴 캔버스가 없어져 지웠다(albumLimits.test 가 되살아나지 않는지 본다).
+//   시간 제한은 남는다 — 기다리는 것이 캔버스에서 **서버 응답**으로 바뀌었을 뿐이다.
+test("★ 기기 재보기는 없다 — 잴 캔버스가 없다", () => {
   const source = readFileSync(new URL("../src/lib/pdfTimeout.ts", import.meta.url), "utf8");
-  // 크기만 보지 않는다 — 사파리는 한계를 넘으면 **조용히 비운다**.
-  assert.match(source, /getImageData\(0, 0, 1, 1\)/);
-  // 시험용 캔버스는 바로 버린다.
-  assert.match(source, /finally \{\s*\r?\n\s*canvas\.width = 0;/);
+  assert.equal(source.includes("export function canvasFits"), false, "canvasFits 가 되살아났다");
+  assert.equal(source.includes('createElement("canvas")'), false);
+  // 왜 없어졌는지가 적혀 있다.
+  assert.match(source, /서버가 그린다/);
 });
 
-test("★ 30장 상한은 그대로다 — 이번에 더한 것은 그 아래를 잡는 그물이다", () => {
-  const limits = readFileSync(new URL("../src/lib/albumLimits.ts", import.meta.url), "utf8");
-  assert.match(limits, /export const PDF_PHOTO_SAFE_LIMIT = 30;/);
-  // 기기가 못 할 때의 문구는 장수 탓을 하지 않는다 — 같은 앨범이 컴퓨터에서는 만들어진다.
-  assert.match(limits, /export const PDF_DEVICE_BLOCKED_REASON = /);
-});
-
-test("★ 만드는 자리에 시간 제한과 기기 재보기가 실제로 걸려 있다", () => {
+test("★ 청하는 자리에 시간 제한이 실제로 걸려 있다 — 서버를 기다리는 그물", () => {
   const source = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  assert.match(source, /withPdfTimeout\(html2pdf\(\)/);
-  assert.match(source, /outputPdf\("blob"\), PDF_TIMEOUT_MESSAGE\)/);
-  assert.match(source, /if \(!canvasFits\(sourceWidthPx, sourceHeightPx\)\)/);
-  // 막을 때는 이유를 말한다 — 조용히 끝내지 않는다(§11).
-  assert.match(source, /throw new Error\(PDF_DEVICE_BLOCKED_REASON\)/);
+  assert.match(source, /await withPdfTimeout\(getAlbumPdfUrl\(input\.albumId, input\.albumVersion\), PDF_TIMEOUT_MESSAGE\)/);
+  // 굽는 자리는 없다(설명 주석은 빼고 본다).
+  const code = source.split(/\r?\n/).filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join("\n");
+  assert.equal(code.includes("html2pdf"), false);
 });
 
 test("★ 문구에 기술 용어를 쓰지 않는다 (§8)", () => {
