@@ -21,6 +21,7 @@ from app.services.account_merge_service import (
     find_merge_candidate,
     find_merged_away,
     merge_profiles,
+    provider_korean_label,
 )
 from app.services.profile_contact_service import get_contact, save_contact
 from app.services.auth import require_authenticated_user, verify_access_token
@@ -43,6 +44,23 @@ def bootstrap_auth_user(
     """Ensure an authenticated user has a profile and default family, and attribute any
     guest contributions made before login to this account (best-effort)."""
     client = get_supabase_client()
+    # ★ 합쳐져 닫힌 계정으로 들어왔는가 (2026-08-21 · 계정 합치기 ③).
+    #   auth.users 를 지우지 않으므로 옛 방법으로 다시 로그인할 수 있다. 그대로 두면
+    #   아래 ensure_default_family 가 `Active profile does not exist` 로 터져 맨 500 이
+    #   화면에 간다 — 방금 합친 사람이 고장으로 읽는다.
+    #   ★ 새 프로필을 만들지 않는다(만들면 방금 합친 것이 도로 갈라진다).
+    #   ★ 화면이 이 detail 을 그대로 보여준다(App 의 bootstrapError) — 남은 계정으로 안내한다.
+    #   조회가 실패하면 그냥 지나간다 — 안내 하나 때문에 정상 로그인을 막지 않는다(§11).
+    try:
+        merged_away = find_merged_away(client, authenticated_user_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("merged_away_lookup_failed error_type=%s", type(exc).__name__)
+        merged_away = None
+    if merged_away:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"이 계정은 이미 다른 계정과 합쳐졌어요. {provider_korean_label(merged_away.get('provider'))}(으)로 로그인해 주세요.",
+        )
     family_id = ensure_default_family(client, authenticated_user_id)
     limits = get_user_limits(authenticated_user_id)
 

@@ -24,6 +24,18 @@ from supabase import Client
 logger = logging.getLogger(__name__)
 
 
+def provider_korean_label(provider: str | None) -> str:
+    """어느 길로 로그인하는지 사람 말로. 모르면 지어내지 않는다."""
+    value = (provider or "").strip().lower()
+    if value == "kakao":
+        return "카카오"
+    if value == "email":
+        return "이메일"
+    if value == "naver":
+        return "네이버"
+    return "남은 계정"
+
+
 def normalized_email(value: str | None) -> str:
     """이메일 비교는 **소문자·공백 제거**로 한 곳에서 한다. 두 곳이 갈리면 안 된다."""
     return (value or "").strip().lower()
