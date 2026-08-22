@@ -176,6 +176,22 @@ router = APIRouter(prefix="/api", tags=["album"])
 # 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
 #   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
 PDF_RENDERER_VERSION = 3
+
+
+def _pdf_cache_key(version: int | str, renderer_version: int, layout: int) -> str:
+    """PDF 캐시 열쇠 (2026-08-21 — 판형 판을 더했다).
+
+    ★ 열쇠가 album_version 하나면 **내용이 그대로인 앨범은 판형을 아무리 고쳐도
+      옛 파일을 받는다.** 실제로 dev 에서 8월 16일 A4 파일이 엿새 뒤에도 그대로
+      나왔다 — 정사각 판형(206×206)을 올린 뒤였다. 프런트가 보내는 판형 판
+      (`layout` · pdfPageBreak.ts 의 PRINT_LAYOUT_VERSION)을 열쇠에 함께 넣는다.
+    ★ `layout` 이 없거나 1이면 **예전 열쇠 그대로**다 — 옛 화면(param 없이 부르는)이
+      자기 캐시를 계속 쓴다. 기존 계약을 깨지 않는다(§10).
+    ★ 옛 파일은 지우지 않는다. 열쇠가 달라지면 안 쓰일 뿐이고, 정리는 30일 만료
+      스크립트 몫이다.
+    """
+    base = f"{version}:r{renderer_version}"
+    return base if layout <= 1 else f"{base}:l{layout}"
 # 저장된 `새로 더해진` 페이지가 아직 하나도 없을 때, 계산해서 세우는 한 장의 id.
 # ★ 값이 고정이어야 한다 — 화면이 이 id 로 `NEW` 표시를 기억한다(sessionStorage).
 _PENDING_APPEND_PAGE_ID = "pending-contributions"
@@ -2688,6 +2704,8 @@ def get_album_pdf(
     album_id: str,
     version: int | None = Query(default=None),
     renderer_version: int = Query(default=PDF_RENDERER_VERSION),
+    # 판형 판 — 프런트의 PRINT_LAYOUT_VERSION. 없으면 1(예전 그대로)이다.
+    layout: int = Query(default=1, ge=1),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
     settings = get_settings()
@@ -2700,11 +2718,12 @@ def get_album_pdf(
 
     album_version = int(record.get("album_version") or 0)
     target_version = version if version is not None else album_version
-    cached_path = get_cached_pdf_path(record, f"{target_version}:r{renderer_version}")
+    cache_key = _pdf_cache_key(target_version, renderer_version, layout)
+    cached_path = get_cached_pdf_path(record, cache_key)
     if not cached_path:
         return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
 
-    url = get_signed_url(client, get_cached_pdf_bucket(record, f"{target_version}:r{renderer_version}", settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
+    url = get_signed_url(client, get_cached_pdf_bucket(record, cache_key, settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
 
 
@@ -2713,6 +2732,8 @@ async def upload_album_pdf(
     album_id: str,
     version: int = Query(...),
     renderer_version: int = Query(default=PDF_RENDERER_VERSION),
+    # 판형 판 — 찾을 때와 **같은 열쇠**로 올려야 다음 조회가 이 파일을 찾는다.
+    layout: int = Query(default=1, ge=1),
     file: UploadFile = File(...),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
@@ -2731,11 +2752,13 @@ async def upload_album_pdf(
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="PDF 파일이 아닙니다.")
 
-    path = album_pdf_path(album_id, str(uuid4()))
+    # 파일 이름에 판형 판을 넣는다 — uuid 라 덮어쓸 일은 없지만, 파일만 보고도
+    # 어느 판형인지 알 수 있어야 한다(정리 스크립트·조사가 그 이름을 본다).
+    path = album_pdf_path(album_id, f"l{layout}-{uuid4()}")
     StorageService.for_supabase(client, settings).upload(
         settings.supabase_private_storage_bucket, path, content, content_type="application/pdf"
     )
-    set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path, settings.supabase_private_storage_bucket)
+    set_cached_pdf_path(client, record, _pdf_cache_key(version, renderer_version, layout), path, settings.supabase_private_storage_bucket)
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)

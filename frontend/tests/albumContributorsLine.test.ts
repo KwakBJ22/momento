@@ -112,5 +112,8 @@ test("★ 렌더링이 바뀌면 저장된 옛 PDF 를 다시 주지 않는다 (
   const album = readFileSync(new URL("../../backend/app/api/album.py", import.meta.url), "utf8");
   // 캐시 키가 `album_version:r{렌더러 버전}` 이라, 앨범 내용이 그대로면 옛 PDF 가 그대로 나온다.
   assert.match(album, /PDF_RENDERER_VERSION = 3/);
-  assert.match(album, /cached_path = get_cached_pdf_path\(record, f"\{target_version\}:r\{renderer_version\}"\)/);
+  // ★ 2026-08-21 — 열쇠에 판형 판(layout)이 더해져 _pdf_cache_key 하나로 모였다.
+  //   지키는 것은 그대로다: 저장과 조회가 **같은 열쇠**를 쓴다. 판형이 다르면 캐시가 안 쓰인다.
+  assert.match(album, /cached_path = get_cached_pdf_path\(record, cache_key\)/);
+  assert.match(album, /_pdf_cache_key\(target_version, renderer_version, layout\)/);
 });

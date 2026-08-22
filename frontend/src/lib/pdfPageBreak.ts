@@ -18,6 +18,21 @@ export const PRINT_PAGE_ASPECT = 1;
  */
 export const PRINT_PAGE_MM = 206;
 
+/**
+ * 인쇄 판형 판(版) — **인쇄 결과가 달라지는 변경마다 올린다.** 올리면 옛 캐시가 안 쓰인다.
+ *
+ * ★ 왜 필요한가(PO 실측 2026-08-21): 캐시 열쇠가 album_version 뿐이라, 내용이 그대로인
+ *   앨범은 판형을 아무리 고쳐도 **8월 16일 A4 파일**을 그대로 받았다. 오늘 누른 PDF 가
+ *   만들어진 적이 없었다 — 3초 만에 끝난 것도 빨라서가 아니라 아무것도 안 만들어서다.
+ * ★ 이 값은 GET/PUT `/albums/{id}/pdf` 의 `layout` 인자로 실려 가 저장 열쇠에 함께
+ *   들어간다(백엔드 _pdf_cache_key). 옛 파일은 지우지 않는다 — 안 쓰일 뿐이다.
+ * ★ 올릴 때는 **왜 올리는지 한 줄**을 남긴다. 숫자만 있으면 다음 사람이 못 올린다.
+ *
+ *   1 = A4 세로 (~2026-08-16)
+ *   2 = 정사각 206×206 · 표지 6종 · 본문 배치 · 날짜 머리 B안 · 펼침면 (2026-08-21)
+ */
+export const PRINT_LAYOUT_VERSION = 2;
+
 export const PRINT_PAGE_EPS = 2; // px tolerance so a block sitting exactly on the line is not falsely pushed
 
 /**

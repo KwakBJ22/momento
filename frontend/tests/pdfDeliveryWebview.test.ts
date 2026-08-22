@@ -36,7 +36,9 @@ test("저장 버전이 맞아야 받아 주는 규칙은 그대로다", () => {
   assert.match(put, /status_code=409/);
   // 저장 경로 자체는 살아 있다 — 올리고, 캐시 키에 적고, 서명 URL 을 돌려준다.
   assert.match(put, /StorageService\.for_supabase\(client, settings\)\.upload\(/);
-  assert.match(put, /set_cached_pdf_path\(client, record, f"\{version\}:r\{renderer_version\}"/);
+  // ★ 2026-08-21 — 열쇠에 판형 판(layout)이 더해져 _pdf_cache_key 하나로 모였다.
+  //   지키는 것은 그대로다: 저장과 조회가 **같은 열쇠**를 쓴다. 판형이 다르면 캐시가 안 쓰인다.
+  assert.match(put, /set_cached_pdf_path\(client, record, _pdf_cache_key\(version, renderer_version, layout\)/);
   assert.match(put, /url = get_signed_url\(/);
 });
 
@@ -54,8 +56,12 @@ test("★ 인앱 브라우저에서는 blob 이 아니라 올린 파일의 주�
 
 test("저장·조회가 같은 캐시 키를 쓴다 (렌더러 버전 포함)", () => {
   const album = back("api/album.py");
-  assert.match(album, /cached_path = get_cached_pdf_path\(record, f"\{target_version\}:r\{renderer_version\}"\)/);
-  assert.match(album, /set_cached_pdf_path\(client, record, f"\{version\}:r\{renderer_version\}"/);
+  // ★ 2026-08-21 — 열쇠에 판형 판(layout)이 더해져 _pdf_cache_key 하나로 모였다.
+  //   지키는 것은 그대로다: 저장과 조회가 **같은 열쇠**를 쓴다. 판형이 다르면 캐시가 안 쓰인다.
+  assert.match(album, /cache_key = _pdf_cache_key\(target_version, renderer_version, layout\)/);
+  assert.match(album, /set_cached_pdf_path\(client, record, _pdf_cache_key\(version, renderer_version, layout\)/);
+  // 판형 판도 두 경로가 같은 기본값(1)을 쓴다 — 한쪽만 바뀌면 저장한 것을 못 찾는다.
+  assert.equal((album.match(/layout: int = Query\(default=1, ge=1\)/g) || []).length, 2);
   // 두 경로 모두 같은 기본값을 쓴다 — 한쪽만 바뀌면 저장한 것을 못 찾는다.
   assert.equal((album.match(/renderer_version: int = Query\(default=PDF_RENDERER_VERSION\)/g) || []).length, 2);
 });

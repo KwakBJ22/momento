@@ -3,6 +3,7 @@ import { getAccessToken, getSession, refreshSession } from "../services/authServ
 import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
 import { COLLAB_SESSION_KEY } from "./contributionAttribution";
+import { PRINT_LAYOUT_VERSION } from "./pdfPageBreak";
 import { getVisitorToken } from "./visitorToken";
 
 /**
@@ -464,8 +465,11 @@ export async function getAlbumPdfUrl(
   albumId: string,
   albumVersion: number,
 ): Promise<{ url: string | null; album_version: number; cached: boolean }> {
+  // ★ 판형 판(layout)을 함께 보낸다(2026-08-21). 앨범 내용이 그대로여도 판형이 바뀌면
+  //   옛 캐시를 받으면 안 된다 — 실제로 8월 16일 A4 파일이 엿새 뒤에도 나왔다.
+  //   찾을 때와 올릴 때 **같은 열쇠**여야 한다(아래 uploadAlbumPdf 와 같은 값).
   const response = await authenticatedFetch(
-    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
+    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}&layout=${PRINT_LAYOUT_VERSION}`,
   );
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { url: string | null; album_version: number; cached: boolean };
@@ -477,7 +481,7 @@ export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob
   const form = new FormData();
   form.append("file", blob, `woorialbum-${albumId}-v${albumVersion}.pdf`);
   const response = await authenticatedFetch(
-    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
+    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}&layout=${PRINT_LAYOUT_VERSION}`,
     { method: "PUT", body: form },
   );
   if (!response.ok) {
