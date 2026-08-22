@@ -2,9 +2,10 @@ import { createRoot } from "react-dom/client";
 import AlbumRenderer, { waitForAlbumAssets } from "../album-engine/AlbumRenderer";
 import type { AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import { getAlbumPdfUrl, uploadAlbumPdf } from "./api";
-import { PDF_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
+import { PDF_BLOCKED_REASON, PDF_DEVICE_BLOCKED_REASON, PDF_PHOTO_SAFE_LIMIT } from "./albumLimits";
 import { currentUserAgent, isInAppWebView, isIosWebKit } from "./webview";
-import { PDF_GENERIC_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
+import { PDF_GENERIC_MESSAGE, PDF_TIMEOUT_MESSAGE, pdfFailureMessage, webviewSaveMessage, type PdfDelivery } from "./pdfNotice";
+import { canvasFits, withPdfTimeout } from "./pdfTimeout";
 import { pdfDownloadFilename } from "./pdfFilename";
 import { PDF_CANVAS_SCALE, PRINT_PAGE_ASPECT, PRINT_PAGE_MM, placeBrandOnClosingPage, printPageStraddleGap, wholePagesCaptureHeightPx } from "./pdfPageBreak";
 
@@ -160,14 +161,33 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
     }
 
     // 캔버스 상한을 넘으면 html2canvas 는 예외 대신 빈 결과를 준다 — 먼저 잡아 이유를 말한다.
+    const sourceWidthPx = element.getBoundingClientRect().width * CANVAS_SCALE;
     const sourceHeightPx = element.scrollHeight * CANVAS_SCALE;
     if (sourceHeightPx > CANVAS_MAX_PX) {
       logPdf("pdf_canvas_overflow", { photos: input.photos.length, height: Math.round(sourceHeightPx), max: CANVAS_MAX_PX });
       throw new Error(PDF_BLOCKED_REASON);
     }
+    // ★ 위 상한은 **크롬 기준**이다(albumLimits 주석의 근거가 그렇다). 사파리의 한계는
+    //   치수가 아니라 **넓이**고 훨씬 낮아, 크롬에서 안전한 크기가 아이폰에서는 넘는다.
+    //   숫자를 기기별로 박아 넣지 않고 **그 크기의 캔버스를 실제로 만들어 본다.**
+    //   못 만들면 오래 기다리게 하지 않고 여기서 막는다 — 30장 가드와 같은 방식이다.
+    if (!canvasFits(sourceWidthPx, sourceHeightPx)) {
+      logPdf("pdf_canvas_unavailable", {
+        photos: input.photos.length,
+        width: Math.round(sourceWidthPx),
+        height: Math.round(sourceHeightPx),
+      });
+      throw new Error(PDF_DEVICE_BLOCKED_REASON);
+    }
 
     const { default: html2pdf } = await import("html2pdf.js");
-    const blob = await html2pdf()
+    // ★ **끝나지 않으면 끝나지 않았다고 말한다** (PO 실측 2026-08-21 · 아이폰).
+    //   html2canvas 는 한계를 넘으면 예외도 거부도 없이 돌아오지 않는다. 그러면 화면은
+    //   `만들고 있어요` 에서 영원히 멈춘다(만드는 동안에는 닫기 버튼도 없다 — 의도된 것이다).
+    //   시간이 넘으면 실패로 끝맺어 화면이 그 상태에서 빠져나오게 한다.
+    //   ★ 하던 일을 멈추지는 못한다. 그래도 끝나지 않는 것보다 낫다.
+    //   ★ 여기서 던져도 아래 finally 가 돌아 화면 밖 렌더 자리는 치워진다.
+    const blob = await withPdfTimeout(html2pdf()
       .set({
         margin: [0, 0, 0, 0],
         filename: pdfFilename(input),
@@ -188,7 +208,7 @@ export async function renderAlbumPdfBlob(input: AlbumPdfInput): Promise<Blob> {
         pagebreak: { mode: [] },
       } as Record<string, unknown>)
       .from(element)
-      .outputPdf("blob");
+      .outputPdf("blob"), PDF_TIMEOUT_MESSAGE);
 
     return blob as Blob;
   } catch (error) {

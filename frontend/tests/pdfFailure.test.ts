@@ -14,9 +14,16 @@ test("성공 문구는 경로별로 사실만 말한다 — '저장했다'고 �
   for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
     assert.ok(pdfSuccessMessage(delivery).startsWith("앨범 파일이 준비됐어요."), delivery.via);
   }
-  // 그 다음 문장은 경로별로 갈린다 — 어디서 찾는지가 다르다.
-  assert.match(pdfSuccessMessage({ via: "download" }), /기기의 다운로드에서 확인해 주세요/);
-  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /휴대전화 알림을 누르면 열려요/);
+  // ★ 2026-08-21 뒤집음(§10-2) — 그 다음 문장을 **경로별로 가르지 않는다.**
+  //   예전에는 서버 주소로 보낸 경우에 `휴대전화 알림 · 파일 앱의 다운로드 폴더` 라고 했다.
+  //   그런데 그 길은 **데스크톱에서도 탄다**(이미 만들어 둔 파일이 있으면 그 주소로 보낸다).
+  //   데스크톱에는 휴대전화도 파일 앱도 없다 — PO 가 데스크톱에서 그 문장을 봤다.
+  //   두 길 다 결국 **파일을 받는** 것으로 끝나므로 양쪽에 다 맞는 한 문장으로 둔다.
+  for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
+    assert.match(pdfSuccessMessage(delivery), /기기의 다운로드에서 확인해 주세요/, delivery.via);
+    assert.equal(pdfSuccessMessage(delivery).includes("휴대전화"), false, `${delivery.via}: 데스크톱에 없는 것을 말한다`);
+    assert.equal(pdfSuccessMessage(delivery).includes("파일 앱"), false, `${delivery.via}: 데스크톱에 없는 것을 말한다`);
+  }
   // ★ 어느 경로도 "저장했어요"라고 단정하지 않는다 — 파일이 만들어진 것까지가 아는 사실이다.
   for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
     assert.doesNotMatch(pdfSuccessMessage(delivery), /저장했어요/, delivery.via);
@@ -129,10 +136,11 @@ test("PDF 전달은 새 창을 만들지 않는다 — 빈 창이 남지 않게"
   assert.match(code, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
 });
 
-test("저장 뒤 안내는 어디서 볼 수 있는지·무엇을 하면 되는지까지 말한다", () => {
+test("저장 뒤 안내는 어디서 볼 수 있는지까지 말한다", () => {
   const message = pdfSuccessMessage({ via: "browser-url", url: "u" });
-  assert.match(message, /알림을 누르면 열려요/);      // 무엇을 하면 되는지
-  assert.match(message, /‘다운로드’ 폴더/);            // 알림이 지나갔을 때 어디서 보는지
+  // ★ 2026-08-21 뒤집음(§10-2) — `알림을 누르면` · `파일 앱` 은 휴대전화에만 있는 말이고,
+  //   이 길은 데스크톱에서도 탄다. 지키는 것은 그대로다: **어디서 볼 수 있는지** 말한다.
+  assert.match(message, /기기의 다운로드에서 확인해 주세요/);
   for (const forbidden of ["곧", "준비 중", "출시 예정", "AI", "GPT", "인공지능"]) {
     assert.equal(message.includes(forbidden), false, `쓰지 않는 표현: ${forbidden}`);
   }

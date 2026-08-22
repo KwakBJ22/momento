@@ -63,6 +63,9 @@
   font-size: 15px;
 }
 
+/* 끝났다는 말 — 오류 껍데기(`__error`)를 빌려 쓰지 않는다. 이름이 성격을 말한다. */
+.account-merge-sheet__done { margin: 0; }
+
 .account-merge-sheet__actions {
   display: flex;
   gap: 10px;

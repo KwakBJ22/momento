@@ -63,7 +63,7 @@ export default function LinkMethodSheet({ provider, email, onClose }: LinkMethod
             지금 {providerLabel(provider)}로 로그인 중{email ? ` · ${email}` : ""}
           </p>
           {done ? (
-            <p className="notice notice--success account-merge-sheet__error" role="status">{done}</p>
+            <p className="notice notice--success account-merge-sheet__done" role="status">{done}</p>
           ) : (
             <>
               <label className="account-merge-sheet__label" htmlFor="link-password">쓸 비밀번호</label>
