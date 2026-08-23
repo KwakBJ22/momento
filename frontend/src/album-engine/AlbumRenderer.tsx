@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumCategory, AlbumPhoto, AlbumTemplateType, LivingAppendPage } from "../types";
 import AlbumCover from "./components/AlbumCover";
 import BrandMark from "./components/BrandMark";
@@ -33,7 +33,7 @@ import "../styles/loading.css";
 import "./AlbumRenderer.css";
 // 앨범 모양 6종의 **배치 규칙**. 모든 선택자가 `--screen` 안에 있어 인쇄에는 못 샌다.
 import "./AlbumSkins.css";
-import { BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
+import { BRAND_LAST_PAGE_ASK, BRAND_LAST_PAGE_BODY, BRAND_NAME_EN, BRAND_NAME_KO, BRAND_PDF_FOOTER, BRAND_PDF_INVITE, BRAND_SITE_URL } from "../lib/brand";
 
 // 기존 import 경로 호환: exportPdf 등은 AlbumRenderer 에서 waitForAlbumAssets 를 가져온다.
 export { waitForAlbumAssets } from "./waitForAlbumAssets";
@@ -394,10 +394,10 @@ export default function AlbumRenderer({
           placeKey={storyKey}
           placePhotoIds={chapter.photos.map((photo) => photo.id)}
         />
-        {/* ★ `--photo-total` 은 `한 장씩 크게` 모양의 `1 / N` 이 쓰는 값이다.
-            그 날짜 묶음의 장수일 뿐 새 데이터가 아니고, 세는 것은 CSS 카운터가 한다 —
-            모양별 분기 코드를 만들지 않으려고 값만 늘 실어 둔다(다른 모양은 안 쓴다). */}
-        <div className="album-screen-photo-grid" style={{ "--photo-total": chapter.photos.length } as CSSProperties}>
+        {/* ★ 예전에는 `--photo-total` 을 실어 `한 장씩 크게` 모양이 사진 아래에
+            `1 / 9` 를 그렸다. **없앴다**(PO 2026-08-19) — 앨범은 포토북이지 목록이
+            아니다. 세는 값이 필요 없어졌으므로 실어 보내지도 않는다. */}
+        <div className="album-screen-photo-grid">
           {chapter.photos.map((photo, photoIndex) => (
             <PhotoWithMemories
               key={photo.id}
@@ -496,9 +496,23 @@ export default function AlbumRenderer({
           )}
 
           {mode === "print" ? (
-            /* 끝 글은 한 장으로 묶는다 — "우리의 이야기" 와 "함께 만든 사람" 이 갈라지지 않게. */
+            /* 끝 글은 한 장으로 묶는다 — "우리의 이야기" 와 "함께 만든 사람" 이 갈라지지 않게.
+               ★ 숫자 요약(만난 날 · 실린 사진 · 함께한 사람)이 그 사이에 든다(시안 §6).
+                 **두 판 공통**이다 — 무료판이든 인쇄본이든 이 쪽으로 책이 닫힌다. */
             <section className="print-closing">
               <AlbumEpilogue epilogue={epilogueText} templateType={templateType} />
+              <dl className="print-closing__counts">
+                {[
+                  ["만난 날", album?.chapters.filter((chapter) => chapter.date).length ?? 0],
+                  ["실린 사진", photos.length],
+                  ["함께한 사람", contributorNames.length],
+                ].map(([label, value]) => (
+                  <div className="print-closing__count" key={String(label)}>
+                    <dd className="print-closing__count-value">{value}</dd>
+                    <dt className="print-closing__count-label">{label}</dt>
+                  </div>
+                ))}
+              </dl>
               <AlbumContributors names={contributorNames} />
             </section>
           ) : (
@@ -546,24 +560,37 @@ export default function AlbumRenderer({
           {/* ★ 마지막 브랜드 페이지 — 독립 페이지로 두고 크게. 이 PDF 가 이 서비스를
               알리는 유일한 자리다(§9). 이름은 글자가 아니라 **로고 조합**으로 쓴다
               (BrandMark: 우리(진한 글자색) + 앨범(브랜드색)). 없는 것을 약속하지 않는다(§10). */}
+          {/* 마지막 장 — **무료판에만** 붙는다 (시안 §6).
+              ★ 유료 인쇄본에는 이 장이 없고 `우리의 이야기` 가 마지막 쪽이다.
+                지금 PDF 로 내려받는 길은 무료판 하나뿐이라 늘 붙는다 —
+                인쇄본을 파는 길이 생기면 그때 이 값을 부르는 쪽이 정한다.
+              ★ **로고를 활자 한 줄로 대신한다**(시안). 그림 로고를 크게 앉히던 예전
+                자리다 — 마지막 장은 광고가 아니라 조용한 안내다.
+              ★ 무게를 아래쪽에만 둔다. 위는 비운다. */}
           <section className="album-renderer__brand-page">
-            <BrandMark label={BRAND_NAME_KO} />
-            {/* 로고 아래 영문과 주소(I-4f-2). 인쇄에만 넣는다 — 화면 렌더는 건드리지
-                않는다. 문자열은 lib/brand.ts 한 곳에서 읽는다(§3). 주소는 **글자로만**
-                쓴다 — 인쇄물이라 링크로 만들지 않는다. */}
             {mode === "print" ? (
-              <p className="album-renderer__brand-id">
-                <span className="album-renderer__brand-en">{BRAND_NAME_EN}</span>
-                <span className="album-renderer__brand-url">{BRAND_SITE_URL}</span>
-              </p>
-            ) : null}
-            {/* ★ 두 줄을 한 상자에 묶는다(I-4-6). 따로 두면 줄마다 가운데를 맞추느라
-                시작 위치가 어긋나, 실물에서 둘째 줄 앞에 공백이 하나 있는 것처럼
-                보였다(실측 0.74mm 차이 — 글자 하나 폭이다). */}
-            <div className="album-renderer__brand-lines">
-              <p>{BRAND_PDF_FOOTER}</p>
-              <p>{BRAND_PDF_INVITE}</p>
-            </div>
+              <>
+                <div className="album-renderer__brand-ask">
+                  <p className="album-renderer__brand-ask-title">{BRAND_LAST_PAGE_ASK}</p>
+                  <p className="album-renderer__brand-ask-body">{BRAND_LAST_PAGE_BODY}</p>
+                </div>
+                <div className="album-renderer__brand-id">
+                  {/* 로고 자리 — 활자 한 줄이다. */}
+                  <p className="album-renderer__brand-en">{BRAND_NAME_EN}</p>
+                  <p className="album-renderer__brand-url">{BRAND_SITE_URL}</p>
+                </div>
+              </>
+            ) : (
+              /* ★ 화면은 **예전 그대로**다(§ 화면을 건드리지 않는다). 시안이 바꾼 것은
+                 인쇄의 마지막 장이다 — 화면 끝은 로고와 두 줄 그대로 둔다. */
+              <>
+                <BrandMark label={BRAND_NAME_KO} />
+                <div className="album-renderer__brand-lines">
+                  <p>{BRAND_PDF_FOOTER}</p>
+                  <p>{BRAND_PDF_INVITE}</p>
+                </div>
+              </>
+            )}
           </section>
         </div>
         </PlaceEditProvider>

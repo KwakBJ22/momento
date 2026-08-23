@@ -45,6 +45,8 @@ from app.models.schemas import (
     ALBUM_PAPER_VALUES,
     ALBUM_SKIN_VALUES,
     AlbumSettingsUpdate,
+    normalize_album_paper,
+    normalize_album_skin,
     StoryInputResponse,
     StoryInputUpdate,
     StoryRegenerateResponse,
@@ -167,6 +169,7 @@ from app.services.collaboration_service import (
 from app.services.question_service import format_existing_answers, generate_album_questions
 from app.services.story_rules import MIN_DATE_STORY_PHOTO_COUNT, photo_date_key, visible_date_stories
 from app.services.storage_service import StorageService, album_pdf_path
+from app.services.album_pdf_service import album_from_records, build_album_pdf
 
 router = APIRouter(prefix="/api", tags=["album"])
 # ★ PDF 렌더링이 바뀌면 이 수를 올린다. 저장된 PDF 는 `album_version:r{이 수}` 로 캐시되므로,
@@ -174,6 +177,26 @@ router = APIRouter(prefix="/api", tags=["album"])
 # 실제로 그렇게 됐다: "함께 만든 사람" 줄을 넣고 배포했는데 PDF 에 안 나왔다(원인 둘 중 하나).
 #   2 → 3: 열람용 PDF 재작성 (표지·브랜드 독립 페이지, 한 장에 사진 4장, 프레임, display 화질)
 PDF_RENDERER_VERSION = 3
+# ★ 서버가 그리는 첫 판형 판 (2026-08-22). 프런트 pdfPageBreak.ts 의 PRINT_LAYOUT_VERSION 과 같다.
+#   판 1·2 는 화면이 html2canvas 로 구워 PUT 으로 올리던 시절의 열쇠다 — 그 판을 물으면
+#   예전처럼 url=None 을 돌려준다(옛 화면은 제 길로 간다). 3부터는 캐시가 없으면 서버가 만든다.
+SERVER_PDF_LAYOUT = 3
+
+
+def _pdf_cache_key(version: int | str, renderer_version: int, layout: int) -> str:
+    """PDF 캐시 열쇠 (2026-08-21 — 판형 판을 더했다).
+
+    ★ 열쇠가 album_version 하나면 **내용이 그대로인 앨범은 판형을 아무리 고쳐도
+      옛 파일을 받는다.** 실제로 dev 에서 8월 16일 A4 파일이 엿새 뒤에도 그대로
+      나왔다 — 정사각 판형(206×206)을 올린 뒤였다. 프런트가 보내는 판형 판
+      (`layout` · pdfPageBreak.ts 의 PRINT_LAYOUT_VERSION)을 열쇠에 함께 넣는다.
+    ★ `layout` 이 없거나 1이면 **예전 열쇠 그대로**다 — 옛 화면(param 없이 부르는)이
+      자기 캐시를 계속 쓴다. 기존 계약을 깨지 않는다(§10).
+    ★ 옛 파일은 지우지 않는다. 열쇠가 달라지면 안 쓰일 뿐이고, 정리는 30일 만료
+      스크립트 몫이다.
+    """
+    base = f"{version}:r{renderer_version}"
+    return base if layout <= 1 else f"{base}:l{layout}"
 # 저장된 `새로 더해진` 페이지가 아직 하나도 없을 때, 계산해서 세우는 한 장의 id.
 # ★ 값이 고정이어야 한다 — 화면이 이 id 로 `NEW` 표시를 기억한다(sessionStorage).
 _PENDING_APPEND_PAGE_ID = "pending-contributions"
@@ -468,6 +491,8 @@ async def upload_album(
     file_meta: str = Form("[]", description='[{"last_modified": 1710000000000}, ...] File.lastModified'),
     cover_photo_order: int = Form(-1),
     dropped_video_count: int = Form(0, description="프런트에서 걸러진 동영상 수(수요 계측용)"),
+    skin: str = Form("", description="앨범 모양. 비면 카테고리 추천이 걸린다"),
+    paper: str = Form("", description="종이 색. 비면 white"),
     authenticated_user_id: str | None = Depends(optional_strict_authenticated_user),
 ) -> AlbumUploadResponse:
     request_started = time.perf_counter()
@@ -522,6 +547,12 @@ async def upload_album(
     else:
         album_template_type = album_template_type or normalize_template_type(None)
         layout = layout_for_template_type(album_template_type)
+
+    # 만들기 전에 고른 앨범 모양·종이 색(2026-08-18). 목록 밖이면 **빈 값**이다 —
+    # 400 을 내지 않는다(겉모습 때문에 앨범을 못 만들면 안 된다). 빈 값이면 칸을
+    # 비워 두고, 화면은 지금처럼 카테고리 추천을 건다(lib/albumSkin).
+    album_skin = normalize_album_skin(skin)
+    album_paper = normalize_album_paper(paper)
 
     title = title.strip() or "우리의 모임"
     # date Form은 하위 호환용으로만 받고, 커버 날짜는 EXIF taken_at으로 덮어쓴다.
@@ -714,6 +745,7 @@ async def upload_album(
             narrative="", epilogue="", chapter_stories={}, photo_paths=photo_paths, photo_meta=photo_meta,
             result_path="", result_bucket=settings.supabase_private_storage_bucket, creation_status="processing",
             category=album_category, template_type=album_template_type, cover_photo_id=cover_photo_id,
+            skin=album_skin, paper=album_paper,
         )
         album_saved = True
         _log_upload_stage("album_db_insert", "completed", album_id=album_id)
@@ -1882,10 +1914,24 @@ def _pending_append_ids(
     def drawn_in_body(photo_id: str) -> bool:
         return not body_photo_ids or photo_id in body_photo_ids
 
+    # 🔴 **어디에도 안 그려지는 사진은 누가 올렸든 여기서 건진다** (2026-08-19).
+    #
+    #   예전에는 `rules.is_pending_photo` 를 걸었다. 그 자는 `새로 들어온 참여인가`
+    #   를 재는 것이라 **주최자가 올린 사진을 일부러 뺀다**(uploaded_by 가 주최자면
+    #   거짓). 그런데 이 자리가 묻는 것은 다른 질문이다 — `이 사진이 어디든 그려지는가`.
+    #   두 질문을 한 자로 재는 바람에, 앨범이 만들어진 뒤 **주최자가 더한 사진**은
+    #   본문(album_json)에도 없고 페이지에도 없어 **화면 어디에도 안 나왔다**
+    #   (dev 실측 2026-08-19: photo_count 는 7인데 볼 수 있는 것은 6장).
+    #   지운 적 없는 사진이 사라지는 것이라 CLAUDE.md §9 를 어긴다.
+    #
+    #   ★ 여기서 거르는 조건은 **둘뿐**이다: 본문에 없고, 페이지에도 없다.
+    #     올린 사람도, 언제 올렸는지도, 촬영일이 있는지도 보지 않는다.
+    #   ★ 겹치지 않는다 — 본문이나 페이지에 이미 있으면 애초에 여기 오지 않는다.
+    #   ★ 앨범을 다시 만들지 않아도 된다. 이 판정은 **읽을 때마다** 도므로 이미
+    #     만들어진 앨범도 다음 번에 열면 사진이 돌아온다.
     pending_photos = [
         photo for photo in photos
-        if rules.is_pending_photo(photo)
-        and not drawn_in_body(str(photo["id"]))
+        if not drawn_in_body(str(photo["id"]))
         and str(photo["id"]) not in page_photo_ids
     ]
     drawn_photo_ids = page_photo_ids | {str(photo["id"]) for photo in pending_photos}
@@ -2663,6 +2709,8 @@ def get_album_pdf(
     album_id: str,
     version: int | None = Query(default=None),
     renderer_version: int = Query(default=PDF_RENDERER_VERSION),
+    # 판형 판 — 프런트의 PRINT_LAYOUT_VERSION. 없으면 1(예전 그대로)이다.
+    layout: int = Query(default=1, ge=1),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
     settings = get_settings()
@@ -2675,12 +2723,56 @@ def get_album_pdf(
 
     album_version = int(record.get("album_version") or 0)
     target_version = version if version is not None else album_version
-    cached_path = get_cached_pdf_path(record, f"{target_version}:r{renderer_version}")
-    if not cached_path:
-        return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
+    cache_key = _pdf_cache_key(target_version, renderer_version, layout)
+    cached_path = get_cached_pdf_path(record, cache_key)
+    if cached_path:
+        url = get_signed_url(client, get_cached_pdf_bucket(record, cache_key, settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
+        return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
 
-    url = get_signed_url(client, get_cached_pdf_bucket(record, f"{target_version}:r{renderer_version}", settings.supabase_storage_bucket), cached_path, settings.signed_url_ttl_seconds)
+    # ★ 캐시가 없으면 **서버가 만든다** (PO 승인 2026-08-22 · 구조 변경).
+    #   예전에는 여기서 url=None 을 돌려주고 폰이 원본을 전부 내려받아 구웠다 — 아이폰이
+    #   멈추던 뿌리다. 원본은 서버에 있으니 서버에서 그린다(album_pdf_service).
+    #   · 저장 자리와 열쇠는 PUT 과 **같다** — 새 길을 만들지 않는다(§10).
+    #   · 옛 판(version ≠ 현재)이나 옛 판형(layout < SERVER_PDF_LAYOUT · 화면이 굽던 시절의
+    #     열쇠)은 만들지 않는다 — 옛 화면은 예전처럼 url=None 을 받고 제 길(PUT)로 간다.
+    if target_version != album_version or layout < SERVER_PDF_LAYOUT:
+        return AlbumPdfUrlResponse(url=None, album_version=album_version, cached=False)
+    path = _build_and_store_pdf(client, settings, record, album_id, target_version, renderer_version, layout, authenticated_user_id)
+    url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=album_version, cached=True)
+
+
+def _build_and_store_pdf(client, settings: Settings, record: dict, album_id: str, version: int,
+                         renderer_version: int, layout: int, user_id: str) -> str:
+    """앨범 PDF 를 서버에서 그려 PUT 과 같은 자리에 넣고, 저장 경로를 돌려준다.
+
+    사진은 한 장씩 Storage 에서 내려받아 놓는다(전부 메모리에 올리지 않는다).
+    걸린 초와 사진 수를 로그에 남긴다 — 사진 30장이 몇 초인지 운영이 봐야 한다.
+    """
+    # ★ 인쇄에는 `새로 더해진` 자리가 오지 않는다 (PO 결정 2026-08-15 · A안). 사진은 주최자가
+    #   반영해야 앨범에 들어간다 — 화면(get_album_detail)과 **같은 문턱**이다: 지금 판의 본문
+    #   (album_json)에 실린 사진만. 문턱을 새로 만들지 않고 같은 함수를 쓴다.
+    document, _append_pages = _edition_document_and_pages(record, None)
+    document_photo_ids = album_document_photo_ids(document)
+    all_rows = get_album_photo_records(client, album_id)
+    photo_rows = [row for row in all_rows if not document_photo_ids or str(row["id"]) in document_photo_ids]
+    stories = visible_date_stories(record.get("chapter_stories"), photo_rows)
+    contributor_names = list_active_contributor_names(client, album_id)
+    album = album_from_records(record, photo_rows, contributor_names, stories)
+    storage = StorageService.for_supabase(client, settings)
+    content, report = build_album_pdf(album, storage.download)
+    logger.info(
+        "pdf_server_built album=%s photos=%s pages=%s failed=%s seconds=%s bytes=%s layout=%s",
+        album_id, len(photo_rows), len(report.pages), len(report.failed_photo_ids), report.seconds, len(content), layout,
+    )
+    path = album_pdf_path(album_id, f"l{layout}-{uuid4()}")
+    storage.upload(settings.supabase_private_storage_bucket, path, content, content_type="application/pdf")
+    set_cached_pdf_path(client, record, _pdf_cache_key(version, renderer_version, layout), path, settings.supabase_private_storage_bucket)
+    log_event(client, "pdf_generated", album_id=album_id, metadata={
+        "owner_id": user_id, "built_by": "server", "photos": len(photo_rows),
+        "failed_photos": len(report.failed_photo_ids), "seconds": report.seconds,
+    })
+    return path
 
 
 @router.put("/albums/{album_id}/pdf")
@@ -2688,6 +2780,8 @@ async def upload_album_pdf(
     album_id: str,
     version: int = Query(...),
     renderer_version: int = Query(default=PDF_RENDERER_VERSION),
+    # 판형 판 — 찾을 때와 **같은 열쇠**로 올려야 다음 조회가 이 파일을 찾는다.
+    layout: int = Query(default=1, ge=1),
     file: UploadFile = File(...),
     authenticated_user_id: str = Depends(require_authenticated_user),
 ) -> AlbumPdfUrlResponse:
@@ -2706,11 +2800,13 @@ async def upload_album_pdf(
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="PDF 파일이 아닙니다.")
 
-    path = album_pdf_path(album_id, str(uuid4()))
+    # 파일 이름에 판형 판을 넣는다 — uuid 라 덮어쓸 일은 없지만, 파일만 보고도
+    # 어느 판형인지 알 수 있어야 한다(정리 스크립트·조사가 그 이름을 본다).
+    path = album_pdf_path(album_id, f"l{layout}-{uuid4()}")
     StorageService.for_supabase(client, settings).upload(
         settings.supabase_private_storage_bucket, path, content, content_type="application/pdf"
     )
-    set_cached_pdf_path(client, record, f"{version}:r{renderer_version}", path, settings.supabase_private_storage_bucket)
+    set_cached_pdf_path(client, record, _pdf_cache_key(version, renderer_version, layout), path, settings.supabase_private_storage_bucket)
     log_event(client, "pdf_generated", album_id=album_id, metadata={"owner_id": authenticated_user_id})
     url = get_signed_url(client, settings.supabase_private_storage_bucket, path, settings.signed_url_ttl_seconds)
     return AlbumPdfUrlResponse(url=url, album_version=version, cached=True)

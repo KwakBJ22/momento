@@ -78,14 +78,19 @@ test("★ 사진은 나란히 놓는다 — 세로로 쌓지 않는다 (I-4d-2)"
   };
   assert.equal(columns(1), "1fr");
   for (const count of [2, 3, 4]) assert.equal(columns(count), "1fr 1fr", `${count}장이 세로로 쌓인다`);
-  // 3장은 위에 둘, 아래 한 장을 가운데.
-  assert.match(printCss, /\[data-photo-count="3"\] \.print-frame:last-child \{\s*grid-column: 1 \/ -1;/);
+  // ★ 2026-08-19 — 시안 §4 에 5·6장(세 칸)이 더해졌다.
+  for (const count of [5, 6]) assert.equal(columns(count), "repeat(3, 1fr)", `${count}장이 세 칸이 아니다`);
+  // ★ 3장이 뒤집혔다. 예전에는 `위에 둘, 아래 한 장을 가운데` 였고, 시안은
+  //   **왼쪽에 큰 하나 · 오른쪽에 작은 둘**이다. 첫 칸이 두 줄을 차지한다.
+  assert.match(printCss, /\[data-photo-count="3"\] \.print-frame:first-child \{\s*grid-row: 1 \/ span 2;/);
 });
 
-test("캡션은 사진 바로 아래 3mm 그대로다", () => {
+// ★ 2026-08-19 — 3mm → 시안 §4 의 9px(2.8mm). 캡션이 사진에서 떨어져 `다음 사진
+//   것처럼` 보였다(PO). 값은 `--pr-cap-gap` 토큰 하나가 갖는다.
+test("캡션은 사진 바로 아래 시안 간격에 붙는다", () => {
   const frame = rule(".album-renderer--print .print-frame");
   assert.match(frame, /justify-content: flex-start/);
-  assert.match(frame, /gap: 3mm/);
+  assert.match(frame, /gap: var\(--pr-cap-gap\)/);
   // ★ 2026-08-16 — 카드 여백을 걷어냈다(위 주석과 같은 이유).
   assert.match(frame, /padding: 0/);
   assert.match(rule(".album-renderer--print .print-frame__photo"), /flex: 0 1 auto/);
@@ -137,15 +142,34 @@ test("★ 날짜 이야기는 그 날 마지막 사진과 같은 쪽에 둔다 �
   // 나눠야 할 때의 모양은 4c 규칙 그대로다(상한을 낮춰 확인한다).
   assert.deepEqual(paginateChapterPhotos(photos(4), true, 2), [[1, 2], [3, 4]]);
   assert.deepEqual(paginateChapterPhotos(photos(3), true, 2), [[1, 2], [3]]);
-  assert.deepEqual(paginateChapterPhotos(photos(7), true, 2), [[1, 2, 3, 4], [5, 6], [7]]);
+  // ★ 2026-08-19 — 앞 쪽들이 6장씩 담는다(4 → 6). 마지막 쪽이 이야기 상한(4장) 안에
+  //   들어온다는 규칙은 그대로다.
+  assert.deepEqual(paginateChapterPhotos(photos(7), true, 2), [[1, 2, 3, 4, 5, 6], [7]]);
 });
 
-test("★ 글만 있는 쪽을 만들지 않는다 (`우리의 이야기` 는 예외 — 원래 자기 쪽을 갖는다)", () => {
-  // 이야기 전용 쪽을 그리던 코드가 없다.
-  assert.equal(printPages.includes("print-page--story"), false);
-  assert.equal(printPages.includes("storyGoesToOwnPage"), false);
-  // 이야기는 언제나 그 날 마지막 **사진 쪽**에 붙는다.
-  assert.match(printPages, /pageIndex === pages\.length - 1 && chapter\.storyBody \?/);
+// ★ **뒤집힘 (2026-08-19 · 시안 §3 `글만 있는 쪽`).** 예전 규칙은 `글만 있는 쪽을
+//   만들지 않는다`(I-4d-3) 였다 — 이야기는 언제나 그 날 마지막 사진 쪽에 붙었다.
+//   시안이 그 규칙을 바꾼다: **이야기가 길면** 지면 하나를 글에 내주고 사진은 다음
+//   쪽으로 넘긴다. 짧은 이야기는 예전 그대로 사진 쪽에 붙는다(그쪽이 대부분이다 —
+//   날짜 이야기는 3~6줄이다).
+test("★ 이야기가 길 때만 글에 지면을 내준다 (짧으면 예전대로 사진 쪽에 붙는다)", async () => {
+  const { storyNeedsOwnPage, STORY_OWN_PAGE_MIN_CHARS } = await import("../src/album-engine/components/PrintPages");
+  // 값의 근거: 쪽 안 이야기 자리(--pr-story 50mm)에 크롬에서 282자가 들어갔다.
+  assert.equal(STORY_OWN_PAGE_MIN_CHARS, 280);
+  assert.equal(storyNeedsOwnPage("짧은 이야기"), false);
+  assert.equal(storyNeedsOwnPage(null), false);
+  assert.equal(storyNeedsOwnPage("가".repeat(280)), false);
+  assert.equal(storyNeedsOwnPage("가".repeat(281)), true);
+
+  // 짧은 이야기는 사진 쪽에 붙는다 — 그 갈래가 살아 있다.
+  assert.match(printPages, /pageIndex === pages\.length - 1 && inlineStory && chapter\.storyBody \?/);
+  // 긴 이야기는 제 쪽을 갖고, 사진 쪽은 이야기 자리를 비워 두지 않는다.
+  assert.match(printPages, /print-page print-page--story/);
+  // ★ 2026-08-19 — 여기에 갈래가 하나 더 붙었다: 펼침면(§5 · 사진 한 장짜리 날).
+  //   이 검사가 지키려던 것은 `이야기가 제 쪽을 가져가면 사진 쪽에 또 붙지 않는다` 다.
+  assert.match(printPages, /const inlineStory = Boolean\(chapter\.storyBody\) && !storyOwnPage && !spread;/);
+  // 두 단으로 나눈다 — 한 단이면 글줄이 174mm 가 되어 안 읽힌다(시안 §4).
+  assert.match(printCss, /\.print-page--story \.print-story__columns \{[\s\S]*?columns: 2;/);
   // 앨범 끝 글은 그대로 자기 쪽이다.
   assert.match(printCss, /\.album-renderer--print \.print-closing \{/);
 });
@@ -155,14 +179,14 @@ test("사진 짧은 변 60mm 하한은 그대로다", () => {
 });
 
 test("한 쪽에 사진 5장 이상이 오지 않는다 (기존 계약 유지 — §9)", async () => {
-  assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 4;/);
+  assert.match(printPages, /export const PRINT_PHOTOS_PER_PAGE = 6;/);
   // ★ 글자가 아니라 **결과**를 본다 — 나누는 코드가 바뀌어도 계약은 그대로여야 한다.
   const { paginateChapterPhotos } = await import("../src/album-engine/components/PrintPages");
   for (const total of [1, 4, 5, 9, 13]) {
     const photos = Array.from({ length: total }, (_, index) => index);
     for (const hasStory of [false, true]) {
       for (const page of paginateChapterPhotos(photos, hasStory)) {
-        assert.ok(page.length <= 4, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
+        assert.ok(page.length <= 6, `${total}장(이야기 ${hasStory}): 한 쪽에 ${page.length}장`);
       }
     }
   }

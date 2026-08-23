@@ -70,12 +70,19 @@ export default function AlbumBottomNavigation({
     );
   }
 
-  // 소유자(2a) 3칸: 만들기 행동(사진·한마디)과 대표 행동(공유)만 남긴다. "새 앨범"은
-  // 헤더의 더보기 시트로 옮겼다. 공유하기만 브랜드 배경으로 이 화면의 목적을 표시.
+  // 소유자(2a) 3칸: 사진 추가 · 내 앨범 · 공유하기.
+  //
+  // ★ `한마디 쓰기` 를 뺐다 (PO 2026-08-19). 한마디는 **사진 아래에서 바로** 누르는
+  //   길이 생겼고(PhotoMemoryLines), 주최자는 그 길을 안다. 같은 일로 가는 칸을 둘
+  //   두면 사용자는 둘이 다른 줄 안다. 그 자리에 `내 앨범` 을 넣는다 — 앨범을 보다가
+  //   목록으로 돌아가는 것이 주최자가 가장 자주 하는 다음 행동이다.
+  // ★ 참여자·구경꾼 화면은 **그대로 둔다.** 그쪽은 한마디가 주 행동이고, 사진 아래
+  //   길을 못 찾을 수 있다(위 contributor·visitor 갈래).
+  // ★ `내 앨범` 은 `app` 갈래가 쓰는 그 길·그 아이콘이다. 새 주소를 만들지 않는다.
   return (
     <nav className="album-bottom-navigation" aria-label="앨범 메뉴">
       <button type="button" onClick={runIfEnabled(canAddPhoto, onAddPhoto)} disabled={!canAddPhoto}><ImagePlus size={24} /><span>사진 추가</span></button>
-      <button type="button" onClick={runIfEnabled(canAddMemory, onAddMemory)} disabled={!canAddMemory}><PencilLine size={24} /><span>한마디 쓰기</span></button>
+      <button type="button" onClick={onMyAlbums}><Images size={24} /><span>내 앨범</span></button>
       <button type="button" className="album-bottom-navigation__share" onClick={onShare}><Share2 size={24} /><span>공유하기</span></button>
     </nav>
   );

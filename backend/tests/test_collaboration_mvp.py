@@ -146,7 +146,14 @@ class CollaborationServiceTests(unittest.TestCase):
         self.assertIn("사진 30장", raised.exception.detail)
         rebuild.assert_not_called()
 
-    def test_build_document_groups_by_date_and_merges_undated(self) -> None:
+    def test_build_document_groups_by_date_and_keeps_undated_last(self) -> None:
+        """★ 2026-08-19 — 이름이 `merges_undated` 였다. 이제 **섞지 않는다.**
+
+        날짜 없는 사진을 마지막 날짜 묶음에 섞어 넣으면 남의 날짜와 장소를 뒤집어쓰고,
+        날짜 없는 묶음이 사라져 화면이 `날짜를 넣어 주세요` 를 그릴 자리도 없어진다.
+        화면 엔진(chapterGroup.ts)이 하는 것과 **같은 규칙**으로 맞춘다.
+        ★ 사진은 한 장도 빠지지 않는다 — 그것이 이 검사의 본래 목적이다.
+        """
         album = {"id": "a1", "title": "여행", "narrative": "우리 이야기"}
         photos = [
             {"id": "p1", "status": "ready", "taken_at": "2026-07-12T10:00:00+00:00", "sort_order": 0},
@@ -172,8 +179,14 @@ class CollaborationServiceTests(unittest.TestCase):
             },
         ]
         document = build_album_document_from_records(album, photos, memories)
-        self.assertEqual(len(document["chapters"]), 1)
-        self.assertEqual(len(document["chapters"][0]["photos"]), 3)
+        # 날짜 있는 묶음 하나 + 날짜 없는 묶음 하나.
+        self.assertEqual(len(document["chapters"]), 2)
+        # ★ 사진은 한 장도 빠지지 않는다(3장 그대로).
+        self.assertEqual(sum(len(c["photos"]) for c in document["chapters"]), 3)
+        self.assertEqual([p["id"] for p in document["chapters"][0]["photos"]], ["p1", "p2"])
+        # 날짜 없는 것은 **맨 뒤 제 묶음**이다.
+        self.assertIsNone(document["chapters"][-1]["date"])
+        self.assertEqual([p["id"] for p in document["chapters"][-1]["photos"]], ["p3"])
         self.assertEqual(document["chapters"][0]["kind"], "event")
         self.assertNotEqual(document["chapters"][0]["title"], "Day 1")
         self.assertEqual(document["epilogue"], "우리 이야기")

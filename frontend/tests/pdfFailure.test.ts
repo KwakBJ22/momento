@@ -14,9 +14,16 @@ test("성공 문구는 경로별로 사실만 말한다 — '저장했다'고 �
   for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
     assert.ok(pdfSuccessMessage(delivery).startsWith("앨범 파일이 준비됐어요."), delivery.via);
   }
-  // 그 다음 문장은 경로별로 갈린다 — 어디서 찾는지가 다르다.
-  assert.match(pdfSuccessMessage({ via: "download" }), /기기의 다운로드에서 확인해 주세요/);
-  assert.match(pdfSuccessMessage({ via: "browser-url", url: "https://x/y.pdf" }), /휴대전화 알림을 누르면 열려요/);
+  // ★ 2026-08-21 뒤집음(§10-2) — 그 다음 문장을 **경로별로 가르지 않는다.**
+  //   예전에는 서버 주소로 보낸 경우에 `휴대전화 알림 · 파일 앱의 다운로드 폴더` 라고 했다.
+  //   그런데 그 길은 **데스크톱에서도 탄다**(이미 만들어 둔 파일이 있으면 그 주소로 보낸다).
+  //   데스크톱에는 휴대전화도 파일 앱도 없다 — PO 가 데스크톱에서 그 문장을 봤다.
+  //   두 길 다 결국 **파일을 받는** 것으로 끝나므로 양쪽에 다 맞는 한 문장으로 둔다.
+  for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
+    assert.match(pdfSuccessMessage(delivery), /기기의 다운로드에서 확인해 주세요/, delivery.via);
+    assert.equal(pdfSuccessMessage(delivery).includes("휴대전화"), false, `${delivery.via}: 데스크톱에 없는 것을 말한다`);
+    assert.equal(pdfSuccessMessage(delivery).includes("파일 앱"), false, `${delivery.via}: 데스크톱에 없는 것을 말한다`);
+  }
   // ★ 어느 경로도 "저장했어요"라고 단정하지 않는다 — 파일이 만들어진 것까지가 아는 사실이다.
   for (const delivery of [{ via: "download" } as const, { via: "browser-url", url: "https://x/y.pdf" } as const]) {
     assert.doesNotMatch(pdfSuccessMessage(delivery), /저장했어요/, delivery.via);
@@ -47,40 +54,36 @@ test("두 화면의 실패 처리가 같다 — 조용히 삼키는 catch 가 �
   }
 });
 
-test("오래 기다린 끝의 빈 PDF 를 미리 잡는다 — 캔버스 상한·빈 결과·이유 문구", () => {
+// ★ 2026-08-22 — PDF 는 서버가 그린다. 캔버스 상한·빈 blob·30장 문구는 굽던 시절의 것이라
+//   지웠다(pdfBlankPage.test 가 되살아나지 않는지 본다). 남는 규칙은 둘이다:
+//   실패하면 이유와 함께 던진다 · 주소가 없으면 성공으로 넘기지 않는다.
+test("서버가 주소를 못 주면 성공으로 넘기지 않는다 — 이유 문구로 던진다", () => {
   const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  // 크롬 캔버스 한 변 상한. 넘으면 html2canvas 가 예외 없이 빈 결과를 준다.
-  assert.match(exportPdf, /const CANVAS_MAX_PX = 65_500;/);
-  assert.match(exportPdf, /sourceHeightPx > CANVAS_MAX_PX/);
-  // 사진 장수가 원인이면 그 사실을 문구로 말한다(albumLimits 의 기존 문구 재사용).
-  assert.match(exportPdf, /throw new Error\(PDF_BLOCKED_REASON\)/);
-  // 빈 결과물도 성공으로 넘기지 않는다.
-  assert.match(exportPdf, /blob\.size < PDF_MIN_BLOB_BYTES/);
+  assert.match(exportPdf, /if \(!url\) \{[\s\S]{0,300}?throw new Error\(PDF_GENERIC_MESSAGE\)/);
+  // 요청이 실패하면 삼키지 않고 그대로 던진다 — 화면이 pdfFailureMessage 로 보여 준다.
+  assert.match(exportPdf, /logPdf\("pdf_request_failed"[\s\S]{0,400}?throw error;/);
 });
 
 test("실패 원인이 event 이름으로 남는다 (검색 가능)", () => {
   const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
   assert.match(exportPdf, /console\.warn\(`\[pdf\] event=\$\{event\}/);
-  for (const event of ["pdf_render_failed", "pdf_canvas_overflow", "pdf_blob_empty",
-    "pdf_upload_failed", "pdf_download_unsupported", "pdf_cache_lookup_failed"]) {
+  // ★ 2026-08-22 — 굽는 단계의 이벤트(render_failed·canvas_overflow·blob_empty·upload_failed)는
+  //   그 단계와 함께 없어졌다. 남은 것은 청하는 단계 둘이다.
+  for (const event of ["pdf_request_failed", "pdf_url_missing"]) {
     assert.match(exportPdf, new RegExp(`logPdf\\("${event}"`), `누락된 이벤트: ${event}`);
   }
 });
 
-// 커밋 B: 카카오 웹뷰에서 실제로 받게 한다 — blob 을 아예 쓰지 않고, 이미 있는 저장 경로
-// (PUT /albums/{id}/pdf → woorialbum-private, 응답의 서명 URL)로 보낸다. 새 API 없음.
-test("웹뷰에서는 blob 대신 저장된 파일 주소로 보낸다 — 기존 업로드 경로 재사용", () => {
+// ★ 2026-08-22 — 화면이 굽고 올리던(PUT) 길이 없어졌다. 웹뷰가 받는 길은 그대로다:
+//   서버 파일의 https 주소로 같은 창에서 이동한다. 그 주소는 GET 한 번으로 온다.
+test("웹뷰에서는 blob 대신 서버 파일의 주소로 보낸다 — 새 API 없음", () => {
   const exportPdf = readFileSync(new URL("../src/lib/exportPdf.tsx", import.meta.url), "utf8");
-  // 업로드 응답의 URL 을 버리지 않는다(추가 요청 없이 그 자리에서 받는다).
-  assert.match(exportPdf, /storedUrl = \(await uploadAlbumPdf\(/);
-  assert.match(exportPdf, /if \(isInAppWebView\(currentUserAgent\(\)\)\) \{/);
-  assert.match(exportPdf, /return deliverStoredPdf\(storedUrl, pdfFilename\(input\)\)/);
+  assert.match(exportPdf, /return deliverStoredPdf\(url, pdfDownloadFilename\(input\.title\)\)/);
   // 화면에 열지 않고 파일로 받게 하는 표시.
   assert.match(exportPdf, /download=\$\{encodeURIComponent\(filename\)\}/);
-  // 주소조차 없으면 조용히 끝내지 않는다.
-  assert.match(exportPdf, /logPdf\("pdf_download_unsupported"[\s\S]{0,80}throw new Error\(webviewSaveMessage/);
-  // 새 API·새 페이지를 만들지 않았다(기존 두 엔드포인트만 쓴다).
-  assert.match(exportPdf, /import \{ getAlbumPdfUrl, uploadAlbumPdf \} from "\.\/api"/);
+  // 새 API·새 페이지를 만들지 않았다(있던 GET 하나만 쓴다).
+  assert.match(exportPdf, /import \{ getAlbumPdfUrl \} from "\.\/api"/);
+  assert.equal(exportPdf.includes("uploadAlbumPdf"), false, "화면이 다시 올리기 시작했다");
 });
 
 /**
@@ -120,19 +123,18 @@ test("PDF 전달은 새 창을 만들지 않는다 — 빈 창이 남지 않게"
   const code = exportPdf.split(/\r?\n/).filter((line) => !line.trim().startsWith("*")).join("\n");
   assert.doesNotMatch(code, /window\.open\(/);
   assert.doesNotMatch(code, /target = "_blank"|target="_blank"/);
-  // 캐시된 PDF 도, 방금 올린 PDF 도 같은 전달 함수를 쓴다(경로가 갈라지지 않는다).
-  // ★ 3 → 4 (2026-08-13). 아이폰 갈래가 하나 늘었다 — blob + a[download] 가 조용히
-  //   실패할 수 있는 유일한 길이라, 이미 올려 둔 storedUrl 이 있으면 인앱 갈래와
-  //   **같은 전달 함수**로 합류시킨다. 이 검사가 보는 규칙(경로가 갈라지지 않는다)은
-  //   오히려 더 지켜졌다 — 갈래가 늘어도 전달은 여전히 이 함수 하나다.
-  assert.equal((code.match(/deliverStoredPdf\(/g) || []).length, 4); // 정의 1 + 호출 3
+  // 전달 함수는 하나다(경로가 갈라지지 않는다).
+  // ★ 4 → 2 (2026-08-22). PDF 를 서버가 그리면서 세 갈래(캐시·올린 주소·아이폰)가 한 길이
+  //   됐다 — 서버가 준 주소로 이 함수 한 번. 규칙(경로가 갈라지지 않는다)은 더 단순하게 지켜진다.
+  assert.equal((code.match(/deliverStoredPdf\(/g) || []).length, 2); // 정의 1 + 호출 1
   assert.match(code, /window\.location\.assign\(withDownloadName\(url, filename\)\)/);
 });
 
-test("저장 뒤 안내는 어디서 볼 수 있는지·무엇을 하면 되는지까지 말한다", () => {
+test("저장 뒤 안내는 어디서 볼 수 있는지까지 말한다", () => {
   const message = pdfSuccessMessage({ via: "browser-url", url: "u" });
-  assert.match(message, /알림을 누르면 열려요/);      // 무엇을 하면 되는지
-  assert.match(message, /‘다운로드’ 폴더/);            // 알림이 지나갔을 때 어디서 보는지
+  // ★ 2026-08-21 뒤집음(§10-2) — `알림을 누르면` · `파일 앱` 은 휴대전화에만 있는 말이고,
+  //   이 길은 데스크톱에서도 탄다. 지키는 것은 그대로다: **어디서 볼 수 있는지** 말한다.
+  assert.match(message, /기기의 다운로드에서 확인해 주세요/);
   for (const forbidden of ["곧", "준비 중", "출시 예정", "AI", "GPT", "인공지능"]) {
     assert.equal(message.includes(forbidden), false, `쓰지 않는 표현: ${forbidden}`);
   }

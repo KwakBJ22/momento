@@ -208,6 +208,33 @@ where path not in (select path from known);
 
 ---
 
+## 계정 합치기 뒤 확인 (2026-08-21 · merge_profiles 를 건 뒤에만 의미가 있다)
+
+합치기는 **아무것도 잃으면 안 된다**(CLAUDE.md §9). 합친 직후 이 셋을 돌린다.
+`:source` 는 닫힌 계정, `:target` 은 남은 계정의 id 다.
+
+```sql
+-- ① 닫힌 계정에 남은 활성 참여·소유가 없어야 한다 (0행이어야 정상)
+select 'albums' as t, count(*) from albums where owner_id = :source
+union all select 'contributors(active)', count(*) from album_contributors
+  where user_id = :source and status = 'active'
+union all select 'memories', count(*) from photo_memories where author_id = :source;
+
+-- ② 한마디·사진의 주인이 비지 않았어야 한다 (합치기 전 수와 같아야 한다)
+select count(*) as memories from photo_memories pm
+join album_contributors ac on ac.id = pm.contributor_id
+where ac.user_id = :target;
+
+-- ③ 주인 없는 가족이 생기지 않았어야 한다 (0행이어야 정상)
+select f.id from families f
+where exists (select 1 from family_members fm where fm.family_id = f.id)
+  and not exists (
+    select 1 from family_members fm
+    where fm.family_id = f.id and fm.role = 'owner' and fm.status = 'active');
+```
+
+---
+
 ## 쓰는 법
 
 1. Supabase SQL Editor에 붙여넣어 순서대로 돌린다.

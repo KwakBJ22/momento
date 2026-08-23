@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 import time
@@ -64,7 +65,7 @@ from app.services.collaboration_service import (
     start_collaboration,
     update_photo_memory,
 )
-from app.services.image_upload_service import process_upload
+from app.services.image_upload_service import parse_captured_at, parse_coordinate, process_upload
 from app.services.place_name_service import resolve_place_for_upload
 from app.services.storage_service import StorageService
 from app.services.membership import get_album_access
@@ -715,6 +716,10 @@ def contribute_upload_photos(
     album_id: str,
     photos: list[UploadFile] = File(...),
     file_created_ats: list[str] | None = Form(default=None),
+    # 화면이 **원본에서** 읽어 보낸 촬영일·좌표. 앨범을 만들 때 쓰는 통로와 **같은
+    # 모양**이다(`file_meta`) — 서버가 두 가지 모양을 알게 하지 않는다.
+    # ★ 없어도 된다. 그때는 예전처럼 서버가 사진 바이트에서 EXIF 를 읽는다.
+    file_meta: str = Form("[]", description='[{"captured_at": "...", "latitude": 0, "longitude": 0}, ...]'),
     x_woorialbum_guest_id: str | None = Header(default=None),
     x_woorialbum_contributor_id: str | None = Header(default=None),
     user_id: str | None = Depends(optional_authenticated_user),
@@ -743,6 +748,14 @@ def contribute_upload_photos(
     if current + len(photos) > limit:
         raise HTTPException(status_code=400, detail=f"앨범 사진은 최대 {limit}장까지예요.")
 
+    # 순서는 photos 와 같다. 모양이 깨져 있으면 **그냥 무시한다** — 사진은 올라가야 한다.
+    try:
+        meta_list = json.loads(file_meta) if file_meta.strip() else []
+        if not isinstance(meta_list, list):
+            meta_list = []
+    except json.JSONDecodeError:
+        meta_list = []
+
     family_id = str(album.get("family_id") or album.get("owner_id") or "shared")
     existing = (
         client.table("album_photos").select("sort_order, checksum_sha256").eq("album_id", album_id).execute()
@@ -751,7 +764,15 @@ def contribute_upload_photos(
     known_hashes = {str(r.get("checksum_sha256")) for r in existing if r.get("checksum_sha256")}
     uploaded: list[dict[str, Any]] = []
     for index, photo in enumerate(photos):
-        processed = process_upload(photo, settings)
+        raw_meta = meta_list[index] if index < len(meta_list) and isinstance(meta_list[index], dict) else {}
+        # 앨범을 만들 때와 **같은 파서**다. 여기서 새로 읽는 규칙을 만들지 않는다.
+        processed = process_upload(
+            photo,
+            settings,
+            captured_at=parse_captured_at(raw_meta.get("captured_at")),
+            captured_latitude=parse_coordinate(raw_meta.get("latitude"), limit=90),
+            captured_longitude=parse_coordinate(raw_meta.get("longitude"), limit=180),
+        )
         if processed.checksum_sha256 in known_hashes:
             continue
         known_hashes.add(processed.checksum_sha256)

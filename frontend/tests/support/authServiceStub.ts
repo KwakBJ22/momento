@@ -45,3 +45,12 @@ export async function completeOAuthCallback(): Promise<AppSession> { throw new E
 export function toAppUser(): AppUser {
   return { id: "user", displayName: "테스트", avatarUrl: null, email: null, phone: null, provider: "kakao" };
 }
+
+/** 계정 합치기 (2026-08-19 · 2단계) — 먼저 있던 토큰을 잠깐 들고 있는 자리. */
+let mergeSource: string | null = null;
+export function rememberMergeSource(token: string): void { mergeSource = token; }
+export function readMergeSource(): string | null { return mergeSource; }
+export function forgetMergeSource(): void { mergeSource = null; }
+export async function linkEmailPassword(): Promise<{ needsConfirmation: boolean }> {
+  return { needsConfirmation: false };
+}

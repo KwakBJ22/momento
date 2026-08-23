@@ -40,8 +40,16 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
     NONE — a row already claimed by another user_id is never touched (no stealing). When the
     user already has an active contributor row for that album, the (album_id, user_id) unique
     index would conflict, so that guest row is SKIPPED (and logged) — their old participation
-    stays under the guest name rather than breaking. Returns (attributed_guest_ids,
-    attributed_album_count) for the caller's analytics.
+    stays under the guest name rather than breaking. Returns (settled_guest_ids,
+    attributed_album_count).
+
+    ★ 돌려주는 목록은 **끝난 guest id** 다 — 이번에 붙인 것 + **더 할 일이 없는 것**
+      (2026-08-19). 예전에는 붙인 것만 돌려줬는데, 화면은 이 목록으로 `다시 안 보내도
+      된다` 표시를 한다. 그래서 붙일 것이 없는 id(이미 붙었거나 · 충돌로 영영 못 붙거나 ·
+      참여 기록이 아예 없거나)는 표시가 안 돼 **화면을 옮길 때마다 다시 실려 왔고**,
+      bootstrap 이 분당 3~4번 찍혔다(Railway dev 08-19). 여기 오는 갈래는 전부
+      끝난 상태다 — 다시 보내도 결과가 달라지지 않는다.
+      (조회가 도중에 터지면 예외로 올라가 아무것도 표시되지 않는다 — 다음에 다시 온다.)
     """
     claimed: list[str] = []
     attributed_albums = 0
@@ -57,7 +65,6 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
             .data
             or []
         )
-        attributed_here = False
         for row in rows:
             album_id = str(row.get("album_id") or "")
             row_id = row.get("id")
@@ -81,9 +88,8 @@ def attribute_contributions(client: Client, user_id: str, guest_ids: list[str]) 
                 "user_id", "null"
             ).execute()
             attributed_albums += 1
-            attributed_here = True
-        if attributed_here:
-            claimed.append(str(guest_id))
+        # 붙였든, 붙일 것이 없었든 — 이 id 는 끝났다. 다시 보내게 두지 않는다.
+        claimed.append(str(guest_id))
     if skipped_conflicts:
         logger.info("contribution_attribution_conflicts_total count=%s", skipped_conflicts)
     return claimed, attributed_albums
@@ -938,24 +944,31 @@ def build_album_document_from_records(
                 }
             )
     if undated:
-        if chapter_list:
-            chapter_list[-1]["photos"].extend(undated)
-        else:
-            place, source = _place_for(undated)
-            place_out = None if source == "unknown" else place
-            chapter_list.append(
-                {
-                    "date": None,
-                    "endDate": None,
-                    "title": place_out or "함께한 순간",
-                    "dayIndex": 1,
-                    "tripDay": None,
-                    "kind": "neutral",
-                    "place": place_out,
-                    "locationSource": source,
-                    "photos": undated,
-                }
-            )
+        # 촬영일이 없는 사진은 **제 묶음으로 맨 뒤에** 선다 (2026-08-19).
+        #
+        # ★ 예전에는 마지막 날짜 묶음에 **섞어 넣었다**(chapter_list[-1] 에 extend).
+        #   그러면 남의 날짜 아래로 들어가 그 날짜와 장소를 뒤집어쓰고, 날짜 없는
+        #   묶음이 사라져 화면에서 `날짜를 넣어 주세요` 를 그릴 자리도 없어진다.
+        #   아이폰 사파리가 EXIF 를 지우므로(2026-08-18) 이 갈래가 흔하다.
+        # ★ 화면 엔진(album-engine/engine/chapterGroup.ts)이 하는 것과 **같은 규칙**이다.
+        #   서버와 화면이 다르게 묶으면 앨범을 다시 만들 때마다 자리가 바뀐다.
+        # ★ 맨 뒤다. 이미 시간순으로 정리된 앞부분을 헤집지 않는다.
+        #   안에서는 들어온 차례(sort_order)를 그대로 지킨다.
+        place, source = _place_for(undated)
+        place_out = None if source == "unknown" else place
+        chapter_list.append(
+            {
+                "date": None,
+                "endDate": None,
+                "title": place_out or "함께한 순간",
+                "dayIndex": len(chapter_list) + 1,
+                "tripDay": None,
+                "kind": "neutral",
+                "place": place_out,
+                "locationSource": source,
+                "photos": undated,
+            }
+        )
 
     epilogue = str(album.get("epilogue") or album.get("narrative") or "").strip()
 

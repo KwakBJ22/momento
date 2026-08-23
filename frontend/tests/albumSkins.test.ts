@@ -243,12 +243,19 @@ test("★ 모양이 바뀌어도 마크업은 같다 — 구조가 같아야 PDF
   assert.equal(await shape("friend") === await shape("travel"), true, "모양마다 마크업이 갈렸다");
 });
 
-test("★ `1 / N` 은 그 날짜 묶음의 장수를 쓴다 — 새 데이터를 만들지 않는다", async () => {
+// ★ 2026-08-19 PO — `사진 아래 1/9, 2/9 이렇게 넘버링 하는게 삭제`.
+//   앨범은 포토북이지 목록이 아니다. 사진 수는 날짜 줄에 이미 있다(그건 그대로 둔다).
+//   예전 검사는 그 번호가 **어떻게 세는지**를 잠그고 있었다 — 번호 자체가 없어졌으므로
+//   `없다`를 잠근다.
+test("★ 사진 아래 `1 / 9` 번호가 어디에도 없다", async () => {
   const view = await renderAlbum("screen", { category: "family" });
   const grid = view.container.querySelector(".album-screen-photo-grid") as HTMLElement;
-  assert.equal(grid.getAttribute("style")?.includes("--photo-total: 1") ?? false, true);
-  // 세는 것은 CSS 카운터다 — 순번을 담은 새 요소를 만들지 않는다.
-  assert.match(skins, /counter-reset: album-photo 0 album-photo-total var\(--photo-total, 0\)/);
-  assert.match(skins, /content: counter\(album-photo\) " \/ " counter\(album-photo-total\)/);
+  // 세는 값을 실어 보내지도 않는다.
+  assert.equal(grid.getAttribute("style")?.includes("--photo-total") ?? false, false);
+  assert.equal(/\d+\s*\/\s*\d+/.test(view.container.textContent || ""), false, "번호가 그려졌다");
   await view.cleanup();
+
+  // CSS 에도 세는 장치가 남아 있지 않다 — 화면·인쇄 어느 쪽에도.
+  assert.equal(/counter-(reset|increment)/.test(skins), false, "카운터가 남아 있다");
+  assert.equal(skins.includes("--photo-total"), false, "세는 값이 남아 있다");
 });

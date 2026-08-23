@@ -54,7 +54,11 @@ test("아는 모양이 아니면 손대지 않는다 (지어내지 않는다)", 
 
 // --- 표지가 실제로 그리는 것 ---
 
-test("★ 이름을 로고 조합으로 쓴다 — 보통 글자가 아니다", async () => {
+// ★ 2026-08-19 — 표지 6종(시안 §2)으로 바뀌면서 **로고가 표지에서 빠졌다.**
+//   시안의 표지에는 제목·기간·함께한 사람만 있고, 이 서비스를 알리는 자리는
+//   **마지막 장**이다(§5 — 무료판에만 붙는 장). 그래서 이 검사는 `로고가 없다`를
+//   잠근다. 기간이 다듬어져 들어가는 것은 그대로 본다(그건 여전히 표지의 일이다).
+test("★ 표지에는 제목·기간·함께한 사람만 있다 — 로고는 마지막 장으로 갔다", async () => {
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: AlbumCover } = await import("../src/album-engine/components/AlbumCover");
@@ -67,24 +71,29 @@ test("★ 이름을 로고 조합으로 쓴다 — 보통 글자가 아니다", 
       heroSrc: "https://cdn.test/hero.webp", participants: ["곽병준", "영희"],
     } as never));
   });
-  // 로고 조합: 우리(진한 글자색) + 앨범(브랜드색). 두 조각이 따로 있어야 색을 나눌 수 있다.
-  const word = container.querySelector(".album-brand-mark__word");
-  assert.equal(word !== null, true, "로고 조합이 없다(보통 글자로 적었다)");
-  assert.equal(word!.querySelector("b")?.textContent, "우리");
-  assert.equal(word!.querySelector("i")?.textContent, "앨범");
+  assert.equal(container.querySelector(".album-brand-mark") === null, true, "표지에 로고가 남아 있다");
+  assert.equal(container.querySelectorAll(".album-cover__title").length, 1);
+  assert.equal(container.querySelectorAll(".album-cover__people").length, 1);
   // 기간은 다듬어진 형태로 들어간다.
   assert.match(container.textContent || "", /2018년 11월 18일 ~ 20일/);
   assert.equal((container.textContent || "").includes("2018.11.18"), false);
   await React.act(async () => { root.unmount(); });
 });
 
-test("★ 표지 로고를 인쇄에서 크게 준다 (rem 고정값이라 물려받지 못한다)", () => {
-  // album-brand-mark 의 글자 크기는 화면 기준 rem 고정이라 부모 font-size 를 안 받는다.
-  const shared = readFileSync(new URL("../src/album-engine/AlbumRenderer.css", import.meta.url), "utf8");
-  assert.match(shared, /\.album-brand-mark__word \{[\s\S]{0,80}font-size: 0\.78rem/);
-  // 그래서 인쇄에서만 다시 준다. 값은 큐 4-5 표의 변수를 읽는다(I-4-5).
-  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__word \{ font-size: var\(--print-cover-logo\); \}/);
-  assert.match(printCss, /\.album-cover__brand \.album-brand-mark__icon \{ width: var\(--print-cover-logo\); height: var\(--print-cover-logo\); \}/);
+// ★ 2026-08-19 — 표지 로고가 사라졌으므로 볼 것도 사라졌다. `rem 고정값이라 인쇄에서
+//   다시 준다`는 규칙 자체는 **마지막 장**에 그대로 살아 있어 그쪽을 본다.
+// ★ 2026-08-19 — 표지에 이어 **마지막 장에서도 그림 로고가 빠졌다**(시안 §2·§6).
+//   인쇄 PDF 어디에도 그림 로고를 크게 앉히는 자리가 없다 — 활자가 그 일을 한다.
+test("★ 인쇄에는 그림 로고를 앉히지 않는다 — 활자가 대신한다", () => {
+  assert.equal(printCss.includes(".album-cover__brand"), false, "표지 로고 규칙이 남아 있다");
+  assert.equal(
+    /\.album-renderer__brand-page \.album-brand-mark__word \{/.test(printCss),
+    false,
+    "마지막 장 로고 규칙이 남아 있다",
+  );
+  // 활자 두 줄이 그 자리를 맡는다.
+  assert.ok(printCss.includes(".album-renderer__brand-en"), "활자 줄 규칙이 없다");
+  assert.ok(printCss.includes(".album-renderer__brand-url"), "주소 줄 규칙이 없다");
 });
 
 test("★ 표지 사진을 자르지 않는다 — 상자가 아니라 사진에 상한을 준다", () => {
@@ -92,14 +101,20 @@ test("★ 표지 사진을 자르지 않는다 — 상자가 아니라 사진에
   // 잘라 내던 두 줄이 사라졌다.
   assert.equal(hero.includes("overflow: hidden"), false, "상자가 사진을 자른다");
   assert.equal(/max-height:\s*\d+px/.test(hero), false, "상자에 px 상한이 남아 있다");
-  // 프레임은 사진 크기에 맞춰 줄어든다 — 늘리면 프레임 안이 텅 빈다(I-4-4 와 같은 구조).
-  assert.match(hero, /flex: 0 1 auto/);
-  // 상한은 사진에, mm 로. 백분율은 부모 높이가 확정되지 않아 통하지 않는다.
+  // ★ 2026-08-19 — 예전에는 늘리지 않았다(flex: 0 1 auto). 그때는 사진 자리가 흰
+  //   카드라서 늘리면 그 안이 텅 비어 보였다. 지금은 **색면**이라 늘어난 자리를
+  //   색이 받는다 — 사진은 그 안에서 가운데에 선다(시안 §2 "남는 자리는 색면이 받는다").
+  assert.match(hero, /flex: 1 1 auto/);
+  // 상한은 사진에 준다. 자르지 않고 **작아지게** 한다는 규칙은 그대로다.
   const img = rule(css, ".album-cover__hero-img");
-  // ★ 2026-08-16 — 지면이 A4 297mm 에서 정사각 200mm 로 바뀌어 상한도 함께 내려왔다
-  //   (175 → 100mm). 자르지 않고 **사진에 상한을 준다**는 규칙은 그대로다.
-  assert.match(img, /max-height: 100mm/);
+  // ★ 2026-08-19 — 표지 6종(시안 §2)에서 사진 자리가 모양마다 달라졌다. 그래서
+  //   고정 mm 상한(100mm) 대신 **자리를 꽉 채우는 상한**을 준다 — 남는 자리는
+  //   색면이 받는다. 모양별 상한이 필요한 곳(잡지형)은 그쪽에서 따로 준다.
+  //   크롬 실측: 6종 × (가로 2:1 · 세로 3:4) 12가지 모두 안 잘리고 안 찌그러졌다.
+  assert.match(img, /max-height: 100%/);
   assert.match(img, /max-width: 100%/);
+  assert.match(img, /width: auto/);
+  assert.match(img, /height: auto/);
   assert.equal(/object-fit/.test(img), false, "html2canvas 는 object-fit 을 무시한다");
 });
 
@@ -119,13 +134,19 @@ test("★ 뒤집힘 — 인쇄에는 사진 프레임(카드)이 없다 (2026-08
   }
 });
 
-test("★ 페이지에 고르게 앉힌다 — 위쪽 절반만 비지 않는다", () => {
+// ★ 2026-08-19 — 예전에는 여섯 모양이 **같은 표지**(가운데 정렬)를 썼다. 이제 배치가
+//   모양마다 다르다(시안 §2) — 가운데로 모으는 것은 기본형·여백형뿐이고, 잡지형은
+//   위아래로 벌리고 한 장씩 크게는 아래를 두 칸으로 나눈다.
+//   `위쪽 절반만 비지 않는다`는 것은 **사진이 남는 자리를 가져간다**로 지켜진다.
+test("★ 남는 자리는 사진과 색면이 가져간다 — 위쪽 절반만 비지 않는다", () => {
   const cover = rule(css, ".album-cover");
   assert.match(cover, /display: flex/);
   assert.match(cover, /flex-direction: column/);
-  assert.match(cover, /justify-content: center/);
   // grid 로 두면 남는 높이가 행마다 늘어난다(예전 방식).
   assert.equal(cover.includes("display: grid"), false);
+  // 사진 자리가 남는 높이를 받는다(flex-grow 1). 글 자리는 제 높이만 쓴다.
+  assert.match(rule(css, ".album-cover__hero"), /flex: 1 1 auto/);
+  assert.match(rule(css, ".album-cover__text"), /flex: 0 0 auto/);
 });
 
 test("표지는 인쇄에서만 그린다 (화면에는 표지가 없다 — §9)", () => {

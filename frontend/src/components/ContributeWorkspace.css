@@ -236,6 +236,22 @@
   display: none;
 }
 
+/* 실패한 사진의 이름과 크기 (PO 2026-08-21). 어두운 덮개 위에 얹히므로 흰 글씨다.
+   ★ 파일 이름이 길어도 카드를 넓히지 않는다 — 가운데를 줄임표로 접지 않고
+     두 줄까지만 보이고 끊는다(이름 끝의 확장자가 보이는 편이 낫다). */
+.contribute__upload-file {
+  margin: 0;
+  max-width: 100%;
+  color: var(--c-surface);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .contribute__upload-overlay .contribute__retry {
   min-height: 34px;
   padding: 0.35rem 0.55rem;

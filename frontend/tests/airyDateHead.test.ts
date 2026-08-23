@@ -104,6 +104,8 @@ test("★ 인쇄는 영향받지 않는다 — 그 줄이 인쇄 머리에 오�
   const source = readFileSync(new URL("../src/album-engine/blocks/ChapterHeader.tsx", import.meta.url), "utf8");
   const print = source.slice(source.indexOf('if (variant === "print-date")'), source.indexOf('if (variant === "date-only")'));
   assert.equal(print.includes("dayline-airy"), false, "인쇄 머리에 화면용 줄이 들어갔다");
-  // 인쇄 머리는 여전히 날짜 한 줄이다.
-  assert.match(print, /<p className="chapter-header__dayline">\{line\}<\/p>/);
+  // ★ 2026-08-19 — 인쇄 머리가 B안(큰 날짜 숫자)으로 바뀌었다(시안 §3). 이 검사가
+  //   지키는 것은 **화면용 줄이 인쇄로 새지 않는다**이고 그대로다.
+  assert.match(print, /className="chapter-header__daynum"/);
+  assert.equal(print.includes("airyLine"), false, "인쇄 머리가 화면 한 줄을 쓴다");
 });

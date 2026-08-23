@@ -1,34 +1,31 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { printPageStraddleGap } from "../src/lib/pdfPageBreak";
+import { PRINT_LAYOUT_VERSION, PRINT_PAGE_ASPECT, PRINT_PAGE_MM } from "../src/lib/pdfPageBreak";
 
-const PAGE = 1000;
+/**
+ * ★ 2026-08-22 — 쪽 나눔 계산(`printPageStraddleGap`)은 html2canvas 로 굽던 시절의 것이라
+ *   지웠다. 서버가 쪽을 하나씩 그리므로(album_pdf_service) 걸치는 블록이 없다.
+ *   이 파일에 남은 것은 **화면 CSS · 프런트 · 서버가 같은 판형을 쓰는가** 다.
+ */
 
-test("a block fully within a page is not pushed", () => {
-  assert.equal(printPageStraddleGap(0, 500, PAGE), null);
-  assert.equal(printPageStraddleGap(1000, 300, PAGE), null); // fully on page 2
+const back = (p: string) => readFileSync(new URL(`../../backend/app/${p}`, import.meta.url), "utf8");
+
+test("지면은 정사각 206mm — 셋(CSS 토큰 · 프런트 · 서버)이 같은 값이다", () => {
+  assert.equal(PRINT_PAGE_ASPECT, 1);
+  assert.equal(PRINT_PAGE_MM, 206);
+  const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+  assert.match(tokens, /--pr-trim:\s*200mm/);
+  assert.match(tokens, /--pr-bleed:\s*3mm/);
+  assert.match(tokens, /--pr-page:\s*calc\(var\(--pr-trim\) \+ var\(--pr-bleed\) \* 2\)/);
+  const server = back("services/album_pdf_service.py");
+  assert.match(server, /TRIM_MM = 200\.0/);
+  assert.match(server, /BLEED_MM = 3\.0/);
+  assert.match(server, /PAGE_MM = TRIM_MM \+ BLEED_MM \* 2\s+# 206/);
 });
 
-test("a block straddling a page boundary returns the gap to the next page top", () => {
-  // top 900, height 200 → bottom 1100 crosses 1000. Push 100 → new top 1000.
-  assert.equal(printPageStraddleGap(900, 200, PAGE), 100);
-  // top 1800 on page 2, height 400 → bottom 2200 crosses 2000. Push 200.
-  assert.equal(printPageStraddleGap(1800, 400, PAGE), 200);
-});
-
-test("pushing by the gap lands the block exactly on the next page (no residual straddle)", () => {
-  const top = 870, height = 250;
-  const gap = printPageStraddleGap(top, height, PAGE);
-  assert.ok(gap !== null);
-  assert.equal(printPageStraddleGap(top + (gap as number), height, PAGE), null);
-});
-
-test("a block taller than a page cannot be avoided (returns null)", () => {
-  assert.equal(printPageStraddleGap(100, 1200, PAGE), null);
-});
-
-test("a hairline crossing within the tolerance is ignored", () => {
-  // top 999 (1px into page 0), height 100 → treated as page-1 start, not a real cut.
-  assert.equal(printPageStraddleGap(999, 100, PAGE), null);
+test("판형 판 3 은 서버가 그리는 첫 판이다 — 백엔드 SERVER_PDF_LAYOUT 과 같다", () => {
+  assert.equal(PRINT_LAYOUT_VERSION, 3);
+  assert.match(back("api/album.py"), /SERVER_PDF_LAYOUT = 3/);
 });

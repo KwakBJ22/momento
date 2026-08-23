@@ -8,10 +8,11 @@ const CLAIM_WAIT_LIMIT = 5;
 
 import { applyContributions, createAlbumShareLink, updateAlbumPhotoLocation, deleteAlbum, getAlbum, getAlbumLivingAppendPages, getAlbumPhotos, getPendingContributions, createPhotoMemory, isPublicShareUrl, loadCollabSession, patchAlbumAppearance, patchAlbumTitle, patchChapterStory, patchEpilogue, removeAlbumPhoto, saveAlbumPhotoCaption, saveCollabSession, startPublicContribution, type CollabSession } from "../lib/api";
 
-import { ALBUM_PHOTO_CAPACITY, PDF_BLOCKED_MESSAGE, PDF_PHOTO_SAFE_LIMIT } from "../lib/albumLimits";
+import { ALBUM_PHOTO_CAPACITY } from "../lib/albumLimits";
 import { navVariantForRole, resolveAlbumRole } from "../lib/albumRole";
 import { albumTroubleCopy, type AlbumViewTrouble } from "../lib/albumTrouble";
 import { withAlbumVersion } from "../lib/albumVersion";
+import { dateDraftProblem, formatDateDraft, isEmptyDateDraft, parseDateDraft } from "../lib/dateDraft";
 import { resolveAlbumSkin } from "../lib/albumSkin";
 import { readPendingGuestClaim } from "../lib/guestAlbum";
 import { downloadAlbumPdf } from "../lib/exportPdf";
@@ -452,14 +453,6 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     }
   };
 
-  /** `YYYY.MM.DD` 만 받는다. 아니면 null — 부르는 쪽이 그때는 날짜를 안 건드린다. */
-  const parseDateDraft = (value: string): string | null => {
-    const matched = value.trim().match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
-    if (!matched) return null;
-    const [, year, month, day] = matched;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  };
-
   /**
    * 저장 버튼 — 날짜가 **바뀔 때만** 한 번 묻는다(§5).
    *
@@ -467,9 +460,17 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
    * ★ `되돌릴 수 없어요` 라고 쓰지 않는다 — 다시 고치면 된다.
    */
   const requestSavePlace = (placeKey: string, photoIds: string[]) => {
+    // ★ 판정은 lib/dateDraft 하나다(2026-08-18). 예전에는 여기서 `2026.05.07` 만 받는
+    //   정규식을 따로 들고 있었고, 아이폰 숫자 키패드로는 점을 칠 수 없어 **여기서
+    //   멈췄다** — 요청이 나가지도 않아 화면에는 아무 일도 일어나지 않았다.
     const parsed = parseDateDraft(dateDraft);
-    if (dateDraft.trim() && !parsed) {
-      setPlaceSaveError("날짜는 2018.07.08 처럼 적어 주세요.");
+    if (!isEmptyDateDraft(dateDraft) && !parsed) {
+      setPlaceSaveError(dateDraftProblem(dateDraft) ?? "날짜를 8자리 숫자로 넣어 주세요. (예: 20180708)");
+      return;
+    }
+    const problem = dateDraftProblem(dateDraft);
+    if (problem) {
+      setPlaceSaveError(problem);
       return;
     }
     if (parsed && parsed !== placeKey) {
@@ -624,29 +625,8 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
 
     try {
 
-      const delivery = await downloadAlbumPdf({
-
-        albumId: source.album_id,
-
-        albumVersion: source.album_version ?? 0,
-        contributorNames: source.contributor_names ?? [],
-
-        title: source.title,
-
-        photos,
-
-        epilogue: source.epilogue ?? source.narrative ?? "",
-
-        coverDateLabel: source.date,
-
-        category: source.category,
-
-        templateType: source.template_type,
-        chapterStories: visibleChapterStories(source.chapter_stories, photos),
-        coverPhotoId: source.cover_photo_id,
-        livingAppendPages,
-
-      });
+      // PDF 는 서버가 앨범 기록으로 그린다(2026-08-22) — 화면의 사진·글을 넘기지 않는다.
+      const delivery = await downloadAlbumPdf({ albumId: source.album_id, albumVersion: source.album_version ?? 0, title: source.title });
       setPdfNotice(pdfSuccessMessage(delivery));
 
     } catch (error) {
@@ -1027,7 +1007,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
         />
       ) : null}
       <div className="album-result__stage album-result__stage--web" ref={stageRef}>
-        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, needsName: !contributionSession, nameDraft: memoryNameDraft, setNameDraft: setMemoryNameDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); setDateDraft(/^\d{4}-\d{2}-\d{2}$/.test(key) ? key.replace(/-/g, ".") : ""); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); setDateDraft(""); }, setDraft: setPlaceDraft, dateDraft, setDateDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) requestSavePlace(key, photoIds); } } : null} />
+        <AlbumRenderer contributorNames={displayAlbum?.contributor_names ?? []} photos={photos} title={displayTitle} epilogue={isEditingEpilogue ? "" : epilogue} coverDateLabel={displayAlbum?.date} chapterStories={chapterStories} category={category} templateType={templateType} albumId={displayAlbum?.album_id ?? albumId} coverPhotoId={displayAlbum?.cover_photo_id} skin={displayAlbum?.skin} paper={displayAlbum?.paper} livingAppendPages={livingAppendPages} mode="screen" onEditEpilogue={canEdit && hasEpilogue ? () => { setEpilogueDraft(epilogueText); setIsEditingEpilogue(true); } : undefined} photoMemoryWrite={{ canWrite: () => requestedEdition === null && displayAlbum?.can_add_memory === true, writingPhotoId: memoryPhotoId, savingPhotoId: savingMemoryPhotoId, error: memoryWriteError, draft: memoryDraft, needsName: !contributionSession, nameDraft: memoryNameDraft, setNameDraft: setMemoryNameDraft, start: startMemoryHere, cancel: () => { setMemoryPhotoId(null); setMemoryWriteError(null); }, setDraft: setMemoryDraft, save: (photoId: string) => { void saveMemoryHere(photoId); } }} photoCommentEdit={{ ...captionEdit, editingPhotoId, savingPhotoId: isSavingPhotoComment ? editingPhotoId : null, error: photoCommentSaveError, draft: photoCommentDraft, startEdit: handleStartPhotoCommentEdit, cancelEdit: handleCancelPhotoCommentEdit, setDraft: setPhotoCommentDraft, saveEdit: (photoId: string) => { if (editingPhotoId === photoId) void handleSavePhotoComment(); } }} dateStoryEdit={canEdit ? { canEdit: true, editingKey: editingStoryKey, savingKey: isSavingStory ? editingStoryKey : null, error: storySaveError, draft: storyDraft, startEdit: (key: string, text: string) => { setStorySaveError(null); setEditingStoryKey(key); setStoryDraft(text); }, cancelEdit: () => { setStorySaveError(null); setEditingStoryKey(null); setStoryDraft(""); }, setDraft: setStoryDraft, saveEdit: (key: string) => { if (editingStoryKey === key) void handleSaveStory(key); } } : null} placeEdit={canEdit ? { canEdit: true, editingKey: editingPlaceKey, savingKey: isSavingPlace ? editingPlaceKey : null, error: placeSaveError, draft: placeDraft, startEdit: (key: string, text: string) => { setPlaceSaveError(null); setEditingPlaceKey(key); setPlaceDraft(text); setDateDraft(/^\d{4}-\d{2}-\d{2}$/.test(key) ? formatDateDraft(key) : ""); }, cancelEdit: () => { setPlaceSaveError(null); setEditingPlaceKey(null); setPlaceDraft(""); setDateDraft(""); }, setDraft: setPlaceDraft, dateDraft, setDateDraft, saveEdit: (key: string, photoIds: string[]) => { if (editingPlaceKey === key) requestSavePlace(key, photoIds); } } : null} />
       </div>
       {isEditingEpilogue ? <section className="album-result__narrative album-result__epilogue"><div className="album-result__narrative-head"><h3>우리의 이야기</h3><button type="button" className="link-btn" onClick={() => void handleSaveEpilogue()} disabled={isSavingEpilogue}>{isSavingEpilogue ? "저장 중..." : "완료"}</button></div><textarea className="album-result__editor" value={epilogueDraft} onChange={(event) => setEpilogueDraft(event.target.value)} rows={6} maxLength={800} autoFocus /></section> : null}
       {!isEditingEpilogue && canEdit && !hasEpilogue ? <div className="album-result__epilogue-actions album-result__epilogue-actions--alone"><button type="button" className="link-btn" onClick={() => { setEpilogueDraft(""); setIsEditingEpilogue(true); }}>우리의 이야기 쓰기</button></div> : null}
@@ -1042,7 +1022,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     <div className="album-result__actions">
       {/* 닫아도 남는 진입점(§1) — 큰 안내를 닫은 뒤에도 여기서 저장할 수 있다. */}
       <button type="button" className="btn btn--primary" onClick={() => onGuestSave?.()}>내 앨범으로 저장하기</button>
-      <div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album || photos.length > PDF_PHOTO_SAFE_LIMIT}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button>{photos.length > PDF_PHOTO_SAFE_LIMIT ? <p className="album-result__action-hint">{PDF_BLOCKED_MESSAGE}</p> : null}</div>
+      <div className="album-result__hinted-action"><button type="button" className="btn btn--ghost" onClick={() => void handlePdf()} disabled={isExportingPdf || !album}>{isExportingPdf ? "PDF 만드는 중..." : "PDF 저장"}</button></div>
     </div>
   ) : (
     // 목업 2a: 앨범 하단에 버튼 열을 두지 않는다 — 공유·PDF·삭제는 공유하기/더보기
@@ -1132,7 +1112,7 @@ export default function AlbumView({ albumId, guestOwner = false, onGuestSave, ac
     </div>
   ) : null;
   const headerExtras = editionLinks || contributionClosedNotice || captionNotice || mineCard ? <>{editionLinks}{contributionClosedNotice}{captionNotice}{mineCard}</> : undefined;
-  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: navVariantForRole(role), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => void openContribution("memory"), onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
+  return <AlbumScreen title={displayTitle} subtitle={participation ? `사진 ${photos.length}장 · 함께한 사람 ${participation.contributor_count}명` : `사진 ${photos.length}장${contributorCount !== null ? ` · 함께 만든 사람 ${contributorCount}명` : ""}`} canEditTitle={canEdit} onSaveTitle={canEdit ? handleSaveTitle : undefined} headerSupplement={headerExtras} preHeader={whoamiBand ?? guestSaveCard} onMore={() => setMoreOpen(true)} body={albumBody} actionPanel={albumActions} bottomNavigation={{ variant: navVariantForRole(role), onAddPhoto: () => { void openContribution("photo"); }, onAddMemory: () => void openContribution("memory"), onShare: () => setShareOpen(true), onCreateAlbum: () => window.location.assign("/"), onMyAlbums: () => window.location.assign("/my-albums"), canAddPhoto: !guestOwner && requestedEdition === null, canAddMemory: !guestOwner && requestedEdition === null }} backHref={guestOwner ? "/" : "/my-albums"} backLabel={guestOwner ? "처음으로" : "내 앨범"} />;
 
   /* Legacy shell intentionally disabled: AlbumScreen above owns screen UI. */
 

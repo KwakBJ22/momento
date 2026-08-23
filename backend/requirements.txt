@@ -9,3 +9,7 @@ pydantic-settings==2.7.1
 python-dotenv==1.0.1
 pyyaml==6.0.2
 httpx==0.28.1
+# PDF 를 서버에서 그린다(2026-08-22). reportlab 은 BSD · mm 좌표 · 글꼴 임베드.
+reportlab==4.4.3
+# 만든 PDF 를 검사에서 열어 잰다(지면 · DPI · 글자가 벡터인가).
+pypdf==6.16.1

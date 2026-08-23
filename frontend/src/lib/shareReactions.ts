@@ -1,3 +1,5 @@
+import { createId } from "./id";
+
 // Participation design §2: album-level reactions. 3 codes, anonymous aggregate.
 export type ReactionCode = "love" | "moved" | "smile";
 
@@ -18,8 +20,9 @@ export function getReactionSessionKey(): string {
   } catch {
     // Private WebViews can reject storage; fall through to an ephemeral key.
   }
-  const created =
-    (globalThis.crypto?.randomUUID?.() ?? "") + (globalThis.crypto?.randomUUID?.() ?? "");
+  // ★ 여기는 옵셔널 체이닝이라 죽지는 않았지만, 옛 아이폰에서는 두 값이 다 빈 문자열이
+  //   되어 **모두가 같은 열쇠**를 쓰게 됐다. 감싸는 일은 `lib/id` 하나가 한다.
+  const created = `${createId()}${createId()}`;
   const key = created.replace(/-/g, "").slice(0, 32) || `reaction-${Date.now()}-fallbackkey`;
   try { localStorage.setItem(SESSION_KEY, key); } catch { /* best effort */ }
   return key;

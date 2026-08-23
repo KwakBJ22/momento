@@ -4,8 +4,10 @@ import test from "node:test";
 
 const read = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 
-// Default album bottom nav is 3 items: 사진 추가 / 한마디 쓰기 / 공유하기.
+// Default album bottom nav is 3 items: 사진 추가 / 내 앨범 / 공유하기.
 // "새 앨범" moved to the header 더보기 sheet; 공유하기 alone gets the brand background.
+// ★ 2026-08-19 PO — 주최자 칸에서 `한마디 쓰기` 를 빼고 `내 앨범` 을 넣었다.
+//   한마디는 사진 아래에서 바로 누르는 길이 있다. **참여자 칸은 그대로다.**
 test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목업 2a·3a)", () => {
   const nav = read("components/AlbumBottomNavigation.tsx");
   // 변형별 블록을 가드 기준으로 자른다(같은 aria-label 을 쓰는 변형이 늘어도 안 깨지게).
@@ -13,16 +15,23 @@ test("album nav: 소유자·참여자 모두 3칸, is-primary 만 다르다 (목
   const owner = nav.slice(nav.indexOf("// 소유자(2a) 3칸"));
   // 참여자(4a·안1): 한마디 쓰기(면 채움) / 사진 추가 / 내 앨범 만들기(테두리 칩, 두 줄).
   // ★ 강조가 첫 칸으로 옮겨졌다(UI 정리 3단계 C) — 참여자가 실제로 하는 일이 한마디다.
-  const contributorNav = contributor.split("</nav>")[0];
+  const contributorNav = contributor.slice(contributor.indexOf("<nav")).split("</nav>")[0];
   assert.match(contributorNav, /album-bottom-navigation__primary[\s\S]{0,120}한마디 쓰기/);
   assert.match(contributorNav, /<span>한마디 쓰기<\/span>/);
   assert.match(contributorNav, /album-bottom-navigation__chip[\s\S]{0,200}내 앨범<br \/>만들기/);
   assert.doesNotMatch(contributorNav, /공유하기|앨범 처음으로/);
   assert.equal((contributorNav.match(/<button/g) || []).length, 3);
-  // 소유자(2a): 사진 추가 / 한마디 쓰기 / 공유하기(primary).
-  const ownerNav = owner.split("</nav>")[0];
+  // 소유자(2a): 사진 추가 / 내 앨범 / 공유하기(primary).
+  // ★ 주석이 아니라 **마크업만** 본다 — 왜 뺐는지 적어 둔 설명이 검사에 걸리면
+  //   설명을 지우게 만드는 검사가 된다(무엇이 그려지는지가 볼 것이다).
+  const ownerNav = owner.slice(owner.indexOf("<nav")).split("</nav>")[0];
   assert.match(ownerNav, /<span>사진 추가<\/span>/);
-  assert.match(ownerNav, /<span>한마디 쓰기<\/span>/);
+  assert.match(ownerNav, /<span>내 앨범<\/span>/);
+  // 한마디 칸은 주최자에게서만 빠졌다 — 참여자 칸(위)에는 그대로 있다.
+  assert.doesNotMatch(ownerNav, /한마디 쓰기/);
+  // `내 앨범` 은 `app` 갈래가 쓰는 그 길·그 아이콘이다(새 주소를 만들지 않았다).
+  assert.match(ownerNav, /onClick=\{onMyAlbums\}/);
+  assert.match(ownerNav, /<Images size=\{24\} \/>/);
   assert.match(ownerNav, /album-bottom-navigation__share"[^>]*onClick=\{onShare\}[\s\S]{0,80}공유하기/);
   assert.doesNotMatch(ownerNav, /앨범 만들기|앨범 처음으로|기억 추가/);
   assert.equal((ownerNav.match(/<button/g) || []).length, 3);
@@ -68,9 +77,11 @@ test("header 더보기 sheet matches the mockup: text pill trigger + 60px list r
   assert.equal(sheetCode.includes("새 앨범 만들기"), false, "같은 행동이 두 자리에 다시 생겼다");
   // 호출자가 서버 플래그를 그대로 넘긴다.
   assert.match(read("components/AlbumView.tsx"), /canEdit=\{role === "owner"\}/);
-  // PDF 초과: 이유를 사람 말로 + 예약 슬롯(숫자 사실만).
-  assert.match(sheet, /album-more-sheet__row--off[\s\S]{0,200}\{PDF_BLOCKED_REASON\}/);
-  assert.match(sheet, /album-more-sheet__slot">이 앨범 사진 \{photoCount\}장 · 한 파일 \{PDF_PHOTO_SAFE_LIMIT\}장/);
+  // ★ 2026-08-22 — 30장 차단 행(`row--off` + 예약 슬롯)을 지웠다. PDF 는 서버가 그린다 —
+  //   장수로 막지 않는다. 파일로 저장하기 행은 하나뿐이고 만드는 동안만 잠긴다.
+  assert.equal(sheetCode.includes("album-more-sheet__row--off"), false, "30장 차단 행이 되살아났다");
+  assert.equal(sheetCode.includes("PDF_PHOTO_SAFE_LIMIT"), false);
+  assert.match(sheet, /onExportPdf \? <button type="button" className="album-more-sheet__row" disabled=\{isExportingPdf\}/);
   assert.match(sheet, /canDelete && onDeleteAlbum[\s\S]{0,240}이 앨범 지우기/);
   // ★ 뒤집힌 항목 (2026-08-13). 안심 문구를 한 줄로 줄였다 — 뒤 문장(`실수로 지워지지
   //   않아요.`)은 앞 문장과 같은 말이라 두 번 읽히기만 했다. 안심을 주는 규칙은 그대로다.

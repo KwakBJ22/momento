@@ -32,7 +32,11 @@ class AttributeContributionsTests(TestCase):
             {"id": "c1", "album_id": "A1", "guest_id": "G2", "user_id": OTHER, "status": "active"},
         ]})
         claimed, albums = attribute_contributions(client, USER, ["G2"])
-        self.assertEqual(claimed, [])
+        # ★ 2026-08-19 — 예전에는 [] 였다. 이 목록은 화면이 `다시 안 보내도 된다` 표시를
+        #   하는 데 쓰는데, 남의 것이라 영영 못 붙는 id 를 빼면 화면을 옮길 때마다 다시
+        #   실려 온다(bootstrap 반복). 끝난 id 이므로 목록에는 오르되, **행은 안 건드린다**
+        #   (아래 검사 그대로) — 지키려던 것은 그쪽이다.
+        self.assertEqual(claimed, ["G2"])
         self.assertEqual(albums, 0)
         self.assertEqual(client.tables["album_contributors"][0]["user_id"], OTHER)  # untouched
 
@@ -42,7 +46,8 @@ class AttributeContributionsTests(TestCase):
             {"id": "mine", "album_id": "A1", "guest_id": None, "user_id": USER, "status": "active"},
         ]})
         claimed, albums = attribute_contributions(client, USER, ["G3"])
-        self.assertEqual(claimed, [])
+        # ★ 2026-08-19 — 위와 같은 이유로 [] → ["G3"]. 충돌로 건너뛴 것도 끝난 id 다.
+        self.assertEqual(claimed, ["G3"])
         self.assertEqual(albums, 0)
         guest_row = next(r for r in client.tables["album_contributors"] if r["id"] == "guest")
         self.assertIsNone(guest_row["user_id"])  # skipped, not overwritten

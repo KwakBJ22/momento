@@ -1,9 +1,31 @@
 import { normalizeMemoryText } from "./memoryCaption";
 
-/** 문장 단위 분리 (한국어/영문 마침표·줄바꿈) */
+/**
+ * 문장 끝을 표시할 때 쓰는 글자 — 사용자가 칠 수 없는 제어문자다.
+ * 혹시 글에 들어 있으면 먼저 지운다(그것으로 문장을 쪼갤 수는 없게).
+ */
+const SENTENCE_BREAK = "\u0000";
+
+/**
+ * 문장 단위 분리 (한국어/영문 마침표·줄바꿈)
+ *
+ * 🔴 예전에는 뒤돌아보기(`(?<=...)`)로 잘랐다. 그것은 **iOS 16.4 부터** 되는 문법이라
+ *    그 아래 아이폰에서는 이 파일을 읽는 순간 문법 오류가 났고, `album-engine/index.ts`
+ *    가 이 파일을 내보내므로 **앨범 엔진이 통째로 죽었다**(화면 전체가 멈췄다).
+ *    우리 사용자는 기기를 오래 쓰는 층이라 3~4년 된 아이폰이 흔하다.
+ *
+ * ★ 끝 부호를 **남기면서** 자르는 것이 핵심이다. 그래서 부호 뒤에 표시를 하나 넣고
+ *   그 표시로 자른다 — 부호는 앞 문장에 남는다. 결과는 예전과 **글자 하나까지 같다**
+ *   (검사가 옛 정규식과 맞대어 본다).
+ * ★ `다. / 요. / 죠. / 네.` 를 따로 적지 않는다. 그 갈래는 전부 `.` 로 끝나서 부호
+ *   목록에 이미 들어 있었다 — 예전에도 하는 일이 없던 가지다.
+ * ★ 새 라이브러리를 넣지 않는다.
+ */
 export function splitSentences(text: string): string[] {
   return normalizeMemoryText(text)
-    .split(/(?<=[.!?。！？]|다\.|요\.|죠\.|네\.)\s+|\n+/)
+    .split(SENTENCE_BREAK).join("")
+    .replace(/([.!?。！？])(\s+)/g, `$1${SENTENCE_BREAK}`)
+    .split(new RegExp(`${SENTENCE_BREAK}|\\n+`))
     .map((s) => normalizeMemoryText(s))
     .filter(Boolean);
 }

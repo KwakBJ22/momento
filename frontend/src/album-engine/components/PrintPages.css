@@ -27,10 +27,33 @@
    사진이 가장 크다는 순서(§6)는 그대로다 — 글이 사진을 이기면 안 된다.
    ───────────────────────────────────────────────────────────────────────── */
 .album-renderer--print {
+  /* ── 활자 (시안 §6) ────────────────────────────────────────────────
+     본문·캡션은 명조 계열, 날짜·숫자는 라틴 세리프. 굵기는 가늘게 두고
+     **크기 차이로만** 위계를 만든다.
+     ★ **새 폰트를 싣지 않는다.** 웹폰트를 하나라도 걸면 카카오톡 웹뷰 첫 화면이
+       그만큼 늦어진다(§9). 기기에 이미 있는 것만 골라 쓴다 — 안드로이드는
+       본명조(Noto Serif KR), 아이폰은 애플명조가 잡힌다. 없으면 기본 serif 다.
+     ★ 이 두 값은 `--print` 안에만 있다. 화면은 예전 글꼴 그대로다. */
+  --print-mincho: "Noto Serif KR", "Apple SD Gothic Neo", "AppleMyungjo", "Nanum Myeongjo", serif;
+  --print-serif: "EB Garamond", "Times New Roman", Times, serif;
+
   --print-cover-title: 28pt;
   --print-cover-logo: 17pt;
   --print-cover-period: 12pt;
   --print-date-heading: 11pt;
+  /* 날짜 머리 B안 — 큰 숫자와 그 아래 보조줄 (시안 §3: 46px · 11.5px). */
+  --print-date-number: 40.7pt;
+  --print-date-meta: 10.2pt;
+  /* 월 시작 쪽 (시안 §3: 88px · 24px · 12.5px). */
+  --print-month-number: 78pt;
+  --print-month-title: 21.3pt;
+  --print-month-meta: 11.1pt;
+  /* 우리의 이야기 숫자 요약 (시안 §6: 30px · 11.5px). */
+  --print-count-value: 26.6pt;
+  --print-count-label: 10.2pt;
+  /* 마지막 장 (시안 §6: 19px · 12.5px). */
+  --print-last-ask: 16.8pt;
+  --print-last-body: 11.1pt;
   --print-caption: 9pt;
   --print-story-title: 12pt;
   --print-story-body: 9.5pt;
@@ -107,6 +130,172 @@
 /* 날짜 머리글 — 남는 것은 **날짜 하나**다(I-4-3 · §9). 매 쪽 반복되던 `2018년 11월`
    줄과 `(사진 N장)` 을 없앴다. 한 줄뿐이라 그 한 줄이 제목 노릇을 한다.
    A4 실측 6mm ≈ 17pt — 본문(4.8mm)보다 확실히 커야 쪽을 넘길 때 눈에 걸린다. */
+/* 우리의 이야기 — 숫자 요약 (시안 §6 `우리의 이야기` · **두 판 공통**).
+ *
+ *     22          80           9
+ *     만난 날      실린 사진     함께한 사람
+ *
+ * 시안 값: 숫자 30px = 26.6pt(라틴 세리프) · 라벨 11.5px = 10.2pt
+ *          칸 사이 44px = 13.75mm · 숫자와 라벨 사이 5px = 1.6mm
+ *
+ * ★ 세는 것이 아니라 **닫는 말**이다. `우리의 이야기` 와 `함께 만든 사람` 사이에
+ *   놓여, 이 책이 무엇을 담았는지 한눈에 보이게 한다.
+ * ★ 0 을 말하지 않는 규칙은 여기 오지 않는다 — 셋 다 앨범이 있으면 늘 1 이상이다. */
+.album-renderer--print .print-closing__counts {
+  display: flex;
+  gap: 13.75mm;
+  margin: 0;
+  padding-top: 1.9mm;
+}
+
+.album-renderer--print .print-closing__count {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6mm;
+}
+
+.album-renderer--print .print-closing__count-value {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-count-value);
+  line-height: 1;
+  font-weight: 400;
+}
+
+.album-renderer--print .print-closing__count-label {
+  color: var(--c-text-soft);
+  font-size: var(--print-count-label);
+  line-height: var(--print-leading-body);
+  font-weight: 300;
+}
+
+/* 마지막 장 — **무료판에만** (시안 §6).
+ *
+ * ★ 로고를 **활자 한 줄로 대신한다.** 그림 로고를 크게 앉히던 자리였다 —
+ *   마지막 장은 광고가 아니라 조용한 안내다.
+ * ★ 무게를 아래쪽에만 둔다. 위는 비운다.
+ * ★ QR 은 아직 없다 — 만들어 붙일 그림이 저장소에 없고, 없는 코드를 지어내면
+ *   찍힌 책에서 안 읽힌다. 주소는 활자로 적어 두었다. */
+.album-renderer--print .album-renderer__brand-ask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5.6mm;
+  text-align: center;
+}
+
+.album-renderer--print .album-renderer__brand-ask-title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: var(--print-last-ask);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.album-renderer--print .album-renderer__brand-ask-body {
+  margin: 0;
+  max-width: 103mm; /* 330px */
+  color: var(--c-text-soft);
+  font-size: var(--print-last-body);
+  line-height: 1.9;
+  font-weight: 300;
+}
+
+/* 글만 있는 쪽 — 이야기가 긴 날 (시안 §3 `글만 있는 쪽`).
+ *
+ * ★ **뒤집힘.** 예전에는 `글만 있는 쪽을 만들지 않는다`(I-4d-3)가 규칙이었다. 이야기는
+ *   언제나 그 날 마지막 사진 쪽에 붙었다. 시안이 그 규칙을 바꾼다 — 이야기가 길면
+ *   지면 하나를 글에 내주고 사진은 다음 쪽으로 넘긴다. 짧은 이야기는 예전 그대로
+ *   사진 쪽에 붙는다(그쪽이 대부분이다 · 날짜 이야기는 3~6줄이다).
+ * ★ **두 단**으로 나눈다. 한 단이면 174mm 짜리 글줄이 되어 안 읽힌다(시안 §4).
+ *   단 사이는 거터 6mm 다. */
+.album-renderer--print .print-page--story .print-story__columns {
+  flex: 1 1 auto;
+  min-height: 0;
+  columns: 2;
+  column-gap: var(--pr-gutter);
+  /* 두 단이라 글줄 폭 상한(3열 122mm)이 필요 없다 — 단 자체가 이미 좁다. */
+}
+
+.album-renderer--print .print-page--story .story-block__body {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* 월 시작 쪽 — 큰 숫자 하나로 달이 바뀐 것을 알린다 (시안 §3 `월 시작 쪽`).
+ *
+ * 시안 값: 큰 숫자 88px = 78pt · line-height .85 · letter-spacing -.02em
+ *          월 이름 24px = 21.3pt · 짧은 선 60px = 18.75mm · 보조줄 12.5px = 11.1pt
+ *          둘 사이 16px = 5mm · 월 이름 줄 안쪽 간격 14px = 4.4mm
+ *
+ * ★ **사진을 넣지 않는 쪽**이라 비어 보이기 쉽다. 아래쪽에 무게를 모으고 위를 크게
+ *   비운다(시안). 가운데로 모으면 그냥 빈 쪽으로 읽힌다.
+ * ★ 월별 **이야기**를 쓰지 않는다(CLAUDE.md §6 에서 없앤 요소다). 이 쪽은 글이
+ *   아니라 **칸막이**다 — 숫자와 이름과 센 값만 있다. */
+.album-renderer--print .print-page--month {
+  justify-content: flex-end;
+  gap: 5mm;
+}
+
+.album-renderer--print .print-month__number {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-month-number);
+  line-height: 0.85;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.album-renderer--print .print-month__line {
+  display: flex;
+  align-items: baseline;
+  gap: 4.4mm;
+  /* 아래쪽에 무게를 모으되 지면 끝에 붙지는 않는다 — 아래 여백을 조금 남긴다. */
+  padding-bottom: 12mm;
+}
+
+.album-renderer--print .print-month__title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: var(--print-month-title);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.album-renderer--print .print-month__rule {
+  flex: 0 0 auto;
+  width: 18.75mm; /* 60px */
+  height: 0.3mm;  /* 1px */
+  background: var(--c-border);
+}
+
+.album-renderer--print .print-month__meta {
+  color: var(--c-text-soft);
+  font-size: var(--print-month-meta);
+  line-height: var(--print-leading-body);
+  font-weight: 300;
+}
+
+/* 날짜 머리 **B안** — 큰 날짜 숫자 + 장소 제목 + 아래 한 줄 (시안 §3 오른쪽).
+ *
+ *     7.8
+ *     속초, 비 오는 바다
+ *     2018년 · 사진 2장
+ *
+ * 시안 값(640px = 200mm 이므로 3.2px = 1mm · px × 0.8858 = pt):
+ *     큰 숫자 46px = 40.7pt · line-height 0.9 · 라틴 세리프
+ *     장소   14.5px = 12.8pt · letter-spacing .03em
+ *     보조줄 11.5px = 10.2pt · letter-spacing .08em
+ *     둘 사이 16px = 5mm · 오른쪽 두 줄 사이 4px = 1.25mm
+ *
+ * ★ 왼쪽 정렬이다. 예전 A안은 가운데 한 줄이었다.
+ * ★ 머리글대 높이(14mm)는 그대로다 — 쪽마다 사진 시작선이 같아야 한다.
+ *   큰 숫자가 그보다 크므로 **넘치는 만큼은 아래로 흐르지 않게** 가운데를 맞춘다. */
 .album-renderer--print .chapter-header--print-date {
   /* ★ 언제나 쪽 맨 위다. 어떤 정렬에도 딸려 내려가지 않는다(I-4c). */
   order: -1;
@@ -114,19 +303,65 @@
      아래 6mm 는 지면의 gap 이 준다 — 사진 영역 174 × 154 가 여기서 나온다. */
   flex: 0 0 var(--pr-head);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 5mm;
   margin: 0;
   padding: 0;
-  text-align: center;
+  text-align: start;
+  overflow: hidden;
 }
 
-.album-renderer--print .chapter-header--print-date .chapter-header__dayline {
+/* 큰 날짜 숫자 — 라틴 세리프. 숫자가 제목처럼 선다(시안 §6). */
+.album-renderer--print .chapter-header--print-date .chapter-header__daynum {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--print-serif);
+  font-size: var(--print-date-number);
+  line-height: 0.9;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__daytext {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25mm;
+  padding-bottom: 1.25mm;
+  min-width: 0;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__dayplace {
   margin: 0;
   color: var(--c-text);
   font-size: var(--print-date-heading);
   line-height: var(--print-leading-title);
-  font-weight: 780;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  /* 장소가 길어도 머리글대를 밀지 않는다 — 한 줄에서 끊는다. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-renderer--print .chapter-header--print-date .chapter-header__daymeta {
+  margin: 0;
+  color: var(--c-text-soft);
+  font-size: var(--print-date-meta);
+  line-height: var(--print-leading-title);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* 날짜가 없는 묶음 — 예전처럼 기간 한 줄이다(큰 숫자를 만들 수 없다). */
+.album-renderer--print .chapter-header--print-date .chapter-header__dayline {
+  margin: 0;
+  align-self: center;
+  color: var(--c-text);
+  font-size: var(--print-date-heading);
+  line-height: var(--print-leading-title);
+  font-weight: 400;
   letter-spacing: -0.02em;
 }
 
@@ -180,8 +415,15 @@
   justify-items: center;
 }
 
-/* 칸 나눔은 **장수로 정한다**(I-4d-2). 세로로 쌓지 않는다 —
-   1장은 한 칸, 2·3·4장은 두 칸. 3장은 위에 둘, 아래 한 장을 가운데. */
+/* 칸 나눔은 **장수로 정한다**(시안 §4 `본문 배치`).
+       1장   한 칸
+       2장   두 칸 (나란히)
+       3장   두 칸 — **왼쪽 하나 크게 · 오른쪽 둘 작게**
+       4장   두 칸 × 두 줄
+       5·6장 세 칸
+   ★ 3장이 뒤집혔다(2026-08-19). 예전에는 `위에 둘, 아래 한 장을 가운데` 였는데
+     시안은 왼쪽에 큰 사진 하나를 세우고 오른쪽에 작은 둘을 쌓는다. 마크업은 그대로
+     두고 첫 칸이 두 줄을 차지하게 한다 — 칸을 묶는 새 요소를 만들지 않는다. */
 .album-renderer--print .print-page[data-photo-count="1"] .print-page__photos {
   grid-template-columns: 1fr;
 }
@@ -190,8 +432,16 @@
 .album-renderer--print .print-page[data-photo-count="4"] .print-page__photos {
   grid-template-columns: 1fr 1fr;
 }
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame:last-child {
-  grid-column: 1 / -1;
+.album-renderer--print .print-page[data-photo-count="5"] .print-page__photos,
+.album-renderer--print .print-page[data-photo-count="6"] .print-page__photos {
+  grid-template-columns: repeat(3, 1fr);
+}
+/* 3장 — 왼쪽 큰 한 장이 두 줄을 차지하고, 오른쪽에 작은 둘이 쌓인다. */
+.album-renderer--print .print-page[data-photo-count="3"] .print-page__photos {
+  grid-template-rows: auto auto;
+}
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:first-child {
+  grid-row: 1 / span 2;
 }
 
 /* 사진과 캡션을 하나의 프레임 안에 — 캡션이 그 사진에 딸린 말임이 보여야 한다(§9).
@@ -205,7 +455,11 @@
   justify-content: flex-start;
   align-items: center;
   align-self: start;
-  gap: 3mm;
+  /* ★ 사진과 캡션 사이 — **시안 값 9px = 2.8mm** 다(3mm 에서 내려왔다).
+     캡션이 사진에서 떨어져 `다음 사진 것처럼` 보였다(PO). 실측으로 재 보니 이 간격
+     3mm 에 더해, 화면용 여백(.photo-memory-lines--caption 의 margin-top: 10px
+     ≈ 2.65mm)이 인쇄까지 따라와 **5.64mm** 였다. 아래에서 그 여백을 0 으로 둔다. */
+  gap: var(--pr-cap-gap);
   min-height: 0;
   /* ★ 가로도 사진 폭 + 여백 4mm 다(I-4d-1). 칸 폭을 따라가지 않는다.
      캡션이 프레임 폭을 정하지 않도록 아래에서 width: 0 + min-width: 100% 로 묶는다. */
@@ -268,20 +522,41 @@
   /* 한 줄짜리 쪽 · 두 줄짜리 쪽의 칸 높이. */
   --pr-row-1: var(--pr-photo-area);
   --pr-row-2: calc((var(--pr-photo-area) - var(--pr-gutter)) / 2);
-  --pr-story-row-1: calc(var(--pr-photo-area) - var(--pr-story));
-  --pr-story-row-2: calc((var(--pr-photo-area) - var(--pr-story) - var(--pr-gutter)) / 2);
 }
 
-.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-row-1) - var(--pr-caption)); }
-.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img,
-.album-renderer--print .print-page[data-photo-count="3"] .print-frame__photo img,
-.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-row-2) - var(--pr-caption)); }
+/* 사진 세로 상한 — **시안 §4 의 값 그대로**다(재서 정한 것이 아니다).
+ *     1장   128mm
+ *     2장   118mm  (나란히 두 칸)
+ *     3장   100mm / 43mm × 2
+ *     4장    58mm  (두 칸 × 두 줄)
+ *   5·6장    58mm  (세 칸)
+ *
+ * ★ `min()` 으로 **남는 자리와 견준다.** 날짜 이야기가 함께 오는 쪽은 그만큼 자리가
+ *   줄어드는데, 시안 값을 그대로 쓰면 그런 쪽에서 지면을 넘는다(1장 142 > 104).
+ *   둘 중 작은 쪽을 쓰면 어느 쪽에서도 넘지 않는다.
+ * ★ 상한만 준다. 폭·높이는 auto 라 **잘리지도 찌그러지지도 않는다.** */
+.album-renderer--print .print-page {
+  /* 사진에 쓸 수 있는 세로 — 이야기가 있으면 그만큼 뺀다. */
+  --pr-avail: var(--pr-photo-area);
+  /* 한 줄짜리 쪽 · 두 줄짜리 쪽에서 사진 하나가 쓸 수 있는 높이.
+     ★ 캡션대(14mm)**와 사진·캡션 사이 간격(2.8mm)을 둘 다** 뺀다. 간격을 빼먹으면
+       프레임이 그만큼 커져 날짜 머리가 있는 쪽에서 지면을 넘는다(실측: 4장 쪽이
+       175.6mm 로 안전 영역 174 를 1.6mm 넘겼다). */
+  --pr-fit-1: calc(var(--pr-avail) - var(--pr-caption) - var(--pr-cap-gap));
+  --pr-fit-2: calc((var(--pr-avail) - var(--pr-gutter)) / 2 - var(--pr-caption) - var(--pr-cap-gap));
+}
+.album-renderer--print .print-page[data-has-story] {
+  --pr-avail: calc(var(--pr-photo-area) - var(--pr-story));
+}
 
-/* 날짜 이야기가 함께 들어가는 쪽 — 이야기가 차지하는 만큼만 낮춘다. */
-.album-renderer--print .print-page[data-has-story][data-photo-count="1"] .print-frame__photo img { max-height: calc(var(--pr-story-row-1) - var(--pr-caption)); }
-.album-renderer--print .print-page[data-has-story][data-photo-count="2"] .print-frame__photo img,
-.album-renderer--print .print-page[data-has-story][data-photo-count="3"] .print-frame__photo img,
-.album-renderer--print .print-page[data-has-story][data-photo-count="4"] .print-frame__photo img { max-height: calc(var(--pr-story-row-2) - var(--pr-caption)); }
+.album-renderer--print .print-page[data-photo-count="1"] .print-frame__photo img { max-height: min(128mm, var(--pr-fit-1)); }
+.album-renderer--print .print-page[data-photo-count="2"] .print-frame__photo img { max-height: min(118mm, var(--pr-fit-1)); }
+/* 3장 — 왼쪽 큰 한 장과 오른쪽 작은 둘. 오른쪽 둘은 한 칸 안에 쌓이므로 두 줄 몫이다. */
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:first-child .print-frame__photo img { max-height: min(100mm, var(--pr-fit-1)); }
+.album-renderer--print .print-page[data-photo-count="3"] .print-frame:not(:first-child) .print-frame__photo img { max-height: min(43mm, var(--pr-fit-2)); }
+.album-renderer--print .print-page[data-photo-count="4"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="5"] .print-frame__photo img,
+.album-renderer--print .print-page[data-photo-count="6"] .print-frame__photo img { max-height: min(58mm, var(--pr-fit-2)); }
 
 /* 🔴 캡션이 PDF 에 **한 글자도 안 찍히던** 자리다 (I-4e).
  *
@@ -316,6 +591,14 @@
   overflow: hidden;
 }
 
+/* ★ 캡션 글을 **캡션대 위쪽에 붙인다**. 캡션대 높이(14mm)는 자리를 지키는 값이라
+   그대로 두고, 그 안에서 글이 위로 온다. `.photo-memory-lines--caption` 의
+   `margin: 10px 0 0` 은 화면 여백인데 인쇄까지 따라와 글을 2.65mm 더 내렸다.
+   인쇄에서만 0 으로 둔다 — 화면은 그대로다. */
+.album-renderer--print .print-frame__caption .photo-memory-lines--caption {
+  margin-top: 0;
+}
+
 /* 🔴 인쇄에서 캡션이 **두 줄에서 잘리던** 자리다 (I-4g · §9).
  *
  * 화면은 사진을 크게 보이려고 두 줄에서 자른다(PhotoMemoryLines.css 의
@@ -340,13 +623,14 @@
   overflow: hidden;
 }
 
-/* 표지 로고 — 표지에서 이 서비스를 알아볼 유일한 자리라 크게 둔다(§9 · I-4-2).
-   ★ 크기를 여기서 따로 주는 이유: album-brand-mark 의 글자 크기는 화면 기준 rem 고정값
-   이라 부모의 font-size 를 물려받지 않는다. 인쇄에서만 다시 정한다.
-   크기는 위 표(23px = 17pt)다. */
-.album-renderer--print .album-cover__brand .album-brand-mark { gap: 2.5mm; margin: 0; }
-.album-renderer--print .album-cover__brand .album-brand-mark__icon { width: var(--print-cover-logo); height: var(--print-cover-logo); }
-.album-renderer--print .album-cover__brand .album-brand-mark__word { font-size: var(--print-cover-logo); }
+/* 표지 제목 크기 — **모양마다 다르다**(시안 §2). 값은 시안 px 을 pt 로 옮긴 것이다
+   (640px = 200mm 이므로 px × 0.8858 = pt). 새로 정한 값이 아니다. */
+.album-renderer--print.album-renderer--skin-basic { --print-cover-title: 27.5pt; }
+.album-renderer--print.album-renderer--skin-scrapbook { --print-cover-title: 33.7pt; }
+.album-renderer--print.album-renderer--skin-airy { --print-cover-title: 20.4pt; --print-cover-period: 12.4pt; }
+.album-renderer--print.album-renderer--skin-grid { --print-cover-title: 23.9pt; }
+.album-renderer--print.album-renderer--skin-magazine { --print-cover-title: 39pt; }
+.album-renderer--print.album-renderer--skin-single { --print-cover-title: 29.2pt; --print-cover-period: 13.3pt; }
 
 /* 표지·브랜드 페이지도 정확히 한 장이다(§9 — 각각 독립 페이지). */
 .album-renderer--print .album-cover,
@@ -359,25 +643,23 @@
   page-break-inside: avoid;
 }
 
-/* 마지막 브랜드 페이지 — 이 PDF 가 이 서비스를 알리는 유일한 자리다. 크게 둔다.
-   없는 것을 약속하지 않는다(§10) — 주소도 "곧"도 적지 않는다. */
+/* 마지막 장 — **무료판에만** 붙는다 (시안 §6).
+   ★ 예전에는 로고를 가운데 크게 앉힌 `브랜드 쪽` 이었다. 시안은 **아래쪽에만** 두고
+     로고를 활자 한 줄로 대신한다 — 마지막 장은 광고가 아니라 조용한 안내다.
+   없는 것을 약속하지 않는다(§10) — 값도 기능도 적지 않는다. */
 .album-renderer--print .album-renderer__brand-page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8mm;
+  justify-content: flex-end;
+  gap: 12mm;
   padding: var(--pr-inset);
   text-align: center;
 }
 
-/* ★ 로고 크기를 여기서 따로 주는 이유는 표지와 같다 — album-brand-mark 의 글자
-   크기가 화면 기준 rem 고정값이라 부모의 font-size 를 물려받지 않는다. 예전에는
-   .brand-mark 에 16mm 를 줬는데 아무 효과가 없어서 로고가 작게 찍혔다.
-   크기는 위 표(29px = 22pt)다 — 이 쪽은 브랜드를 보여주는 쪽이라 표지(23px)보다 크다(§9). */
-.album-renderer--print .album-renderer__brand-page .album-brand-mark { gap: 3mm; margin: 0; }
-.album-renderer--print .album-renderer__brand-page .album-brand-mark__icon { width: var(--print-brand-logo); height: var(--print-brand-logo); }
-.album-renderer--print .album-renderer__brand-page .album-brand-mark__word { font-size: var(--print-brand-logo); }
+/* ★ 그림 로고가 빠졌다(2026-08-19 · 시안 §6 — 활자 한 줄로 대신한다). 로고 크기를
+   따로 주던 세 줄도 함께 걷어냈다. `--print-brand-logo` 는 화면 자리가 아직 읽으므로
+   값은 남겨 둔다. */
 
 /* ★ 두 줄을 한 상자에 묶고 **그 상자를** 가운데 둔다(I-4-6).
    줄마다 따로 가운데를 맞추면 길이가 달라 시작 위치가 어긋나고, 실물에서는 둘째 줄
@@ -448,4 +730,24 @@
 .album-renderer--print .print-closing > * {
   margin-top: 0;
   width: 100%;
+}
+
+/* 펼침면 — 사진 한 쪽, 이야기 한 쪽 (시안 §5).
+ *
+ * 레이플랫 제본이라 두 쪽이 한 번에 보인다. 사진 한 장짜리 날은 사진을 왼쪽 쪽에
+ * 통째로 두고, 맞은편에 날짜 머리와 이야기를 둔다.
+ *
+ * ★ 왼쪽 쪽에는 머리가 없다 — 머리는 맞은편에 있다. 그래서 사진을 위로 붙이지 않고
+ *   **세로 가운데**에 둔다. 위만 비면 쪽이 기울어 보인다.
+ * ★ 사진 상한은 그대로 128mm 다(시안 §4 `1장 — 크게`). 자리가 남는다고 키우지 않는다.
+ * ★ 오른쪽 쪽은 **한 단**이다. 짧은 이야기를 두 단으로 쪼개면 세 줄이 두 조각이 된다.
+ *   시안 실측 글줄 폭 131.3mm — 안전 영역 174mm 보다 좁게 잡는다. */
+.album-renderer--print .print-page[data-spread-photo] {
+  justify-content: center;
+}
+
+.album-renderer--print .print-page--story[data-story-spread] .print-story__single {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 131.3mm;
 }

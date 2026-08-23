@@ -2,8 +2,9 @@ import { Pencil } from "lucide-react";
 
 import "./ChapterHeader.css";
 import type { LocationSource } from "../types";
-import { formatDotDate, formatKoreanMonth, formatPrintDateHeading } from "../engine/chapterGroup";
+import { formatDotDate, formatKoreanMonth, formatPrintDateMeta, formatPrintDateNumber } from "../engine/chapterGroup";
 import { usePlaceEdit } from "../components/PlaceEditContext";
+import { canSaveDateDraft, dateDraftProblem, formatDateDraft, isCompleteDateDraft } from "../../lib/dateDraft";
 
 interface ChapterHeaderProps {
   dayIndex: number;
@@ -19,7 +20,11 @@ interface ChapterHeaderProps {
   kind?: "day" | "event" | "neutral";
   /** `print-date` 는 열람용 PDF 전용이다 — 날짜 한 줄만(§9 · I-4-3). */
   variant?: "default" | "date-only" | "print-date";
-  /** print-date 에서 연도를 함께 쓸지. 해가 바뀌는 앨범의 그 해 첫 날짜에만 참이다. */
+  /**
+   * print-date 에서 연도를 함께 쓸지 — **더 보지 않는다** (2026-08-19 · 시안 §3 B안).
+   * 큰 날짜 숫자는 `7.8` 처럼 월.일만 쓰고 연도는 **아래 보조줄이 늘 말한다**.
+   * 그래서 해가 바뀌는 앨범인지 따질 필요가 없어졌다. 부르는 쪽 계약은 그대로 둔다.
+   */
   showYear?: boolean;
   /** 바로 앞 묶음과 **날짜가 같은가**. 같으면 날짜를 다시 쓰지 않는다 —
    *  한 날에 장소가 둘이면 `2018.07.08 · 제주 서귀포시` 다음은 `제주 성산읍` 만 쓴다.
@@ -46,7 +51,6 @@ export default function ChapterHeader({
   photoCount,
   kind = "event",
   variant = "date-only",
-  showYear = false,
   repeatsDate = false,
   repeatsMonth = false,
   placeKey = null,
@@ -64,11 +68,36 @@ export default function ChapterHeader({
   // `2018년 11월` 줄은 매 쪽 같은 값이라 없앴다(표지에 이미 있다).
   // `(사진 N장)` 도 없앴다 — 세는 것은 앨범이 할 일이 아니다.
   if (variant === "print-date") {
-    const line = date ? formatPrintDateHeading(date, showYear) : dateRangeLabel || null;
-    if (!line) return null;
+    /* 날짜 머리 **B안** — 큰 날짜 숫자 + 장소 제목 + 아래 한 줄 (시안 §3).
+     *
+     *     7.8
+     *     속초, 비 오는 바다
+     *     2018년 · 사진 2장
+     *
+     * ★ PO 가 B안 하나로 정했다. **A안(굵은 밑줄)은 만들지 않는다** — 시안의 본문
+     *   배치 그림들이 A안으로 그려져 있지만 그것은 배치를 보이려는 그림이고,
+     *   머리 모양은 여기 하나로 간다.
+     * ★ 날짜가 없는 묶음(아이폰이 EXIF 를 지운 사진들)은 큰 숫자를 만들 수 없다.
+     *   그때는 예전처럼 기간 한 줄로 두고, 그것도 없으면 그리지 않는다.
+     */
+    if (!date) {
+      const fallback = dateRangeLabel || null;
+      if (!fallback) return null;
+      return (
+        <header className="chapter-header chapter-header--print-date date-header" aria-label="날짜">
+          <p className="chapter-header__dayline">{fallback}</p>
+        </header>
+      );
+    }
+    const placeText = showPlace ? (place || "").trim() : "";
     return (
       <header className="chapter-header chapter-header--print-date date-header" aria-label="날짜">
-        <p className="chapter-header__dayline">{line}</p>
+        {/* 큰 숫자는 라틴 세리프다 — 숫자가 제목처럼 선다(시안 §6). */}
+        <p className="chapter-header__daynum">{formatPrintDateNumber(date)}</p>
+        <div className="chapter-header__daytext">
+          {placeText ? <p className="chapter-header__dayplace">{placeText}</p> : null}
+          <p className="chapter-header__daymeta">{formatPrintDateMeta(date, photoCount)}</p>
+        </div>
       </header>
     );
   }
@@ -123,12 +152,16 @@ export default function ChapterHeader({
       } else {
         return (
           <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜">
+            {/* ★ 날짜가 없으면 화면이 **그 사실을 말한다**(2026-08-18 PO). 예전에는 줄이
+                통째로 비어 있어 고장으로 읽혔다. 누르면 **그 자리에서** 입력이 열린다 —
+                새 시트를 만들지 않는다(§7).
+                ★ `아이폰이라서` 같은 말을 쓰지 않는다(§8). 무엇을 하면 되는지만 말한다. */}
             <button
               type="button"
               className="chapter-header__add-date"
               onClick={() => placeEdit.startEdit(placeKey, "")}
             >
-              날짜 넣기
+              날짜를 넣어 주세요
             </button>
           </header>
         );
@@ -137,20 +170,34 @@ export default function ChapterHeader({
 
     // ★ 그 자리에서 고친다 — 새 시트를 열지 않는다(§7). 이야기 편집과 같은 모양이다.
     if (isEditingPlace && placeEdit && placeKey) {
+      // 판정은 lib/dateDraft 하나가 한다 — 화면과 저장이 각자 세면 갈린다.
+      const dateProblem = placeEdit.setDateDraft ? dateDraftProblem(placeEdit.dateDraft ?? "") : null;
+      // ★ **날짜가 없는 묶음**은 날짜를 넣으러 들어온 자리다. 여덟 자리가 다 차야 저장이
+      //   열린다 — 빈 채로 눌러 아무 일도 안 일어나는 것이 이번 결함의 모양이었다.
+      //   날짜가 이미 있는 묶음은 비워 둔 채로도 저장된다(장소만 고치는 길을 막지 않는다).
+      const dateReady = !placeEdit.setDateDraft
+        ? true
+        : date
+          ? canSaveDateDraft(placeEdit.dateDraft ?? "")
+          : isCompleteDateDraft(placeEdit.dateDraft ?? "") && !dateProblem;
       return (
         <header className="chapter-header chapter-header--date-only date-header" aria-label="날짜와 장소 수정">
           {showMonth ? <p className="chapter-header__month">{monthLine}</p> : null}
           <div className="chapter-header__place-edit">
             {/* ★ 날짜도 **같은 자리**에서 고친다(2026-08-16). 연필을 하나 더 만들지 않는다.
                 날짜가 없어 줄이 안 그려지던 묶음도 이 자리로 들어와 날짜를 넣는다. */}
+            {/* ★ **8자리 숫자로 받는다**(2026-08-18 PO). 아이폰 숫자 키패드에는 점이 없어
+                `2026.05.07` 을 칠 수 없었고, 파서가 그것만 받아 저장이 통째로 막혔다.
+                점은 우리가 찍는다 — `20260507` 을 치면 `2026.05.07` 이 된다.
+                안드로이드에서 점까지 치던 사람도 그대로 된다(숫자만 남긴다). */}
             {placeEdit.setDateDraft ? (
               <input
                 className="chapter-header__place-input chapter-header__date-input"
                 value={placeEdit.dateDraft ?? ""}
-                onChange={(event) => placeEdit.setDateDraft?.(event.target.value)}
+                onChange={(event) => placeEdit.setDateDraft?.(formatDateDraft(event.target.value))}
                 maxLength={10}
                 inputMode="numeric"
-                placeholder="언제였나요? (예: 2018.07.08)"
+                placeholder="언제였나요? (예: 20180708)"
                 aria-label="날짜 수정"
               />
             ) : null}
@@ -169,7 +216,7 @@ export default function ChapterHeader({
                 type="button"
                 className="chapter-header__place-action chapter-header__place-action--save"
                 onClick={() => placeEdit.saveEdit(placeKey, placePhotoIds)}
-                disabled={isSavingPlace}
+                disabled={isSavingPlace || !dateReady}
               >
                 {isSavingPlace ? "저장 중..." : "저장"}
               </button>
@@ -184,6 +231,10 @@ export default function ChapterHeader({
             </div>
             {/* 비우고 저장하면 장소가 지워진다 — 지우는 길을 따로 만들지 않는다. */}
             <p className="chapter-header__place-hint">비워 두고 저장하면 장소가 지워져요.</p>
+            {/* 말이 안 되는 날짜는 **그 자리에서** 한 줄로 알린다(§11). 서버에 다녀오지 않는다. */}
+            {dateProblem ? (
+              <p className="notice notice--error chapter-header__place-error" role="alert">{dateProblem}</p>
+            ) : null}
             {placeEdit.error ? (
               <p className="notice notice--error chapter-header__place-error" role="alert">{placeEdit.error}</p>
             ) : null}

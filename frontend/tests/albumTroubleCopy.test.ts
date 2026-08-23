@@ -85,7 +85,13 @@ test("★ 오류 화면은 albumTroubleCopy 가 준 말만 쓴다", () => {
 test("★ 못 여는 앨범 화면에는 사진 추가·한마디 쓰기·공유하기 를 두지 않는다", () => {
   assert.match(view, /notifyUnavailableRef\.current\?\.\(error === "load"\)/);
   assert.match(app, /onUnavailable=\{setAlbumUnavailable\}/);
-  assert.match(app, /\{showGlobalBottomNavigation && !albumUnavailable \? \(/);
+  // ★ 2026-08-21 — 조건에 `!sharedAlbumId` 가 붙었다(앨범 상세는 자기 하단 메뉴를
+  //   쓴다). `albumUnavailable` 은 다른 화면을 위해 그대로 둔다.
+  assert.match(app, /\{showGlobalBottomNavigation && !albumUnavailable && !sharedAlbumId \? \(/);
+  // ★ 지키려던 것은 조건식이 아니라 **결과**다: 못 여는 앨범 화면에는 그리는 네비가
+  //   아예 없다. 오류 화면은 AlbumScreen 을 쓰지 않으므로 하단 메뉴가 나올 자리가 없다.
+  const errorScreen = view.slice(view.indexOf("if (error) {"), view.indexOf("if (!photosReady"));
+  assert.equal(/AlbumScreen|bottomNavigation/.test(errorScreen), false, "오류 화면에 하단 메뉴가 생겼다");
 });
 
 test("앨범을 다시 열면 네비가 돌아온다", () => {

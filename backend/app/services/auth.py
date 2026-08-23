@@ -16,6 +16,39 @@ from app.services.supabase import get_supabase_client
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def verify_access_token(access_token: str) -> CurrentUser | None:
+    """토큰 **하나**를 검증한다 — 요청의 Bearer 가 아닌 토큰을 볼 때 쓴다.
+
+    ★ 계정 합치기에서 필요하다: 남길 계정은 Bearer 로, 합칠 계정은 이 함수로 증명한다.
+      **두 자격을 모두** 확인해야 합치기가 성립한다(2026-08-19 · 2단계).
+    ★ 검증하는 길은 아래 require_current_user 와 **같다**(Supabase 에 물어본다).
+      길이 둘이면 한쪽만 느슨해진다.
+    ★ 못 믿을 토큰이면 None 이다. 예외를 밖으로 내지 않는다 — 부르는 쪽이 401 을 낸다.
+    """
+    token = (access_token or "").strip()
+    if not token:
+        return None
+    try:
+        response = get_supabase_client(get_settings()).auth.get_user(token)
+        user = response.user if response else None
+    except (
+        AuthApiError,
+        AuthInvalidCredentialsError,
+        AuthInvalidJwtError,
+        AuthSessionMissingError,
+    ):
+        return None
+    if user is None or not user.id:
+        return None
+    metadata = getattr(user, "app_metadata", None) or {}
+    return CurrentUser(
+        id=str(user.id),
+        provider=str(metadata.get("provider") or "") or None,
+        email=str(getattr(user, "email", "") or "") or None,
+        phone=str(getattr(user, "phone", "") or "") or None,
+    )
+
+
 def require_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> CurrentUser:

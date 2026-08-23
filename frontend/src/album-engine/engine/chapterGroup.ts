@@ -29,19 +29,23 @@ export function formatKoreanDate(dateKey: string): string {
 }
 
 /**
- * 인쇄 본문의 날짜 머리글 — **날짜 하나** (I-4-3 · SCREEN_SPEC §9).
+ * 인쇄 날짜 머리 **B안** — 큰 날짜 숫자 (시안 §3 `날짜 머리`).
  *
- *   11월 18일            (같은 해 안에서는 연도를 쓰지 않는다 — 표지에 이미 있다)
- *   2018년 11월 18일      (해가 바뀌는 앨범에서 그 해 **첫 날짜**에만)
- *
- * 예전에는 매 쪽 위에 `2018년 11월` 한 줄이 더 있고, 그 아래가
- * `2018.11.18 (사진 4장)` 이었다. 매 쪽 같은 값이 반복되고, 세는 것은 앨범이 할
- * 일이 아니다.
+ * `7.8` 처럼 **월.일** 만 크게 쓴다. 연도는 아래 보조줄이 맡는다 — 큰 숫자에 연도까지
+ * 넣으면 숫자가 길어져 제목처럼 읽히지 않는다.
+ * ★ PO 가 B안 하나로 정했다. A안(굵은 밑줄)은 만들지 않는다.
  */
-export function formatPrintDateHeading(dateKey: string, withYear: boolean): string {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const dayLabel = `${month}월 ${day}일`;
-  return withYear ? `${year}년 ${dayLabel}` : dayLabel;
+export function formatPrintDateNumber(dateKey: string): string {
+  const [, month, day] = dateKey.split("-").map(Number);
+  return `${month}.${day}`;
+}
+
+/** 큰 숫자 아래 보조줄 — `2018년 · 사진 2장`. 없는 조각은 잇지 않는다(0을 말하지 않는다). */
+export function formatPrintDateMeta(dateKey: string, photoCount?: number | null): string {
+  const [year] = dateKey.split("-").map(Number);
+  const parts = [`${year}년`];
+  if (typeof photoCount === "number" && photoCount > 0) parts.push(`사진 ${photoCount}장`);
+  return parts.join(" · ");
 }
 
 export function formatDotDate(dateKey: string): string {
@@ -217,28 +221,23 @@ function buildDayClusters(photos: EnginePhoto[]): DayCluster[] {
     clusters.push(...splitSameDayByPlace(key, dated.get(key) ?? []));
   }
 
-  if (!clusters.length) {
-    const { place, locationSource } = resolvePlaceLabel(undated);
-    return [
-      {
-        date: "",
-        photos: [...undated],
-        place,
-        locationSource,
-        centroid: photoCentroid(undated),
-      },
-    ];
-  }
-
+  // 촬영일이 없는 사진은 **제 묶음으로 맨 뒤에** 선다 (2026-08-18 PO).
+  //
+  // ★ 예전에는 마지막 날짜 묶음에 **섞어 넣었다.** 그래서 아이폰으로 올린 사진(사파리가
+  //   EXIF 를 지운다)이 남의 날짜 아래로 들어갔고, 그 날짜의 장소까지 뒤집어썼다.
+  //   더 나쁜 것은 **날짜를 넣을 자리가 사라진 것**이다 — 날짜 없는 묶음이 없으니
+  //   `날짜를 넣어 주세요` 가 그려지지 않았다.
+  // ★ 맨 뒤다. 이미 시간순으로 정리된 앞부분을 헤집지 않는다.
+  // ★ 안에서는 **고른 순서**(sort_order)를 지킨다 — 들어온 차례 그대로 담는다.
   if (undated.length) {
-    const last = clusters[clusters.length - 1];
-    last.photos = [...last.photos, ...undated];
-    last.centroid = photoCentroid(last.photos);
-    if (!last.place) {
-      const resolved = resolvePlaceLabel(undated);
-      last.place = resolved.place;
-      last.locationSource = resolved.locationSource;
-    }
+    const { place, locationSource } = resolvePlaceLabel(undated);
+    clusters.push({
+      date: "",
+      photos: [...undated],
+      place,
+      locationSource,
+      centroid: photoCentroid(undated),
+    });
   }
 
   return clusters;
@@ -306,7 +305,9 @@ export function groupPhotosIntoChapterBuckets(photos: EnginePhoto[]): ChapterBuc
       cluster.place &&
       prev.place.toLowerCase() !== cluster.place.toLowerCase() &&
       (!prev.centroid || !cluster.centroid);
-    const continuous = gap >= 0 && gap < DAY_GAP_SPLIT_DAYS && !placeFar && !nameConflict;
+    // ★ 날짜가 없는 묶음은 어느 여행에도 붙지 않는다 — 이어졌는지 잴 날짜가 없다.
+    const continuous = Boolean(prev.date) && Boolean(cluster.date)
+      && gap >= 0 && gap < DAY_GAP_SPLIT_DAYS && !placeFar && !nameConflict;
     if (continuous) {
       trip.clusters.push(cluster);
     } else {

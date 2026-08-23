@@ -77,8 +77,9 @@ test("Landing — 새 줄이 `누구와 함께한 앨범인가요?` 앞에 온�
 
 test("AlbumResult — 새 요소를 만들지 않았다. 있던 <p> 의 글자만 바뀌었다", () => {
   assert.match(result, /<p className="album-result__action-hint">\{SHARE_HINT\}<\/p>/);
-  // PDF 쪽 hint 는 그대로다.
-  assert.match(result, /\{stagePhotos\.length > PDF_PHOTO_SAFE_LIMIT \? <p className="album-result__action-hint">\{PDF_BLOCKED_MESSAGE\}<\/p> : null\}/);
+  // ★ 2026-08-22 — PDF 쪽 30장 hint 는 지웠다(서버가 그린다 — 장수로 막지 않는다). 버튼만 남았다.
+  assert.match(result, /disabled=\{isExportingPdf\}>\{isExportingPdf \? "PDF 만드는 중\.\.\." : "PDF 저장"\}<\/button>/);
+  assert.equal(result.includes("PDF_BLOCKED_MESSAGE"), false);
 });
 
 test("ContributeWorkspace — meta 바로 뒤이고, embedded 조건을 건드리지 않았다", () => {

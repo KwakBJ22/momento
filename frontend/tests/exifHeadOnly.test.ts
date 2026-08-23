@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { extractOriginalCaptureDate, extractOriginalGps } from "../src/lib/exifCaptureDate";
+import { extractOriginalCaptureDate, extractOriginalGps, readUploadFileMeta } from "../src/lib/exifCaptureDate";
 
 /**
  * 🔴 사진 준비 중 브라우저가 멈췄다 — ba415e2 에서 들어간 회귀다.
@@ -148,4 +148,31 @@ test("★ EXIF 가 없거나 잘린 끝에 걸치면 예외 없이 null 이다 �
 test("읽는 방식이 두 벌이 되지 않았다 — 촬영일·위치가 같은 함수를 쓴다", () => {
   assert.equal((source.match(/async function readExifHead/g) || []).length, 1);
   assert.equal((source.match(/await readExifHead\(file\)/g) || []).length, 2, "한쪽만 잘라 읽는다");
+});
+
+/**
+ * 사진을 **더할 때** 보내는 한 칸을 진짜 JPEG 으로 끝까지 만들어 본다 (2026-08-18).
+ *
+ * 모양만 보는 검사가 아니다 — 위에서 쓰는 그 바이트를 그대로 넣어 값을 확인한다.
+ * 좌표를 보내는 통로가 앨범을 만드는 자리 하나뿐이라 사진을 더하면 위치가 버려졌다.
+ */
+test("★ readUploadFileMeta 가 원본에서 읽어 file_meta 한 칸을 만든다", async () => {
+  const { file } = fakeFile(jpegWithExif({ date: "2018:07:08 13:45:00", gps: [33.5, 126.5] }));
+  const meta = await readUploadFileMeta(file);
+  assert.deepEqual(Object.keys(meta).sort(), ["captured_at", "latitude", "longitude"]);
+  assert.equal(meta.captured_at, await extractOriginalCaptureDate(file));
+  assert.equal(Math.round(meta.latitude! * 10) / 10, 33.5);
+  assert.equal(Math.round(meta.longitude! * 10) / 10, 126.5);
+});
+
+test("★ 위치가 없는 사진도 한 칸이 나온다 — 사진을 버리지 않는다", async () => {
+  const { file } = fakeFile(jpegWithExif());
+  const meta = await readUploadFileMeta(file);
+  assert.equal(meta.latitude, null);
+  assert.equal(meta.longitude, null);
+  assert.equal(typeof meta.captured_at, "string", "촬영일까지 같이 버리면 안 된다");
+
+  // EXIF 가 아예 없어도 터지지 않는다. 세 칸이 다 null 이고 사진은 그대로 올라간다.
+  const { file: bare } = fakeFile(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]));
+  assert.deepEqual(await readUploadFileMeta(bare), { captured_at: null, latitude: null, longitude: null });
 });

@@ -3,6 +3,7 @@ import { getAccessToken, getSession, refreshSession } from "../services/authServ
 import { getGuestAlbumToken, saveGuestAlbumToken } from "./guestAlbum";
 import { authDebug } from "./authDebug";
 import { COLLAB_SESSION_KEY } from "./contributionAttribution";
+import { PRINT_LAYOUT_VERSION } from "./pdfPageBreak";
 import { getVisitorToken } from "./visitorToken";
 
 /**
@@ -230,6 +231,48 @@ export async function getAlbumDeletePreview(albumId: string): Promise<AlbumDelet
   return (await response.json()) as AlbumDeletePreview;
 }
 
+/**
+ * 같은 이메일로 만든 **다른 계정**이 있는가 (2026-08-19 · 계정 합치기 2단계).
+ *
+ * ★ 이것만으로는 아무것도 합쳐지지 않는다. 합치려면 그 계정으로도 로그인해야 한다.
+ * ★ 실패하면 `없음`으로 본다 — 안내 하나 때문에 로그인 뒤 화면이 서면 안 된다(§11).
+ */
+export interface MergeCandidate {
+  found: boolean;
+  candidate_id?: string | null;
+  email?: string | null;
+  provider?: string | null;
+  my_provider?: string | null;
+  merged_away?: boolean;
+  merged_into_provider?: string | null;
+}
+
+export async function getMergeCandidate(): Promise<MergeCandidate> {
+  try {
+    const response = await authenticatedFetch("/api/auth/merge-candidate", { cache: "no-store" });
+    if (!response.ok) return { found: false };
+    return (await response.json()) as MergeCandidate;
+  } catch {
+    return { found: false };
+  }
+}
+
+/**
+ * 두 계정을 하나로 합친다 — **양쪽 다 로그인할 수 있어야** 성립한다.
+ *
+ * 지금 세션(남길 계정)은 Bearer 로, 합칠 계정은 본문의 토큰으로 증명한다.
+ * 판정도 옮기는 일도 서버가 한 번에 한다 — 중간에 실패하면 아무것도 바뀌지 않는다.
+ */
+export async function mergeAccounts(otherAccessToken: string): Promise<{ before: Record<string, number>; after: Record<string, number> }> {
+  const response = await authenticatedFetch("/api/auth/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ other_access_token: otherAccessToken }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as { before: Record<string, number>; after: Record<string, number> };
+}
+
 export async function deleteAlbum(albumId: string): Promise<void> {
   const response = await authenticatedFetch(`/api/albums/${albumId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(await parseError(response));
@@ -422,8 +465,11 @@ export async function getAlbumPdfUrl(
   albumId: string,
   albumVersion: number,
 ): Promise<{ url: string | null; album_version: number; cached: boolean }> {
+  // ★ 판형 판(layout)을 함께 보낸다(2026-08-21). 앨범 내용이 그대로여도 판형이 바뀌면
+  //   옛 캐시를 받으면 안 된다 — 실제로 8월 16일 A4 파일이 엿새 뒤에도 나왔다.
+  //   찾을 때와 올릴 때 **같은 열쇠**여야 한다(아래 uploadAlbumPdf 와 같은 값).
   const response = await authenticatedFetch(
-    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
+    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}&layout=${PRINT_LAYOUT_VERSION}`,
   );
   if (!response.ok) throw new Error(await parseError(response));
   return (await response.json()) as { url: string | null; album_version: number; cached: boolean };
@@ -435,7 +481,7 @@ export async function uploadAlbumPdf(albumId: string, albumVersion: number, blob
   const form = new FormData();
   form.append("file", blob, `woorialbum-${albumId}-v${albumVersion}.pdf`);
   const response = await authenticatedFetch(
-    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}`,
+    `/api/albums/${albumId}/pdf?version=${encodeURIComponent(String(albumVersion))}&layout=${PRINT_LAYOUT_VERSION}`,
     { method: "PUT", body: form },
   );
   if (!response.ok) {
@@ -838,6 +884,12 @@ export async function bootstrapAccount(
   contributorGuestIds: string[],
   legalAgreed = false,
 ): Promise<{ album_count?: number; max_albums?: number; claimed_guest_ids: string[]; legal_agreed: boolean }> {
+  // ★ 같은 사람이 짧은 시간에 여러 번 부르지 않는다 (2026-08-19). 로그인에서 돌아오는
+  //   길에는 이 요청을 시작하는 자리가 둘이다(App 마운트 · 동의 시트). 둘이 같이 돌면
+  //   서버 로그에 bootstrap 이 분당 3~4번 찍혔다. 이미 도는 요청이 있으면 그것을 기다린다.
+  //   ★ 동의(legalAgreed)가 실린 쪽은 섞지 않는다 — 동의 없는 요청을 기다렸다가
+  //     동의가 안 실려 가면 안 된다. 키를 갈라 둔다.
+  return dedupeRequest(`auth-bootstrap:${legalAgreed ? "consent" : "plain"}`, async () => {
   const response = await authenticatedFetch("/api/auth/bootstrap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -860,6 +912,7 @@ export async function bootstrapAccount(
     // 옛 서버(이 필드를 모르는)에서는 true 로 본다 — 없다고 다시 묻지 않는다.
     legal_agreed: data?.legal_agreed !== false,
   };
+  });
 }
 
 function collabHeaders(session: CollabSession | null): HeadersInit {
@@ -1064,18 +1117,53 @@ export async function closeCollaborationAlbum(albumId: string) {
   if (!response.ok) throw new Error(await parseError(response));
 }
 
+/**
+ * 가입하려는 이메일이 **이미 쓰이고 있는지** 묻는다 (2026-08-19 · ④).
+ *
+ * ★ **가입할 때만** 부른다. 로그인 실패는 한 문구로 끝낸다(계정이 있는지 새어 나가지
+ *   않게 — lib/emailAuth 의 SIGN_IN_FAILED).
+ * ★ 실패하면 `null` 이다. 안내 하나 때문에 가입을 막지 않는다.
+ */
+export async function getSignupProvider(email: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/signup-provider`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { provider?: string | null };
+    return data.provider ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getContributeWorkspace(albumId: string, session: CollabSession) {
   const response = await collaborationFetch(`/api/albums/${albumId}/contribute/workspace`, {}, session);
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
 
-export async function uploadContributePhotos(albumId: string, session: CollabSession, files: File[]) {
+/**
+ * 사진을 **더할 때**의 통로. 주최자의 `사진 추가`와 참여자가 더하는 자리가 같은 것을 쓴다.
+ *
+ * ★ 촬영일·좌표를 함께 보낸다(2026-08-18). 모양은 앨범을 만들 때와 **같은 `file_meta`**
+ *   다 — 서버가 두 가지 모양을 알게 하지 않는다. 순서는 `photos` 와 같다.
+ * ★ 못 읽었으면 그 자리를 null 로 둔다. **사진은 그대로 올라간다** — 지명이 안 붙을 뿐이다.
+ */
+export async function uploadContributePhotos(
+  albumId: string,
+  session: CollabSession,
+  files: File[],
+  fileMeta?: Array<{ captured_at: string | null; latitude: number | null; longitude: number | null }>,
+) {
   const form = new FormData();
   for (const file of files) {
     form.append("photos", file, file.name || "photo.jpg");
     form.append("file_created_ats", String(file.lastModified));
   }
+  form.append("file_meta", JSON.stringify(fileMeta ?? files.map(() => ({ captured_at: null, latitude: null, longitude: null }))));
   const response = await collaborationFetch(`/api/albums/${albumId}/contribute/photos`, {
     method: "POST",
     body: form,

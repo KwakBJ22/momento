@@ -6,6 +6,12 @@ import { forgetIntent, readIntent, rememberIntent } from "../lib/guestAlbum";
 
 export type AuthProvider = "kakao" | "naver";
 
+/**
+ * 계정이 어디서 왔는가 — 화면이 `카카오로 로그인` 을 권할지 정하는 데 쓴다.
+ * `email` 은 이메일+비밀번호로 만든 계정이다(2026-08-19).
+ */
+export type AccountProvider = AuthProvider | "email";
+
 export interface AppUser {
   id: string;
   displayName: string;
@@ -273,4 +279,144 @@ export async function completeOAuthCallback(): Promise<AppSession> {
   if (!session) throw new Error("로그인 세션을 찾지 못했어요.");
   authDebug("SESSION_CONFIRMED", { source: "callback", hasSession: true });
   return session;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * 이메일 + 비밀번호 (2026-08-19 PO)
+ *
+ * ★ 카카오 흐름은 **건드리지 않는다.** 위의 signIn/completeOAuthCallback 은 그대로다.
+ * ★ 계정 합치기를 하지 않는다 — 2단계다. 여기서는 길만 알려 준다.
+ * ------------------------------------------------------------------ */
+
+function authClient() {
+  if (!supabase || !isSupabaseAuthConfigured) throw new Error("로그인 설정이 필요합니다.");
+  return supabase;
+}
+
+/** 인증 메일·재설정 메일이 돌아올 자리. OAuth 와 **같은 콜백**을 쓴다(길을 둘로 만들지 않는다). */
+export function emailRedirectUrl(returnTo?: string): string {
+  const target = safeReturnTo(returnTo || `${window.location.pathname}${window.location.search}${window.location.hash}`);
+  return oauthCallbackRedirectUrl(target);
+}
+
+export interface EmailSignUpResult {
+  /** 이미 그 이메일로 만들어진 계정이 있는가. 있으면 새 계정이 만들어지지 않았다. */
+  alreadyRegistered: boolean;
+  /** 인증 메일을 보냈는가(= 확인 전에는 로그인되지 않는다). */
+  needsConfirmation: boolean;
+}
+
+/**
+ * 가입 — 이메일 · 비밀번호 · 이름.
+ *
+ * ★ 이름은 `display_name` 으로 실어 보낸다. 계정이 만들어질 때 트리거가 그것을
+ *   `profiles.display_name` 에 넣는다 — **카카오 가입과 같은 자리**다.
+ *   `primary_provider` 도 같은 트리거가 `email` 로 채운다(migration 이 필요 없다).
+ * ★ 이미 있는 이메일이면 Supabase 는 **가짜 사용자**를 돌려준다(identities 가 빈 배열).
+ *   계정이 있는지 새어 나가지 않게 하려는 것이다 — 그 신호로 판정한다.
+ */
+export async function signUpWithEmail(input: {
+  email: string; password: string; name: string; returnTo?: string;
+}): Promise<EmailSignUpResult> {
+  const client = authClient();
+  const { data, error } = await client.auth.signUp({
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+    options: {
+      data: { display_name: input.name.trim() },
+      emailRedirectTo: emailRedirectUrl(input.returnTo),
+    },
+  });
+  if (error) throw error;
+  const identities = data.user?.identities ?? [];
+  return {
+    alreadyRegistered: Boolean(data.user) && identities.length === 0,
+    needsConfirmation: !data.session,
+  };
+}
+
+/** 로그인. 실패는 부르는 쪽이 **한 문구**로 끝낸다 — 여기서 갈라 주지 않는다. */
+export async function signInWithEmail(email: string, password: string): Promise<AppSession> {
+  const client = authClient();
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error) throw error;
+  const session = toAppSession(data.session);
+  if (!session) throw new Error("로그인 세션을 찾지 못했어요.");
+  return session;
+}
+
+/**
+ * 지금 계정에 **이메일·비밀번호 로그인을 더한다** (2026-08-19 · 2단계 ②).
+ *
+ * 이메일이 **다른** 두 계정은 합치지 않는다(PO 결정). 대신 지금 쓰는 계정에 로그인
+ * 방법을 하나 더 붙인다 — 옮길 것이 없으니 잃을 것도 없다. 카카오로 들어온 사람은
+ * 이미 그 이메일을 갖고 있으므로 비밀번호만 정하면 그다음부터 두 방법 다 된다.
+ *
+ * ★ 계정을 새로 만들지 않는다. 앨범도 참여도 그대로다.
+ * ★ 이메일이 아직 없는 계정이면 이메일도 함께 정한다 — 그때는 Supabase 가 확인 메일을
+ *   보내고, 링크를 누르기 전까지는 이메일 로그인이 켜지지 않는다(그 사실을 화면이 말한다).
+ */
+export async function linkEmailPassword(input: { password: string; email?: string }): Promise<{ needsConfirmation: boolean }> {
+  const client = authClient();
+  const email = (input.email || "").trim().toLowerCase();
+  const payload: { password: string; email?: string } = { password: input.password };
+  if (email) payload.email = email;
+  const { data, error } = await client.auth.updateUser(payload);
+  if (error) throw error;
+  // 이메일을 바꿨거나 새로 넣었으면 확인 메일이 간다 — 그 전까지는 켜지지 않는다.
+  const confirmed = Boolean(data.user?.email_confirmed_at);
+  return { needsConfirmation: Boolean(email) && !confirmed };
+}
+
+/**
+ * 계정 합치기에서 **먼저 로그인해 있던 계정의 토큰**을 잠깐 들고 있는 자리 (2단계 ①).
+ *
+ * 합치려면 다른 쪽 방법으로 한 번 더 로그인해야 하는데, 그 순간 브라우저의 세션은
+ * 새 계정으로 갈린다. 그래서 **먼저 있던 토큰을 여기 적어 두고**, 로그인이 끝나면
+ * 그 토큰을 합칠 계정의 증거로 서버에 보낸다. 서버는 둘 다 검증한다(§10).
+ *
+ * ★ 탭을 닫으면 사라지는 자리(sessionStorage)에 둔다. 쓰고 나면 바로 지운다.
+ * ★ 이 값만으로는 아무것도 못 한다 — 서버가 **두 자격을 모두** 본다.
+ */
+const MERGE_TOKEN_KEY = "woorialbum-merge-from";
+
+export function rememberMergeSource(accessToken: string): void {
+  try { sessionStorage.setItem(MERGE_TOKEN_KEY, accessToken); } catch { /* 저장소를 못 쓰면 합치기만 못 한다 */ }
+}
+
+export function readMergeSource(): string | null {
+  try { return sessionStorage.getItem(MERGE_TOKEN_KEY); } catch { return null; }
+}
+
+export function forgetMergeSource(): void {
+  try { sessionStorage.removeItem(MERGE_TOKEN_KEY); } catch { /* 지울 것이 없다 */ }
+}
+
+/** 인증 메일 다시 보내기 — `메일을 보냈어요` 자리에 함께 둔다. */
+export async function resendEmailConfirmation(email: string, returnTo?: string): Promise<void> {
+  const client = authClient();
+  const { error } = await client.auth.resend({
+    type: "signup",
+    email: email.trim().toLowerCase(),
+    options: { emailRedirectTo: emailRedirectUrl(returnTo) },
+  });
+  if (error) throw error;
+}
+
+/**
+ * 비밀번호 재설정 메일.
+ *
+ * ★ 계정이 없어도 **같은 문구로 끝낸다**(부르는 쪽이 그렇게 한다). Supabase 도
+ *   없는 주소에 오류를 주지 않는다 — 계정이 있는지 새어 나가지 않게 하려는 것이다.
+ */
+export async function sendPasswordReset(email: string, returnTo?: string): Promise<void> {
+  const client = authClient();
+  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: emailRedirectUrl(returnTo),
+  });
+  if (error) throw error;
 }

@@ -31,10 +31,13 @@ test("★ 표지 사진을 잘라 내지 않는다 — 상한은 상자가 아�
   assert.doesNotMatch(figure, /max-height:\s*\d+px/, "상자에 px 상한이 남아 있다");
 
   const img = block(".album-cover__hero-img");
-  // ★ 175mm 가 아니다. A4 를 버리고 **정사각 200×200 하나**로 갔다(9a69f74 · PO 2026-08-16).
-  //   175 는 A4 기하에서 나온 값이라 판형과 함께 죽었다. 지금 값의 근거는 숫자를 여기
-  //   다시 적는 대신 `AlbumCover.css` 의 주석이 갖고 있다 — 안전 영역 174mm 에서
-  //   로고·제목·기간·이름 줄과 사이 간격을 뺀 나머지다.
-  assert.match(img, /max-height: 100mm/);  // 정사각 기하에서 계산한 상한(세로 사진)
-  assert.match(img, /max-width: 100%/);    // 가로 사진은 폭이 먼저 걸린다
+  // ★ 2026-08-19 — 고정 mm 상한(175 → 100 → )이 **없어졌다.** 표지 6종(시안 §2)에서
+  //   사진 자리가 모양마다 달라, 한 숫자로는 여섯을 다 맞출 수 없다. 대신 **제 자리를
+  //   꽉 채우는 상한**을 주고 남는 자리는 색면이 받는다. 모양별 상한이 필요한 곳
+  //   (잡지형 120mm)은 그 모양 규칙이 따로 준다.
+  //   자르지 않고 **작아지게 한다**는 규칙은 그대로다 — 지키는 것은 아래 네 줄이다.
+  assert.match(img, /max-height: 100%/);
+  assert.match(img, /max-width: 100%/);
+  assert.match(img, /width: auto/);        // 비율은 브라우저가 지킨다
+  assert.match(img, /height: auto/);
 });
